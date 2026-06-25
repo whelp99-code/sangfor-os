@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ColorKanbanBoard } from "@/components/color-agents/color-kanban-board";
 
 type ColorStatus = "passed" | "pending" | "failed" | "not_required";
 
@@ -47,15 +48,7 @@ const MY_REVIEWS = [
   { role: "Gray — 문서/근거 검토", deal: "OPP-2024-0723 — SK Telecom", deadline: "Jul 28", priority: "high" },
 ];
 
-const KANBAN_COLUMNS = [
-  { name: "To Blue", deals: ["OPP-2024-0912 — 삼성SDS", "OPP-2024-0901 — CJ올리브네트웍스"] },
-  { name: "To Red", deals: ["OPP-2024-0842 — 신한은행", "OPP-2024-0791 — 현대모비스"] },
-  { name: "To Orange", deals: ["OPP-2024-0765 — LG CNS"] },
-  { name: "To Gray", deals: [] as string[] },
-  { name: "To Teal", deals: [] as string[] },
-  { name: "Resolved", deals: ["OPP-2024-0689 — KT", "OPP-2024-0654 — 네이버"] },
-  { name: "Escalated", deals: ["OPP-2024-0723 — SK Telecom"] },
-];
+
 
 function StatusIcon({ status }: { status: ColorStatus }) {
   switch (status) {
@@ -184,35 +177,7 @@ export default function AgentsPage() {
         </Card>
       </div>
 
-      {/* Kanban Project Board */}
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-2 pb-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/50">
-            <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-          </div>
-          <CardTitle className="text-base">Project Board — Color Review Pipeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
-            {KANBAN_COLUMNS.map((col) => (
-              <div key={col.name} className="rounded-lg border bg-muted/20 p-2 min-h-[120px]">
-                <h3 className="text-xs font-semibold mb-2 text-center">{col.name}</h3>
-                <div className="space-y-1.5">
-                  {col.deals.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground text-center py-4">—</p>
-                  ) : (
-                    col.deals.map((d) => (
-                      <div key={d} className="rounded border bg-background px-2 py-1.5 text-[10px] leading-tight">
-                        {d}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <ColorKanbanBoard />
     </div>
   );
 }
