@@ -61,7 +61,7 @@ export function PolicyMemoryManager({
         </div>
         <div className="p-4 space-y-4">
           <div className="space-y-2">
-            <span className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">
+            <span className="font-semibold text-muted-foreground uppercase tracking-wider text-xs">
               Proposed Filters ({proposed.length})
             </span>
             {proposed.length === 0 ? (
@@ -75,12 +75,12 @@ export function PolicyMemoryManager({
                   >
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-mono text-[10px] font-bold">
+                        <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-mono text-xs font-bold">
                           {policy.memoryType}
                         </span>
                         <span className="font-medium text-foreground break-all">{policy.label}</span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         Source: {policy.source} · Confidence: {policy.confidence}% · Key: {policy.key}
                       </p>
                     </div>
@@ -99,7 +99,7 @@ export function PolicyMemoryManager({
           </div>
 
           <div className="space-y-2 pt-2 border-t border-border">
-            <span className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">
+            <span className="font-semibold text-muted-foreground uppercase tracking-wider text-xs">
               Active Filters ({active.length})
             </span>
             {active.length === 0 ? (
@@ -112,14 +112,14 @@ export function PolicyMemoryManager({
                     className="p-2.5 rounded-md border border-border bg-muted/30 text-xs flex flex-col gap-1"
                   >
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono text-[10px] border border-border">
+                      <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono text-xs border border-border">
                         {policy.memoryType}
                       </span>
                       <span className="font-medium text-foreground truncate" title={policy.label}>
                         {policy.label}
                       </span>
                     </div>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Source: {policy.source} · Confidence: {policy.confidence}%
                     </p>
                   </div>

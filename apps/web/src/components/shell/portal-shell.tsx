@@ -84,7 +84,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
         <SidebarHeader className="border-b border-sidebar-border px-4 py-3">
           <p className="text-xs font-medium text-muted-foreground">Sangfor Agentic OS</p>
           <p className="text-sm font-semibold">SANGFOR Partner Operations</p>
-          <p className="text-[10px] text-muted-foreground/60 mt-0.5">Package V3.2</p>
+          <p className="text-xs text-muted-foreground/60 mt-0.5">Package V3.2</p>
         </SidebarHeader>
         <SidebarContent>
           {GROUP_ORDER.filter(g => groups[g]).map((groupName) => (

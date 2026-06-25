@@ -497,7 +497,7 @@ export function ModuleDashboardClient({
             <CardHeader className="p-4 space-y-2 border-b border-border">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-foreground">Modules Inventory</CardTitle>
-                <Badge variant="secondary" className="rounded-sm font-mono text-[9px] uppercase px-1.5 py-0.5">
+                <Badge variant="secondary" className="rounded-sm font-mono text-xs uppercase px-1.5 py-0.5">
                   Local Registry
                 </Badge>
               </div>
@@ -522,7 +522,7 @@ export function ModuleDashboardClient({
                     <button
                       key={filter}
                       onClick={() => setStatusFilter(filter)}
-                      className={`px-2 py-0.5 text-[9px] font-bold rounded-sm uppercase transition-all ${
+                      className={`px-2 py-0.5 text-xs font-bold rounded-sm uppercase transition-all ${
                         statusFilter === filter
                           ? "bg-background text-foreground shadow-xs"
                           : "text-muted-foreground hover:text-foreground"
@@ -540,7 +540,7 @@ export function ModuleDashboardClient({
                 <div className="p-12 text-center space-y-2">
                   <Layers className="h-8 w-8 text-muted-foreground/30 mx-auto" />
                   <p className="text-xs font-bold text-muted-foreground">No modules match search filter</p>
-                  <p className="text-[10px] text-muted-foreground/70">Clear the text search or change status filter toggles.</p>
+                  <p className="text-xs text-muted-foreground/70">Clear the text search or change status filter toggles.</p>
                 </div>
               ) : (
                 <div className="divide-y divide-border">
@@ -572,24 +572,24 @@ export function ModuleDashboardClient({
                               <span className="font-bold text-sm tracking-tight text-foreground">
                                 {mod.displayName}
                               </span>
-                              <Badge variant="outline" className="rounded-sm font-mono text-[9px] px-1 py-0 bg-background shrink-0">
+                              <Badge variant="outline" className="rounded-sm font-mono text-xs px-1 py-0 bg-background shrink-0">
                                 v{mod.version}
                               </Badge>
                             </div>
-                            <code className="text-[10px] text-muted-foreground font-mono block break-all">
+                            <code className="text-xs text-muted-foreground font-mono block break-all">
                               {mod.moduleKey}
                             </code>
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0">
                             {hasDepAlert && (
-                              <Badge variant="outline" className="rounded-sm bg-destructive/10 text-destructive border-destructive/20 text-[9px] px-1 py-0 animate-pulse font-bold">
+                              <Badge variant="outline" className="rounded-sm bg-destructive/10 text-destructive border-destructive/20 text-xs px-1 py-0 animate-pulse font-bold">
                                 DEP ALERT
                               </Badge>
                             )}
                             <div className="flex items-center gap-1">
-                              <span className={`h-1.5 w-1.5 rounded-full ${isInactive ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
-                              <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                              <span className={`h-1.5 w-1.5 rounded-full ${isInactive ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} role="img" aria-label={isInactive ? "Inactive" : "Active"} />
+                              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                                 {mod.status}
                               </span>
                             </div>
@@ -598,19 +598,19 @@ export function ModuleDashboardClient({
 
                         {/* Badges footer */}
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                          <Badge variant="secondary" className="rounded-sm text-[9px] py-0 px-1 font-semibold">
+                          <Badge variant="secondary" className="rounded-sm text-xs py-0 px-1 font-semibold">
                             {blocksCount} Block{blocksCount !== 1 ? "s" : ""}
                           </Badge>
-                          <Badge variant="secondary" className="rounded-sm text-[9px] py-0 px-1 font-semibold">
+                          <Badge variant="secondary" className="rounded-sm text-xs py-0 px-1 font-semibold">
                             {nodesCount} Node{nodesCount !== 1 ? "s" : ""}
                           </Badge>
                           {rules.length > 0 && (
-                            <Badge variant="secondary" className="rounded-sm text-[9px] py-0 px-1 font-semibold">
+                            <Badge variant="secondary" className="rounded-sm text-xs py-0 px-1 font-semibold">
                               {rules.length} Dep{rules.length !== 1 ? "s" : ""}
                             </Badge>
                           )}
                           {isTraceReady(mod.moduleKey) && (
-                            <Badge className="rounded-sm text-[9px] py-0 px-1 font-bold bg-violet-500/10 text-violet-500 border border-violet-500/20 hover:bg-violet-500/20 shrink-0">
+                            <Badge className="rounded-sm text-xs py-0 px-1 font-bold bg-violet-500/10 text-violet-500 border border-violet-500/20 hover:bg-violet-500/20 shrink-0">
                               TRACE READY
                             </Badge>
                           )}
@@ -644,13 +644,13 @@ export function ModuleDashboardClient({
                     <CardTitle className="text-lg font-bold tracking-tight">
                       {activeModule.displayName}
                     </CardTitle>
-                    <Badge variant="outline" className="rounded-sm font-mono text-[10px] px-1.5 py-0 bg-background shrink-0">
+                    <Badge variant="outline" className="rounded-sm font-mono text-xs px-1.5 py-0 bg-background shrink-0">
                       v{activeModule.version}
                     </Badge>
                     
                     {/* Trace ready badge for phase 13, 14, 15 */}
                     {isTraceReady(activeModule.moduleKey) && (
-                      <Badge className="rounded-sm text-[9px] font-bold bg-violet-600/10 text-violet-600 border border-violet-600/20 hover:bg-violet-600/20 shrink-0 uppercase animate-pulse">
+                      <Badge className="rounded-sm text-xs font-bold bg-violet-600/10 text-violet-600 border border-violet-600/20 hover:bg-violet-600/20 shrink-0 uppercase animate-pulse">
                         TRACE-READY
                       </Badge>
                     )}
@@ -682,24 +682,24 @@ export function ModuleDashboardClient({
               {/* Observability Panel & Trace Links (NO NESTED CARDS!) */}
               <div className="px-4 py-3 border-b border-border bg-zinc-50/50 dark:bg-zinc-950/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] uppercase font-mono text-muted-foreground font-bold">Observability:</span>
+                  <span className="text-xs uppercase font-mono text-muted-foreground font-bold">Observability:</span>
                   {(() => {
                     const status = getObservabilityStatus(activeModule);
                     if (status === "disabled") {
                       return (
-                        <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-500 border-amber-500/20 py-0.5">
+                        <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-500 border-amber-500/20 py-0.5">
                           DISABLED
                         </Badge>
                       );
                     } else if (status === "configured") {
                       return (
-                        <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20 py-0.5 font-bold">
+                        <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-500 border-emerald-500/20 py-0.5 font-bold">
                           CONFIGURED & ACTIVE
                         </Badge>
                       );
                     } else {
                       return (
-                        <Badge variant="outline" className="text-[9px] bg-zinc-500/10 text-zinc-500 border-zinc-500/20 py-0.5">
+                        <Badge variant="outline" className="text-xs bg-zinc-500/10 text-zinc-500 border-zinc-500/20 py-0.5">
                           NO-OP (NO TELEMETRY)
                         </Badge>
                       );
@@ -711,13 +711,13 @@ export function ModuleDashboardClient({
                 {getObservabilityStatus(activeModule) === "configured" && recentTraceId ? (
                   <a
                     href={`/commands/${recentTraceId}`}
-                    className="text-[10px] text-violet-600 hover:text-violet-500 font-bold flex items-center gap-1 underline transition-all self-start sm:self-auto"
+                    className="text-xs text-violet-600 hover:text-violet-500 font-bold flex items-center gap-1 underline transition-all self-start sm:self-auto"
                   >
                     <ExternalLink className="h-3 w-3 shrink-0" />
                     View Recent Execution Trace
                   </a>
                 ) : getObservabilityStatus(activeModule) === "configured" ? (
-                  <span className="text-[10px] text-muted-foreground/60 italic self-start sm:self-auto select-none">
+                  <span className="text-xs text-muted-foreground/60 italic self-start sm:self-auto select-none">
                     No active runs logged in trace index
                   </span>
                 ) : null}
@@ -725,7 +725,7 @@ export function ModuleDashboardClient({
 
               {/* Sticky Quick Nav Anchor Buttons */}
               <div className="sticky top-0 bg-background/95 backdrop-blur-xs border-b border-border z-10 px-4 py-2 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap scrollbar-thin">
-                <span className="text-[9px] uppercase font-mono text-muted-foreground mr-1 select-none">Sections:</span>
+                <span className="text-xs uppercase font-mono text-muted-foreground mr-1 select-none">Sections:</span>
                 {[
                   { id: "validation", label: "Validation" },
                   { id: "dependencies", label: "Dependencies" },
@@ -743,7 +743,7 @@ export function ModuleDashboardClient({
                         el.scrollIntoView({ behavior: "smooth", block: "start" });
                       }
                     }}
-                    className="px-2 py-0.5 text-[9px] font-bold border border-border rounded-sm hover:bg-muted bg-background transition-all"
+                    className="px-2 py-0.5 text-xs font-bold border border-border rounded-sm hover:bg-muted bg-background transition-all"
                   >
                     {sec.label}
                   </button>
@@ -789,7 +789,7 @@ export function ModuleDashboardClient({
                           size="xs"
                           variant="outline"
                           onClick={() => handleToggleModule(activeModule.moduleKey, activeModule.status)}
-                          className="h-6 mt-1.5 text-[10px] font-bold border-amber-500/40 text-amber-800 dark:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20"
+                          className="h-6 mt-1.5 text-xs font-bold border-amber-500/40 text-amber-800 dark:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20"
                         >
                           Enable Module Now
                         </Button>
@@ -828,7 +828,7 @@ export function ModuleDashboardClient({
                                 size="xs"
                                 variant="outline"
                                 onClick={() => handleToggleModule(key, "disabled")}
-                                className="h-6 mt-1 text-[10px] font-bold border-amber-500/40 text-amber-800 dark:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20"
+                                className="h-6 mt-1 text-xs font-bold border-amber-500/40 text-amber-800 dark:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20"
                               >
                                 Activate Dependency Module ({key})
                               </Button>
@@ -847,7 +847,7 @@ export function ModuleDashboardClient({
                       <Activity className="h-4 w-4 text-primary" />
                       <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">1. Integrity Validation Gates</h3>
                     </div>
-                    <Badge variant="outline" className="rounded-sm font-mono text-[9px] uppercase px-1.5 bg-muted">
+                    <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
                       System Audit
                     </Badge>
                   </div>
@@ -857,7 +857,7 @@ export function ModuleDashboardClient({
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="space-y-0.5">
                         <p className="text-xs font-bold text-foreground">Real Manifest Validator API</p>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Validates module structures against the live schema and dependencies in real-time.
                         </p>
                       </div>
@@ -865,7 +865,7 @@ export function ModuleDashboardClient({
                         size="xs"
                         onClick={() => handleRealValidation(activeModule.moduleKey)}
                         disabled={valResultsReal.loading}
-                        className="h-7 text-[10px] font-bold px-2.5 rounded-sm"
+                        className="h-7 text-xs font-bold px-2.5 rounded-sm"
                       >
                         {valResultsReal.loading ? (
                           <>
@@ -902,19 +902,19 @@ export function ModuleDashboardClient({
                         </div>
                         
                         {valResultsReal.errors.length > 0 ? (
-                          <ul className="list-disc list-inside space-y-1 text-[10px] pl-1 font-mono leading-relaxed bg-black/5 dark:bg-black/25 p-2 rounded-sm mt-1">
+                          <ul className="list-disc list-inside space-y-1 text-xs pl-1 font-mono leading-relaxed bg-black/5 dark:bg-black/25 p-2 rounded-sm mt-1">
                             {valResultsReal.errors.map((err, i) => (
                               <li key={i}>{err}</li>
                             ))}
                           </ul>
                         ) : valResultsReal.valid ? (
-                          <p className="text-[10px] leading-relaxed">
+                          <p className="text-xs leading-relaxed">
                             No validation warnings or database mismatches detected. Manifest file structure conforms fully to schema standard.
                           </p>
                         ) : null}
 
                         {valResultsReal.errorMsg && (
-                          <p className="text-[10px] font-mono text-red-600 dark:text-red-400">
+                          <p className="text-xs font-mono text-red-600 dark:text-red-400">
                             Error: {valResultsReal.errorMsg}
                           </p>
                         )}
@@ -922,7 +922,7 @@ export function ModuleDashboardClient({
                     )}
 
                     {valResultsReal.valid === null && !valResultsReal.loading && (
-                      <p className="text-[10px] text-muted-foreground italic text-center p-1 select-none">
+                      <p className="text-xs text-muted-foreground italic text-center p-1 select-none">
                         No validation status cached. Trigger manifest validation to run real diagnostic checks.
                       </p>
                     )}
@@ -934,11 +934,11 @@ export function ModuleDashboardClient({
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="text-xs font-bold text-foreground">Quality pipeline checks</p>
-                          <Badge variant="outline" className="text-[8px] bg-amber-500/10 text-amber-600 border-amber-500/20 font-bold tracking-wider px-1 py-0 uppercase shrink-0">
+                          <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20 font-bold tracking-wider px-1 py-0 uppercase shrink-0">
                             DEMO ONLY (SIMULATION)
                           </Badge>
                         </div>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Provides simulated test runners, linters, and accessibility analyzers.
                         </p>
                       </div>
@@ -947,14 +947,14 @@ export function ModuleDashboardClient({
                         variant="secondary"
                         onClick={handleRunValidation}
                         disabled={isValidating || activeModule.status === "disabled"}
-                        className="h-7 text-[10px] font-bold px-2.5 rounded-sm border border-border"
+                        className="h-7 text-xs font-bold px-2.5 rounded-sm border border-border"
                       >
                         {isValidating ? "Simulating..." : "Run Simulated Gates"}
                       </Button>
                     </div>
 
                     {activeModule.status === "disabled" ? (
-                      <p className="text-[10px] text-muted-foreground bg-muted/40 p-3 rounded-md text-center italic">
+                      <p className="text-xs text-muted-foreground bg-muted/40 p-3 rounded-md text-center italic">
                         Quality pipelines are bypassed while the module registry status is disabled.
                       </p>
                     ) : (
@@ -975,7 +975,7 @@ export function ModuleDashboardClient({
                               <div className="flex items-center justify-between p-2 flex-wrap gap-2 text-xs">
                                 <div className="flex items-center gap-2">
                                   {state === "idle" && (
-                                    <span className="h-3.5 w-3.5 rounded-full border border-dashed border-muted-foreground/50 flex items-center justify-center text-[8px] text-muted-foreground font-mono">
+                                    <span className="h-3.5 w-3.5 rounded-full border border-dashed border-muted-foreground/50 flex items-center justify-center text-[10px] text-muted-foreground font-mono">
                                       -
                                     </span>
                                   )}
@@ -990,19 +990,19 @@ export function ModuleDashboardClient({
 
                                 <div className="flex items-center gap-1.5">
                                   {state === "passed" && (
-                                    <Badge variant="outline" className="rounded-sm text-[8px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0 font-bold shrink-0">
+                                    <Badge variant="outline" className="rounded-sm text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0 font-bold shrink-0">
                                       PASSED
                                     </Badge>
                                   )}
                                   {state === "running" && (
-                                    <Badge variant="outline" className="rounded-sm text-[8px] bg-primary/10 text-primary border-primary/20 py-0 animate-pulse font-bold shrink-0">
+                                    <Badge variant="outline" className="rounded-sm text-[10px] bg-primary/10 text-primary border-primary/20 py-0 animate-pulse font-bold shrink-0">
                                       RUNNING
                                     </Badge>
                                   )}
                                   {state === "passed" && (
                                     <button
                                       onClick={() => setExpandedLog(isExpanded ? null : check)}
-                                      className="text-[9px] text-muted-foreground hover:text-foreground font-mono flex items-center gap-0.5 border border-border rounded-xs px-1 hover:bg-muted bg-background transition-all"
+                                      className="text-xs text-muted-foreground hover:text-foreground font-mono flex items-center gap-0.5 border border-border rounded-xs px-1 hover:bg-muted bg-background transition-all"
                                     >
                                       <Terminal className="h-2.5 w-2.5" />
                                       {isExpanded ? "Hide Logs" : "View Logs"}
@@ -1012,8 +1012,8 @@ export function ModuleDashboardClient({
                               </div>
 
                               {isExpanded && state === "passed" && (
-                                <div className="bg-zinc-950 p-2.5 border-t border-border font-mono text-[9px] leading-relaxed text-emerald-400 overflow-x-auto whitespace-pre">
-                                  <div className="text-zinc-500 select-none block mb-1 font-sans font-semibold tracking-wider text-[8px] uppercase border-b border-zinc-800 pb-0.5">
+                                <div className="bg-zinc-950 p-2.5 border-t border-border font-mono text-xs leading-relaxed text-emerald-400 overflow-x-auto whitespace-pre">
+                                  <div className="text-zinc-500 select-none block mb-1 font-sans font-semibold tracking-wider text-[10px] uppercase border-b border-zinc-800 pb-0.5">
                                     [SIMULATED DEVELOPMENT PREVIEW OUTPUT LOG]
                                   </div>
                                   {MOCK_VAL_LOGS[check]}
@@ -1034,7 +1034,7 @@ export function ModuleDashboardClient({
                       <Settings className="h-4 w-4 text-primary" />
                       <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">2. Registry Dependencies</h3>
                     </div>
-                    <Badge variant="outline" className="rounded-sm font-mono text-[9px] uppercase px-1.5 bg-muted">
+                    <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
                       Registry Bindings
                     </Badge>
                   </div>
@@ -1046,7 +1046,7 @@ export function ModuleDashboardClient({
                         <div className="text-center p-6 border border-dashed border-border rounded-md bg-muted/10">
                           <Layers className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
                           <p className="text-xs font-bold text-muted-foreground">No Dependencies Registered</p>
-                          <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                          <p className="text-xs text-muted-foreground/80 mt-0.5">
                             This core module operates standalone with no external registry prerequisites.
                           </p>
                         </div>
@@ -1056,7 +1056,7 @@ export function ModuleDashboardClient({
                     return (
                       <div className="border border-border rounded-md overflow-hidden bg-background">
                         <table className="w-full text-xs text-left">
-                          <thead className="bg-muted text-muted-foreground font-mono text-[9px] border-b border-border">
+                          <thead className="bg-muted text-muted-foreground font-mono text-xs border-b border-border">
                             <tr>
                               <th className="p-2 font-medium">Required Module Key</th>
                               <th className="p-2 font-medium text-right">Status</th>
@@ -1075,15 +1075,15 @@ export function ModuleDashboardClient({
                                   </td>
                                   <td className="p-2 text-right">
                                     {isMissing ? (
-                                      <Badge variant="outline" className="text-[9px] bg-red-500/10 text-red-600 border-red-500/20 py-0 font-bold">
+                                      <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-500/20 py-0 font-bold">
                                         MISSING
                                       </Badge>
                                     ) : isDisabled ? (
-                                      <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/20 py-0 font-bold">
+                                      <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-500/20 py-0 font-bold">
                                         INACTIVE (DISABLED)
                                       </Badge>
                                     ) : (
-                                      <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0 font-bold">
+                                      <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0 font-bold">
                                         ACTIVE & OPERATIONAL
                                       </Badge>
                                     )}
@@ -1105,7 +1105,7 @@ export function ModuleDashboardClient({
                       <GitBranch className="h-4 w-4 text-primary" />
                       <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">3. Navigation Routes</h3>
                     </div>
-                    <Badge variant="outline" className="rounded-sm font-mono text-[9px] uppercase px-1.5 bg-muted">
+                    <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
                       Route Mapping
                     </Badge>
                   </div>
@@ -1117,7 +1117,7 @@ export function ModuleDashboardClient({
                         <div className="text-center p-6 border border-dashed border-border rounded-md bg-muted/10">
                           <GitBranch className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
                           <p className="text-xs font-bold text-muted-foreground">No Direct Navigation Routes</p>
-                          <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                          <p className="text-xs text-muted-foreground/80 mt-0.5">
                             This module is a background system provider with no direct entry point links.
                           </p>
                         </div>
@@ -1127,7 +1127,7 @@ export function ModuleDashboardClient({
                     return (
                       <div className="border border-border rounded-md overflow-hidden bg-background">
                         <table className="w-full text-xs text-left">
-                          <thead className="bg-muted text-muted-foreground font-mono text-[9px] border-b border-border">
+                          <thead className="bg-muted text-muted-foreground font-mono text-xs border-b border-border">
                             <tr>
                               <th className="p-2 font-medium">Link Descriptor</th>
                               <th className="p-2 font-medium">App Route</th>
@@ -1141,7 +1141,7 @@ export function ModuleDashboardClient({
                               return (
                                 <tr key={rt.href} className="hover:bg-muted/10">
                                   <td className="p-2 font-semibold text-foreground">{rt.title}</td>
-                                  <td className="p-2 font-mono text-[10px]">
+                                  <td className="p-2 font-mono text-xs">
                                     <a 
                                       href={rt.href}
                                       className={`inline-flex items-center gap-1 hover:underline text-violet-600 dark:text-violet-400 font-bold ${
@@ -1152,14 +1152,14 @@ export function ModuleDashboardClient({
                                       {!isInactive && <ExternalLink className="h-2.5 w-2.5 shrink-0" />}
                                     </a>
                                   </td>
-                                  <td className="p-2 font-mono text-[9px] text-muted-foreground break-all">{rt.filePattern}</td>
+                                  <td className="p-2 font-mono text-xs text-muted-foreground break-all">{rt.filePattern}</td>
                                   <td className="p-2 text-right">
                                     {isInactive ? (
-                                      <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/20 py-0">
+                                      <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-500/20 py-0">
                                         OFFLINE
                                       </Badge>
                                     ) : (
-                                      <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0">
+                                      <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0">
                                         ONLINE
                                       </Badge>
                                     )}
@@ -1181,7 +1181,7 @@ export function ModuleDashboardClient({
                       <Layout className="h-4 w-4 text-primary" />
                       <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">4. UI Layout Blocks</h3>
                     </div>
-                    <Badge variant="outline" className="rounded-sm font-mono text-[9px] uppercase px-1.5 bg-muted">
+                    <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
                       Mounted Blocks
                     </Badge>
                   </div>
@@ -1190,14 +1190,14 @@ export function ModuleDashboardClient({
                     <div className="text-center p-6 border border-dashed border-border rounded-md bg-muted/10">
                       <Layout className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
                       <p className="text-xs font-bold text-muted-foreground">No Registered Layout Blocks</p>
-                      <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                      <p className="text-xs text-muted-foreground/80 mt-0.5">
                         This module does not hook UI rendering blocks or layouts.
                       </p>
                     </div>
                   ) : (
                     <div className="border border-border rounded-md overflow-hidden bg-background">
                       <table className="w-full text-xs text-left">
-                        <thead className="bg-muted text-muted-foreground font-mono text-[9px] border-b border-border">
+                        <thead className="bg-muted text-muted-foreground font-mono text-xs border-b border-border">
                           <tr>
                             <th className="p-2 font-medium">Display Name / Key</th>
                             <th className="p-2 font-medium">Mounted Slots</th>
@@ -1212,17 +1212,17 @@ export function ModuleDashboardClient({
                                 <tr key={block.id} className="hover:bg-muted/10">
                                   <td className="p-2">
                                     <p className="font-semibold text-foreground">{block.displayName}</p>
-                                    <code className="text-[10px] text-muted-foreground font-mono block break-all">{block.blockKey}</code>
+                                    <code className="text-xs text-muted-foreground font-mono block break-all">{block.blockKey}</code>
                                   </td>
                                   <td className="p-2">
                                     {slots.length === 0 ? (
-                                      <span className="text-muted-foreground/60 italic text-[10px] font-mono">unassigned</span>
+                                      <span className="text-muted-foreground/60 italic text-xs font-mono">unassigned</span>
                                     ) : (
                                       <div className="flex flex-col gap-1">
                                         {slots.map(slot => (
                                           <div key={slot.id} className="flex items-center gap-1.5">
                                             <Layout className="h-3 w-3 text-muted-foreground" />
-                                            <span className="font-mono text-[10px] text-zinc-700 dark:text-zinc-300">
+                                            <span className="font-mono text-xs text-zinc-700 dark:text-zinc-300">
                                               /{slot.pageKey} &rarr; <span className="font-bold">{slot.slotKey}</span>
                                             </span>
                                           </div>
@@ -1246,7 +1246,7 @@ export function ModuleDashboardClient({
                       <Cpu className="h-4 w-4 text-primary" />
                       <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">5. Execution Flow Nodes</h3>
                     </div>
-                    <Badge variant="outline" className="rounded-sm font-mono text-[9px] uppercase px-1.5 bg-muted">
+                    <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
                       Flow Nodes
                     </Badge>
                   </div>
@@ -1255,14 +1255,14 @@ export function ModuleDashboardClient({
                     <div className="text-center p-6 border border-dashed border-border rounded-md bg-muted/10">
                       <Cpu className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
                       <p className="text-xs font-bold text-muted-foreground">No Registered Flow Nodes</p>
-                      <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                      <p className="text-xs text-muted-foreground/80 mt-0.5">
                         No background execution flow nodes mapped to this automation component.
                       </p>
                     </div>
                   ) : (
                     <div className="border border-border rounded-md overflow-hidden bg-background">
                       <table className="w-full text-xs text-left">
-                        <thead className="bg-muted text-muted-foreground font-mono text-[9px] border-b border-border">
+                        <thead className="bg-muted text-muted-foreground font-mono text-xs border-b border-border">
                           <tr>
                             <th className="p-2 font-medium">Node Registry Key</th>
                             <th className="p-2 font-medium">Node Type</th>
@@ -1273,10 +1273,10 @@ export function ModuleDashboardClient({
                           {initialNodes
                             .filter(n => n.moduleKey === activeModule.moduleKey)
                             .map((node) => (
-                              <tr key={node.id} className="hover:bg-muted/10 font-mono text-[10px]">
+                              <tr key={node.id} className="hover:bg-muted/10 font-mono text-xs">
                                 <td className="p-2 text-foreground font-bold break-all">{node.nodeKey}</td>
                                 <td className="p-2">
-                                  <Badge variant="outline" className="rounded-sm font-mono text-[8px] uppercase px-1 py-0 bg-background text-foreground border-border">
+                                  <Badge variant="outline" className="rounded-sm font-mono text-[10px] uppercase px-1 py-0 bg-background text-foreground border-border">
                                     {node.nodeType}
                                   </Badge>
                                 </td>
@@ -1298,7 +1298,7 @@ export function ModuleDashboardClient({
                       <Terminal className="h-4 w-4 text-primary" />
                       <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">6. Automated Skill Actions</h3>
                     </div>
-                    <Badge variant="outline" className="rounded-sm font-mono text-[9px] uppercase px-1.5 bg-muted">
+                    <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
                       Runtime Skills
                     </Badge>
                   </div>
@@ -1310,7 +1310,7 @@ export function ModuleDashboardClient({
                         <div className="text-center p-6 border border-dashed border-border rounded-md bg-muted/10">
                           <Terminal className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
                           <p className="text-xs font-bold text-muted-foreground">No Automated Skills Exposed</p>
-                          <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                          <p className="text-xs text-muted-foreground/80 mt-0.5">
                             This module operates entirely via standard workflows with no custom system actions.
                           </p>
                         </div>
@@ -1327,25 +1327,25 @@ export function ModuleDashboardClient({
                             <div className="space-y-1">
                               <div className="flex items-center justify-between flex-wrap gap-1.5">
                                 <span className="font-bold text-xs text-foreground font-mono break-all">{skill.skillKey}</span>
-                                <Badge variant="outline" className="rounded-sm text-[8px] font-mono uppercase bg-primary/5 text-primary border-primary/20 py-0">
+                                <Badge variant="outline" className="rounded-sm text-[10px] font-mono uppercase bg-primary/5 text-primary border-primary/20 py-0">
                                   {skill.source}
                                 </Badge>
                               </div>
                               <p className="text-[11px] text-muted-foreground leading-normal">{skill.usage || "No custom usage details specified."}</p>
                             </div>
                             
-                            <div className="flex items-center justify-between mt-1 flex-wrap gap-1.5 border-t border-border/40 pt-2 text-[10px] text-muted-foreground font-mono">
+                            <div className="flex items-center justify-between mt-1 flex-wrap gap-1.5 border-t border-border/40 pt-2 text-xs text-muted-foreground font-mono">
                               <div className="flex items-center gap-1.5">
-                                <span className="uppercase text-[8px] tracking-wider text-zinc-400 select-none">Agents:</span>
+                                <span className="uppercase text-[10px] tracking-wider text-zinc-400 select-none">Agents:</span>
                                 {skill.agentUsage.map(agent => (
-                                  <Badge key={agent} variant="secondary" className="rounded-sm text-[8px] py-0 px-1 font-mono uppercase">
+                                  <Badge key={agent} variant="secondary" className="rounded-sm text-[10px] py-0 px-1 font-mono uppercase">
                                     {agent}
                                   </Badge>
                                 ))}
                               </div>
                               <div className="flex items-center gap-1">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" role="img" aria-label="Active" />
+                                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                                   {skill.status}
                                 </span>
                               </div>
@@ -1364,7 +1364,7 @@ export function ModuleDashboardClient({
                       <Key className="h-4 w-4 text-primary" />
                       <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">7. Integration Connectors</h3>
                     </div>
-                    <Badge variant="outline" className="rounded-sm font-mono text-[9px] uppercase px-1.5 bg-muted">
+                    <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
                       Credentials Gateway
                     </Badge>
                   </div>
@@ -1388,21 +1388,21 @@ export function ModuleDashboardClient({
                               </div>
                               <div className="min-w-0">
                                 <p className="font-bold text-xs text-foreground truncate">{conn.displayName}</p>
-                                <code className="text-[9px] text-muted-foreground font-mono block truncate">{conn.key}</code>
+                                <code className="text-xs text-muted-foreground font-mono block truncate">{conn.key}</code>
                               </div>
                             </div>
                             
                             {/* Credential mode badge */}
                             {details.status === "real" ? (
-                              <Badge variant="outline" className="rounded-sm text-[8px] font-mono font-bold bg-emerald-500/10 text-emerald-500 border-emerald-500/20 px-1.5 py-0.5 shrink-0 uppercase tracking-wide">
+                              <Badge variant="outline" className="rounded-sm text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-500 border-emerald-500/20 px-1.5 py-0.5 shrink-0 uppercase tracking-wide">
                                 REAL CREDENTIALS
                               </Badge>
                             ) : details.status === "read_only" ? (
-                              <Badge variant="outline" className="rounded-sm text-[8px] font-mono font-bold bg-indigo-500/10 text-indigo-500 border-indigo-500/20 px-1.5 py-0.5 shrink-0 uppercase tracking-wide">
+                              <Badge variant="outline" className="rounded-sm text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-500 border-indigo-500/20 px-1.5 py-0.5 shrink-0 uppercase tracking-wide">
                                 READ ONLY
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="rounded-sm text-[8px] font-mono font-bold bg-amber-500/10 text-amber-500 border-amber-500/20 px-1.5 py-0.5 shrink-0 uppercase tracking-wide">
+                              <Badge variant="outline" className="rounded-sm text-[10px] font-mono font-bold bg-amber-500/10 text-amber-500 border-amber-500/20 px-1.5 py-0.5 shrink-0 uppercase tracking-wide">
                                 MOCK CREDENTIALS
                               </Badge>
                             )}
@@ -1410,7 +1410,7 @@ export function ModuleDashboardClient({
 
                           {/* 5. Missing credential warning alert */}
                           {!details.isConfigured && (details.status === "real" || details.status === "read_only") && (
-                            <div className="p-2 bg-red-500/10 border border-red-500/20 text-red-800 dark:text-red-300 rounded-sm text-[10px] flex items-start gap-1.5">
+                            <div className="p-2 bg-red-500/10 border border-red-500/20 text-red-800 dark:text-red-300 rounded-sm text-xs flex items-start gap-1.5">
                               <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                               <span>
                                 <strong>Missing Credential:</strong> Server environment key is not configured. Real gateway processes will fail.
@@ -1420,7 +1420,7 @@ export function ModuleDashboardClient({
 
                           {/* Mail read-only warning constraint */}
                           {conn.key === "outlook" && details.status === "read_only" && (
-                            <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 rounded-sm text-[10px] flex items-start gap-1.5">
+                            <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 rounded-sm text-xs flex items-start gap-1.5">
                               <ShieldAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                               <span>
                                 <strong>Read-Only Warning:</strong> Outgoing mail dispatches are blocked. Write actions are offline.
@@ -1434,8 +1434,14 @@ export function ModuleDashboardClient({
                                 details.status === "real" ? (details.isConfigured ? "bg-emerald-500" : "bg-red-500") : 
                                 details.status === "read_only" ? (details.isConfigured ? "bg-indigo-500" : "bg-red-500") : 
                                 "bg-amber-500"
-                              }`} />
-                              <span className={`text-[10px] font-mono truncate ${isError ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
+                              }`} role="img" aria-label={
+                                details.status === "real"
+                                  ? (details.isConfigured ? "Connected active" : "Config missing")
+                                  : details.status === "read_only"
+                                    ? (details.isConfigured ? "Read only active" : "Config missing")
+                                    : "Mock mode"
+                              } />
+                              <span className={`text-xs font-mono truncate ${isError ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
                                 {connSuccess[conn.key] || (
                                   details.status === "real" 
                                     ? (details.isConfigured ? "Connected (Active)" : "Offline (Config Missing)") 
@@ -1452,7 +1458,7 @@ export function ModuleDashboardClient({
                                 variant="outline"
                                 onClick={() => handleTestConnection(conn.key)}
                                 disabled={testingConnector === conn.key}
-                                className="h-6 text-[9px] font-bold px-2 rounded-xs"
+                                className="h-6 text-xs font-bold px-2 rounded-xs"
                               >
                                 {testingConnector === conn.key ? "Testing..." : "Test Ping"}
                               </Button>
@@ -1460,7 +1466,7 @@ export function ModuleDashboardClient({
                                 size="xs"
                                 variant="outline"
                                 onClick={() => handleToggleConnectorMode(conn.key, details.status)}
-                                className="h-6 text-[9px] font-bold px-2 rounded-xs"
+                                className="h-6 text-xs font-bold px-2 rounded-xs"
                               >
                                 Toggle Mode
                               </Button>

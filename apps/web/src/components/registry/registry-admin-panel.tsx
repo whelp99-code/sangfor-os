@@ -54,7 +54,7 @@ export async function RegistryAdminPanel() {
           <CardHeader className="p-4 border-b border-border">
             <CardTitle className="text-sm font-semibold flex items-center justify-between">
               <span>Connectors</span>
-              <span className="text-[10px] text-muted-foreground font-mono">
+              <span className="text-xs text-muted-foreground font-mono">
                 {connectorStates.length} registered
               </span>
             </CardTitle>
@@ -84,11 +84,11 @@ export async function RegistryAdminPanel() {
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono font-medium">{c.connectorKey}</span>
                         <div className="flex items-center gap-1.5">
-                          <Badge variant={badgeVariant} className={`text-[10px] px-1.5 py-0 ${badgeClass}`}>
+                          <Badge variant={badgeVariant} className={`text-xs px-1.5 py-0 ${badgeClass}`}>
                             {c.effectiveMode}
                           </Badge>
                           {!c.credentialsPresent && (
-                            <span className="text-[10px] text-amber-600 bg-amber-500/5 px-1 py-0.2 rounded border border-amber-500/10" title="Missing config / env credentials">
+                            <span className="text-xs text-amber-600 bg-amber-500/5 px-1 py-0.2 rounded border border-amber-500/10" title="Missing config / env credentials">
                               missing credential
                             </span>
                           )}
@@ -98,10 +98,10 @@ export async function RegistryAdminPanel() {
                         {c.description}
                       </p>
                       {c.warnings.length > 0 && (
-                        <div className="text-[9px] text-muted-foreground leading-relaxed pl-2 border-l border-border mt-0.5">
+                        <div className="text-xs text-muted-foreground leading-relaxed pl-2 border-l border-border mt-0.5">
                           {c.warnings.map((warn, i) => (
                             <div key={i} className="truncate" title={warn}>
-                              ⚠️ {warn}
+                              <span role="img" aria-label="Warning">⚠️</span> {warn}
                             </div>
                           ))}
                         </div>

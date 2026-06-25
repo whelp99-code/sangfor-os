@@ -419,7 +419,7 @@ export function ExecutiveDashboard() {
                   return (
                     <div key={c.name} className="flex flex-col items-center gap-1 rounded-lg border p-2 text-center">
                       <span className="text-xs font-semibold">{c.name}</span>
-                      <span className="text-[10px] text-muted-foreground">{colorDef?.label ?? ""}</span>
+                      <span className="text-xs text-muted-foreground">{colorDef?.label ?? ""}</span>
                       <ColorBadge status={c.status as ColorReviewStatus} />
                     </div>
                   );
@@ -454,7 +454,7 @@ export function ExecutiveDashboard() {
                     )}
                     <div>
                       <p className="text-sm font-medium">{svc.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{svc.latency}</p>
+                      <p className="text-xs text-muted-foreground">{svc.latency}</p>
                     </div>
                   </div>
                 </div>

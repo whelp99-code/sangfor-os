@@ -140,7 +140,7 @@ export function TemplateRegistryGrid() {
 
           <div className="grid gap-4 sm:grid-cols-2 text-xs">
             <div className="space-y-2">
-              <span className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">
+              <span className="font-semibold text-muted-foreground uppercase tracking-wider text-xs">
                 Expected Context Sections
               </span>
               <ul className="list-disc list-inside space-y-1 text-muted-foreground">
@@ -151,7 +151,7 @@ export function TemplateRegistryGrid() {
             </div>
 
             <div className="space-y-2">
-              <span className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">
+              <span className="font-semibold text-muted-foreground uppercase tracking-wider text-xs">
                 Structure Template
               </span>
               <pre className="p-2.5 rounded border border-border bg-muted text-[11px] font-mono whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed text-muted-foreground">

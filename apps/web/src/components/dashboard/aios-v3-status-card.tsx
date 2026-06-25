@@ -87,12 +87,12 @@ export function AiosV3StatusCard() {
             <div className="h-2 w-2 animate-pulse rounded-full bg-gray-400" />
           ) : overallOk ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
-              <CheckCircle2 className="h-3 w-3" />
+              <CheckCircle2 className="h-3 w-3" role="img" aria-label="Connected" />
               연결됨
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:bg-red-900/50 dark:text-red-400">
-              <XCircle className="h-3 w-3" />
+              <XCircle className="h-3 w-3" role="img" aria-label="Disconnected" />
               연결 끊김
             </span>
           )}
@@ -147,9 +147,9 @@ function ServiceRow({ service }: { service: ServiceStatus }) {
     <div className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2.5">
       <div className="flex items-center gap-2.5">
         {isOk ? (
-          <Wifi className="h-3.5 w-3.5 text-emerald-500" />
+          <Wifi className="h-3.5 w-3.5 text-emerald-500" role="img" aria-label={`${service.name} connection OK`} />
         ) : (
-          <WifiOff className="h-3.5 w-3.5 text-red-500" />
+          <WifiOff className="h-3.5 w-3.5 text-red-500" role="img" aria-label={`${service.name} connection error`} />
         )}
         <div>
           <p className="font-medium">{service.name}</p>
@@ -165,11 +165,11 @@ function ServiceRow({ service }: { service: ServiceStatus }) {
           {service.latencyMs}ms
         </span>
         {isOk ? (
-          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" role="img" aria-label={`${service.name} healthy`} />
         ) : isUnreachable ? (
-          <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+          <AlertTriangle className="h-3.5 w-3.5 text-red-500" role="img" aria-label={`${service.name} unreachable`} />
         ) : (
-          <XCircle className="h-3.5 w-3.5 text-red-500" />
+          <XCircle className="h-3.5 w-3.5 text-red-500" role="img" aria-label={`${service.name} error`} />
         )}
       </div>
     </div>

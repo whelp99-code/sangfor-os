@@ -82,7 +82,7 @@ function StatusBadge({ status }: { status: KanbanCard["status"] }) {
     blocked: { label: "Blocked", variant: "destructive" },
   };
   const { label, variant } = map[status];
-  return <Badge variant={variant} className="text-[10px]">{label}</Badge>;
+  return <Badge variant={variant} className="text-xs">{label}</Badge>;
 }
 
 export function ColorKanbanBoard() {
@@ -151,11 +151,11 @@ export function ColorKanbanBoard() {
               >
                 <div className="flex items-center justify-between border-b px-3 py-2">
                   <h3 className="text-xs font-semibold">{col.name}</h3>
-                  <Badge variant="outline" className="text-[10px]">{col.cards.length}</Badge>
+                  <Badge variant="outline" className="text-xs">{col.cards.length}</Badge>
                 </div>
                 <div className="flex flex-col gap-2 p-2 min-h-[100px]">
                   {col.cards.length === 0 ? (
-                    <p className="py-6 text-center text-[10px] text-muted-foreground">—</p>
+                    <p className="py-6 text-center text-xs text-muted-foreground">—</p>
                   ) : (
                     col.cards.map((card) => (
                       <div
@@ -169,12 +169,12 @@ export function ColorKanbanBoard() {
                           </div>
                           <StatusBadge status={card.status} />
                         </div>
-                        <div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <Badge variant="outline" className="text-[9px] px-1">{card.fromColor}</Badge>
+                        <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+                          <Badge variant="outline" className="text-xs px-1">{card.fromColor}</Badge>
                           <ArrowRight className="h-2.5 w-2.5 shrink-0" />
-                          <Badge variant="outline" className="text-[9px] px-1">{card.toColor}</Badge>
+                          <Badge variant="outline" className="text-xs px-1">{card.toColor}</Badge>
                         </div>
-                        <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                        <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
                           <span>Due: {card.dueDate}</span>
                           <span>{card.linkedArtifact}</span>
                         </div>
@@ -182,13 +182,13 @@ export function ColorKanbanBoard() {
                           <div className="mt-2 flex gap-1 opacity-60 hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => handleAdvance(card.id)}
-                              className="flex-1 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-brand-500"
+                              className="flex-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-brand-500"
                             >
                               Advance
                             </button>
                             <button
                               onClick={() => handleEscalate(card.id)}
-                              className="rounded bg-destructive/10 px-1.5 py-0.5 text-[9px] font-medium text-destructive hover:bg-destructive/20 focus-visible:ring-2 focus-visible:ring-brand-500"
+                              className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive hover:bg-destructive/20 focus-visible:ring-2 focus-visible:ring-brand-500"
                             >
                               Escalate
                             </button>

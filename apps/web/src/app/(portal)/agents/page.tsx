@@ -118,7 +118,7 @@ export default function AgentsPage() {
                   <span className="text-xs text-muted-foreground">Reviewer</span>
                   <span className="text-xs font-medium">{agent.reviewer}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground pt-1">{c.focus}</p>
+                <p className="text-xs text-muted-foreground pt-1">{c.focus}</p>
               </CardContent>
             </Card>
           );
@@ -164,11 +164,11 @@ export default function AgentsPage() {
               <div className="space-y-1 px-4">
                 {HANDOFFS.map((h, i) => (
                   <div key={i} className="flex items-center gap-2 rounded-lg bg-muted/30 px-3 py-2 text-sm">
-                    <Badge variant="outline" className="text-[10px]">{h.from}</Badge>
+                    <Badge variant="outline" className="text-xs">{h.from}</Badge>
                     <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    <Badge variant="outline" className="text-[10px]">{h.to}</Badge>
+                    <Badge variant="outline" className="text-xs">{h.to}</Badge>
                     <span className="ml-1 truncate text-xs text-muted-foreground flex-1">{h.deal}</span>
-                    <span className="shrink-0 text-[10px] text-muted-foreground">{h.time}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{h.time}</span>
                   </div>
                 ))}
               </div>

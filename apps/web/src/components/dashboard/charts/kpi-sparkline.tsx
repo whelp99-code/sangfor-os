@@ -88,11 +88,11 @@ export function KpiSparkline({
             {change !== null && (
               <div className="flex items-center gap-1 text-xs">
                 {isNeutral ? (
-                  <Minus className="h-3 w-3 text-muted-foreground" />
+                  <Minus className="h-3 w-3 text-muted-foreground" role="img" aria-label="No change" />
                 ) : isPositive ? (
-                  <TrendingUp className="h-3 w-3 text-emerald-500" />
+                  <TrendingUp className="h-3 w-3 text-emerald-500" role="img" aria-label="Trending up" />
                 ) : (
-                  <TrendingDown className="h-3 w-3 text-red-500" />
+                  <TrendingDown className="h-3 w-3 text-red-500" role="img" aria-label="Trending down" />
                 )}
                 <span
                   className={

@@ -111,11 +111,11 @@ export function HealthDonut({
                     {svc.name}
                   </span>
                   {svc.status === "ok" ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label={`${svc.name} status OK`} />
                   ) : svc.status === "degraded" ? (
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <AlertTriangle className="h-4 w-4 text-amber-500" role="img" aria-label={`${svc.name} status degraded`} />
                   ) : (
-                    <XCircle className="h-4 w-4 text-red-500" />
+                    <XCircle className="h-4 w-4 text-red-500" role="img" aria-label={`${svc.name} status error`} />
                   )}
                 </div>
               ))}

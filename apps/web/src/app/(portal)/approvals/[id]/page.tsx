@@ -403,7 +403,7 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">{v.name}</span>
-                          <Badge variant={v.status === "failed" ? "destructive" : v.status === "warning" ? "secondary" : "default"} className="text-[10px]">
+                          <Badge variant={v.status === "failed" ? "destructive" : v.status === "warning" ? "secondary" : "default"} className="text-xs">
                             {v.status}
                           </Badge>
                         </div>
@@ -468,7 +468,7 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
                       <p className="text-sm font-medium">{a.title}</p>
                       <p className="text-xs text-muted-foreground">{a.type} · {a.id}</p>
                     </div>
-                    <Badge variant="outline" className="text-[10px]">{a.type}</Badge>
+                    <Badge variant="outline" className="text-xs">{a.type}</Badge>
                   </Link>
                 ))}
               </div>
@@ -510,10 +510,10 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
                     <ColorStatusIcon status={cr.status} />
                     <div>
                       <p className="text-sm font-medium">{cr.color}</p>
-                      <p className="text-[10px] text-muted-foreground">{cr.label}</p>
+                      <p className="text-xs text-muted-foreground">{cr.label}</p>
                     </div>
                   </div>
-                  <Badge variant={cr.status === "failed" ? "destructive" : cr.status === "pending" ? "secondary" : cr.status === "passed" ? "default" : "outline"} className="text-[10px]">
+                  <Badge variant={cr.status === "failed" ? "destructive" : cr.status === "pending" ? "secondary" : cr.status === "passed" ? "default" : "outline"} className="text-xs">
                     {cr.status === "passed" ? "Passed" :
                      cr.status === "pending" ? "Pending" :
                      cr.status === "failed" ? "Failed" : "N/A"}
@@ -569,7 +569,7 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium">{event.action}</p>
-                          <span className="text-[10px] text-muted-foreground">{event.timestamp}</span>
+                          <span className="text-xs text-muted-foreground">{event.timestamp}</span>
                         </div>
                         <p className="text-xs text-muted-foreground">{event.actor}</p>
                         {event.note && (
