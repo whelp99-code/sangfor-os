@@ -46,6 +46,8 @@ export const PORTAL_NAV: NavItem[] = [
   { title: "GitHub", href: "/development/github", icon: "code", group: "Development" },
 
   // ═══ System ═══
+  { title: "Operator Console", href: "/operator", icon: "activity", group: "System", roles: ["admin"] },
+  { title: "Security", href: "/security", icon: "shield-check", group: "System", roles: ["admin"] },
   { title: "설정", href: "/settings", icon: "settings", group: "System" },
 ];
 
