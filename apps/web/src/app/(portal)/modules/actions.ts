@@ -68,8 +68,11 @@ export async function toggleConnectorCredentialMode(connectorKey: string, curren
   // Create audit log
   await prisma.auditLog.create({
     data: {
-      action: "toggle_connector_credential_mode",
-      metadata: { connectorKey, fromMode: currentMode, toMode: newMode },
+      eventType: "connector_credential_toggle",
+      actorId: "system",
+      resourceType: "connector",
+      resourceId: connectorKey,
+      details: { fromMode: currentMode, toMode: newMode },
     },
   });
 
