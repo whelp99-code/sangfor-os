@@ -21,6 +21,7 @@ export const PORTAL_NAV: NavItem[] = [
     roles: ["owner", "admin"],
   },
   { title: "설정", href: "/settings", icon: "settings" },
+  { title: "재무", href: "/cfo/dashboard", icon: "trending-up" },
 ];
 
 export type MockProject = {

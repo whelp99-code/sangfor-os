@@ -26,3 +26,6 @@ export * from "./langfuse-observability";
 export * from "./mail-insight-threads";
 export * from "./mail-policy-memory";
 export * from "./mail-candidates";
+export * from "./color-agent";
+export * from "./quote-engine";
+export * from "./asset-renewal";
