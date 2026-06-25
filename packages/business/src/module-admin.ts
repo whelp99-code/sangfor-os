@@ -31,8 +31,10 @@ export async function setModuleRegistryStatus(input: {
 
   await prisma.auditLog.create({
     data: {
-      action: "set_module_registry_status",
-      metadata: {
+      eventType: "set_module_registry_status",
+      resourceType: "module_registry",
+      resourceId: input.moduleKey,
+      details: {
         moduleKey: input.moduleKey,
         fromStatus: existing.status,
         toStatus: input.status,

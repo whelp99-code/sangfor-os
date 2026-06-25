@@ -510,12 +510,20 @@ model OutboxEvent {
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  action    String
-  actorId   String?  @map("actor_id")
-  metadata  Json?
-  createdAt DateTime @default(now()) @map("created_at")
+  id           String   @id @default(cuid())
+  eventType    String   @map("event_type")
+  actorId      String?  @map("actor_id")
+  resourceType String   @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  details      Json?
+  previousHash String?  @map("previous_hash")
+  eventHash    String?  @map("event_hash")
+  timestamp    DateTime @default(now())
+  createdAt    DateTime @default(now()) @map("created_at")
 
+  @@index([eventType, createdAt])
+  @@index([actorId])
+  @@index([resourceType, resourceId])
   @@map("audit_logs")
 }
 

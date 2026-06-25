@@ -74,7 +74,7 @@ describe.skipIf(!dbIntegrationEnabled)("module admin side effects", () => {
       }),
       prisma.auditLog.count({
         where: {
-          action: "set_module_registry_status",
+          eventType: "set_module_registry_status",
         },
       }),
     ]);
@@ -96,7 +96,7 @@ describe.skipIf(!dbIntegrationEnabled)("module admin side effects", () => {
         }),
         prisma.auditLog.count({
           where: {
-            action: "set_module_registry_status",
+            eventType: "set_module_registry_status",
           },
         }),
       ]);

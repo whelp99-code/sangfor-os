@@ -18,8 +18,7 @@ export class AuditChain {
 
   record(eventType: string, actorId: string, resourceType: string, resourceId: string, details: Record<string, unknown> = {}): AuditEvent {
     const timestamp = new Date().toISOString()
-    const canonicalJson = JSON.stringify({ eventType, actorId, resourceType, resourceId, details, timestamp, previousHash: this.lastHash })
-    const hash = createHash('sha256').update(canonicalJson).digest('hex')
+    const hash = AuditChain.computeHash(eventType, actorId, resourceType, resourceId, details, timestamp, this.lastHash)
     const event: AuditEvent = {
       id: `audit-${this.events.length + 1}-${Date.now()}`,
       previousHash: this.lastHash,
@@ -32,11 +31,24 @@ export class AuditChain {
 
   getEvents(): AuditEvent[] { return [...this.events] }
   getLastHash(): string { return this.lastHash }
+
+  static computeHash(
+    eventType: string,
+    actorId: string,
+    resourceType: string,
+    resourceId: string,
+    details: Record<string, unknown>,
+    timestamp: string,
+    previousHash: string,
+  ): string {
+    const canonicalJson = JSON.stringify({ eventType, actorId, resourceType, resourceId, details, timestamp, previousHash })
+    return createHash('sha256').update(canonicalJson).digest('hex')
+  }
+
   verifyIntegrity(): boolean {
     let hash = '0'.repeat(64)
     for (const event of this.events) {
-      const canonicalJson = JSON.stringify({ eventType: event.eventType, actorId: event.actorId, resourceType: event.resourceType, resourceId: event.resourceId, details: event.details, timestamp: event.timestamp, previousHash: hash })
-      const expectedHash = createHash('sha256').update(canonicalJson).digest('hex')
+      const expectedHash = AuditChain.computeHash(event.eventType, event.actorId, event.resourceType, event.resourceId, event.details, event.timestamp, hash)
       if (event.hash !== expectedHash || event.previousHash !== hash) return false
       hash = event.hash
     }
