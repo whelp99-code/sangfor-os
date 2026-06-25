@@ -30,3 +30,4 @@ export * from "./color-agent";
 export * from "./quote-engine";
 export * from "./ai-quality-gate";
 export * from "./asset-renewal";
+export * from "./notification";
