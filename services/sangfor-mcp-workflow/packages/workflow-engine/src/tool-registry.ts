@@ -1,0 +1,333 @@
+/**
+ * Tool Registry — sangfor-engineer-mcp의 실제 MCP tools를 호출하는 registry
+ */
+
+import { nowId, createLogger } from '@sangfor/workflow-shared';
+import type { ToolDefinition, ProductCode, RiskLevel } from './types.js';
+import { McpStdioClient } from './mcp-client.js';
+
+const log = createLogger('tool-registry');
+
+/** Workflow generation/execution용 고수준 tool (createDefaultToolDefinitions + MCP aliases와 동일 집합) */
+export const WORKFLOW_TOOL_NAMES = [
+  'import_excel',
+  'analyze_requirements',
+  'generate_change_plan',
+  'generate_setting_guide_docx',
+  'generate_setting_guide_pptx',
+  'capture_screenshots',
+  'generate_evidence_report',
+  'search_manuals',
+  'run_health_check',
+] as const;
+
+export type WorkflowToolName = (typeof WORKFLOW_TOOL_NAMES)[number];
+
+// ─── Tool Registry ──────────────────────────────────────────────────────────
+
+export class ToolRegistry {
+  private tools: Map<string, ToolDefinition> = new Map();
+  private mcpClient: McpStdioClient | null = null;
+
+  // MCP 클라이언트 연결
+  setMcpClient(client: McpStdioClient): void {
+    this.mcpClient = client;
+    log.info('MCP client connected to tool registry');
+  }
+
+  // tool 등록
+  register(tool: ToolDefinition): void {
+    this.tools.set(tool.name, tool);
+  }
+
+  // 여러 tool 한번에 등록
+  registerAll(tools: ToolDefinition[]): void {
+    for (const tool of tools) {
+      this.register(tool);
+    }
+  }
+
+  // MCP 서버에서 tool 자동 등록
+  async registerFromMcpServer(): Promise<void> {
+    if (!this.mcpClient) {
+      throw new Error('MCP client not connected');
+    }
+
+    const mcpTools = await this.mcpClient.listTools();
+    log.info(`Found ${mcpTools.length} MCP tools`);
+
+    for (const mcpTool of mcpTools) {
+      const tool: ToolDefinition = {
+        name: mcpTool.name,
+        description: mcpTool.description,
+        inputSchema: mcpTool.inputSchema,
+        category: this.categorizeTool(mcpTool.name),
+        tags: this.extractTags(mcpTool.name),
+        estimatedDuration: '10s',
+        riskLevel: this.inferRiskLevel(mcpTool.name),
+        requiresApproval: this.inferRequiresApproval(mcpTool.name),
+        handler: async (args: any) => {
+          if (!this.mcpClient) throw new Error('MCP client not connected');
+          return this.mcpClient.callTool(mcpTool.name, args);
+        },
+      };
+
+      this.register(tool);
+    }
+
+    log.info(`Registered ${mcpTools.length} tools from MCP server`);
+  }
+
+  // tool 조회
+  getTool(name: string): ToolDefinition | undefined {
+    return this.tools.get(name);
+  }
+
+  // tool 존재 확인
+  hasTool(name: string): boolean {
+    return this.tools.has(name);
+  }
+
+  // 전체 tool 목록
+  listTools(): ToolDefinition[] {
+    return Array.from(this.tools.values());
+  }
+
+  // 카테고리별 tool 목록
+  listToolsByCategory(category: string): ToolDefinition[] {
+    return this.listTools().filter((t) => t.category === category);
+  }
+
+  // 태그별 tool 목록
+  listToolsByTag(tag: string): ToolDefinition[] {
+    return this.listTools().filter((t) => t.tags.includes(tag));
+  }
+
+  // 제품별 tool 목록
+  listToolsByProduct(product: ProductCode): ToolDefinition[] {
+    const productLower = product.toLowerCase();
+    return this.listTools().filter(
+      (t) => t.tags.includes(productLower) || t.tags.includes('product-agnostic')
+    );
+  }
+
+  // tool 제거
+  unregister(name: string): boolean {
+    return this.tools.delete(name);
+  }
+
+  // 전체 tool 이름 목록
+  listToolNames(): string[] {
+    return Array.from(this.tools.keys());
+  }
+
+  // tool 통계
+  getStats(): { total: number; byCategory: Record<string, number>; byProduct: Record<string, number> } {
+    const tools = this.listTools();
+    const byCategory: Record<string, number> = {};
+    const byProduct: Record<string, number> = {};
+
+    for (const tool of tools) {
+      byCategory[tool.category] = (byCategory[tool.category] || 0) + 1;
+      for (const tag of tool.tags) {
+        if (['epp', 'iag', 'cc', 'hci', 'scp'].includes(tag)) {
+          byProduct[tag] = (byProduct[tag] || 0) + 1;
+        }
+      }
+    }
+
+    return { total: tools.length, byCategory, byProduct };
+  }
+
+  // tool 카테고리 분류
+  private categorizeTool(name: string): string {
+    if (name.includes('import') || name.includes('ingest') || name.includes('learn')) return 'input';
+    if (name.includes('analyze') || name.includes('search') || name.includes('rag')) return 'analysis';
+    if (name.includes('generate') || name.includes('build') || name.includes('create')) return 'output';
+    if (name.includes('capture') || name.includes('screenshot') || name.includes('verify')) return 'verification';
+    if (name.includes('health') || name.includes('check') || name.includes('monitor')) return 'monitoring';
+    if (name.includes('feedback') || name.includes('wiki') || name.includes('lesson')) return 'knowledge';
+    if (name.includes('approval') || name.includes('request')) return 'approval';
+    return 'other';
+  }
+
+  // tool 태그 추출
+  private extractTags(name: string): string[] {
+    const tags: string[] = [];
+    const lower = name.toLowerCase();
+
+    if (lower.includes('epp') || lower.includes('endpoint')) tags.push('epp');
+    if (lower.includes('iag')) tags.push('iag');
+    if (lower.includes('cc') || lower.includes('cyber')) tags.push('cc');
+    if (lower.includes('hci') || lower.includes('scp')) tags.push('hci');
+    if (lower.includes('excel') || lower.includes('import')) tags.push('excel');
+    if (lower.includes('guide') || lower.includes('docx') || lower.includes('pptx')) tags.push('document');
+    if (lower.includes('screenshot') || lower.includes('capture')) tags.push('screenshot');
+    if (lower.includes('health') || lower.includes('check')) tags.push('health');
+    if (lower.includes('rag') || lower.includes('search')) tags.push('rag');
+    if (lower.includes('feedback') || lower.includes('wiki')) tags.push('knowledge');
+
+    if (tags.length === 0) tags.push('product-agnostic');
+    return tags;
+  }
+
+  private inferRiskLevel(name: string): RiskLevel {
+    const lower = name.toLowerCase();
+    const criticalPattern = /(delete|remove|restart|reboot|reset|drop)/i;
+    const highPattern = /(apply|configure|update|write|set|change|modify|create)/i;
+    const readonlyPattern = /^(get|list|search|read|check|verify|describe|status|health)/i;
+
+    if (criticalPattern.test(lower)) return 'critical';
+    if (highPattern.test(lower)) return 'high';
+    if (readonlyPattern.test(lower)) return 'low';
+    return 'medium';
+  }
+
+  private inferRequiresApproval(name: string): boolean {
+    const lower = name.toLowerCase();
+    const readonlyPattern = /^(get|list|search|read|check|verify|describe|status|health)/i;
+    if (readonlyPattern.test(lower)) {
+      return false;
+    }
+    return true;
+  }
+
+  // ─── PR-25: 저수준 클릭 tool 필터링 ───────────────────────────────────────
+
+  /**
+   * 저수준 클릭 tool이 MCP로 직접 노출되지 않도록 필터링
+   * 고수준 tool만 반환 (import_excel, analyze_requirements, generate_change_plan 등)
+   */
+  /** 워크플로우 생성·실행에 사용할 고수준 tool만 반환 (MCP 51개 전체 제외) */
+  listWorkflowTools(): ToolDefinition[] {
+    const allowed = new Set<string>(WORKFLOW_TOOL_NAMES);
+    return this.listTools().filter((tool) => allowed.has(tool.name));
+  }
+
+  listSafeTools(): ToolDefinition[] {
+    const unsafePatterns = [
+      'click_',
+      'ui_action',
+      'raw_click',
+      'raw_input',
+      'raw_select',
+      'cdp_',
+      'playwright_',
+      'element_click',
+      'selector_',
+      'low_level_',
+    ];
+
+    return this.listTools().filter(tool => {
+      const nameLower = tool.name.toLowerCase();
+      // 저수준 tool 패턴에 매칭되지 않는 tool만 반환
+      return !unsafePatterns.some(pattern => nameLower.includes(pattern));
+    });
+  }
+}
+
+// ─── 기본 tool 정의 (MCP 서버 연결 전 fallback) ─────────────────────────────
+
+export function createDefaultToolDefinitions(): ToolDefinition[] {
+  return [
+    {
+      name: 'import_excel',
+      description: 'ITAC Excel 체크리스트를 파싱하여 요구사항으로 변환',
+      inputSchema: { type: 'object', properties: { filePath: { type: 'string' } }, required: ['filePath'] },
+      category: 'input',
+      tags: ['excel', 'product-agnostic'],
+      estimatedDuration: '5s',
+      riskLevel: 'low',
+      requiresApproval: false,
+      handler: async () => ({ rows: [], count: 0 }),
+    },
+    {
+      name: 'analyze_requirements',
+      description: '고객 요구사항을 분석하여 제품별 설정 태스크로 변환',
+      inputSchema: { type: 'object', properties: { requirements: { type: 'array' } }, required: ['requirements'] },
+      category: 'analysis',
+      tags: ['analysis', 'product-agnostic'],
+      estimatedDuration: '10s',
+      riskLevel: 'low',
+      requiresApproval: false,
+      handler: async () => ({ tasks: [] }),
+    },
+    {
+      name: 'generate_change_plan',
+      description: '제품별 변경 계획 생성',
+      inputSchema: { type: 'object', properties: { tasks: { type: 'array' } }, required: ['tasks'] },
+      category: 'planning',
+      tags: ['planning', 'product-agnostic'],
+      estimatedDuration: '15s',
+      riskLevel: 'low',
+      requiresApproval: false,
+      handler: async () => ({ planId: 'temp', steps: [] }),
+    },
+    {
+      name: 'generate_setting_guide_docx',
+      description: 'Word (.docx) 설정 가이드 생성',
+      inputSchema: { type: 'object', properties: { filePath: { type: 'string' } }, required: ['filePath'] },
+      category: 'output',
+      tags: ['document', 'product-agnostic'],
+      estimatedDuration: '20s',
+      riskLevel: 'low',
+      requiresApproval: false,
+      handler: async () => ({ path: 'outputs/setting-guide.docx' }),
+    },
+    {
+      name: 'generate_setting_guide_pptx',
+      description: 'PowerPoint (.pptx) 설정 가이드 생성',
+      inputSchema: { type: 'object', properties: { filePath: { type: 'string' } }, required: ['filePath'] },
+      category: 'output',
+      tags: ['document', 'product-agnostic'],
+      estimatedDuration: '25s',
+      riskLevel: 'low',
+      requiresApproval: false,
+      handler: async () => ({ path: 'outputs/setting-guide.pptx' }),
+    },
+    {
+      name: 'capture_screenshots',
+      description: '실장비 콘솔에서 스크린샷 캡처',
+      inputSchema: { type: 'object', properties: { product: { type: 'string' } }, required: ['product'] },
+      category: 'verification',
+      tags: ['screenshot', 'epp', 'iag', 'cc'],
+      estimatedDuration: '60s',
+      riskLevel: 'medium',
+      requiresApproval: false,
+      handler: async () => ({ captured: 0 }),
+    },
+    {
+      name: 'generate_evidence_report',
+      description: '검증 보고서 생성',
+      inputSchema: { type: 'object', properties: { planId: { type: 'string' } } },
+      category: 'output',
+      tags: ['report', 'product-agnostic'],
+      estimatedDuration: '10s',
+      riskLevel: 'low',
+      requiresApproval: false,
+      handler: async () => ({ path: 'outputs/evidence-report.md' }),
+    },
+    {
+      name: 'search_manuals',
+      description: 'Sangfor 매뉴얼/가이드 검색',
+      inputSchema: { type: 'object', properties: { product: { type: 'string' }, query: { type: 'string' } }, required: ['product'] },
+      category: 'knowledge',
+      tags: ['rag', 'epp', 'iag', 'cc', 'hci'],
+      estimatedDuration: '5s',
+      riskLevel: 'low',
+      requiresApproval: false,
+      handler: async () => ({ results: [] }),
+    },
+    {
+      name: 'run_health_check',
+      description: '실장비 정책 상태 확인',
+      inputSchema: { type: 'object', properties: { product: { type: 'string' } }, required: ['product'] },
+      category: 'monitoring',
+      tags: ['health', 'epp', 'iag', 'cc'],
+      estimatedDuration: '90s',
+      riskLevel: 'low',
+      requiresApproval: false,
+      handler: async () => ({ status: 'pass', alerts: [] }),
+    },
+  ];
+}
