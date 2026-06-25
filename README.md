@@ -53,10 +53,22 @@ open http://localhost:3101
 | Web (Next.js) | 3101 | http://localhost:3101 |
 | API (Express) | 3200 | http://localhost:3200 |
 | Finance (NestJS) | 4100 | http://localhost:4100 |
+| Sangfor MCP Workflow | 3500 | http://localhost:3500 |
+| Sangfor Engineer MCP | 3600 | http://localhost:3600 |
+| Sangfor Operator Console | 3502 | http://localhost:3502 |
+| Sangfor Mock Console | 3400 | http://localhost:3400 |
 | PostgreSQL | 5434 | localhost:5434 |
 | Redis | 6380 | localhost:6380 |
 | Prometheus | 9090 | http://localhost:9090 |
 | Grafana | 3000 | http://localhost:3000 |
+
+## Services Structure
+
+```
+services/
+├── sangfor-engineer-mcp/     # Core MCP server (50+ tools, RAG, Playwright)
+└── sangfor-mcp-workflow/     # Workflow orchestrator (AI-driven, compliance, device mgmt)
+```
 
 ## Key Scripts
 

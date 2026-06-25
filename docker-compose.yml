@@ -112,6 +112,43 @@ services:
     ports:
       - "3010:3010"
 
+  # ═══ Sangfor MCP Services ═══
+  sangfor-engineer-mcp:
+    build:
+      context: ./services/sangfor-engineer-mcp
+      dockerfile: Dockerfile
+    ports:
+      - "3600:3600"
+      - "3502:3502"
+    environment:
+      PORT: 3600
+      OPERATOR_CONSOLE_PORT: 3502
+    volumes:
+      - ./services/sangfor-engineer-mcp/data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  sangfor-mcp-workflow:
+    build:
+      context: ./services/sangfor-mcp-workflow
+      dockerfile: apps/operator-console/Dockerfile
+    ports:
+      - "3500:3500"
+    environment:
+      PORT: 3500
+    depends_on:
+      - sangfor-engineer-mcp
+
+  sangfor-mcp-mock-console:
+    build:
+      context: ./services/sangfor-engineer-mcp
+      dockerfile: Dockerfile.mock
+    ports:
+      - "3400:3400"
+    environment:
+      PORT: 3400
+
   # ═══ Monitoring ═══
   prometheus:
     image: prom/prometheus:latest

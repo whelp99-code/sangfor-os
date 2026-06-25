@@ -62,3 +62,21 @@ services:
   caddy-admin:
     port: 443
     service: sangfor-caddy-admin
+
+  # Sangfor MCP Services
+  sangfor-mcp-workflow:
+    port: 3500
+    service: sangfor-mcp-workflow
+    description: Sangfor MCP workflow orchestrator (Express REST + MCP)
+  sangfor-mcp-mock-console:
+    port: 3400
+    service: sangfor-mcp-mock-console
+    description: Mock Sangfor device console
+  sangfor-engineer-mcp:
+    port: 3600
+    service: sangfor-engineer-mcp
+    description: Sangfor engineer MCP HTTP bridge
+  sangfor-operator-console:
+    port: 3502
+    service: sangfor-operator-console
+    description: Sangfor operator console UI
