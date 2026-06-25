@@ -13,6 +13,7 @@
   "dependencies": {
     "@sangfor/api-utils": "workspace:*",
     "@sangfor/application": "workspace:*",
+    "@sangfor/business": "workspace:*",
     "@sangfor/persona": "workspace:*",
     "@sangfor/auth": "workspace:^",
     "@sangfor/infra": "workspace:*",

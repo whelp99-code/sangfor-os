@@ -47,9 +47,10 @@ export async function recordToolFailure(
 
   await prisma.notificationEvent.create({
     data: {
-      commandRunId,
+      companyId: "system",
+      channel: "internal",
       eventType: "tool.failed",
-      message: `${toolKey} failed: ${message}`,
+      payloadJson: { commandRunId, message: `${toolKey} failed: ${message}` },
     },
   });
 
@@ -72,8 +73,7 @@ export async function getTraceSummary(commandRunId: string) {
       take: 20,
     }),
     prisma.notificationEvent.findMany({
-      where: { commandRunId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { sentAt: "desc" },
       take: 10,
     }),
   ]);

@@ -54,6 +54,9 @@ importers:
       '@sangfor/auth':
         specifier: workspace:^
         version: link:../../packages/auth
+      '@sangfor/business':
+        specifier: workspace:*
+        version: link:../../packages/business
       '@sangfor/infra':
         specifier: workspace:*
         version: link:../../packages/infra

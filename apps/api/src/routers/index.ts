@@ -8,12 +8,14 @@ import { mailRouter } from './mail.router';
 import { workflowRouter } from './workflow.router';
 import { sangforRouter } from './sangfor.router';
 import { codingRouter } from './coding.router';
+import { businessRouter } from './business.router';
 
 export const appRouter = router({
   mail: mailRouter,
   workflow: workflowRouter,
   sangfor: sangforRouter,
   coding: codingRouter,
+  business: businessRouter,
 });
 
 export type AppRouter = typeof appRouter;

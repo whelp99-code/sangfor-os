@@ -53,9 +53,10 @@ export async function createApprovalIfNeeded(commandRunId: string, riskLevel: st
 
   await prisma.notificationEvent.create({
     data: {
-      commandRunId,
+      companyId: "system",
+      channel: "internal",
       eventType: "approval.required",
-      message: `Approval required for ${riskLevel} risk run`,
+      payloadJson: { commandRunId, message: `Approval required for ${riskLevel} risk run` },
     },
   });
 
@@ -89,9 +90,10 @@ export async function approveRequest(approvalId: string, actorId?: string) {
   if (approval.commandRunId) {
     await prisma.notificationEvent.create({
       data: {
-        commandRunId: approval.commandRunId,
+        companyId: "system",
+        channel: "internal",
         eventType: "approval.approved",
-        message: "Command run approved — workflow may proceed",
+        payloadJson: { commandRunId: approval.commandRunId, message: "Command run approved — workflow may proceed" },
       },
     });
   }
