@@ -1,56 +1,181 @@
-import { RoleDashboard } from "@/components/dashboard/role-dashboard";
+"use client";
+
+import { useEffect, useState } from "react";
+import { Search, CheckSquare, Ruler, FlaskConical, FileText, AlertTriangle } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { STATUS_LABELS } from "@sangfor/shared";
+
+type PresalesData = {
+  pendingDiscovery: number;
+  solutionFitReview: number;
+  missingSizing: number;
+  pocPrep: number;
+  aiDraftReview: number;
+};
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="h-32 animate-pulse rounded-2xl bg-muted" />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="h-40 animate-pulse rounded-xl bg-muted" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-12 text-center dark:border-red-900/50 dark:bg-red-950/20">
+      <AlertTriangle className="h-10 w-10 text-red-500" />
+      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">Failed to load dashboard</h2>
+      <p className="text-sm text-red-600 dark:text-red-300">{message}</p>
+    </div>
+  );
+}
 
 export default function PresalesDashboardPage() {
+  const [data, setData] = useState<PresalesData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch("/api/dashboard/presales");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setData(await res.json());
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  if (loading) return <LoadingSkeleton />;
+  if (error) return <ErrorState message={error} />;
+
   return (
-    <RoleDashboard
-      role="Presales Engineer"
-      sections={[
-        {
-          title: "Discovery 대기",
-          description: "Opportunities awaiting technical discovery",
-          items: [
-            { label: "신규 요청", value: "4" },
-            { label: "재조정 필요", value: "2" },
-            { label: "미배정", value: "1" },
-          ],
-        },
-        {
-          title: "Solution Fit 검토",
-          description: "Pending solution architecture reviews",
-          items: [
-            { label: "검토 대기", value: "3" },
-            { label: "추가 정보 필요", value: "2" },
-            { label: "확정", value: "1" },
-          ],
-        },
-        {
-          title: "Sizing 누락 항목",
-          description: "Quotes missing sizing data",
-          items: [
-            { label: "스토리지", value: "2" },
-            { label: "네트워크", value: "1" },
-            { label: "라이선스", value: "3" },
-          ],
-        },
-        {
-          title: "PoC 준비",
-          description: "PoC preps requiring attention",
-          items: [
-            { label: "환경 구성", value: "2" },
-            { label: "스크립트 준비", value: "1" },
-            { label: "고객 일정 조율", value: "3" },
-          ],
-        },
-        {
-          title: "AI Draft 검토 필요",
-          description: "AI-generated technical drafts pending human review",
-          items: [
-            { label: "제안서", value: "3" },
-            { label: "SOW", value: "1" },
-            { label: "기술 문서", value: "2" },
-          ],
-        },
-      ]}
-    />
+    <div className="space-y-6">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl sm:p-8">
+        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+        <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-blue-500/10 blur-2xl" />
+        <div className="relative">
+          <p className="text-sm font-medium text-gray-400">Sangfor Agentic OS</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Presales Engineer</h1>
+          <p className="mt-2 text-sm text-gray-400">Role-based operational dashboard</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Search className="h-5 w-5 text-blue-600" />
+              <CardTitle className="text-base">Discovery 대기</CardTitle>
+            </div>
+            <CardDescription>Opportunities awaiting technical discovery</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data ? (
+              <>
+                <MetricRow label="신규 요청" value={String(data.pendingDiscovery)} />
+                <MetricRow label="미배정" value="0" />
+              </>
+            ) : null}
+            {!data?.pendingDiscovery && !data?.solutionFitReview && (
+              <p className="py-4 text-center text-sm text-muted-foreground">No discovery requests pending</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <CheckSquare className="h-5 w-5 text-emerald-600" />
+              <CardTitle className="text-base">Solution Fit 검토</CardTitle>
+            </div>
+            <CardDescription>Pending solution architecture reviews</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data ? (
+              <>
+                <MetricRow label="검토 대기" value={String(data.solutionFitReview)} />
+                <MetricRow label="확정" value="0" />
+              </>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Ruler className="h-5 w-5 text-amber-600" />
+              <CardTitle className="text-base">Sizing 누락 항목</CardTitle>
+            </div>
+            <CardDescription>Quotes missing sizing data</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data ? (
+              <MetricRow label="누락" value={String(data.missingSizing)} />
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <FlaskConical className="h-5 w-5 text-purple-600" />
+              <CardTitle className="text-base">PoC 준비</CardTitle>
+            </div>
+            <CardDescription>PoC preps requiring attention</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data ? (
+              <>
+                <MetricRow label="환경 구성" value={String(data.pocPrep)} />
+                <MetricRow label="Planning" value={String(data.pocPrep)} />
+              </>
+            ) : null}
+            {!data?.pocPrep && (
+              <p className="py-4 text-center text-sm text-muted-foreground">No active PoC preps</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-indigo-600" />
+              <CardTitle className="text-base">AI Draft 검토 필요</CardTitle>
+            </div>
+            <CardDescription>AI-generated technical drafts pending human review</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data ? (
+              <>
+                <MetricRow label="검토 대기" value={String(data.aiDraftReview)} />
+                <MetricRow label="Approval status" value={STATUS_LABELS.ready_for_human_approval} />
+              </>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function MetricRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm font-semibold">{value}</span>
+    </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   TrendingUp,
   AlertTriangle,
@@ -27,13 +28,72 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { STATUS_LABELS } from "@sangfor/shared";
+
+type ColorReviewStatus = "passed" | "pending" | "failed" | "not_required";
 
 type ColorReview = {
   name: string;
-  status: "passed" | "pending" | "failed" | "not_required";
+  status: ColorReviewStatus;
 };
 
-const COLORS: { name: string; label: string; desc: string }[] = [
+type PipelineRow = {
+  family: string;
+  forecast: number;
+  weighted: number;
+  deals: number;
+};
+
+type ApprovalItem = {
+  id: string;
+  customer: string;
+  type: string;
+  waitDays: number;
+  risk: string;
+};
+
+type PocItem = {
+  product: string;
+  success: number;
+  fail: number;
+  rate: string;
+};
+
+type DeliveryWarning = {
+  customer: string;
+  product: string;
+  delayDays: number;
+  reason: string;
+};
+
+type SupportHotspot = {
+  customer: string;
+  tickets: number;
+  slaBreach: number;
+  severity: string;
+};
+
+type HealthService = {
+  name: string;
+  status: string;
+  latency: string;
+};
+
+type ExecutiveData = {
+  revenuePipeline: { total: number; weighted: number; deals: number };
+  productForecast: PipelineRow[];
+  grossMarginRisk: { blendedMargin: number; belowThresholdDeals: number; avgDiscount: number };
+  approvalBottleneck: ApprovalItem[];
+  pocSuccessRate: PocItem[];
+  deliveryDelay: DeliveryWarning[];
+  supportHotspots: SupportHotspot[];
+  colorReviews: ColorReview[];
+  systemHealth: HealthService[];
+  renewalForecast: number;
+  securityAlerts: number;
+};
+
+const COLORS_DATA: { name: string; label: string; desc: string }[] = [
   { name: "Blue", label: "기술 검토", desc: "Technical Direction / Architecture" },
   { name: "Red", label: "리스크 검토", desc: "Risk & Safety / Security" },
   { name: "Orange", label: "비즈니스 가치 검토", desc: "Product & Business Value" },
@@ -41,51 +101,8 @@ const COLORS: { name: string; label: string; desc: string }[] = [
   { name: "Teal", label: "UX/가시성 검토", desc: "UX & Visibility" },
 ];
 
-const COLOR_REVIEWS: ColorReview[] = [
-  { name: "Blue", status: "passed" },
-  { name: "Red", status: "pending" },
-  { name: "Orange", status: "failed" },
-  { name: "Gray", status: "passed" },
-  { name: "Teal", status: "not_required" },
-];
-
-const PIPELINE_ROWS = [
-  { family: "Sangfor NGAF", forecast: 2840000, weighted: 1988000, deals: 4 },
-  { family: "Sangfor aDesk", forecast: 1520000, weighted: 1064000, deals: 3 },
-  { family: "Sangfor HCI", forecast: 920000, weighted: 644000, deals: 2 },
-  { family: "Sangfor IAM", forecast: 510000, weighted: 357000, deals: 2 },
-  { family: "Sangfor SD-WAN", forecast: 380000, weighted: 266000, deals: 1 },
-];
-
-const APPROVALS = [
-  { id: "OPP-2024-0842", customer: "신한은행", type: "Special Discount", waitDays: 4, risk: "high" },
-  { id: "OPP-2024-0791", customer: "현대모비스", type: "Payment Terms", waitDays: 7, risk: "medium" },
-  { id: "OPP-2024-0765", customer: "LG CNS", type: "Margin Override", waitDays: 2, risk: "low" },
-  { id: "OPP-2024-0723", customer: "SK Telecom", type: "Contract Value", waitDays: 11, risk: "high" },
-];
-
-const POC_HEATMAP = [
-  { product: "NGAF", success: 8, fail: 1, rate: "89%" },
-  { product: "aDesk", success: 6, fail: 2, rate: "75%" },
-  { product: "HCI", success: 4, fail: 0, rate: "100%" },
-  { product: "IAM", success: 3, fail: 1, rate: "75%" },
-  { product: "SD-WAN", success: 2, fail: 0, rate: "100%" },
-];
-
-const DELIVERY_WARNINGS = [
-  { customer: "기아자동차", product: "NGAF-4000", delayDays: 14, reason: "License import delay" },
-  { customer: "KB국민은행", product: "aDesk-V", delayDays: 7, reason: "Site prep incomplete" },
-  { customer: "삼성전자", product: "HCI-2000", delayDays: 3, reason: "SOW not signed" },
-];
-
-const SUPPORT_HOTSPOTS = [
-  { customer: "롯데정보통신", tickets: 12, slaBreach: 3, severity: "critical" },
-  { customer: "KT Cloud", tickets: 8, slaBreach: 1, severity: "warning" },
-  { customer: "네이버클라우드", tickets: 5, slaBreach: 0, severity: "ok" },
-];
-
-function ColorBadge({ status }: { status: ColorReview["status"] }) {
-  const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+function ColorBadge({ status }: { status: ColorReviewStatus }) {
+  const map: Record<ColorReviewStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
     passed: { label: "Passed", variant: "default" },
     pending: { label: "Pending", variant: "secondary" },
     failed: { label: "Failed", variant: "destructive" },
@@ -101,7 +118,7 @@ function RiskBadge({ risk }: { risk: string }) {
     medium: { label: "Medium", variant: "secondary" },
     low: { label: "Low", variant: "outline" },
   };
-  const { label, variant } = map[risk];
+  const { label, variant } = map[risk] ?? { label: risk, variant: "outline" as const };
   return <Badge variant={variant}>{label}</Badge>;
 }
 
@@ -111,13 +128,74 @@ function SeverityIcon({ severity }: { severity: string }) {
   return <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label="OK severity" />;
 }
 
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="h-40 animate-pulse rounded-2xl bg-muted" />
+      <div className="h-64 animate-pulse rounded-xl bg-muted" />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="h-48 animate-pulse rounded-xl bg-muted" />
+        <div className="h-48 animate-pulse rounded-xl bg-muted" />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="h-48 animate-pulse rounded-xl bg-muted" />
+        <div className="h-48 animate-pulse rounded-xl bg-muted" />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="h-48 animate-pulse rounded-xl bg-muted" />
+        <div className="h-48 animate-pulse rounded-xl bg-muted" />
+      </div>
+      <div className="h-48 animate-pulse rounded-xl bg-muted" />
+    </div>
+  );
+}
+
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-12 text-center dark:border-red-900/50 dark:bg-red-950/20">
+      <XCircle className="h-10 w-10 text-red-500" />
+      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">Failed to load dashboard</h2>
+      <p className="text-sm text-red-600 dark:text-red-300">{message}</p>
+    </div>
+  );
+}
+
 export function ExecutiveDashboard() {
-  const totalForecast = PIPELINE_ROWS.reduce((s, r) => s + r.forecast, 0);
-  const totalWeighted = PIPELINE_ROWS.reduce((s, r) => s + r.weighted, 0);
+  const [data, setData] = useState<ExecutiveData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch("/api/dashboard/executive");
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        const json = await res.json();
+        setData(json);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  if (loading) return <LoadingSkeleton />;
+
+  if (error) return <ErrorState message={error} />;
+
+  if (!data) return <ErrorState message="No data returned" />;
+
+  const totalForecast = data.productForecast.reduce((s, r) => s + r.forecast, 0);
+  const totalWeighted = data.productForecast.reduce((s, r) => s + r.weighted, 0);
 
   return (
     <div className="space-y-6">
-      {/* Branding Header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl sm:p-8">
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
         <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-blue-500/10 blur-2xl" />
@@ -132,7 +210,6 @@ export function ExecutiveDashboard() {
         </div>
       </div>
 
-      {/* Revenue Pipeline */}
       <Card>
         <CardHeader className="flex flex-row items-center gap-2 pb-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/50">
@@ -147,34 +224,33 @@ export function ExecutiveDashboard() {
           </div>
         </CardHeader>
         <CardContent>
-          {PIPELINE_ROWS.length === 0 ? (
+          {data.productForecast.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No pipeline data available</p>
           ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product Family</TableHead>
-                <TableHead className="text-right">Forecast ($)</TableHead>
-                <TableHead className="text-right">Weighted ($)</TableHead>
-                <TableHead className="text-right">Deals</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {PIPELINE_ROWS.map((row) => (
-                <TableRow key={row.family}>
-                  <TableCell className="font-medium">{row.family}</TableCell>
-                  <TableCell className="text-right">{row.forecast.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">{row.weighted.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">{row.deals}</TableCell>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product Family</TableHead>
+                  <TableHead className="text-right">Forecast ($)</TableHead>
+                  <TableHead className="text-right">Weighted ($)</TableHead>
+                  <TableHead className="text-right">Deals</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {data.productForecast.map((row) => (
+                  <TableRow key={row.family}>
+                    <TableCell className="font-medium">{row.family}</TableCell>
+                    <TableCell className="text-right">{row.forecast.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{row.weighted.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{row.deals}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
 
-      {/* Gross Margin Risk + Approval Bottleneck */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center gap-2 pb-2">
@@ -186,15 +262,15 @@ export function ExecutiveDashboard() {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
               <span className="text-muted-foreground">Blended Gross Margin</span>
-              <span className="font-semibold text-amber-600">34.2%</span>
+              <span className="font-semibold text-amber-600">{data.grossMarginRisk.blendedMargin}%</span>
             </div>
             <div className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
               <span className="text-muted-foreground">Below threshold deals</span>
-              <Badge variant="destructive">4 deals</Badge>
+              <Badge variant="destructive">{data.grossMarginRisk.belowThresholdDeals} deals</Badge>
             </div>
             <div className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
               <span className="text-muted-foreground">Avg discount rate</span>
-              <span className="font-semibold">28.5%</span>
+              <span className="font-semibold">{data.grossMarginRisk.avgDiscount}%</span>
             </div>
           </CardContent>
         </Card>
@@ -207,35 +283,34 @@ export function ExecutiveDashboard() {
             <CardTitle className="text-base">Approval Bottleneck</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {APPROVALS.length === 0 ? (
+            {data.approvalBottleneck.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">No approval bottlenecks</p>
             ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Wait</TableHead>
-                  <TableHead>Risk</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {APPROVALS.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell className="font-medium">{a.customer}</TableCell>
-                    <TableCell>{a.type}</TableCell>
-                    <TableCell className="text-right">{a.waitDays}d</TableCell>
-                    <TableCell><RiskBadge risk={a.risk} /></TableCell>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Wait</TableHead>
+                    <TableHead>Risk</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {data.approvalBottleneck.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell className="font-medium">{a.customer}</TableCell>
+                      <TableCell>{a.type}</TableCell>
+                      <TableCell className="text-right">{a.waitDays}d</TableCell>
+                      <TableCell><RiskBadge risk={a.risk} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* PoC Success Rate Heatmap + Delivery Delay */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center gap-2 pb-2">
@@ -245,29 +320,29 @@ export function ExecutiveDashboard() {
             <CardTitle className="text-base">PoC Success Rate</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {POC_HEATMAP.length === 0 ? (
+            {data.pocSuccessRate.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">No PoC data available</p>
             ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead className="text-right">Success</TableHead>
-                  <TableHead className="text-right">Fail</TableHead>
-                  <TableHead className="text-right">Rate</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {POC_HEATMAP.map((row) => (
-                  <TableRow key={row.product}>
-                    <TableCell className="font-medium">{row.product}</TableCell>
-                    <TableCell className="text-right text-emerald-600">{row.success}</TableCell>
-                    <TableCell className="text-right text-red-600">{row.fail}</TableCell>
-                    <TableCell className="text-right font-semibold">{row.rate}</TableCell>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead className="text-right">Success</TableHead>
+                    <TableHead className="text-right">Fail</TableHead>
+                    <TableHead className="text-right">Rate</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {data.pocSuccessRate.map((row) => (
+                    <TableRow key={row.product}>
+                      <TableCell className="font-medium">{row.product}</TableCell>
+                      <TableCell className="text-right text-emerald-600">{row.success}</TableCell>
+                      <TableCell className="text-right text-red-600">{row.fail}</TableCell>
+                      <TableCell className="text-right font-semibold">{row.rate}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
@@ -280,10 +355,10 @@ export function ExecutiveDashboard() {
             <CardTitle className="text-base">Delivery Delay Warnings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {DELIVERY_WARNINGS.length === 0 ? (
+            {data.deliveryDelay.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted-foreground">No delivery delays</p>
             ) : (
-              DELIVERY_WARNINGS.map((w) => (
+              data.deliveryDelay.map((w) => (
                 <div key={w.customer} className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
                   <div>
                     <p className="font-medium">{w.customer}</p>
@@ -297,7 +372,6 @@ export function ExecutiveDashboard() {
         </Card>
       </div>
 
-      {/* Support Hotspots + Color Agent Summary */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center gap-2 pb-2">
@@ -307,10 +381,10 @@ export function ExecutiveDashboard() {
             <CardTitle className="text-base">Support Hotspots</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {SUPPORT_HOTSPOTS.length === 0 ? (
+            {data.supportHotspots.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted-foreground">No support hotspots</p>
             ) : (
-              SUPPORT_HOTSPOTS.map((s) => (
+              data.supportHotspots.map((s) => (
                 <div key={s.customer} className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <SeverityIcon severity={s.severity} />
@@ -337,22 +411,25 @@ export function ExecutiveDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-5 gap-2">
-              {COLOR_REVIEWS.map((c) => {
-                const colorDef = COLORS.find((x) => x.name === c.name)!;
-                return (
-                  <div key={c.name} className="flex flex-col items-center gap-1 rounded-lg border p-2 text-center">
-                    <span className="text-xs font-semibold">{c.name}</span>
-                    <span className="text-[10px] text-muted-foreground">{colorDef.label}</span>
-                    <ColorBadge status={c.status} />
-                  </div>
-                );
-              })}
+              {data.colorReviews.length === 0 ? (
+                <p className="col-span-5 py-4 text-center text-sm text-muted-foreground">No color reviews</p>
+              ) : (
+                data.colorReviews.map((c) => {
+                  const colorDef = COLORS_DATA.find((x) => x.name === c.name)!;
+                  return (
+                    <div key={c.name} className="flex flex-col items-center gap-1 rounded-lg border p-2 text-center">
+                      <span className="text-xs font-semibold">{c.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{colorDef?.label ?? ""}</span>
+                      <ColorBadge status={c.status as ColorReviewStatus} />
+                    </div>
+                  );
+                })
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* System Health Overview */}
       <Card>
         <CardHeader className="flex flex-row items-center gap-2 pb-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
@@ -361,36 +438,35 @@ export function ExecutiveDashboard() {
           <CardTitle className="text-base">System Health Overview</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { name: "AI Orchestrator", status: "ok", latency: "12ms" },
-              { name: "Mail Intelligence", status: "ok", latency: "45ms" },
-              { name: "Knowledge Base", status: "ok", latency: "23ms" },
-              { name: "Tool Gateway", status: "degraded", latency: "890ms" },
-              { name: "Approval Engine", status: "ok", latency: "8ms" },
-              { name: "Agent Runtime", status: "ok", latency: "34ms" },
-              { name: "Document API", status: "error", latency: "—" },
-              { name: "Audit Chain", status: "ok", latency: "56ms" },
-            ].map((svc) => (
-              <div key={svc.name} className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  {svc.status === "ok" ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" role="img" aria-label={`${svc.name} status OK`} />
-                  ) : svc.status === "degraded" ? (
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" role="img" aria-label={`${svc.name} status degraded`} />
-                  ) : (
-                    <XCircle className="h-3.5 w-3.5 text-red-500" role="img" aria-label={`${svc.name} status error`} />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium">{svc.name}</p>
-                    <p className="text-[10px] text-muted-foreground">{svc.latency}</p>
+          {data.systemHealth.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">No health data available</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {data.systemHealth.map((svc) => (
+                <div key={svc.name} className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    {svc.status === "ok" ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" role="img" aria-label={`${svc.name} status OK`} />
+                    ) : svc.status === "degraded" ? (
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" role="img" aria-label={`${svc.name} status degraded`} />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 text-red-500" role="img" aria-label={`${svc.name} status error`} />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">{svc.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{svc.latency}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      <div className="text-right text-xs text-muted-foreground">
+        <span>{STATUS_LABELS.ready_for_human_approval}</span>
+      </div>
     </div>
   );
 }
