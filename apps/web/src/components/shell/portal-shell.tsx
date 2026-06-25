@@ -100,7 +100,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                           isActive={pathname.startsWith(item.href)}
                           render={<Link href={item.href} />}
                         >
-                          <Icon />
+                          <Icon aria-hidden="true" />
                           <span>{item.title}</span>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

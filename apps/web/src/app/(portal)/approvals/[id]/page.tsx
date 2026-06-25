@@ -131,18 +131,18 @@ const STATUS_MAP: Record<ApprovalStatus, { label: string; variant: "default" | "
 
 function ColorStatusIcon({ status }: { status: ColorStatus }) {
   switch (status) {
-    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-    case "pending": return <Clock className="h-4 w-4 text-amber-500" />;
-    case "failed": return <XCircle className="h-4 w-4 text-red-500" />;
-    case "not_required": return <MinusCircle className="h-4 w-4 text-gray-400" />;
+    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label="Passed" />;
+    case "pending": return <Clock className="h-4 w-4 text-amber-500" role="img" aria-label="Pending" />;
+    case "failed": return <XCircle className="h-4 w-4 text-red-500" role="img" aria-label="Failed" />;
+    case "not_required": return <MinusCircle className="h-4 w-4 text-gray-400" role="img" aria-label="Not Required" />;
   }
 }
 
 function ValidationStatusIcon({ status }: { status: ValidationCheck["status"] }) {
   switch (status) {
-    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-    case "failed": return <XCircle className="h-4 w-4 text-red-500" />;
-    case "warning": return <AlertTriangle className="h-4 w-4 text-amber-500" />;
+    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label="Validation passed" />;
+    case "failed": return <XCircle className="h-4 w-4 text-red-500" role="img" aria-label="Validation failed" />;
+    case "warning": return <AlertTriangle className="h-4 w-4 text-amber-500" role="img" aria-label="Validation warning" />;
   }
 }
 

@@ -68,10 +68,10 @@ const INITIAL_COLUMNS: KanbanColumn[] = [
 ];
 
 function PriorityIndicator({ priority }: { priority: KanbanCard["priority"] }) {
-  if (priority === "critical") return <AlertTriangle className="h-3 w-3 text-red-500" />;
-  if (priority === "high") return <AlertTriangle className="h-3 w-3 text-amber-500" />;
-  if (priority === "medium") return <Clock className="h-3 w-3 text-blue-500" />;
-  return <Clock className="h-3 w-3 text-gray-400" />;
+  if (priority === "critical") return <AlertTriangle className="h-3 w-3 text-red-500" role="img" aria-label="Critical priority" />;
+  if (priority === "high") return <AlertTriangle className="h-3 w-3 text-amber-500" role="img" aria-label="High priority" />;
+  if (priority === "medium") return <Clock className="h-3 w-3 text-blue-500" role="img" aria-label="Medium priority" />;
+  return <Clock className="h-3 w-3 text-gray-400" role="img" aria-label="Low priority" />;
 }
 
 function StatusBadge({ status }: { status: KanbanCard["status"] }) {
@@ -179,16 +179,16 @@ export function ColorKanbanBoard() {
                           <span>{card.linkedArtifact}</span>
                         </div>
                         {col.name !== "Resolved" && col.name !== "Escalated" && (
-                          <div className="mt-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          <div className="mt-2 flex gap-1 opacity-60 hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => handleAdvance(card.id)}
-                              className="flex-1 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary hover:bg-primary/20"
+                              className="flex-1 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-brand-500"
                             >
                               Advance
                             </button>
                             <button
                               onClick={() => handleEscalate(card.id)}
-                              className="rounded bg-destructive/10 px-1.5 py-0.5 text-[9px] font-medium text-destructive hover:bg-destructive/20"
+                              className="rounded bg-destructive/10 px-1.5 py-0.5 text-[9px] font-medium text-destructive hover:bg-destructive/20 focus-visible:ring-2 focus-visible:ring-brand-500"
                             >
                               Escalate
                             </button>

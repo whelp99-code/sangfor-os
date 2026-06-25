@@ -59,10 +59,10 @@ const KANBAN_COLUMNS = [
 
 function StatusIcon({ status }: { status: ColorStatus }) {
   switch (status) {
-    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-    case "pending": return <Clock className="h-4 w-4 text-amber-500" />;
-    case "failed": return <XCircle className="h-4 w-4 text-red-500" />;
-    case "not_required": return <MinusCircle className="h-4 w-4 text-gray-400" />;
+    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label="Passed" />;
+    case "pending": return <Clock className="h-4 w-4 text-amber-500" role="img" aria-label="Pending" />;
+    case "failed": return <XCircle className="h-4 w-4 text-red-500" role="img" aria-label="Failed" />;
+    case "not_required": return <MinusCircle className="h-4 w-4 text-gray-400" role="img" aria-label="Not Required" />;
   }
 }
 
@@ -78,9 +78,9 @@ function StatusBadge({ status }: { status: ColorStatus }) {
 }
 
 function PriorityIcon({ priority }: { priority: string }) {
-  if (priority === "critical") return <AlertTriangle className="h-3.5 w-3.5 text-red-500" />;
-  if (priority === "high") return <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />;
-  return <Clock className="h-3.5 w-3.5 text-blue-500" />;
+  if (priority === "critical") return <AlertTriangle className="h-3.5 w-3.5 text-red-500" role="img" aria-label="Critical priority" />;
+  if (priority === "high") return <AlertTriangle className="h-3.5 w-3.5 text-amber-500" role="img" aria-label="High priority" />;
+  return <Clock className="h-3.5 w-3.5 text-blue-500" role="img" aria-label="Medium priority" />;
 }
 
 export function ColorAgentDashboard() {

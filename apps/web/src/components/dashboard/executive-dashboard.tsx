@@ -106,9 +106,9 @@ function RiskBadge({ risk }: { risk: string }) {
 }
 
 function SeverityIcon({ severity }: { severity: string }) {
-  if (severity === "critical") return <AlertCircle className="h-4 w-4 text-red-500" />;
-  if (severity === "warning") return <AlertTriangle className="h-4 w-4 text-amber-500" />;
-  return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
+  if (severity === "critical") return <AlertCircle className="h-4 w-4 text-red-500" role="img" aria-label="Critical severity" />;
+  if (severity === "warning") return <AlertTriangle className="h-4 w-4 text-amber-500" role="img" aria-label="Warning severity" />;
+  return <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label="OK severity" />;
 }
 
 export function ExecutiveDashboard() {
@@ -147,6 +147,9 @@ export function ExecutiveDashboard() {
           </div>
         </CardHeader>
         <CardContent>
+          {PIPELINE_ROWS.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No pipeline data available</p>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -167,6 +170,7 @@ export function ExecutiveDashboard() {
               ))}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -203,6 +207,9 @@ export function ExecutiveDashboard() {
             <CardTitle className="text-base">Approval Bottleneck</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
+            {APPROVALS.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No approval bottlenecks</p>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -223,6 +230,7 @@ export function ExecutiveDashboard() {
                 ))}
               </TableBody>
             </Table>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -237,6 +245,9 @@ export function ExecutiveDashboard() {
             <CardTitle className="text-base">PoC Success Rate</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
+            {POC_HEATMAP.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No PoC data available</p>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -257,6 +268,7 @@ export function ExecutiveDashboard() {
                 ))}
               </TableBody>
             </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -268,15 +280,19 @@ export function ExecutiveDashboard() {
             <CardTitle className="text-base">Delivery Delay Warnings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {DELIVERY_WARNINGS.map((w) => (
-              <div key={w.customer} className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
-                <div>
-                  <p className="font-medium">{w.customer}</p>
-                  <p className="text-xs text-muted-foreground">{w.product} — {w.reason}</p>
+            {DELIVERY_WARNINGS.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">No delivery delays</p>
+            ) : (
+              DELIVERY_WARNINGS.map((w) => (
+                <div key={w.customer} className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
+                  <div>
+                    <p className="font-medium">{w.customer}</p>
+                    <p className="text-xs text-muted-foreground">{w.product} — {w.reason}</p>
+                  </div>
+                  <Badge variant="destructive">{w.delayDays}d delay</Badge>
                 </div>
-                <Badge variant="destructive">{w.delayDays}d delay</Badge>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
@@ -291,20 +307,24 @@ export function ExecutiveDashboard() {
             <CardTitle className="text-base">Support Hotspots</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {SUPPORT_HOTSPOTS.map((s) => (
-              <div key={s.customer} className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <SeverityIcon severity={s.severity} />
-                  <div>
-                    <p className="font-medium">{s.customer}</p>
-                    <p className="text-xs text-muted-foreground">{s.tickets} tickets, {s.slaBreach} SLA breaches</p>
+            {SUPPORT_HOTSPOTS.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">No support hotspots</p>
+            ) : (
+              SUPPORT_HOTSPOTS.map((s) => (
+                <div key={s.customer} className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <SeverityIcon severity={s.severity} />
+                    <div>
+                      <p className="font-medium">{s.customer}</p>
+                      <p className="text-xs text-muted-foreground">{s.tickets} tickets, {s.slaBreach} SLA breaches</p>
+                    </div>
                   </div>
+                  <Badge variant={s.severity === "critical" ? "destructive" : s.severity === "warning" ? "secondary" : "outline"}>
+                    {s.severity}
+                  </Badge>
                 </div>
-                <Badge variant={s.severity === "critical" ? "destructive" : s.severity === "warning" ? "secondary" : "outline"}>
-                  {s.severity}
-                </Badge>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -355,11 +375,11 @@ export function ExecutiveDashboard() {
               <div key={svc.name} className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
                 <div className="flex items-center gap-2">
                   {svc.status === "ok" ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" role="img" aria-label={`${svc.name} status OK`} />
                   ) : svc.status === "degraded" ? (
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" role="img" aria-label={`${svc.name} status degraded`} />
                   ) : (
-                    <XCircle className="h-3.5 w-3.5 text-red-500" />
+                    <XCircle className="h-3.5 w-3.5 text-red-500" role="img" aria-label={`${svc.name} status error`} />
                   )}
                   <div>
                     <p className="text-sm font-medium">{svc.name}</p>
