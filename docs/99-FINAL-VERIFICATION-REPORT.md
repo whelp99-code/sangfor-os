@@ -2,7 +2,7 @@
 
 **검증일:** 2026-06-25  
 **Repo:** `/Users/jmpark/Playground/sangfor-os`  
-**커밋:** `4332271` (13 commits, 7개 프로젝트 통합)
+**커밋:** `d81a402` (14 commits, 7개 프로젝트 통합)
 
 ---
 
