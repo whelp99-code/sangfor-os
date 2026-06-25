@@ -10,6 +10,7 @@ import { sangforRouter } from './sangfor.router';
 import { codingRouter } from './coding.router';
 import { businessRouter } from './business.router';
 import { dashboardRouter } from './dashboard.router';
+import { searchRouter } from './search.router';
 
 export const appRouter = router({
   mail: mailRouter,
@@ -18,6 +19,7 @@ export const appRouter = router({
   coding: codingRouter,
   business: businessRouter,
   dashboard: dashboardRouter,
+  search: searchRouter,
 });
 
 export type AppRouter = typeof appRouter;

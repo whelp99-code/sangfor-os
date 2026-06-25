@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -17,10 +17,11 @@ import {
   Brain,
   History,
   User,
-  Calendar,
   FileSpreadsheet,
   FileBarChart,
   Beaker,
+  MessageSquare,
+  ArrowUpCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { STATUS_LABELS, STATUS_VARIANTS } from "@sangfor/shared";
 
 type ApprovalStatus = "pending" | "approved" | "rejected" | "auto_validating" | "auto_failed" | "remediation_required" | "ready_for_human_approval" | "stale";
 
@@ -118,15 +121,15 @@ const RELATED_ARTIFACTS = [
   { type: "PoC Result", id: "POC-2024-0007", title: "PoC 결과 보고서 — 신한은행", href: "/poc/POC-2024-0007" },
 ];
 
-const STATUS_MAP: Record<ApprovalStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  pending: { label: "대기", variant: "outline" },
-  auto_validating: { label: "자동 검증 중", variant: "secondary" },
-  auto_failed: { label: "자동 검증 실패", variant: "destructive" },
-  remediation_required: { label: "수정 필요", variant: "destructive" },
-  ready_for_human_approval: { label: "승인 대기", variant: "secondary" },
-  approved: { label: "승인 완료", variant: "default" },
-  rejected: { label: "반려", variant: "destructive" },
-  stale: { label: "재검토 필요", variant: "outline" },
+const STATUS_VARIANT_MAP: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  pending: "outline",
+  auto_validating: "secondary",
+  auto_failed: "destructive",
+  remediation_required: "destructive",
+  ready_for_human_approval: "secondary",
+  approved: "default",
+  rejected: "destructive",
+  stale: "outline",
 };
 
 function ColorStatusIcon({ status }: { status: ColorStatus }) {
@@ -166,14 +169,55 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function Toast({ message, type, onClose }: { message: string; type: "success" | "error" | "info"; onClose: () => void }) {
+  const bg = type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-800" :
+    type === "error" ? "bg-red-50 border-red-200 text-red-800" :
+    "bg-blue-50 border-blue-200 text-blue-800";
+  return (
+    <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg border px-4 py-3 shadow-lg animate-in slide-in-from-right-2 ${bg}`}>
+      <span className="text-sm">{message}</span>
+      <button onClick={onClose} className="ml-2 text-xs opacity-60 hover:opacity-100">&times;</button>
+    </div>
+  );
+}
+
 export default function ApprovalDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [requestChangesOpen, setRequestChangesOpen] = useState(false);
+  const [escalateOpen, setEscalateOpen] = useState(false);
+  const [comment, setComment] = useState("");
+  const [loading, setLoading] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
-  const statusInfo = STATUS_MAP[APPROVAL.status];
+  const statusInfo = STATUS_LABELS[APPROVAL.status] ?? APPROVAL.status;
+  const variant = STATUS_VARIANT_MAP[APPROVAL.status] ?? "outline";
+
+  const showToast = useCallback((message: string, type: "success" | "error" | "info") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  }, []);
+
+  const handleAction = useCallback(async (action: string) => {
+    setLoading(action);
+    await new Promise((r) => setTimeout(r, 1200));
+    setLoading(null);
+    setApproveOpen(false);
+    setRejectOpen(false);
+    setRequestChangesOpen(false);
+    setEscalateOpen(false);
+    setComment("");
+    showToast(`${action} successful`, "success");
+  }, [showToast]);
+
+  const canAct = APPROVAL.status === "ready_for_human_approval";
 
   return (
     <div className="space-y-6">
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <Link href="/approvals" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline">
@@ -182,30 +226,94 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">{APPROVAL.title}</h1>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+            <Badge variant={variant}>{statusInfo}</Badge>
             <Badge variant="outline">{APPROVAL.id}</Badge>
             <Badge variant="outline">{APPROVAL.type}</Badge>
           </div>
         </div>
-        {APPROVAL.status === "ready_for_human_approval" && (
-          <div className="flex items-center gap-2">
+        {canAct && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Dialog open={requestChangesOpen} onOpenChange={setRequestChangesOpen}>
+              <DialogTrigger render={<Button variant="secondary" size="sm"><MessageSquare className="h-3.5 w-3.5" />Request Changes</Button>} />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Request Changes</DialogTitle>
+                  <DialogDescription>Provide feedback for the requester to address.</DialogDescription>
+                </DialogHeader>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Describe what needs to change..."
+                  rows={4}
+                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                />
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setRequestChangesOpen(false)}>Cancel</Button>
+                  <Button
+                    variant="secondary"
+                    disabled={loading === "request-changes"}
+                    onClick={() => handleAction("Changes requested")}
+                  >
+                    {loading === "request-changes" ? "Submitting..." : "Submit Request"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={escalateOpen} onOpenChange={setEscalateOpen}>
+              <DialogTrigger render={<Button variant="outline" size="sm"><ArrowUpCircle className="h-3.5 w-3.5" />Escalate</Button>} />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Escalate Approval</DialogTitle>
+                  <DialogDescription>Send this approval to a higher authority for review.</DialogDescription>
+                </DialogHeader>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Reason for escalation..."
+                  rows={4}
+                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                />
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setEscalateOpen(false)}>Cancel</Button>
+                  <Button
+                    variant="default"
+                    disabled={loading === "escalate"}
+                    onClick={() => handleAction("Escalated")}
+                  >
+                    {loading === "escalate" ? "Escalating..." : "Confirm Escalation"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Separator orientation="vertical" className="h-6" />
             <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-              <DialogTrigger render={<Button variant="destructive">Reject</Button>} />
+              <DialogTrigger render={<Button variant="destructive" size="sm">Reject</Button>} />
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Reject approval</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to reject this approval? This will notify the requester.
-                  </DialogDescription>
+                  <DialogDescription>Are you sure you want to reject this approval? This will notify the requester.</DialogDescription>
                 </DialogHeader>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Reason for rejection..."
+                  rows={3}
+                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                />
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
-                  <Button variant="destructive" onClick={() => setRejectOpen(false)}>Confirm Reject</Button>
+                  <Button
+                    variant="destructive"
+                    disabled={loading === "reject"}
+                    onClick={() => handleAction("Rejected")}
+                  >
+                    {loading === "reject" ? "Rejecting..." : "Confirm Reject"}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
             <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
-              <DialogTrigger render={<Button>Approve</Button>} />
+              <DialogTrigger render={<Button size="sm">Approve</Button>} />
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Approve this request?</DialogTitle>
@@ -216,7 +324,12 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
                 </DialogHeader>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setApproveOpen(false)}>Cancel</Button>
-                  <Button onClick={() => setApproveOpen(false)}>Confirm Approval</Button>
+                  <Button
+                    disabled={loading === "approve"}
+                    onClick={() => handleAction("Approved")}
+                  >
+                    {loading === "approve" ? "Approving..." : "Confirm Approval"}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -241,7 +354,7 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
             </CardContent>
           </Card>
 
-          {/* Diff View */}
+          {/* Diff View — FIRST */}
           <Card>
             <CardHeader>
               <SectionHeader icon={<GitCompare className="h-3.5 w-3.5" />} title="Changes (Diff)" />
@@ -270,32 +383,40 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
             </CardContent>
           </Card>
 
-          {/* Auto-validation Results */}
+          {/* Auto-validation Results — SECOND */}
           <Card>
             <CardHeader>
               <SectionHeader icon={<ShieldCheck className="h-3.5 w-3.5" />} title="Auto-validation results" />
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {VALIDATIONS.map((v) => (
-                  <div key={v.name} className="flex items-start gap-3 rounded-lg border bg-muted/20 px-3 py-2.5">
-                    <ValidationStatusIcon status={v.status} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{v.name}</span>
-                        <Badge variant={v.status === "failed" ? "destructive" : v.status === "warning" ? "secondary" : "default"} className="text-[10px]">
-                          {v.status}
-                        </Badge>
+              {loading === "validate" ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {VALIDATIONS.map((v) => (
+                    <div key={v.name} className="flex items-start gap-3 rounded-lg border bg-muted/20 px-3 py-2.5">
+                      <ValidationStatusIcon status={v.status} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{v.name}</span>
+                          <Badge variant={v.status === "failed" ? "destructive" : v.status === "warning" ? "secondary" : "default"} className="text-[10px]">
+                            {v.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{v.detail}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">{v.detail}</p>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Revenue & Margin Impact */}
+          {/* Revenue & Margin Impact — THIRD */}
           <Card>
             <CardHeader>
               <SectionHeader icon={<DollarSign className="h-3.5 w-3.5" />} title="Revenue &amp; Margin Impact" />
@@ -377,7 +498,7 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
         </div>
 
         <div className="space-y-6">
-          {/* Color Agent Review Status */}
+          {/* Color Agent Review Status — NOW in right column */}
           <Card>
             <CardHeader>
               <SectionHeader icon={<Activity className="h-3.5 w-3.5" />} title="Color Agent Review" />
@@ -402,34 +523,65 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
             </CardContent>
           </Card>
 
-          {/* Approval History */}
+          {/* Reviewer Comments */}
           <Card>
             <CardHeader>
-              <SectionHeader icon={<History className="h-3.5 w-3.5" />} title="Approval history" />
+              <SectionHeader icon={<MessageSquare className="h-3.5 w-3.5" />} title="Reviewer comments" />
             </CardHeader>
-            <CardContent className="p-0">
-              <div className="relative ml-4 space-y-0">
-                {HISTORY.map((event, i) => (
-                  <div key={i} className="relative flex gap-4 pb-5 pl-6 last:pb-0">
-                    <div className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-primary bg-background" />
-                    {i < HISTORY.length - 1 && (
-                      <div className="absolute left-[11px] top-4 h-full w-px bg-border" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{event.action}</p>
-                        <span className="text-[10px] text-muted-foreground">{event.timestamp}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{event.actor}</p>
-                      {event.note && (
-                        <p className="mt-0.5 text-xs text-muted-foreground italic">{event.note}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <CardContent>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Add your review comments here..."
+                rows={4}
+                className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              />
             </CardContent>
           </Card>
+
+          {/* Approval History */}
+          {loading === "history" ? (
+            <Card>
+              <CardHeader>
+                <SectionHeader icon={<History className="h-3.5 w-3.5" />} title="Approval history" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-10 w-full" />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <SectionHeader icon={<History className="h-3.5 w-3.5" />} title="Approval history" />
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="relative ml-4 space-y-0">
+                  {HISTORY.map((event, i) => (
+                    <div key={i} className="relative flex gap-4 pb-5 pl-6 last:pb-0">
+                      <div className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-primary bg-background" />
+                      {i < HISTORY.length - 1 && (
+                        <div className="absolute left-[11px] top-4 h-full w-px bg-border" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{event.action}</p>
+                          <span className="text-[10px] text-muted-foreground">{event.timestamp}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{event.actor}</p>
+                        {event.note && (
+                          <p className="mt-0.5 text-xs text-muted-foreground italic">{event.note}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
