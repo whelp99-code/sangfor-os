@@ -105,11 +105,64 @@ export class OutlookSyncService {
     return { synced }
   }
 
-  async getStatus(): Promise<{ configured: boolean; connected: boolean; accountCount: number; messageCount: number }> {
+  async getStatus(): Promise<{
+    configured: boolean
+    connected: boolean
+    hasMailPermission: boolean
+    hasUserPermission: boolean
+    error?: string
+    accountCount: number
+    messageCount: number
+  }> {
     const configured = this.isConfigured()
-    const connected = !!(await this.getAccessToken())
+    const token = await this.getAccessToken()
+    const connected = !!token
+
+    let hasMailPermission = false
+    let hasUserPermission = false
+    let error: string | undefined
+
+    if (token) {
+      // Test delegated mail access
+      const meTest = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=1', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const meData: any = await meTest.json()
+      if (meData.value) {
+        hasMailPermission = true
+        hasUserPermission = true
+      } else {
+        const msg = meData.error?.message || ''
+        if (msg.includes('delegated')) {
+          error = 'App-only mode: /me requires delegated auth. Trying users/{id}/messages...'
+          // Try app-only user mail access
+          const usersRes = await fetch('https://graph.microsoft.com/v1.0/users?$top=1&$select=id', {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          const usersData: any = await usersRes.json()
+          if (usersData.value?.[0]) {
+            hasUserPermission = true
+            const userId = usersData.value[0].id
+            const mailRes = await fetch(`https://graph.microsoft.com/v1.0/users/${userId}/messages?$top=1`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            hasMailPermission = mailRes.ok
+            if (!hasMailPermission) {
+              error = 'App registered but missing Mail.Read + User.Read.All API permissions. Grant admin consent in Azure Portal.'
+            }
+          } else {
+            error = 'App registered but missing User.Read.All permission. Grant admin consent in Azure Portal.'
+          }
+        } else if (msg.includes('Insufficient privileges')) {
+          error = 'App registered but missing required API permissions. Grant admin consent in Azure Portal.'
+        } else {
+          error = msg
+        }
+      }
+    }
+
     const accountCount = await prisma.mailAccount.count()
     const messageCount = await prisma.mailMessage.count()
-    return { configured, connected, accountCount, messageCount }
+    return { configured, connected, hasMailPermission, hasUserPermission, error, accountCount, messageCount }
   }
 }
