@@ -10,6 +10,7 @@ import {
   FileText,
   FlaskConical,
   Handshake,
+  Headphones,
   Inbox,
   LayoutDashboard,
   ListChecks,
@@ -18,6 +19,7 @@ import {
   ShieldCheck,
   Terminal,
   TrendingUp,
+  Truck,
   Users,
 } from "lucide-react";
 
@@ -38,6 +40,7 @@ import {
 import { PROJECT_NAME } from "@sangfor/shared";
 
 import { getVisibleNavItems } from "@/lib/permissions";
+import type { NavItem } from "@/lib/portal-config";
 import { AppTopbar } from "@/components/shell/app-topbar";
 
 const ICONS = {
@@ -52,6 +55,8 @@ const ICONS = {
   terminal: Terminal,
   code: Code2,
   activity: Activity,
+  truck: Truck,
+  headphones: Headphones,
   inbox: Inbox,
   mail: Mail,
   "shield-check": ShieldCheck,
@@ -63,35 +68,48 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const navItems = getVisibleNavItems();
 
+  // Group nav items
+  const groups = navItems.reduce<Record<string, NavItem[]>>((acc, item) => {
+    const g = item.group || "General";
+    if (!acc[g]) acc[g] = [];
+    acc[g].push(item);
+    return acc;
+  }, {});
+
+  const GROUP_ORDER = ["Business", "Finance", "Intelligence", "Development", "System"];
+
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar collapsible="icon">
         <SidebarHeader className="border-b border-sidebar-border px-4 py-3">
-          <p className="text-xs font-medium text-muted-foreground">AI Work Portal</p>
-          <p className="text-sm font-semibold">{PROJECT_NAME}</p>
+          <p className="text-xs font-medium text-muted-foreground">Sangfor Agentic OS</p>
+          <p className="text-sm font-semibold">SANGFOR Partner Operations</p>
+          <p className="text-[10px] text-muted-foreground/60 mt-0.5">Package V3.2</p>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {navItems.map((item) => {
-                  const Icon = ICONS[item.icon as keyof typeof ICONS] ?? LayoutDashboard;
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        isActive={pathname.startsWith(item.href)}
-                        render={<Link href={item.href} />}
-                      >
-                        <Icon />
-                        <span>{item.title}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          {GROUP_ORDER.filter(g => groups[g]).map((groupName) => (
+            <SidebarGroup key={groupName}>
+              <SidebarGroupLabel>{groupName}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {groups[groupName].map((item) => {
+                    const Icon = ICONS[item.icon as keyof typeof ICONS] ?? LayoutDashboard;
+                    return (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton
+                          isActive={pathname.startsWith(item.href)}
+                          render={<Link href={item.href} />}
+                        >
+                          <Icon />
+                          <span>{item.title}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
         </SidebarContent>
       </Sidebar>
       <SidebarInset>

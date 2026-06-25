@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
-import { RedesignedDashboard } from "@/components/dashboard/redesigned-dashboard";
+import { ExecutiveDashboard } from "@/components/dashboard/executive-dashboard";
 
 export default function DashboardPage() {
-  return <RedesignedDashboard />;
+  return <ExecutiveDashboard />;
 }

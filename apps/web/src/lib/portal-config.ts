@@ -2,26 +2,51 @@ export type NavItem = {
   title: string;
   href: string;
   icon: string;
-  /** Roles allowed to see this item. Empty = all roles. */
   roles?: string[];
+  group?: string;
 };
 
 export const PORTAL_NAV: NavItem[] = [
-  { title: "대시보드", href: "/dashboard", icon: "layout-dashboard" },
-  { title: "Mail Intelligence", href: "/mail-intelligence", icon: "mail" },
-  { title: "고객사", href: "/customers", icon: "users" },
-  { title: "파트너", href: "/partners", icon: "handshake" },
-  { title: "작업", href: "/tasks", icon: "list-checks" },
-  { title: "영업기회", href: "/opportunities", icon: "trending-up" },
-  { title: "메일 후보", href: "/development/mail-candidates", icon: "inbox" },
-  {
-    title: "승인",
-    href: "/approvals",
-    icon: "shield-check",
-    roles: ["owner", "admin"],
-  },
-  { title: "설정", href: "/settings", icon: "settings" },
-  { title: "재무", href: "/cfo/dashboard", icon: "trending-up" },
+  // ═══ Business Core ═══
+  { title: "Executive Dashboard", href: "/dashboard", icon: "layout-dashboard", group: "Business", roles: ["owner", "admin"] },
+  { title: "Sales Manager", href: "/sales", icon: "trending-up", group: "Business", roles: ["sales"] },
+  { title: "Presales Engineer", href: "/presales", icon: "flask", group: "Business", roles: ["presales"] },
+  { title: "Delivery Engineer", href: "/delivery", icon: "truck", group: "Business", roles: ["delivery"] },
+  { title: "Support Engineer", href: "/support", icon: "headphones", group: "Business", roles: ["support"] },
+  { title: "고객사", href: "/customers", icon: "users", group: "Business" },
+  { title: "파트너", href: "/partners", icon: "handshake", group: "Business" },
+  { title: "영업기회", href: "/opportunities", icon: "trending-up", group: "Business" },
+  { title: "PoC", href: "/poc", icon: "flask", group: "Business" },
+  { title: "제안서", href: "/proposals", icon: "file-text", group: "Business" },
+  { title: "작업", href: "/tasks", icon: "list-checks", group: "Business" },
+  { title: "워크플로우", href: "/commands", icon: "terminal", group: "Business" },
+  { title: "승인", href: "/approvals", icon: "shield-check", group: "Business", roles: ["owner", "admin"] },
+  { title: "Color Agents", href: "/agents", icon: "activity", group: "Business" },
+
+  // ═══ Finance ═══
+  { title: "Finance Manager", href: "/finance", icon: "trending-up", group: "Finance", roles: ["finance"] },
+  { title: "재무 대시보드", href: "/cfo/dashboard", icon: "trending-up", group: "Finance" },
+  { title: "매출/미수금", href: "/cfo/invoices", icon: "file-text", group: "Finance" },
+  { title: "비용", href: "/cfo/expenses", icon: "list-checks", group: "Finance" },
+  { title: "현금흐름", href: "/cfo/cashflows", icon: "activity", group: "Finance" },
+  { title: "부가세", href: "/cfo/vat", icon: "file-text", group: "Finance" },
+  { title: "구독", href: "/cfo/subscriptions", icon: "blocks", group: "Finance" },
+  { title: "월결산", href: "/cfo/month-close", icon: "list-checks", group: "Finance" },
+  { title: "재무 챗봇", href: "/cfo/chat", icon: "terminal", group: "Finance" },
+
+  // ═══ Knowledge & Intelligence ═══
+  { title: "지식베이스", href: "/knowledge", icon: "book-open", group: "Intelligence" },
+  { title: "Mail Intelligence", href: "/mail-intelligence", icon: "mail", group: "Intelligence" },
+  { title: "메일 후보", href: "/development/mail-candidates", icon: "inbox", group: "Intelligence" },
+
+  // ═══ Development ═══
+  { title: "개발 센터", href: "/development", icon: "code", group: "Development" },
+  { title: "오케스트레이터", href: "/development/orchestrator", icon: "activity", group: "Development" },
+  { title: "개선사항", href: "/development/improvements", icon: "blocks", group: "Development" },
+  { title: "GitHub", href: "/development/github", icon: "code", group: "Development" },
+
+  // ═══ System ═══
+  { title: "설정", href: "/settings", icon: "settings", group: "System" },
 ];
 
 export type MockProject = {

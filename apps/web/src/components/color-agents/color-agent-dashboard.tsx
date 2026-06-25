@@ -83,7 +83,7 @@ function PriorityIcon({ priority }: { priority: string }) {
   return <Clock className="h-3.5 w-3.5 text-blue-500" />;
 }
 
-export default function AgentsPage() {
+export function ColorAgentDashboard() {
   return (
     <div className="space-y-6">
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl sm:p-8">
@@ -98,7 +98,6 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* Color Agent Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {COLORS.map((c) => {
           const agent = AGENT_STATUSES.find((a) => a.name === c.name)!;
@@ -132,7 +131,6 @@ export default function AgentsPage() {
         })}
       </div>
 
-      {/* My Color Reviews + Handoff Activity */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center gap-2 pb-2">
@@ -184,7 +182,6 @@ export default function AgentsPage() {
         </Card>
       </div>
 
-      {/* Kanban Project Board */}
       <Card>
         <CardHeader className="flex flex-row items-center gap-2 pb-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/50">
