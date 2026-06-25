@@ -1,0 +1,18 @@
+import { buildTimeline, getCommandRunDetail } from "@ai-portal/automation";
+import { NextResponse } from "next/server";
+
+type RouteContext = { params: Promise<{ id: string }> };
+
+export async function GET(_request: Request, context: RouteContext) {
+  const { id } = await context.params;
+  try {
+    const run = await getCommandRunDetail(id);
+    if (!run) return NextResponse.json({ error: "not_found" }, { status: 404 });
+    return NextResponse.json({ run, timeline: buildTimeline(run) });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "fetch_failed" },
+      { status: 500 },
+    );
+  }
+}

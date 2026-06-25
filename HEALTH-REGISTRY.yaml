@@ -1,0 +1,71 @@
+# C-Stack Health Registry — 레드팀 v2 반영 (실제 엔드포인트만 등록)
+# 사용: node scripts/c-stack-health.mjs
+# 마지막 업데이트: 2026-06-22
+
+version: 1
+
+services:
+  c-postgres:
+    port: 5435
+    health:
+      type: tcp
+      target: "127.0.0.1:5435"
+    required_for_p0: true
+
+  c-redis:
+    port: 6382
+    health:
+      type: tcp
+      target: "127.0.0.1:6382"
+    required_for_p0: true
+
+  aiosv2-web:
+    port: 3110
+    path: ~/Playground/AIOSv2_integration/apps/web
+    health:
+      type: http
+      url: "http://127.0.0.1:3110/api/integrations/health"
+      expect_status: [200, 503]
+    notes: "503 = 일부 upstream degraded 허용 (P0)"
+
+  aiosv2-api:
+    port: 3200
+    path: ~/Playground/AIOSv2_integration/apps/api
+    health:
+      type: http
+      url: "http://127.0.0.1:3200/api/health"
+      expect_status: [200]
+
+  mail-intelligence:
+    port: 3010
+    path: ~/Playground/mail-intelligence
+    health:
+      type: http
+      url: "http://127.0.0.1:3010/api/outlook/status"
+      expect_status: [200]
+    notes: "/api/health 없음 — outlook/status 사용"
+
+  cfo-aios:
+    port: 4100
+    path: ~/Playground/CFO-AIOS/apps/api
+    health:
+      type: http
+      url: "http://127.0.0.1:4100/api/health"
+      expect_status: [200]
+
+  sangfor-operator:
+    port: 3500
+    path: ~/Playground/sangfor-mcp-workflow
+    health:
+      type: http
+      url: "http://127.0.0.1:3500/api/system/health"
+      expect_status: [200]
+
+  sangfor-mock-hci:
+    port: 3400
+    path: ~/Playground/whelp99-code-sangfor-engineer-mcp
+    health:
+      type: http
+      url: "http://127.0.0.1:3400/health"
+      expect_status: [200]
+    required_for_p0: false

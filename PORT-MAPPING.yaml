@@ -1,0 +1,64 @@
+# Sangfor Agentic OS — Port Mapping
+# Unified port registry for all services
+
+services:
+  # Core Infrastructure
+  postgres:
+    port: 5434
+    service: sangfor-postgres
+    description: PostgreSQL primary database
+  redis:
+    port: 6380
+    service: sangfor-redis
+    description: Redis cache & session store
+
+  # Application Servers
+  web:
+    port: 3101
+    service: sangfor-web
+    description: Next.js web application
+  api:
+    port: 3200
+    service: sangfor-api
+    description: Express API server
+  finance:
+    port: 4100
+    service: sangfor-finance
+    description: NestJS Finance API (CFO)
+
+  # External Services (docker-compose managed)
+  sangfor-mcp:
+    port: 3500
+    service: sangfor-mcp-workflow
+    description: Sangfor MCP workflow engine
+  vibe-coding:
+    port: 4000
+    service: vibe-coding-os
+    description: Vibe Coding OS
+  mail-intelligence:
+    port: 3010
+    service: mail-intelligence
+    description: Mail Intelligence service
+  whelp99-mcp:
+    port: 3600
+    service: whelp99-mcp
+    description: Whelp99 MCP bridge
+  cfo-aios:
+    port: 4100
+    service: cfo-aios
+    description: CFO AIOS (finance legacy)
+
+  # Monitoring
+  prometheus:
+    port: 9090
+    service: sangfor-prometheus
+  grafana:
+    port: 3000
+    service: sangfor-grafana
+  caddy:
+    port: 80
+    service: sangfor-caddy
+    description: Reverse proxy (auto HTTPS)
+  caddy-admin:
+    port: 443
+    service: sangfor-caddy-admin

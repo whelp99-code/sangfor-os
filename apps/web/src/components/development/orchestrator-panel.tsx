@@ -1,0 +1,300 @@
+"use client";
+
+import { useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { AutomationPreviewCards } from "@/components/automation/automation-preview-cards";
+import { ContextPackSummaryCard } from "@/components/phase13/context-pack-summary-card";
+
+type SkillRun = {
+  id: string;
+  skillKey: string;
+  executionMode: string;
+  status: string;
+  normalizeError?: string | null;
+};
+
+type BreakdownItem = {
+  id: string;
+  title: string;
+  description?: string | null;
+  targetArea: string;
+  agentType: string;
+  riskLevel: string;
+  estimatedHours: number;
+};
+
+type RunPerformance = {
+  totalDurationMs?: number;
+  llmCallCount?: number;
+  templateCallCount?: number;
+  executionProfile?: string;
+  skillConcurrency?: number;
+};
+
+type PreviewResult = Parameters<typeof AutomationPreviewCards>[0]["result"];
+
+export function OrchestratorPanel() {
+  const [inputSummary, setInputSummary] = useState(
+    "Add Phase 13 orchestrator with PM skills routing",
+  );
+  const [templateKey, setTemplateKey] = useState<string>("");
+  const [includeContextPack, setIncludeContextPack] = useState<boolean>(true);
+  const [skillKeys, setSkillKeys] = useState<string[]>([]);
+  const [skillRuns, setSkillRuns] = useState<SkillRun[]>([]);
+  const [breakdown, setBreakdown] = useState<BreakdownItem[]>([]);
+  const [commandRunId, setCommandRunId] = useState<string | null>(null);
+  const [contextPack, setContextPack] = useState<
+    Parameters<typeof ContextPackSummaryCard>[0]["contextPack"]
+  >(null);
+  const [templateOutput, setTemplateOutput] = useState<
+    Parameters<typeof ContextPackSummaryCard>[0]["templateOutput"]
+  >(null);
+  const [handoffContextSummary, setHandoffContextSummary] = useState<string | null>(
+    null,
+  );
+  const [performance, setPerformance] = useState<RunPerformance | null>(null);
+  const [previewResult, setPreviewResult] = useState<PreviewResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleRecommend() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/automation/skills/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inputSummary, phase: 13 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "recommend_failed");
+      setSkillKeys(data.skillKeys ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "recommend_failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRun() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/automation/phase13/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inputSummary,
+          phase: 13,
+          templateKey: templateKey || undefined,
+          includeContextPack,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "run_failed");
+      setCommandRunId(data.commandRunId ?? null);
+      setSkillKeys(data.skillKeys ?? []);
+      setSkillRuns(data.skillRuns ?? []);
+      setBreakdown(data.workBreakdownItems ?? []);
+      setContextPack(data.contextPack ?? null);
+      setTemplateOutput(data.templateOutput ?? null);
+      setHandoffContextSummary(data.handoffDraft?.contextPackSummary ?? null);
+      setPerformance(data.performance ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "run_failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePreviewPlan() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/automation/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawText: inputSummary }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "preview_failed");
+      setPreviewResult(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "preview_failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Feature request</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="inputSummary">
+              inputSummary
+            </label>
+            <Input
+              id="inputSummary"
+              value={inputSummary}
+              onChange={(event) => setInputSummary(event.target.value)}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="templateKey">
+                Template Key
+              </label>
+              <select
+                id="templateKey"
+                value={templateKey}
+                onChange={(event) => setTemplateKey(event.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">None (Deterministic default)</option>
+                <option value="proposal-prd">Proposal PRD</option>
+                <option value="poc-experiment-plan">PoC experiment plan</option>
+                <option value="dev-implementation-plan">Development implementation plan</option>
+                <option value="bugfix-improvement-plan">Bugfix / improvement plan</option>
+                <option value="release-closeout-plan">Release closeout plan</option>
+              </select>
+            </div>
+            <div className="flex items-end pb-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="includeContextPack"
+                  checked={includeContextPack}
+                  onChange={(event) => setIncludeContextPack(event.target.checked)}
+                  className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                />
+                <label className="text-sm font-medium" htmlFor="includeContextPack">
+                  Include Context Pack
+                </label>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={loading} onClick={handleRecommend} type="button" variant="outline">
+              Recommend skills
+            </Button>
+            <Button disabled={loading} onClick={handlePreviewPlan} type="button" variant="outline">
+              Preview plan
+            </Button>
+            <Button disabled={loading} onClick={handleRun} type="button">
+              Run Phase 13 pipeline
+            </Button>
+          </div>
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {commandRunId ? (
+            <p className="text-sm text-muted-foreground">Command run: {commandRunId}</p>
+          ) : null}
+          {performance ? (
+            <p className="text-sm text-muted-foreground">
+              Runtime: {Math.round((performance.totalDurationMs ?? 0) / 1000)}s
+              {" · "}
+              llm={performance.llmCallCount ?? 0}
+              {" · "}
+              template={performance.templateCallCount ?? 0}
+              {" · "}
+              profile={performance.executionProfile ?? "full"}
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {previewResult ? <AutomationPreviewCards result={previewResult} /> : null}
+
+      {contextPack ? (
+        <ContextPackSummaryCard
+          contextPack={contextPack}
+          templateOutput={templateOutput ?? undefined}
+          handoffContextSummary={handoffContextSummary}
+        />
+      ) : null}
+
+      {skillKeys.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Recommended skills</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {skillKeys.map((key) => (
+              <Badge key={key} variant="secondary">
+                {key}
+              </Badge>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {skillRuns.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Skill run timeline</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {skillRuns.map((run) => (
+              <div
+                key={run.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
+              >
+                <span className="font-medium">{run.skillKey}</span>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline">{run.status}</Badge>
+                  <Badge variant={run.executionMode === "template" ? "secondary" : "default"}>
+                    {run.executionMode === "template"
+                      ? "MOCK_PM_SKILL_EXECUTION"
+                      : run.executionMode}
+                  </Badge>
+                </div>
+                {run.normalizeError ? (
+                  <p className="w-full text-xs text-muted-foreground">{run.normalizeError}</p>
+                ) : null}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {breakdown.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Work breakdown</CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="py-2 pr-4">Title</th>
+                  <th className="py-2 pr-4">Area</th>
+                  <th className="py-2 pr-4">Agent</th>
+                  <th className="py-2 pr-4">Risk</th>
+                  <th className="py-2">Hours</th>
+                </tr>
+              </thead>
+              <tbody>
+                {breakdown.map((item) => (
+                  <tr key={item.id} className="border-b">
+                    <td className="py-2 pr-4">{item.title}</td>
+                    <td className="py-2 pr-4">{item.targetArea}</td>
+                    <td className="py-2 pr-4">{item.agentType}</td>
+                    <td className="py-2 pr-4">{item.riskLevel}</td>
+                    <td className="py-2">{item.estimatedHours}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      ) : null}
+    </div>
+  );
+}

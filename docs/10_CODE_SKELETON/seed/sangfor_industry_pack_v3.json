@@ -1,0 +1,217 @@
+{
+  "pack_key": "sangfor_partner_it_company",
+  "name": "SANGFOR Platinum Partner IT Company Pack",
+  "version": "3.1.0",
+  "personas": [
+    "ceo",
+    "sales_manager",
+    "account_manager",
+    "presales_engineer",
+    "solution_architect",
+    "finance_manager",
+    "delivery_engineer",
+    "support_engineer",
+    "vendor_liaison",
+    "security_officer"
+  ],
+  "product_families": [
+    {
+      "family_key": "ngfw",
+      "name": "SANGFOR NGFW / Athena NGFW",
+      "category": "cybersecurity"
+    },
+    {
+      "family_key": "endpoint_secure",
+      "name": "SANGFOR Endpoint Secure / EPP",
+      "category": "cybersecurity"
+    },
+    {
+      "family_key": "xdr",
+      "name": "SANGFOR XDR",
+      "category": "cybersecurity"
+    },
+    {
+      "family_key": "mdr",
+      "name": "SANGFOR MDR",
+      "category": "cybersecurity"
+    },
+    {
+      "family_key": "sase",
+      "name": "SANGFOR SASE / Access Secure",
+      "category": "cybersecurity"
+    },
+    {
+      "family_key": "hci",
+      "name": "SANGFOR HCI",
+      "category": "cloud_infrastructure"
+    },
+    {
+      "family_key": "vdi",
+      "name": "SANGFOR aDesk VDI",
+      "category": "cloud_infrastructure"
+    },
+    {
+      "family_key": "astor",
+      "name": "SANGFOR aStor",
+      "category": "cloud_infrastructure"
+    }
+  ],
+  "artifact_templates": [
+    "lead_brief",
+    "qualification_report",
+    "discovery_note",
+    "solution_fit_matrix",
+    "sizing_worksheet",
+    "bom",
+    "quote_draft",
+    "proposal",
+    "poc_plan",
+    "poc_result",
+    "sow",
+    "deployment_checklist",
+    "handover_document",
+    "support_ticket_report",
+    "rca",
+    "renewal_report"
+  ],
+  "approval_gates": [
+    {
+      "gate_key": "opportunity_gate",
+      "human_approver": "sales_manager"
+    },
+    {
+      "gate_key": "solution_fit_gate",
+      "human_approver": "solution_architect"
+    },
+    {
+      "gate_key": "commercial_gate",
+      "human_approver": "finance_manager",
+      "secondary": "ceo"
+    },
+    {
+      "gate_key": "proposal_gate",
+      "human_approver": "sales_manager"
+    },
+    {
+      "gate_key": "poc_gate",
+      "human_approver": "presales_engineer"
+    },
+    {
+      "gate_key": "delivery_gate",
+      "human_approver": "delivery_engineer"
+    },
+    {
+      "gate_key": "acceptance_gate",
+      "human_approver": "delivery_engineer"
+    },
+    {
+      "gate_key": "renewal_gate",
+      "human_approver": "account_manager"
+    }
+  ],
+  "workflow": [
+    "lead",
+    "qualification",
+    "vendor_check",
+    "discovery",
+    "sizing",
+    "solution_fit",
+    "bom",
+    "quote",
+    "commercial_approval",
+    "proposal",
+    "poc",
+    "delivery",
+    "asset_activation",
+    "support",
+    "renewal"
+  ],
+  "vendor_request_types": [
+    "deal_registration",
+    "special_discount",
+    "demo_license",
+    "nfr_asset",
+    "technical_escalation",
+    "partner_portal_request",
+    "training_request"
+  ],
+  "license_metrics": [
+    {
+      "metric_key": "users",
+      "unit_label": "user"
+    },
+    {
+      "metric_key": "endpoints",
+      "unit_label": "endpoint"
+    },
+    {
+      "metric_key": "sites",
+      "unit_label": "site"
+    },
+    {
+      "metric_key": "throughput",
+      "unit_label": "gbps"
+    },
+    {
+      "metric_key": "nodes",
+      "unit_label": "node"
+    },
+    {
+      "metric_key": "vms",
+      "unit_label": "vm"
+    },
+    {
+      "metric_key": "tb_storage",
+      "unit_label": "TB"
+    }
+  ],
+  "ai_quality": {
+    "golden_answer_sets": [
+      "lead_summary",
+      "discovery_questions",
+      "solution_fit_matrix",
+      "proposal_draft",
+      "quote_review",
+      "rca",
+      "prompt_injection_cases"
+    ],
+    "release_gate": {
+      "minimum_score": 85,
+      "prompt_injection_block_rate": 95,
+      "restricted_leakage_count": 0
+    }
+  },
+  "data_governance": {
+    "restricted_artifact_controls": [
+      "watermark",
+      "copy_audit",
+      "download_audit",
+      "export_approval",
+      "signed_url_expiry",
+      "field_masking"
+    ],
+    "export_workflow": [
+      "request",
+      "classification_check",
+      "approval",
+      "generate_signed_export",
+      "download_audit",
+      "expire"
+    ]
+  },
+  "business_objects": [
+    "deal_qualification_scores",
+    "vendor_requests",
+    "discount_requests",
+    "demo_licenses",
+    "poc_projects",
+    "customer_assets",
+    "asset_licenses",
+    "subscriptions",
+    "renewal_opportunities",
+    "support_sla_policies",
+    "vendor_escalations",
+    "engineer_certifications",
+    "skill_matrix"
+  ]
+}

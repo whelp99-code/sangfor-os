@@ -1,0 +1,30 @@
+{
+  "name": "@aios/proxy-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./types": "./dist/types.js",
+    "./base-adapter": "./dist/base-adapter.js",
+    "./aios-v1-adapter": "./dist/aios-v1-adapter.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.23.8",
+    "@aios/config": "workspace:*",
+    "@aios/health": "workspace:*",
+    "@aios/auth": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "eslint": "^9.9.0"
+  }
+}

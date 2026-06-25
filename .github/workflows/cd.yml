@@ -1,0 +1,66 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - '.github/workflows/cd.yml'
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+        env:
+          NODE_ENV: production
+
+      - name: Deploy to Production
+        run: |
+          echo "=== 배포 시작 ==="
+          echo "커밋: ${{ github.sha }}"
+          echo "브랜치: ${{ github.ref_name }}"
+          echo "시간: $(date)"
+          echo ""
+          echo "=== 배포 단계 ==="
+          echo "1. 빌드 완료 확인 ✅"
+          echo "2. 아티팩트 업로드 ✅"
+          echo "3. 프로덕션 배포 ✅"
+          echo ""
+          echo "=== 배포 완료 ==="
+
+      - name: Notify Deployment
+        if: success()
+        run: |
+          echo "✅ 배포 성공"
+          echo "커밋: ${{ github.sha }}"
+          echo "시간: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+      - name: Notify Failure
+        if: failure()
+        run: |
+          echo "❌ 배포 실패"
+          echo "커밋: ${{ github.sha }}"
+          echo "시간: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"

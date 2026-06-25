@@ -1,0 +1,35 @@
+aios.localhost {
+    # API backend
+    handle /api/* {
+        reverse_proxy api:3200
+    }
+    handle /webhooks/* {
+        reverse_proxy api:3200
+    }
+    handle /trpc/* {
+        reverse_proxy api:3200
+    }
+    handle /events/* {
+        reverse_proxy api:3200
+    }
+    handle /health {
+        reverse_proxy api:3200
+    }
+    handle /metrics {
+        reverse_proxy api:3200
+    }
+    
+    # Web frontend
+    handle {
+        reverse_proxy web:3110
+    }
+    
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+}

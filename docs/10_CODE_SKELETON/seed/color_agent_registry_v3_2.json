@@ -1,0 +1,165 @@
+{
+  "version": "3.2",
+  "name": "Hermes Color Agent Organization Registry",
+  "core_colors": [
+    {
+      "color_key": "blue",
+      "display_name": "Blue — Technical Direction Agent",
+      "responsibility": "기술 방향, 구현 지휘, 아키텍처 일관성, SANGFOR 제품 sizing과 solution fit 검토",
+      "handoff_triggers": [
+        "security_risk",
+        "business_value_unclear",
+        "evidence_required",
+        "ux_visibility_unclear"
+      ],
+      "output_contract": [
+        "technical_decision",
+        "implementation_constraints",
+        "risk_notes",
+        "required_followups"
+      ]
+    },
+    {
+      "color_key": "red",
+      "display_name": "Red — Risk & Safety Agent",
+      "responsibility": "보안, 회귀, 승인 우회, 상업/운영/데이터 리스크 검토",
+      "handoff_triggers": [
+        "technical_mitigation_required",
+        "business_risk_acceptance_required",
+        "audit_evidence_required",
+        "risk_visibility_required"
+      ],
+      "output_contract": [
+        "risk_assessment",
+        "required_controls",
+        "approval_conditions",
+        "residual_risk"
+      ]
+    },
+    {
+      "color_key": "orange",
+      "display_name": "Orange — Product & Business Value Agent",
+      "responsibility": "고객 가치, 매출 적합성, ROI, renewal/upsell, deal qualification 검토",
+      "handoff_triggers": [
+        "technical_solution_required",
+        "risk_review_required",
+        "evidence_required",
+        "customer_facing_ux_required"
+      ],
+      "output_contract": [
+        "business_value",
+        "customer_fit",
+        "roi_assessment",
+        "priority_recommendation"
+      ]
+    },
+    {
+      "color_key": "gray",
+      "display_name": "Gray — Documentation & Evidence Agent",
+      "responsibility": "문서, ADR, 결정 기록, 근거 추적, audit-ready evidence 관리",
+      "handoff_triggers": [
+        "technical_evidence_missing",
+        "risk_evidence_missing",
+        "business_rationale_missing",
+        "readability_issue"
+      ],
+      "output_contract": [
+        "evidence_bundle",
+        "decision_record",
+        "artifact_version_notes",
+        "audit_trace"
+      ]
+    },
+    {
+      "color_key": "teal",
+      "display_name": "Teal — UX & Visibility Agent",
+      "responsibility": "UI/UX, 대시보드, 승인 화면, 가시성, 상태 표현, 사용성 검토",
+      "handoff_triggers": [
+        "technical_feasibility_required",
+        "ux_risk_detected",
+        "business_impact_unclear",
+        "label_copy_evidence_required"
+      ],
+      "output_contract": [
+        "ux_findings",
+        "dashboard_recommendation",
+        "status_label_recommendation",
+        "accessibility_notes"
+      ]
+    }
+  ],
+  "routing_rules": [
+    {
+      "name": "commercial_sensitive_quote",
+      "conditions": {
+        "artifact_type": "quote",
+        "commercially_sensitive": true
+      },
+      "required_colors": [
+        "orange",
+        "red",
+        "gray"
+      ],
+      "requires_human_approval": true
+    },
+    {
+      "name": "customer_facing_proposal",
+      "conditions": {
+        "artifact_type": "proposal",
+        "customer_facing": true
+      },
+      "required_colors": [
+        "blue",
+        "orange",
+        "gray",
+        "teal"
+      ],
+      "requires_human_approval": true
+    },
+    {
+      "name": "restricted_data",
+      "conditions": {
+        "contains_restricted_data": true
+      },
+      "required_colors": [
+        "red",
+        "gray"
+      ],
+      "requires_human_approval": true
+    },
+    {
+      "name": "poc_plan",
+      "conditions": {
+        "artifact_type": "poc_plan"
+      },
+      "required_colors": [
+        "blue",
+        "red",
+        "orange"
+      ],
+      "requires_human_approval": true
+    },
+    {
+      "name": "support_rca",
+      "conditions": {
+        "artifact_type": "rca"
+      },
+      "required_colors": [
+        "blue",
+        "red",
+        "gray"
+      ],
+      "requires_human_approval": true
+    },
+    {
+      "name": "ui_dashboard_change",
+      "conditions": {
+        "ui_impact": true
+      },
+      "required_colors": [
+        "teal"
+      ],
+      "requires_human_approval": false
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "name": "@ai-portal/automation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./opportunity-stage": "./src/opportunity-stage.ts",
+    "./improvement-loop": "./src/improvement-loop.ts",
+    "./module-runtime": "./src/module-runtime.ts",
+    "./module-admin": "./src/module-admin.ts",
+    "./action-connector-runtime": "./src/action-connector-runtime.ts",
+    "./langfuse-observability": "./src/langfuse-observability.ts",
+    "./automation-preview": "./src/automation-preview.ts",
+    "./knowledge-search": "./src/knowledge-search.ts",
+    "./mail-insight-threads": "./src/mail-insight-threads.ts",
+    "./mail-policy-memory": "./src/mail-policy-memory.ts",
+    "./mail-candidates": "./src/mail-candidates.ts",
+    "./phase14": "./src/phase14/index.ts",
+    "./skills": "./src/skills/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ai-portal/shared": "workspace:*",
+    "@ai-portal/db": "workspace:*",
+    "@ai-portal/mail-intelligence": "workspace:*",
+    "@octokit/rest": "^22.0.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

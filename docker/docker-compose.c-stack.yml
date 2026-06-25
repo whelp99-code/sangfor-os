@@ -1,0 +1,40 @@
+# Purpose: Local PostgreSQL and Redis for Phase 0 infrastructure validation.
+# Failure Points: Port 5434/6380 already in use on the host; Docker Desktop not running.
+# Observability: docker compose ps; GET /api/health from apps/web.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-portal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ai_portal
+      POSTGRES_PASSWORD: ai_portal
+      POSTGRES_DB: ai_automation_portal
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ai_portal -d ai_automation_portal",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-portal-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

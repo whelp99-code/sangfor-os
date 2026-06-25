@@ -1,0 +1,159 @@
+# Sangfor Agentic Company OS — Unified Docker Compose
+version: "3.8"
+
+services:
+  # ═══ Core Infrastructure ═══
+  postgres:
+    image: postgres:16-alpine
+    container_name: sangfor-postgres
+    environment:
+      POSTGRES_USER: sangfor
+      POSTGRES_PASSWORD: sangfor_password
+      POSTGRES_DB: sangfor_os
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sangfor"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sangfor-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ═══ Database Migration ═══
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: builder
+    command: npx prisma migrate deploy
+    environment:
+      DATABASE_URL: postgresql://sangfor:sangfor_password@postgres:5432/sangfor_os
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ═══ Application Servers ═══
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "3200:3200"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://sangfor:sangfor_password@postgres:5432/sangfor_os
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3200/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  finance:
+    build:
+      context: ./packages/finance
+      dockerfile: Dockerfile
+    ports:
+      - "4100:4100"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://sangfor:sangfor_password@postgres:5432/sangfor_os
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3101:3101"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:3200
+      NEXT_PUBLIC_FINANCE_URL: http://localhost:4100
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ═══ External Services (Mock Mode) ═══
+  sangfor-mcp:
+    image: node:20-alpine
+    command: node -e "const http=require('http');http.createServer((q,r)=>{r.writeHead(200,{'Content-Type':'application/json'});r.end(JSON.stringify({status:'ok',service:'sangfor-mcp'}))}).listen(3500)"
+    ports:
+      - "3500:3500"
+
+  vibe-coding:
+    image: node:20-alpine
+    command: node -e "const http=require('http');http.createServer((q,r)=>{r.writeHead(200,{'Content-Type':'application/json'});r.end(JSON.stringify({status:'ok',service:'vibe-coding'}))}).listen(4000)"
+    ports:
+      - "4000:4000"
+
+  mail-intelligence:
+    image: node:20-alpine
+    command: node -e "const http=require('http');http.createServer((q,r)=>{r.writeHead(200,{'Content-Type':'application/json'});r.end(JSON.stringify({status:'ok',service:'mail-intelligence'}))}).listen(3010)"
+    ports:
+      - "3010:3010"
+
+  # ═══ Monitoring ═══
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./docker/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+
+  # ═══ Reverse Proxy ═══
+  caddy:
+    build:
+      context: ./docker/caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,45 @@
+{
+  "title": "AIOS Monitoring",
+  "uid": "aios-monitoring",
+  "version": 1,
+  "tags": ["aios", "monitoring"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "panels": [
+    {
+      "title": "HTTP Request Rate",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(http_requests_total[1m])",
+          "legendFormat": "{{job}}"
+        }
+      ],
+      "description": "HTTP requests per second across all services"
+    },
+    {
+      "title": "Service Health Status",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "up"
+        }
+      ],
+      "description": "Health check status for each monitored target"
+    },
+    {
+      "title": "Active SSE Connections",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "active_sse_connections",
+          "legendFormat": "{{job}}"
+        }
+      ],
+      "description": "Number of active Server-Sent Event connections"
+    }
+  ]
+}

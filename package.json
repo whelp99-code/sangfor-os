@@ -1,0 +1,50 @@
+{
+  "name": "sangfor-agentic-os",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sangfor Agentic Company OS — 통합 비즈니스 플랫폼",
+  "packageManager": "pnpm@10.28.1",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @sangfor/db build && pnpm -r --parallel dev",
+    "dev:web": "pnpm --filter @sangfor/web dev",
+    "dev:finance": "pnpm --filter @sangfor/finance dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "test:e2e": "playwright test",
+    "test:coverage": "pnpm -r test:coverage",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @sangfor/db db:generate",
+    "db:push": "pnpm --filter @sangfor/db db:push",
+    "db:migrate": "pnpm --filter @sangfor/db db:migrate",
+    "db:migrate:deploy": "pnpm --filter @sangfor/db db:migrate:deploy",
+    "db:seed": "pnpm --filter @sangfor/db db:seed",
+    "db:studio": "pnpm --filter @sangfor/db db:studio",
+    "health:check": "bash scripts/health-check.sh",
+    "mock:upstreams": "node scripts/mock-upstreams.mjs",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:dev": "docker compose -f docker-compose.yml up -d postgres redis"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@prisma/client", "prisma"],
+    "overrides": {
+      "postcss": "8.5.10"
+    }
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^20.0.0",
+    "cypress": "^15.16.0",
+    "playwright": "^1.60.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "prisma": "^6.19.3",
+    "zod": "^3.23.8"
+  }
+}
