@@ -1,4 +1,4 @@
-import { Prisma, prisma } from "@ai-portal/db";
+import { Prisma, prisma } from "@sangfor/db";
 
 export type MailPolicyMemoryType =
   | "internal_company_name"

@@ -2,7 +2,7 @@ import {
   approveImprovementCandidate,
   getImprovementCandidate,
   rejectImprovementCandidate,
-} from "@ai-portal/automation/improvement-loop";
+} from "@sangfor/business/improvement-loop";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ id: string }> };

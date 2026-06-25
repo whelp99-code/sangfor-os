@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@ai-portal/db";
+import { prisma, type Prisma } from "@sangfor/db";
 
 /**
  * Purpose: Record entity status changes in audit.state_transition_logs.

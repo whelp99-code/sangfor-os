@@ -1,4 +1,4 @@
-import { getCustomerDetail } from "@ai-portal/automation";
+import { getCustomerDetail } from "@sangfor/business";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 

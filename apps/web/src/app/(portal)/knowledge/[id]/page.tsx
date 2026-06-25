@@ -1,4 +1,4 @@
-import { getKnowledgeDocument } from "@ai-portal/automation/knowledge-search";
+import { getKnowledgeDocument } from "@sangfor/business/knowledge-search";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 

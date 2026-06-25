@@ -1,5 +1,5 @@
-import { enrichModuleWithActionConnectorMetadata } from "@ai-portal/automation/action-connector-runtime";
-import { getModuleManifest } from "@ai-portal/automation/module-runtime";
+import { enrichModuleWithActionConnectorMetadata } from "@sangfor/business/action-connector-runtime";
+import { getModuleManifest } from "@sangfor/business/module-runtime";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ moduleKey: string }> };

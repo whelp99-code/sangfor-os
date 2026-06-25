@@ -1,4 +1,4 @@
 /**
- * @aios/health - Public API
+ * @sangfor/health - Public API
  */
 export * from './registry';

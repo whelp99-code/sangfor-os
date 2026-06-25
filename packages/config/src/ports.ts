@@ -1,5 +1,5 @@
 /**
- * @aios/config - Port Registry
+ * @sangfor/config - Port Registry
  * 단일 소스 오브 트루스: 모든 서비스 포트 정의
  * Codex CB-001, AC-003, AC-004 대응
  */

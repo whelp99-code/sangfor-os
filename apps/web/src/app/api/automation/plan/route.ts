@@ -1,4 +1,4 @@
-import { createExecutionPlan } from "@ai-portal/automation/automation-preview";
+import { createExecutionPlan } from "@sangfor/business/automation-preview";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {

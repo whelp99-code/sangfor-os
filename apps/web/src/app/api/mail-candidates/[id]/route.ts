@@ -3,7 +3,7 @@ import {
   getMailDerivedCandidate,
   revalidateMailDerivedCandidate,
   rejectMailDerivedCandidate,
-} from "@ai-portal/automation/mail-candidates";
+} from "@sangfor/business/mail-candidates";
 import { NextResponse } from "next/server";
 
 type Params = { params: Promise<{ id: string }> };

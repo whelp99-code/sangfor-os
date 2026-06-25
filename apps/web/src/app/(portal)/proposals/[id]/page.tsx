@@ -1,5 +1,5 @@
-import { getGeneratedDocumentDetail } from "@ai-portal/automation";
-import { buildProposalOrchestratorSummary } from "@ai-portal/automation/skills";
+import { getGeneratedDocumentDetail } from "@sangfor/business";
+import { buildProposalOrchestratorSummary } from "@sangfor/business/skills";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 

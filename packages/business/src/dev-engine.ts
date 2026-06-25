@@ -1,4 +1,4 @@
-import { prisma } from "@ai-portal/db";
+import { prisma } from "@sangfor/db";
 
 /**
  * Purpose: Phase 6 Dev Automation Engine — track code changes, builds, tests.

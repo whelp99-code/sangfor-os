@@ -1,4 +1,4 @@
-import { createPullRequestForRun, syncPullRequestCi } from "@ai-portal/automation";
+import { createPullRequestForRun, syncPullRequestCi } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {

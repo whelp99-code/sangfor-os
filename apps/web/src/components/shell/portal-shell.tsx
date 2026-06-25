@@ -35,7 +35,7 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { PROJECT_NAME } from "@ai-portal/shared";
+import { PROJECT_NAME } from "@sangfor/shared";
 
 import { getVisibleNavItems } from "@/lib/permissions";
 import { AppTopbar } from "@/components/shell/app-topbar";

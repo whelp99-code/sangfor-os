@@ -1,5 +1,5 @@
-import { prisma } from "@ai-portal/db";
-import { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey } from "@ai-portal/shared";
+import { prisma } from "@sangfor/db";
+import { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey } from "@sangfor/shared";
 import { z } from "zod";
 
 export { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey };

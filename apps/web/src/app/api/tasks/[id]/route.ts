@@ -1,4 +1,4 @@
-import { getWorkTaskDetail, linkTaskToEntity, updateWorkTask } from "@ai-portal/automation";
+import { getWorkTaskDetail, linkTaskToEntity, updateWorkTask } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ id: string }> };

@@ -2,7 +2,7 @@ import {
   generateMailDerivedCandidates,
   generateMailDerivedCandidatesHybrid,
   listMailDerivedCandidates,
-} from "@ai-portal/automation/mail-candidates";
+} from "@sangfor/business/mail-candidates";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {

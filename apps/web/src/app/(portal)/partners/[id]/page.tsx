@@ -1,4 +1,4 @@
-import { getPartnerDetail } from "@ai-portal/automation";
+import { getPartnerDetail } from "@sangfor/business";
 import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

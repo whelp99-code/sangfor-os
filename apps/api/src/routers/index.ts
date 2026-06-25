@@ -1,0 +1,19 @@
+/**
+ * App Router
+ * 메인 tRPC 라우터
+ */
+
+import { router } from './trpc';
+import { mailRouter } from './mail.router';
+import { workflowRouter } from './workflow.router';
+import { sangforRouter } from './sangfor.router';
+import { codingRouter } from './coding.router';
+
+export const appRouter = router({
+  mail: mailRouter,
+  workflow: workflowRouter,
+  sangfor: sangforRouter,
+  coding: codingRouter,
+});
+
+export type AppRouter = typeof appRouter;

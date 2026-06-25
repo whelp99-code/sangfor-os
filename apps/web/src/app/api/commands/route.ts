@@ -1,4 +1,4 @@
-import { createCommandRun, listCommandRuns } from "@ai-portal/automation";
+import { createCommandRun, listCommandRuns } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 export async function GET() {

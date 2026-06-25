@@ -1,7 +1,7 @@
 import {
   getKnowledgeDocument,
   updateKnowledgeDocument,
-} from "@ai-portal/automation/knowledge-search";
+} from "@sangfor/business/knowledge-search";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ id: string }> };

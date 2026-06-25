@@ -1,4 +1,4 @@
-import { getActionDefinition } from "@ai-portal/automation/action-connector-runtime";
+import { getActionDefinition } from "@sangfor/business/action-connector-runtime";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ actionKey: string }> };

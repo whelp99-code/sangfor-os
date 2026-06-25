@@ -55,7 +55,7 @@ describe.skipIf(!integrationEnabled)("Phase 11 approval / validation flow", () =
     const { runWorkflowMock } = await import("./workflow-runner");
     const { approveRequest } = await import("./approval-gate");
     const { runValidationPlan } = await import("./validation-engine");
-    const { prisma } = await import("@ai-portal/db");
+    const { prisma } = await import("@sangfor/db");
 
     const longSummary = "A".repeat(90);
     const run = await createCommandRun({

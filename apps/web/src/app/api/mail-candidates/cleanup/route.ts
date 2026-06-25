@@ -1,4 +1,4 @@
-import { prisma } from "@ai-portal/db";
+import { prisma } from "@sangfor/db";
 import { NextResponse } from "next/server";
 
 export async function POST() {

@@ -1,4 +1,4 @@
-import { createCustomer, createCustomerSchema, listCustomers } from "@ai-portal/automation";
+import { createCustomer, createCustomerSchema, listCustomers } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {

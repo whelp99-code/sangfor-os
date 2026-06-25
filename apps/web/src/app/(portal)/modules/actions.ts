@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@ai-portal/db";
-import { toggleModuleRegistryStatus } from "@ai-portal/automation/module-admin";
+import { prisma } from "@sangfor/db";
+import { toggleModuleRegistryStatus } from "@sangfor/business/module-admin";
 
-import { listSkillCatalog } from "@ai-portal/automation/skills";
+import { listSkillCatalog } from "@sangfor/business/skills";
 
 export async function getModulesData() {
   const [modules, blocks, layoutSlots, nodes, connectors, recentRun] = await Promise.all([

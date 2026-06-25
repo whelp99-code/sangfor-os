@@ -1,4 +1,4 @@
-import { prisma, Prisma } from "@ai-portal/db";
+import { prisma, Prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { createCommandRun, phase13SourceEntityTypeSchema } from "../command-center";

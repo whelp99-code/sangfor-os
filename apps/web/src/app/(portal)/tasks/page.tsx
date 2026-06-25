@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { listTodayTasks, listWorkTasks } from "@ai-portal/automation";
+import { listTodayTasks, listWorkTasks } from "@sangfor/business";
 
 import { CreateTaskForm } from "@/components/tasks/create-task-form";
 import { TaskBoard } from "@/components/tasks/task-board";

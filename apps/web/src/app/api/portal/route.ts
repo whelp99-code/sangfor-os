@@ -3,7 +3,7 @@ import {
   getPortalOverview,
   listPortalTasks,
   syncMockMail,
-} from "@ai-portal/automation";
+} from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 export async function GET() {

@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { listCustomers, listPartners, listPocProjects } from "@ai-portal/automation";
+import { listCustomers, listPartners, listPocProjects } from "@sangfor/business";
 import Link from "next/link";
 
 import { CreatePocForm } from "@/components/poc/create-poc-form";

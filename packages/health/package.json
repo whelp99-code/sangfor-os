@@ -1,5 +1,5 @@
 {
-  "name": "@aios/health",
+  "name": "@sangfor/health",
   "version": "0.1.0",
   "private": true,
   "main": "./dist/index.js",
@@ -8,11 +8,12 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "eslint src --ext .ts",
+    "test": "echo No tests",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "zod": "^3.23.8",
-    "@aios/config": "workspace:*"
+    "@sangfor/config": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.5.4",

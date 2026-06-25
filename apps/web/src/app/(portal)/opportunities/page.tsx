@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { listCustomers, listOpportunities, listPartners } from "@ai-portal/automation";
+import { listCustomers, listOpportunities, listPartners } from "@sangfor/business";
 
 import { CreateOpportunityForm } from "@/components/opportunities/create-opportunity-form";
 import {

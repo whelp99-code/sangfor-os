@@ -142,7 +142,7 @@ describe.skipIf(!integrationEnabled)("Phase 12 task center", () => {
 
 describe.skipIf(!integrationEnabled)("Wave 1 task unification", () => {
   it("migrates portal_tasks to work_tasks and lists unified portal tasks", async () => {
-    const { prisma } = await import("@ai-portal/db");
+    const { prisma } = await import("@sangfor/db");
     const { migratePortalTasksToWorkTasks, listUnifiedPortalTasks } = await import(
       "./task-adapter"
     );

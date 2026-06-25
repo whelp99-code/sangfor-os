@@ -1,4 +1,4 @@
-import type { KnowledgeCitation } from "@ai-portal/automation/knowledge-search";
+import type { KnowledgeCitation } from "@sangfor/business/knowledge-search";
 
 type LightRagQueryResponse = {
   response?: string;

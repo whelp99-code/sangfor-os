@@ -1,4 +1,4 @@
-import { recommendSkillsForInput } from "@ai-portal/automation/skills";
+import { recommendSkillsForInput } from "@sangfor/business/skills";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {

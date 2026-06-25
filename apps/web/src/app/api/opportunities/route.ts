@@ -1,4 +1,4 @@
-import { createOpportunity, listOpportunities } from "@ai-portal/automation";
+import { createOpportunity, listOpportunities } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
 

@@ -1,5 +1,5 @@
 /**
- * @aios/proxy-core - Public API
+ * @sangfor/proxy-core - Public API
  */
 export * from './types';
 export * from './base-adapter';

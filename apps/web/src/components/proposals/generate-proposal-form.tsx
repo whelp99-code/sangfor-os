@@ -1,6 +1,6 @@
 "use client";
 
-import { PROPOSAL_TEMPLATE_KEYS } from "@ai-portal/shared";
+import { PROPOSAL_TEMPLATE_KEYS } from "@sangfor/shared";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 

@@ -6,8 +6,8 @@ import {
   listPartners,
   listPocProjects,
   normalizeOpportunityStage,
-} from "@ai-portal/automation";
-import { buildOpportunityOrchestratorSummary } from "@ai-portal/automation/skills";
+} from "@sangfor/business";
+import { buildOpportunityOrchestratorSummary } from "@sangfor/business/skills";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 

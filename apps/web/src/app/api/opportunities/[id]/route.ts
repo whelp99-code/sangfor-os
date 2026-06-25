@@ -4,7 +4,7 @@ import {
   getOpportunityDetail,
   removeOpportunityLink,
   updateOpportunity,
-} from "@ai-portal/automation";
+} from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
 

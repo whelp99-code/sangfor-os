@@ -1,5 +1,5 @@
 {
-  "name": "@ai-portal/automation",
+  "name": "@sangfor/business",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -28,9 +28,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ai-portal/shared": "workspace:*",
-    "@ai-portal/db": "workspace:*",
-    "@ai-portal/mail-intelligence": "workspace:*",
+    "@sangfor/shared": "workspace:*",
+    "@sangfor/db": "workspace:*",
+    "@sangfor/mail-intelligence": "workspace:*",
     "@octokit/rest": "^22.0.1",
     "zod": "^3.25.76"
   },

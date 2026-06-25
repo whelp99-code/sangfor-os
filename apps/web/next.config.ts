@@ -14,7 +14,7 @@ loadEnv({ path: path.join(monorepoRoot, ".env.local"), override: true });
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  transpilePackages: ["@ai-portal/automation", "@ai-portal/db", "@ai-portal/shared"],
+  transpilePackages: ["@sangfor/business", "@sangfor/db", "@sangfor/shared"],
   turbopack: {
     root: monorepoRoot,
   },

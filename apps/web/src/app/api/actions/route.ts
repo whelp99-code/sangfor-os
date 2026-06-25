@@ -1,4 +1,4 @@
-import { listActionDefinitions } from "@ai-portal/automation/action-connector-runtime";
+import { listActionDefinitions } from "@sangfor/business/action-connector-runtime";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {

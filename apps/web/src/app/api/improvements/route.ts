@@ -1,7 +1,7 @@
 import {
   createImprovementCandidateFromError,
   listImprovementCandidates,
-} from "@ai-portal/automation/improvement-loop";
+} from "@sangfor/business/improvement-loop";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {

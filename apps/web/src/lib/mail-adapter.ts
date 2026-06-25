@@ -1,5 +1,5 @@
-import { createWorkTask, linkTaskToEntity } from "@ai-portal/automation";
-import { getMailOverview, listMailMessages } from "@ai-portal/mail-intelligence";
+import { createWorkTask, linkTaskToEntity } from "@sangfor/business";
+import { getMailOverview, listMailMessages } from "@sangfor/mail-intelligence";
 
 /**
  * Portal adapter for Track M mail-intelligence (read-only + task bridge).

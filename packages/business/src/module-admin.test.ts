@@ -1,7 +1,7 @@
 import { config as loadEnv } from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { prisma } from "@ai-portal/db";
+import { prisma } from "@sangfor/db";
 import { describe, expect, it } from "vitest";
 
 import { setModuleRegistryStatus, toggleModuleRegistryStatus } from "./module-admin";

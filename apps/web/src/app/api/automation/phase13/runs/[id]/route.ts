@@ -1,4 +1,4 @@
-import { getPhase13RunDetail } from "@ai-portal/automation/skills";
+import { getPhase13RunDetail } from "@sangfor/business/skills";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ id: string }> };

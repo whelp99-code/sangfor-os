@@ -1,7 +1,7 @@
 import {
   getGeneratedDocumentDetail,
   saveDocumentVersion,
-} from "@ai-portal/automation";
+} from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ id: string }> };

@@ -1,6 +1,6 @@
 "use client";
 
-import { CANONICAL_STAGES, normalizeOpportunityStage } from "@ai-portal/automation/opportunity-stage";
+import { CANONICAL_STAGES, normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";

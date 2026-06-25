@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@ai-portal/db";
+import { prisma, type Prisma } from "@sangfor/db";
 import { z } from "zod";
 import {
   FORBIDDEN_ACTION_KEYS,

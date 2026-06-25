@@ -1,4 +1,4 @@
-import { prisma } from "@ai-portal/db";
+import { prisma } from "@sangfor/db";
 
 import { createWorkTask, linkTaskToEntity } from "./task-center";
 import { countUnifiedPortalTasks, listUnifiedPortalTasks } from "./task-adapter";

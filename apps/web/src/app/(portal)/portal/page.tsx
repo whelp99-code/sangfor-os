@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { listPortalTasks } from "@ai-portal/automation";
+import { listPortalTasks } from "@sangfor/business";
 
 import { PortalActions } from "@/components/portal/portal-actions";
 import { getPortalMailOverview, listPortalMailMessages } from "@/lib/mail-adapter";

@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 
-import { normalizeOpportunityStage } from "@ai-portal/automation/opportunity-stage";
+import { normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
 
 export function AdvanceOpportunityButton({ id, stage }: { id: string; stage: string }) {
   const canonical = normalizeOpportunityStage(stage);

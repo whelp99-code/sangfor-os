@@ -88,7 +88,7 @@ function buildTemplateOutput(skillKey: string, inputSummary: string) {
           {
             itemTitle: "Orchestrator flow",
             testType: "integration",
-            command: "CI_INTEGRATION=1 pnpm --filter @ai-portal/automation test",
+            command: "CI_INTEGRATION=1 pnpm --filter @sangfor/automation test",
             acceptanceCriteria: ["phase13 orchestrator test passes"],
           },
         ],

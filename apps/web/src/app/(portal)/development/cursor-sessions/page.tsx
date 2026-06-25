@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { listCursorSessions } from "@ai-portal/automation";
+import { listCursorSessions } from "@sangfor/business";
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

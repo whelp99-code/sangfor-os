@@ -1,4 +1,4 @@
-import { Prisma, prisma } from "@ai-portal/db";
+import { Prisma, prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { createCustomer, createPartner } from "./customer-partner";

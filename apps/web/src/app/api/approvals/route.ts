@@ -1,4 +1,4 @@
-import { approveRequest } from "@ai-portal/automation";
+import { approveRequest } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 export async function PATCH(request: Request) {

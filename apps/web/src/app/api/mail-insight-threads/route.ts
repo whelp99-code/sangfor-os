@@ -1,7 +1,7 @@
 import {
   listMailInsightThreads,
   upsertMailInsightThreads,
-} from "@ai-portal/automation/mail-insight-threads";
+} from "@sangfor/business/mail-insight-threads";
 import { NextResponse } from "next/server";
 
 import { ingestLightRagText } from "@/lib/knowledge/lightrag-client";

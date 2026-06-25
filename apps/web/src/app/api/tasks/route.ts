@@ -1,4 +1,4 @@
-import { createWorkTask, createWorkTaskSchema, listTodayTasks, listWorkTasks } from "@ai-portal/automation";
+import { createWorkTask, createWorkTaskSchema, listTodayTasks, listWorkTasks } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {

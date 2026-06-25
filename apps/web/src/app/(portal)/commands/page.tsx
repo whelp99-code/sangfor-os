@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { listCommandRuns } from "@ai-portal/automation";
+import { listCommandRuns } from "@sangfor/business";
 import Link from "next/link";
 
 import { CreateCommandForm } from "@/components/commands/create-command-form";

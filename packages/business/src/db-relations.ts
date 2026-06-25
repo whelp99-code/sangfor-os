@@ -1,4 +1,4 @@
-import { prisma } from "@ai-portal/db";
+import { prisma } from "@sangfor/db";
 
 /**
  * Purpose: Phase 11 DB relation integrity checks for Beta readiness.

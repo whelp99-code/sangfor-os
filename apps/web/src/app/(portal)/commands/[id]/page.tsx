@@ -1,4 +1,4 @@
-import { buildTimeline, getCommandRunDetail } from "@ai-portal/automation";
+import { buildTimeline, getCommandRunDetail } from "@sangfor/business";
 import { notFound } from "next/navigation";
 
 import { RunWorkflowButton } from "@/components/commands/run-workflow-button";

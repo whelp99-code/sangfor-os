@@ -1,5 +1,5 @@
 {
-  "name": "@aios/ui",
+  "name": "@sangfor/ui",
   "version": "0.1.0",
   "private": true,
   "main": "./src/index.ts",
@@ -7,10 +7,11 @@
   "scripts": {
     "build": "tsc",
     "lint": "eslint src",
+    "test": "echo No tests",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@aios/shared": "workspace:*",
+    "@sangfor/shared": "workspace:*",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "lucide-react": "^0.400.0",

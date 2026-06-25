@@ -1,4 +1,4 @@
-import { convertImprovementToPhase13Run } from "@ai-portal/automation/improvement-loop";
+import { convertImprovementToPhase13Run } from "@sangfor/business/improvement-loop";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ id: string }> };

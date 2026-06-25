@@ -1,4 +1,4 @@
-import { archivePartner, getPartnerDetail, updatePartner } from "@ai-portal/automation";
+import { archivePartner, getPartnerDetail, updatePartner } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ id: string }> };

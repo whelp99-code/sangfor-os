@@ -1,9 +1,9 @@
 {
-  "name": "@ai-portal/web",
+  "name": "@sangfor/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "pnpm --filter @ai-portal/shared build",
+    "predev": "pnpm --filter @sangfor/shared build",
     "dev": "next dev -p 3101",
     "build": "next build --webpack",
     "start": "next start",
@@ -12,10 +12,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ai-portal/automation": "workspace:*",
-    "@ai-portal/db": "workspace:*",
-    "@ai-portal/mail-intelligence": "workspace:*",
-    "@ai-portal/shared": "workspace:*",
+    "@sangfor/business": "workspace:*",
+    "@sangfor/db": "workspace:*",
+    "@sangfor/mail-intelligence": "workspace:*",
+    "@sangfor/shared": "workspace:*",
     "@base-ui/react": "^1.5.0",
     "@sentry/nextjs": "^10.55.0",
     "class-variance-authority": "^0.7.1",

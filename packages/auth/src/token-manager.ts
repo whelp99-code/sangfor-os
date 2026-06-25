@@ -1,10 +1,10 @@
 /**
- * @aios/auth - JWT Token Manager (jose v5 compatible)
+ * @sangfor/auth - JWT Token Manager (jose v5 compatible)
  * Codex HPF-002: Per-product token manager with scope isolation
  */
 
 import { SignJWT, jwtVerify } from 'jose';
-import { getConfig } from '@aios/config';
+import { getConfig } from '@sangfor/config';
 
 /** 제품별 OAuth 스코프 레지스트리 */
 export const PRODUCT_SCOPES = {

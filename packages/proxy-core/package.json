@@ -1,5 +1,5 @@
 {
-  "name": "@aios/proxy-core",
+  "name": "@sangfor/proxy-core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,13 +15,14 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "eslint src --ext .ts",
+    "test": "echo No tests",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "zod": "^3.23.8",
-    "@aios/config": "workspace:*",
-    "@aios/health": "workspace:*",
-    "@aios/auth": "workspace:*"
+    "@sangfor/config": "workspace:*",
+    "@sangfor/health": "workspace:*",
+    "@sangfor/auth": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.5.4",

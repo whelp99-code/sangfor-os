@@ -1,5 +1,5 @@
 /**
- * @aios/config - Unified Environment Schema
+ * @sangfor/config - Unified Environment Schema
  * Codex AC-005: ALL required secrets MUST be mandatory (not optional)
  * Codex HPF-005: Secret masking logger integration point
  */

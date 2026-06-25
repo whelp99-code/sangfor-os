@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 
-import { listDevActivity } from "@ai-portal/automation";
-import { prisma } from "@ai-portal/db";
+import { listDevActivity } from "@sangfor/business";
+import { prisma } from "@sangfor/db";
 
 import { RegistryPageView } from "@/components/registry/registry-page-view";
 import { buttonVariants } from "@/components/ui/button";

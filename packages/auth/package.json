@@ -1,5 +1,5 @@
 {
-  "name": "@aios/auth",
+  "name": "@sangfor/auth",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,12 +13,13 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"No tests\""
   },
   "dependencies": {
     "jose": "^5.6.3",
     "zod": "^3.23.8",
-    "@aios/config": "workspace:*"
+    "@sangfor/config": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.5.4",

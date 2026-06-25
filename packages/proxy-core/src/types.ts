@@ -1,5 +1,5 @@
 /**
- * @aios/proxy-core - Upstream Proxy Adapter Pattern
+ * @sangfor/proxy-core - Upstream Proxy Adapter Pattern
  * Codex RC-002: Single proxy class replaced with per-upstream adapters
  * Codex AC-002: Interface segregation for wildly different upstream contracts
  */

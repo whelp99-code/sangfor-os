@@ -1,4 +1,4 @@
-import { prisma } from "@ai-portal/db";
+import { prisma } from "@sangfor/db";
 import { NextResponse } from "next/server";
 
 // 실제 메일 데이터 생성 함수

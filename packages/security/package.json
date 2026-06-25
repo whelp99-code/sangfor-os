@@ -1,5 +1,5 @@
 {
-  "name": "@aios/security",
+  "name": "@sangfor/security",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,6 +12,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "eslint src --ext .ts",
+    "test": "echo No tests",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

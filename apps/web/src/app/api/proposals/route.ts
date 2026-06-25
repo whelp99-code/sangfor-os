@@ -1,4 +1,4 @@
-import { generateProposal, listGeneratedDocuments } from "@ai-portal/automation";
+import { generateProposal, listGeneratedDocuments } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 export async function GET() {

@@ -13,7 +13,7 @@ const integrationEnabled = process.env.CI_INTEGRATION === "1";
 
 describe.skipIf(!integrationEnabled)("Phase 12 mail rehearsal", () => {
   it("reads mail overview without send/delete", async () => {
-    const { getMailOverview } = await import("@ai-portal/mail-intelligence");
+    const { getMailOverview } = await import("@sangfor/mail-intelligence");
     const overview = await getMailOverview();
     expect(overview.accounts).toBeGreaterThanOrEqual(0);
     expect(Array.isArray(overview.taskCandidates)).toBe(true);

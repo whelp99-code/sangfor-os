@@ -1,5 +1,5 @@
 /**
- * @aios/health - Health Monitoring System
+ * @sangfor/health - Health Monitoring System
  * Codex AC-001: Liveness vs Readiness probe separation
  * Portal starts without upstreams - async health probes
  */

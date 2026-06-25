@@ -2,7 +2,7 @@ import {
   createKnowledgeDocument,
   listKnowledgeDocuments,
   searchKnowledgeWithCitations,
-} from "@ai-portal/automation/knowledge-search";
+} from "@sangfor/business/knowledge-search";
 import { NextResponse } from "next/server";
 
 import {

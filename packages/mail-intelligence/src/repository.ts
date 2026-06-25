@@ -1,4 +1,4 @@
-import { prisma } from "@ai-portal/db";
+import { prisma } from "@sangfor/db";
 
 import type { MailGroup, MailMessageMeta, MailSyncResult, TaskCandidate } from "./contract";
 
@@ -11,7 +11,7 @@ export async function listMailMessages(limit = 20): Promise<MailMessageMeta[]> {
     orderBy: { createdAt: "desc" },
     take: limit,
   });
-  return rows.map((m) => ({
+  return rows.map((m: any) => ({
     id: m.id,
     subject: m.subject,
     fromAddress: m.fromEmail,
@@ -43,7 +43,7 @@ export async function getMailOverview(): Promise<MailSyncResult> {
     messageCount,
   }));
 
-  const taskCandidates: TaskCandidate[] = rows.slice(0, 5).map((m) => ({
+  const taskCandidates: TaskCandidate[] = rows.slice(0, 5).map((m: any) => ({
     mailMessageId: m.id,
     title: `Follow up: ${m.subject}`,
     summary: m.bodyPreview ?? m.subject,

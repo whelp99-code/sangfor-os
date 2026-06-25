@@ -1,4 +1,4 @@
-import { createPocProject, listPocProjects } from "@ai-portal/automation";
+import { createPocProject, listPocProjects } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 export async function GET() {

@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { getObservabilitySummary } from "@ai-portal/automation";
+import { getObservabilitySummary } from "@sangfor/business";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 

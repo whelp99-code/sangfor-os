@@ -1,4 +1,4 @@
-import { runWorkflowMock } from "@ai-portal/automation";
+import { runWorkflowMock } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ commandRunId: string }> };

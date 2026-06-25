@@ -1,4 +1,4 @@
-import { createPartner, listPartners } from "@ai-portal/automation";
+import { createPartner, listPartners } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 export async function GET() {

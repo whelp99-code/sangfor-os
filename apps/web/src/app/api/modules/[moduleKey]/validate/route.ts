@@ -3,9 +3,9 @@ import {
   validateModuleRuntime,
   getModuleManifest,
   validateModuleManifest,
-} from "@ai-portal/automation/module-runtime";
-import { listActionDefinitions } from "@ai-portal/automation/action-connector-runtime";
-import { prisma } from "@ai-portal/db";
+} from "@sangfor/business/module-runtime";
+import { listActionDefinitions } from "@sangfor/business/action-connector-runtime";
+import { prisma } from "@sangfor/db";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ moduleKey: string }> };

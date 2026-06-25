@@ -1,4 +1,4 @@
-import { assessRisk } from "@ai-portal/automation/automation-preview";
+import { assessRisk } from "@sangfor/business/automation-preview";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {

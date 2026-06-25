@@ -1,5 +1,5 @@
-import { enrichModuleWithActionConnectorMetadata } from "@ai-portal/automation/action-connector-runtime";
-import { listModuleManifests } from "@ai-portal/automation/module-runtime";
+import { enrichModuleWithActionConnectorMetadata } from "@sangfor/business/action-connector-runtime";
+import { listModuleManifests } from "@sangfor/business/module-runtime";
 import { NextResponse } from "next/server";
 
 export async function GET() {

@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { listPartners } from "@ai-portal/automation";
+import { listPartners } from "@sangfor/business";
 import Link from "next/link";
 
 import { CreatePartnerForm } from "@/components/customers/create-partner-form";

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listRegistryAdminRows } from "@/lib/registry/service";
-import { listConnectorRuntimeStates } from "@ai-portal/automation/action-connector-runtime";
-import { prisma } from "@ai-portal/db";
+import { listConnectorRuntimeStates } from "@sangfor/business/action-connector-runtime";
+import { prisma } from "@sangfor/db";
 import { TemplateRegistryGrid } from "./template-registry-grid";
 import { PolicyMemoryManager } from "./policy-memory-manager";
 import { Badge } from "@/components/ui/badge";

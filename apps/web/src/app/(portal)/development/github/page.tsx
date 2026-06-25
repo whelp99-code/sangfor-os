@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { prisma } from "@ai-portal/db";
+import { prisma } from "@sangfor/db";
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

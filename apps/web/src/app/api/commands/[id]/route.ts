@@ -1,4 +1,4 @@
-import { buildTimeline, getCommandRunDetail } from "@ai-portal/automation";
+import { buildTimeline, getCommandRunDetail } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ id: string }> };

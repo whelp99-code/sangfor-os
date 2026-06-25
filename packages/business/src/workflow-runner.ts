@@ -1,4 +1,4 @@
-import { prisma } from "@ai-portal/db";
+import { prisma } from "@sangfor/db";
 
 import { logStateTransition, processPendingOutboxEvents } from "./audit";
 import { ensureApprovalForRun } from "./approval-gate";

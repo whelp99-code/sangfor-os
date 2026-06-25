@@ -1,4 +1,4 @@
-import { listImprovementCandidates } from "@ai-portal/automation/improvement-loop";
+import { listImprovementCandidates } from "@sangfor/business/improvement-loop";
 import Link from "next/link";
 
 import { ImprovementCandidateActions } from "@/components/development/improvement-candidate-actions";

@@ -1,4 +1,4 @@
-import { createContact } from "@ai-portal/automation";
+import { createContact } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {

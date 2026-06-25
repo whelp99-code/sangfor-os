@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
-import { listCustomers } from "@ai-portal/automation";
+import { listCustomers } from "@sangfor/business";
 import Link from "next/link";
 
 import { CreateCustomerForm } from "@/components/customers/create-customer-form";

@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { listCustomers, listGeneratedDocuments, listPocProjects } from "@ai-portal/automation";
+import { listCustomers, listGeneratedDocuments, listPocProjects } from "@sangfor/business";
 
 import { GenerateProposalForm } from "@/components/proposals/generate-proposal-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

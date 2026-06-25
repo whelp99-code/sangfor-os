@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { listKnowledgeDocuments } from "@ai-portal/automation/knowledge-search";
+import { listKnowledgeDocuments } from "@sangfor/business/knowledge-search";
 
 import { CreateKnowledgeForm } from "@/components/knowledge/create-knowledge-form";
 import { KnowledgeSearch } from "@/components/knowledge/knowledge-search";

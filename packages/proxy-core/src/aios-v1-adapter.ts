@@ -1,5 +1,5 @@
 /**
- * @aios/proxy-core - AIOS v1 Proxy Adapter
+ * @sangfor/proxy-core - AIOS v1 Proxy Adapter
  * Implements IUpstreamProxy for AIOS v1 (port 3101)
  * 19 mail API routes with approval gates
  */
@@ -98,7 +98,7 @@ export class AiosV1ProxyAdapter extends BaseProxyAdapter {
 
   protected async onInitialize(): Promise<void> {
     // 토큰 매니저 지연 로드 (순환 의존 방지)
-    const { getTokenManager } = await import("@aios/auth");
+    const { getTokenManager } = await import("@sangfor/auth");
     this.tokenManager = getTokenManager();
   }
 

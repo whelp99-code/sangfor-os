@@ -1,4 +1,4 @@
-import { prisma } from "@ai-portal/db";
+import { prisma } from "@sangfor/db";
 
 import { getOpportunityPipelineSummary } from "./opportunity-center";
 import { listTodayTasks, listWorkTasks } from "./task-center";

@@ -1,4 +1,4 @@
-import { prisma } from "@ai-portal/db";
+import { prisma } from "@sangfor/db";
 
 export type RegistryCounts = {
   modules: number;
@@ -57,97 +57,97 @@ export async function runQueryHandler(
         },
       });
     case "customer_list": {
-      const { listCustomers } = await import("@ai-portal/automation");
+      const { listCustomers } = await import("@sangfor/business");
       return listCustomers();
     }
     case "task_board": {
-      const { listWorkTasks } = await import("@ai-portal/automation");
+      const { listWorkTasks } = await import("@sangfor/business");
       return listWorkTasks();
     }
     case "task_today": {
-      const { listTodayTasks } = await import("@ai-portal/automation");
+      const { listTodayTasks } = await import("@sangfor/business");
       return listTodayTasks();
     }
     case "customer_detail": {
-      const { listCustomers } = await import("@ai-portal/automation");
+      const { listCustomers } = await import("@sangfor/business");
       const rows = await listCustomers();
       return rows[0] ?? null;
     }
     case "partner_list": {
-      const { listPartners } = await import("@ai-portal/automation");
+      const { listPartners } = await import("@sangfor/business");
       return listPartners();
     }
     case "contact_list": {
-      const { prisma: db } = await import("@ai-portal/db");
+      const { prisma: db } = await import("@sangfor/db");
       return db.contact.findMany({ take: 20, orderBy: { createdAt: "desc" } });
     }
     case "customer_activity": {
-      const { prisma: db } = await import("@ai-portal/db");
+      const { prisma: db } = await import("@sangfor/db");
       return db.customerActivityLog.findMany({
         take: 20,
         orderBy: { createdAt: "desc" },
       });
     }
     case "task_list": {
-      const { listWorkTasks } = await import("@ai-portal/automation");
+      const { listWorkTasks } = await import("@sangfor/business");
       return listWorkTasks();
     }
     case "task_detail": {
-      const { listWorkTasks } = await import("@ai-portal/automation");
+      const { listWorkTasks } = await import("@sangfor/business");
       const rows = await listWorkTasks();
       return rows[0] ?? null;
     }
     case "poc_project_list": {
-      const { listPocProjects } = await import("@ai-portal/automation");
+      const { listPocProjects } = await import("@sangfor/business");
       return listPocProjects();
     }
     case "poc_project_detail": {
-      const { listPocProjects, getPocDetail } = await import("@ai-portal/automation");
+      const { listPocProjects, getPocDetail } = await import("@sangfor/business");
       const rows = await listPocProjects();
       return rows[0] ? getPocDetail(rows[0].id) : null;
     }
     case "poc_checklist": {
-      const { listPocProjects, getPocDetail } = await import("@ai-portal/automation");
+      const { listPocProjects, getPocDetail } = await import("@sangfor/business");
       const rows = await listPocProjects();
       const detail = rows[0] ? await getPocDetail(rows[0].id) : null;
       return detail?.checklistItems ?? [];
     }
     case "poc_report": {
-      const { prisma: db } = await import("@ai-portal/db");
+      const { prisma: db } = await import("@sangfor/db");
       return db.pocResultReport.findMany({ take: 5, orderBy: { createdAt: "desc" } });
     }
     case "opportunity_list": {
-      const { listOpportunities } = await import("@ai-portal/automation");
+      const { listOpportunities } = await import("@sangfor/business");
       return listOpportunities();
     }
     case "opportunity_pipeline": {
-      const { getOpportunityPipelineSummary } = await import("@ai-portal/automation");
+      const { getOpportunityPipelineSummary } = await import("@sangfor/business");
       return getOpportunityPipelineSummary();
     }
     case "opportunity_detail": {
-      const { listOpportunities, getOpportunityDetail } = await import("@ai-portal/automation");
+      const { listOpportunities, getOpportunityDetail } = await import("@sangfor/business");
       const rows = await listOpportunities();
       return rows[0] ? getOpportunityDetail(rows[0].id) : null;
     }
     case "proposal_list": {
-      const { listGeneratedDocuments } = await import("@ai-portal/automation");
+      const { listGeneratedDocuments } = await import("@sangfor/business");
       return listGeneratedDocuments();
     }
     case "knowledge_search": {
-      const { listKnowledgeDocuments } = await import("@ai-portal/automation");
+      const { listKnowledgeDocuments } = await import("@sangfor/business");
       return listKnowledgeDocuments();
     }
     case "dashboard_today_summary": {
-      const { getDashboardWidgets } = await import("@ai-portal/automation");
+      const { getDashboardWidgets } = await import("@sangfor/business");
       const w = await getDashboardWidgets();
       return { todayTasks: w.todayTasks, urgentCount: w.urgentTasks.length };
     }
     case "dashboard_urgent_tasks": {
-      const { getDashboardWidgets } = await import("@ai-portal/automation");
+      const { getDashboardWidgets } = await import("@sangfor/business");
       return (await getDashboardWidgets()).urgentTasks;
     }
     case "dashboard_dev_status": {
-      const { getDashboardWidgets } = await import("@ai-portal/automation");
+      const { getDashboardWidgets } = await import("@sangfor/business");
       return (await getDashboardWidgets()).devStatus;
     }
     default:

@@ -1,5 +1,5 @@
 /**
- * @aios/proxy-core - Base Proxy Adapter
+ * @sangfor/proxy-core - Base Proxy Adapter
  * Codex RC-001: Lazy proxy initialization - Portal starts even if upstreams are down
  * Circuit breaker, retry, timeout handling
  */

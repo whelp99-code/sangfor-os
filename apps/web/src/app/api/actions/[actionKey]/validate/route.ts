@@ -1,5 +1,5 @@
-import { validateAction } from "@ai-portal/automation/action-connector-runtime";
-import { prisma } from "@ai-portal/db";
+import { validateAction } from "@sangfor/business/action-connector-runtime";
+import { prisma } from "@sangfor/db";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ actionKey: string }> };

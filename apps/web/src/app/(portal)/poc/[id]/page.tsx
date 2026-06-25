@@ -1,5 +1,5 @@
-import { getPocDetail, listCustomers, listPartners } from "@ai-portal/automation";
-import { buildPocOrchestratorSummary } from "@ai-portal/automation/skills";
+import { getPocDetail, listCustomers, listPartners } from "@sangfor/business";
+import { buildPocOrchestratorSummary } from "@sangfor/business/skills";
 import { notFound } from "next/navigation";
 
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";

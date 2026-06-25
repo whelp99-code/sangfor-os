@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { prisma } from "@ai-portal/db";
+import { prisma } from "@sangfor/db";
 
 import { MailCandidateActions } from "@/components/development/mail-candidate-actions";
 import { Badge } from "@/components/ui/badge";

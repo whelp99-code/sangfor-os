@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getExecutiveSummary } from "@ai-portal/automation";
+import { getExecutiveSummary } from "@sangfor/business";
 
 export async function GET() {
   try {
