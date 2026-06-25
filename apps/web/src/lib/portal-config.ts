@@ -8,23 +8,23 @@ export type NavItem = {
 
 export const PORTAL_NAV: NavItem[] = [
   // ═══ Business Core ═══
-  { title: "Executive Dashboard", href: "/dashboard", icon: "layout-dashboard", group: "Business", roles: ["owner", "admin"] },
-  { title: "Sales Manager", href: "/sales", icon: "trending-up", group: "Business", roles: ["sales"] },
-  { title: "Presales Engineer", href: "/presales", icon: "flask", group: "Business", roles: ["presales"] },
-  { title: "Delivery Engineer", href: "/delivery", icon: "truck", group: "Business", roles: ["delivery"] },
-  { title: "Support Engineer", href: "/support", icon: "headphones", group: "Business", roles: ["support"] },
+  { title: "Executive Dashboard", href: "/dashboard", icon: "layout-dashboard", group: "Business" },
+  { title: "Sales Manager", href: "/sales", icon: "trending-up", group: "Business" },
+  { title: "Presales Engineer", href: "/presales", icon: "flask", group: "Business" },
+  { title: "Finance Manager", href: "/finance", icon: "trending-up", group: "Business" },
+  { title: "Delivery Engineer", href: "/delivery", icon: "truck", group: "Business" },
+  { title: "Support Engineer", href: "/support", icon: "headphones", group: "Business" },
+  { title: "Color Agents", href: "/agents", icon: "activity", group: "Business" },
   { title: "고객사", href: "/customers", icon: "users", group: "Business" },
   { title: "파트너", href: "/partners", icon: "handshake", group: "Business" },
   { title: "영업기회", href: "/opportunities", icon: "trending-up", group: "Business" },
   { title: "PoC", href: "/poc", icon: "flask", group: "Business" },
   { title: "제안서", href: "/proposals", icon: "file-text", group: "Business" },
   { title: "작업", href: "/tasks", icon: "list-checks", group: "Business" },
+  { title: "승인", href: "/approvals", icon: "shield-check", group: "Business" },
   { title: "워크플로우", href: "/commands", icon: "terminal", group: "Business" },
-  { title: "승인", href: "/approvals", icon: "shield-check", group: "Business", roles: ["owner", "admin"] },
-  { title: "Color Agents", href: "/agents", icon: "activity", group: "Business" },
 
   // ═══ Finance ═══
-  { title: "Finance Manager", href: "/finance", icon: "trending-up", group: "Finance", roles: ["finance"] },
   { title: "재무 대시보드", href: "/cfo/dashboard", icon: "trending-up", group: "Finance" },
   { title: "매출/미수금", href: "/cfo/invoices", icon: "file-text", group: "Finance" },
   { title: "비용", href: "/cfo/expenses", icon: "list-checks", group: "Finance" },
@@ -43,11 +43,10 @@ export const PORTAL_NAV: NavItem[] = [
   { title: "개발 센터", href: "/development", icon: "code", group: "Development" },
   { title: "오케스트레이터", href: "/development/orchestrator", icon: "activity", group: "Development" },
   { title: "개선사항", href: "/development/improvements", icon: "blocks", group: "Development" },
-  { title: "GitHub", href: "/development/github", icon: "code", group: "Development" },
 
   // ═══ System ═══
-  { title: "Operator Console", href: "/operator", icon: "activity", group: "System", roles: ["admin"] },
-  { title: "Security", href: "/security", icon: "shield-check", group: "System", roles: ["admin"] },
+  { title: "Operator Console", href: "/operator", icon: "activity", group: "System" },
+  { title: "Security", href: "/security", icon: "shield-check", group: "System" },
   { title: "설정", href: "/settings", icon: "settings", group: "System" },
 ];
 
