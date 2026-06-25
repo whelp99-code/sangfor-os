@@ -1,102 +1,72 @@
-import { prisma } from "@sangfor/db";
+export type ApprovalState =
+  | 'pending' | 'auto_validating' | 'auto_failed'
+  | 'remediation_required' | 'ready_for_human_approval'
+  | 'approved' | 'rejected' | 'stale'
+  | 'override_requested' | 'override_approved'
 
-import { logStateTransition } from "./audit";
-
-const RISK_LEVELS_REQUIRING_APPROVAL = new Set(["medium", "high"]);
-
-/**
- * Purpose: Block workflow execution until risky command runs are approved.
- * Failure Points: Missing approval row allows bypass; stale pending after approve.
- * Observability: approval_requests, state_transition_logs, notification_events
- */
-export async function ensureApprovalForRun(commandRunId: string) {
-  const run = await prisma.commandRun.findUnique({
-    where: { id: commandRunId },
-    include: { risk: true },
-  });
-  if (!run?.risk || !RISK_LEVELS_REQUIRING_APPROVAL.has(run.risk.riskLevel)) {
-    return { required: false as const };
+export class ApprovalStateMachine {
+  private static TRANSITIONS: Record<ApprovalState, ApprovalState[]> = {
+    pending: ['auto_validating'],
+    auto_validating: ['auto_failed', 'ready_for_human_approval'],
+    auto_failed: ['remediation_required', 'override_requested'],
+    remediation_required: ['auto_validating'],
+    ready_for_human_approval: ['approved', 'rejected', 'stale'],
+    approved: [],
+    rejected: [],
+    stale: ['ready_for_human_approval'],
+    override_requested: ['override_approved', 'rejected'],
+    override_approved: ['ready_for_human_approval'],
   }
 
-  const pending = await prisma.approvalRequest.findFirst({
-    where: { commandRunId, status: "pending" },
-  });
-  if (pending) {
-    throw new Error("approval_required");
+  static canTransition(from: ApprovalState, to: ApprovalState): boolean {
+    return this.TRANSITIONS[from]?.includes(to) ?? false
   }
 
-  const rejected = await prisma.approvalRequest.findFirst({
-    where: { commandRunId, status: "rejected" },
-  });
-  if (rejected) {
-    throw new Error("approval_rejected");
+  static validateTransition(from: ApprovalState, to: ApprovalState): void {
+    if (!this.canTransition(from, to)) {
+      throw new Error(`Invalid approval transition: ${from} → ${to}`)
+    }
   }
-
-  return { required: true as const };
 }
 
-export async function createApprovalIfNeeded(commandRunId: string, riskLevel: string) {
-  if (!RISK_LEVELS_REQUIRING_APPROVAL.has(riskLevel)) return null;
-
-  const existing = await prisma.approvalRequest.findFirst({
-    where: { commandRunId, status: { in: ["pending", "approved"] } },
-  });
-  if (existing) return existing;
-
-  const approval = await prisma.approvalRequest.create({
-    data: {
-      commandRunId,
-      status: "pending",
-      reason: `${riskLevel} risk command requires operator approval`,
-    },
-  });
-
-  await prisma.notificationEvent.create({
-    data: {
-      companyId: "system",
-      channel: "internal",
-      eventType: "approval.required",
-      payloadJson: { commandRunId, message: `Approval required for ${riskLevel} risk run` },
-    },
-  });
-
-  await logStateTransition({
-    entityType: "approval_request",
-    entityId: approval.id,
-    fromStatus: null,
-    toStatus: "pending",
-    actorType: "engine",
-    metadata: { riskLevel },
-  });
-
-  return approval;
+export interface GateRule {
+  gateKey: string
+  name: string
+  check: (data: GateCheckData) => GateResult
 }
 
-export async function approveRequest(approvalId: string, actorId?: string) {
-  const approval = await prisma.approvalRequest.update({
-    where: { id: approvalId },
-    data: { status: "approved" },
-  });
-
-  await logStateTransition({
-    entityType: "approval_request",
-    entityId: approvalId,
-    fromStatus: "pending",
-    toStatus: "approved",
-    actorType: "user",
-    actorId,
-  });
-
-  if (approval.commandRunId) {
-    await prisma.notificationEvent.create({
-      data: {
-        companyId: "system",
-        channel: "internal",
-        eventType: "approval.approved",
-        payloadJson: { commandRunId: approval.commandRunId, message: "Command run approved — workflow may proceed" },
-      },
-    });
-  }
-
-  return approval;
+export interface GateCheckData {
+  marginPct: number
+  discountPct: number
+  opportunityValue: number
+  daysToRenewal?: number
 }
+
+export interface GateResult {
+  passed: boolean
+  message?: string
+}
+
+export const GATES: GateRule[] = [
+  { gateKey: 'G1', name: 'Opportunity Gate', check: (d) => ({ passed: d.marginPct >= 15 || d.opportunityValue < 10000, message: d.marginPct < 15 ? '마진율 15% 미만' : undefined }) },
+  { gateKey: 'G2', name: 'Solution Fit Gate', check: (d) => ({ passed: true }) },
+  { gateKey: 'G3', name: 'Commercial Gate', check: (d) => ({ passed: d.discountPct <= 25, message: d.discountPct > 25 ? '할인율 25% 초과' : undefined }) },
+  { gateKey: 'G4', name: 'Proposal Gate', check: (d) => ({ passed: true }) },
+  { gateKey: 'G5', name: 'PoC Gate', check: (d) => ({ passed: true }) },
+  { gateKey: 'G6', name: 'Delivery Gate', check: (d) => ({ passed: true }) },
+  { gateKey: 'G7', name: 'Acceptance Gate', check: (d) => ({ passed: true }) },
+  { gateKey: 'G8', name: 'Renewal Gate', check: (d) => ({ passed: d.daysToRenewal === undefined || d.daysToRenewal >= 30, message: d.daysToRenewal !== undefined && d.daysToRenewal < 30 ? '갱신까지 30일 미만' : undefined }) },
+]
+
+export function runAutoValidation(data: GateCheckData): { results: GateResult[]; passed: boolean; failedGates: string[] } {
+  const results = GATES.map(g => ({ gateKey: g.gateKey, name: g.name, result: g.check(data) }))
+  const failed = results.filter(r => !r.result.passed)
+  return { results: results.map(r => r.result), passed: failed.length === 0, failedGates: failed.map(r => r.gateKey) }
+}
+
+export function autoTransition(currentState: ApprovalState, validation: { passed: boolean }): ApprovalState {
+  if (currentState !== 'pending') return currentState
+  return validation.passed ? 'ready_for_human_approval' : 'auto_failed'
+}
+
+export { ensureApprovalForRun, createApprovalIfNeeded, approveRequest } from "./approval-db";

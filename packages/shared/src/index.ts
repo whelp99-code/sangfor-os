@@ -1,3 +1,5 @@
+export * from "./status.js";
+
 export const PROJECT_NAME = "AI Automation Work Portal" as const;
 export const PROJECT_PHASE = 13 as const;
 export const PROJECT_TAGLINE =
