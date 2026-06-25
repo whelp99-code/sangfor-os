@@ -19,8 +19,9 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  projectMembers ProjectMember[]
-  commandRuns    CommandRun[]    @relation("CommandRunRequestedBy")
+  projectMembers    ProjectMember[]
+  commandRuns       CommandRun[]    @relation("CommandRunRequestedBy")
+  userCompanyRoles  UserCompanyRole[]
 
   @@map("users")
 }
@@ -635,6 +636,7 @@ model Customer {
   generatedDocuments GeneratedDocument[]
   customerAssets       CustomerAsset[]
   renewalOpportunities RenewalOpportunity[]
+  supportCases         SupportCase[]
 
   @@index([projectId, name])
   @@map("customers")
@@ -878,6 +880,9 @@ model Opportunity {
   stageEvents OpportunityStageEvent[]
   links                OpportunityLink[]
   quoteServiceLineItems QuoteServiceLineItem[]
+  quotes                Quote[]
+  vendorRequests        VendorRequest[]
+  deliveryProjects      DeliveryProject[]
 
   @@index([projectId, stage])
   @@map("opportunities")
@@ -1111,7 +1116,7 @@ model RunTimelineItem {
   @@map("run_timeline_items")
 }
 
-model NotificationEvent {
+model CommandNotificationEvent {
   id           String   @id @default(cuid())
   commandRunId String?  @map("command_run_id")
   eventType    String   @map("event_type")
@@ -1119,7 +1124,7 @@ model NotificationEvent {
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([commandRunId])
-  @@map("notification_events")
+  @@map("command_notification_events")
 }
 
 model ExecutionPolicy {
@@ -1494,7 +1499,9 @@ model KanbanHandoffCard {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  events HandoffEvent[]
+  events              HandoffEvent[]
+  reviewRequirements  ColorReviewRequirement[]
+  colorAgentDecisions ColorAgentDecision[]
 
   @@index([projectId, status])
   @@map("kanban_handoff_cards")
@@ -1549,6 +1556,10 @@ model CustomerAsset {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  assetLicenses        AssetLicense[]
+  subscriptions        Subscription[]
+  maintenanceContracts MaintenanceContract[]
 
   @@index([customerId])
   @@map("customer_assets")
@@ -1634,4 +1645,475 @@ model AiQualityResult {
   @@index([goldenAnswerId])
   @@index([runId])
   @@map("ai_quality_results")
+}
+
+// --- Tenant / Multi-tenancy ---
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  companies Company[]
+
+  @@map("tenants")
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  name      String
+  slug      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id])
+  userCompanyRoles UserCompanyRole[]
+  personas        Persona[]
+
+  @@index([tenantId])
+  @@map("companies")
+}
+
+model UserCompanyRole {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  companyId String   @map("company_id")
+  role      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId, role])
+  @@map("user_company_roles")
+}
+
+model RoleChangeRequest {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  fromRole    String   @map("from_role")
+  toRole      String   @map("to_role")
+  status      String   @default("pending")
+  requestedBy String   @map("requested_by")
+  approvedBy  String?  @map("approved_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId, status])
+  @@map("role_change_requests")
+}
+
+model Persona {
+  id          String  @id @default(cuid())
+  companyId   String  @map("company_id")
+  key         String
+  name        String
+  description String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, key])
+  @@map("personas")
+}
+
+// --- Product Catalog ---
+
+model ProductFamily {
+  id          String   @id @default(cuid())
+  vendor      String
+  name        String
+  description String?
+
+  editions        ProductEdition[]
+  sizingTemplates SizingTemplate[]
+
+  @@map("product_families")
+}
+
+model ProductEdition {
+  id       String @id @default(cuid())
+  familyId String @map("family_id")
+  name     String
+  version  String
+
+  family ProductFamily @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  skus   ProductSku[]
+
+  @@index([familyId])
+  @@map("product_editions")
+}
+
+model ProductSku {
+  id            String   @id @default(cuid())
+  editionId     String   @map("edition_id")
+  skuCode       String   @unique @map("sku_code")
+  name          String
+  unitPrice     Decimal?  @db.Decimal(12, 2) @map("unit_price")
+  unitCost      Decimal?  @db.Decimal(12, 2) @map("unit_cost")
+  licenseMetric String?  @map("license_metric")
+
+  edition                  ProductEdition       @relation(fields: [editionId], references: [id])
+  quoteLineItems           QuoteLineItem[]
+  sourceCompatibilityRules CompatibilityRule[]  @relation("SourceSku")
+  targetCompatibilityRules CompatibilityRule[]  @relation("TargetSku")
+  assetLicenses            AssetLicense[]
+  subscriptions            Subscription[]
+
+  @@index([editionId])
+  @@map("product_skus")
+}
+
+model LicenseMetric {
+  id   String @id @default(cuid())
+  key  String @unique
+  name String
+  unit String
+
+  @@map("license_metrics")
+}
+
+model SizingTemplate {
+  id              String @id @default(cuid())
+  productFamilyId String @map("product_family_id")
+  name            String
+  configJson      Json   @map("config_json")
+
+  family ProductFamily @relation(fields: [productFamilyId], references: [id], onDelete: Cascade)
+
+  @@index([productFamilyId])
+  @@map("sizing_templates")
+}
+
+model CompatibilityRule {
+  id          String @id @default(cuid())
+  sourceSkuId String @map("source_sku_id")
+  targetSkuId String @map("target_sku_id")
+  ruleType    String @map("rule_type")
+  configJson  Json   @map("config_json")
+
+  sourceSku ProductSku @relation("SourceSku", fields: [sourceSkuId], references: [id], onDelete: Cascade)
+  targetSku ProductSku @relation("TargetSku", fields: [targetSkuId], references: [id], onDelete: Cascade)
+
+  @@index([sourceSkuId])
+  @@index([targetSkuId])
+  @@map("compatibility_rules")
+}
+
+// --- Quotes & Commerce ---
+
+model Quote {
+  id            String   @id @default(cuid())
+  opportunityId String   @map("opportunity_id")
+  companyId     String   @map("company_id")
+  status        String   @default("draft")
+  version       Int      @default(1)
+  totalRevenue  Decimal  @db.Decimal(14, 2) @map("total_revenue")
+  totalCost     Decimal  @db.Decimal(14, 2) @map("total_cost")
+  marginPct     Decimal  @db.Decimal(8, 2) @map("margin_pct")
+  createdBy     String   @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  opportunity      Opportunity      @relation(fields: [opportunityId], references: [id])
+  lineItems        QuoteLineItem[]
+  discountRequests DiscountRequest[]
+
+  @@index([opportunityId])
+  @@index([companyId, status])
+  @@map("quotes")
+}
+
+model QuoteLineItem {
+  id          String  @id @default(cuid())
+  quoteId     String  @map("quote_id")
+  skuId       String  @map("sku_id")
+  quantity    Int
+  unitPrice   Decimal @db.Decimal(12, 2) @map("unit_price")
+  costPrice   Decimal @db.Decimal(12, 2) @map("cost_price")
+  discountPct Decimal @db.Decimal(5, 2) @default(0) @map("discount_pct")
+  revenue     Decimal @db.Decimal(14, 2)
+  cost        Decimal @db.Decimal(14, 2)
+  marginPct   Decimal @db.Decimal(8, 2) @map("margin_pct")
+
+  quote Quote      @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  sku   ProductSku @relation(fields: [skuId], references: [id])
+
+  @@index([quoteId])
+  @@map("quote_line_items")
+}
+
+model DiscountRequest {
+  id                String   @id @default(cuid())
+  quoteId           String   @map("quote_id")
+  requestedDiscount Decimal  @db.Decimal(5, 2) @map("requested_discount")
+  reason            String
+  status            String   @default("pending")
+  approvedBy        String?  @map("approved_by")
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+  @@map("discount_requests")
+}
+
+// --- Vendor ---
+
+model VendorRequest {
+  id            String   @id @default(cuid())
+  opportunityId String?  @map("opportunity_id")
+  requestType   String   @map("request_type")
+  vendorName    String   @map("vendor_name")
+  detailsJson   Json     @map("details_json")
+  status        String   @default("draft")
+  createdBy     String   @map("created_by")
+
+  opportunity Opportunity?         @relation(fields: [opportunityId], references: [id])
+  events      VendorRequestEvent[]
+
+  @@index([opportunityId])
+  @@index([status])
+  @@map("vendor_requests")
+}
+
+model VendorRequestEvent {
+  id          String   @id @default(cuid())
+  requestId   String   @map("request_id")
+  eventType   String   @map("event_type")
+  description String?
+  createdBy   String?  @map("created_by")
+
+  request VendorRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@map("vendor_request_events")
+}
+
+// --- Delivery ---
+
+model DeliveryProject {
+  id            String    @id @default(cuid())
+  opportunityId String    @map("opportunity_id")
+  name          String
+  status        String    @default("planned")
+  sowApprovedAt DateTime? @map("sow_approved_at")
+  startedAt     DateTime? @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+
+  opportunity    Opportunity           @relation(fields: [opportunityId], references: [id])
+  checklistItems DeliveryChecklistItem[]
+
+  @@index([opportunityId])
+  @@map("delivery_projects")
+}
+
+model DeliveryChecklistItem {
+  id          String    @id @default(cuid())
+  deliveryId  String    @map("delivery_id")
+  itemKey     String    @map("item_key")
+  status      String    @default("pending")
+  completedAt DateTime? @map("completed_at")
+
+  delivery DeliveryProject @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId])
+  @@map("delivery_checklist_items")
+}
+
+// --- Support ---
+
+model SupportCase {
+  id          String    @id @default(cuid())
+  customerId  String    @map("customer_id")
+  subject     String
+  severity    String    @default("medium")
+  status      String    @default("open")
+  slaDeadline DateTime? @map("sla_deadline")
+  assignedTo  String?   @map("assigned_to")
+
+  customer          Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vendorEscalations VendorEscalation[]
+
+  @@index([customerId])
+  @@index([status, severity])
+  @@map("support_cases")
+}
+
+model VendorEscalation {
+  id         String  @id @default(cuid())
+  caseId     String  @map("case_id")
+  vendor     String
+  reason     String
+  status     String  @default("draft")
+  resolution String?
+
+  supportCase SupportCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@map("vendor_escalations")
+}
+
+// --- Assets & Licensing ---
+
+model AssetLicense {
+  id          String    @id @default(cuid())
+  assetId     String    @map("asset_id")
+  skuId       String    @map("sku_id")
+  licenseKey  String?   @map("license_key")
+  status      String    @default("active")
+  activatedAt DateTime? @map("activated_at")
+  expiresAt   DateTime? @map("expires_at")
+
+  asset CustomerAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  sku   ProductSku    @relation(fields: [skuId], references: [id])
+
+  @@index([assetId])
+  @@map("asset_licenses")
+}
+
+model Subscription {
+  id        String    @id @default(cuid())
+  assetId   String    @map("asset_id")
+  skuId     String    @map("sku_id")
+  startDate DateTime  @map("start_date")
+  endDate   DateTime  @map("end_date")
+  status    String    @default("active")
+  autoRenew Boolean   @default(false) @map("auto_renew")
+
+  asset CustomerAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  sku   ProductSku    @relation(fields: [skuId], references: [id])
+
+  @@index([assetId])
+  @@index([endDate, status])
+  @@map("subscriptions")
+}
+
+model MaintenanceContract {
+  id        String    @id @default(cuid())
+  assetId   String    @map("asset_id")
+  vendor    String
+  startDate DateTime  @map("start_date")
+  endDate   DateTime  @map("end_date")
+  status    String    @default("active")
+
+  asset CustomerAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@map("maintenance_contracts")
+}
+
+// --- AI ---
+
+model AiPromptTemplate {
+  id         String  @id @default(cuid())
+  key        String  @unique
+  name       String
+  promptText String  @map("prompt_text")
+  version    Int     @default(1)
+  modelId    String? @map("model_id")
+
+  promptRuns AiPromptRun[]
+
+  @@map("ai_prompt_templates")
+}
+
+model AiModel {
+  id                       String   @id @default(cuid())
+  provider                 String
+  modelName                String   @map("model_name")
+  allowedDataClassification String[] @map("allowed_data_classification")
+  isActive                 Boolean  @default(true) @map("is_active")
+
+  @@map("ai_models")
+}
+
+model AiEvaluationDataset {
+  id                String @id @default(cuid())
+  name              String
+  category          String
+  version           Int    @default(1)
+  goldenAnswerCount Int    @default(0) @map("golden_answer_count")
+
+  @@map("ai_evaluation_datasets")
+}
+
+model AiPromptRun {
+  id               String   @id @default(cuid())
+  promptTemplateId String   @map("prompt_template_id")
+  inputJson        Json     @map("input_json")
+  outputJson       Json     @map("output_json")
+  tokensUsed       Int?     @map("tokens_used")
+  latencyMs        Int?     @map("latency_ms")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  promptTemplate AiPromptTemplate @relation(fields: [promptTemplateId], references: [id], onDelete: Cascade)
+
+  @@index([promptTemplateId])
+  @@map("ai_prompt_runs")
+}
+
+// --- Security & Audit ---
+
+model DataExportRequest {
+  id          String  @id @default(cuid())
+  artifactId  String  @map("artifact_id")
+  requestedBy String  @map("requested_by")
+  reason      String
+  status      String  @default("pending")
+  approvedBy  String? @map("approved_by")
+
+  @@map("data_export_requests")
+}
+
+model ArtifactAccessEvent {
+  id         String   @id @default(cuid())
+  artifactId String   @map("artifact_id")
+  userId     String   @map("user_id")
+  accessType String   @map("access_type")
+  timestamp  DateTime @default(now())
+
+  @@index([artifactId])
+  @@map("artifact_access_events")
+}
+
+model NotificationEvent {
+  id          String   @id @default(cuid())
+  companyId   String   @map("company_id")
+  channel     String
+  eventType   String   @map("event_type")
+  payloadJson Json     @map("payload_json")
+  status      String   @default("pending")
+  sentAt      DateTime? @map("sent_at")
+
+  @@index([companyId, eventType])
+  @@map("notification_events")
+}
+
+// --- Color Agent ---
+
+model ColorReviewRequirement {
+  id           String    @id @default(cuid())
+  handoffCardId String   @map("handoff_card_id")
+  colorKey     String    @map("color_key")
+  status       String    @default("pending")
+  reviewedBy   String?   @map("reviewed_by")
+  reviewedAt   DateTime? @map("reviewed_at")
+
+  handoffCard KanbanHandoffCard @relation(fields: [handoffCardId], references: [id], onDelete: Cascade)
+
+  @@index([handoffCardId])
+  @@map("color_review_requirements")
+}
+
+model ColorAgentDecision {
+  id           String   @id @default(cuid())
+  handoffCardId String  @map("handoff_card_id")
+  colorKey     String   @map("color_key")
+  decision     String
+  reason       String?
+  decidedBy    String?  @map("decided_by")
+
+  handoffCard KanbanHandoffCard @relation(fields: [handoffCardId], references: [id], onDelete: Cascade)
+
+  @@index([handoffCardId])
+  @@map("color_agent_decisions")
 }
