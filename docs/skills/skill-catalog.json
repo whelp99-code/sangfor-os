@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "pinnedSha": "0000000000000000000000000000000000000000",
+  "defaultPhase13Flow": [
+    "analyze-feature-requests",
+    "aios-work-breakdown"
+  ],
+  "routingRules": [
+    {
+      "pattern": "error|bug|fix",
+      "prependSkills": ["aios-error-to-improvement"]
+    }
+  ],
+  "skills": [
+    {
+      "skillKey": "create-prd",
+      "source": "pm",
+      "plugin": null,
+      "phases": [13],
+      "status": "enabled",
+      "usage": "Create product requirement document",
+      "agentUsage": ["cursor"]
+    },
+    {
+      "skillKey": "analyze-feature-requests",
+      "source": "pm",
+      "plugin": null,
+      "phases": [13],
+      "status": "enabled",
+      "usage": "Analyze feature requests",
+      "agentUsage": ["cursor"]
+    },
+    {
+      "skillKey": "aios-work-breakdown",
+      "source": "pm",
+      "plugin": null,
+      "phases": [13],
+      "status": "enabled",
+      "usage": "Break down work items",
+      "agentUsage": ["cursor"]
+    }
+  ]
+}

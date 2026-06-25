@@ -1554,6 +1554,33 @@ model CustomerAsset {
   @@map("customer_assets")
 }
 
+model SupportSlaPolicy {
+  id              String   @id @default(cuid())
+  name            String
+  responseTimeHrs Int?
+  resolutionTimeHrs Int?
+  severity        String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("support_sla_policies")
+}
+
+model EngineerCertification {
+  id           String   @id @default(cuid())
+  engineerId   String
+  productName  String
+  level        String?
+  issuedAt     DateTime?
+  expiresAt    DateTime?
+  isValid      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("engineer_certifications")
+}
+
 model RenewalOpportunity {
   id          String    @id @default(cuid())
   customerId  String    @map("customer_id")

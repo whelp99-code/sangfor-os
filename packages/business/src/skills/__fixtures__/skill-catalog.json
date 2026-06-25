@@ -1,0 +1,9 @@
+{
+  "skills": [
+    { "skillKey": "analyze-requirements", "source": "sangfor-pack", "phases": ["discovery"], "description": "Analyze customer requirements" },
+    { "skillKey": "generate-proposal", "source": "sangfor-pack", "phases": ["proposal"], "description": "Generate proposal document" },
+    { "skillKey": "poc-plan", "source": "sangfor-pack", "phases": ["poc"], "description": "Plan proof of concept" },
+    { "skillKey": "bug-fix", "source": "system", "phases": ["development"], "description": "Fix a bug in the codebase" },
+    { "skillKey": "code-review", "source": "system", "phases": ["development"], "description": "Review code changes" }
+  ]
+}
