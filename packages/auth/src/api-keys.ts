@@ -22,6 +22,15 @@ export class ApiKeyManager {
     return key
   }
 
+  registerKey(key: string, name: string, role: Role, expiresInDays?: number): void {
+    const keyHash = this.hashKey(key)
+    const expiresAt = expiresInDays !== undefined
+      ? Date.now() + expiresInDays * 24 * 60 * 60 * 1000
+      : null
+
+    this.keys.set(keyHash, { name, role, expiresAt, keyHash })
+  }
+
   validateKey(key: string): { name: string; role: Role } | null {
     const keyHash = this.hashKey(key)
     const record = this.keys.get(keyHash)

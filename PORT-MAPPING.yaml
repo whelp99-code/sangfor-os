@@ -21,16 +21,17 @@ services:
     port: 3200
     service: sangfor-api
     description: Express API server
-  finance:
-    port: 4100
-    service: sangfor-finance
-    description: NestJS Finance API (CFO)
+  # finance: [DEPRECATED — merged into api:3200]
+  # finance:
+  #   port: 4100
+  #   service: sangfor-finance
+  #   description: [DEPRECATED] Merged into sangfor-api:3200
 
   # External Services (docker-compose managed)
   sangfor-mcp:
-    port: 3500
-    service: sangfor-mcp-workflow
-    description: Sangfor MCP workflow engine
+    port: 3501
+    service: sangfor-mcp
+    description: Sangfor MCP mock upstream
   vibe-coding:
     port: 4000
     service: vibe-coding-os
@@ -43,10 +44,11 @@ services:
     port: 3600
     service: whelp99-mcp
     description: Whelp99 MCP bridge
-  cfo-aios:
-    port: 4100
-    service: cfo-aios
-    description: CFO AIOS (finance legacy)
+  # cfo-aios: [DEPRECATED — merged into sangfor-api:3200]
+  # cfo-aios:
+  #   port: 4100
+  #   service: cfo-aios
+  #   description: [DEPRECATED] Merged into sangfor-api:3200
 
   # Monitoring
   prometheus:

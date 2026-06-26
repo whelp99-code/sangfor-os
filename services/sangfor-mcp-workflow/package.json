@@ -38,7 +38,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@sangfor/chrome": "file:../whelp99-code-sangfor-engineer-mcp/packages/sangfor-chrome",
+    "@sangfor/chrome": "file:../sangfor-engineer-mcp/packages/sangfor-chrome",
     "@sangfor/health-checker": "workspace:*",
     "@sangfor/wiki-sync": "workspace:*",
     "@types/multer": "^2.1.0",

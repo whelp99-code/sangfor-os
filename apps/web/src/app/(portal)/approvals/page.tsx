@@ -92,9 +92,6 @@ export default async function ApprovalsPage() {
       subtitle={`Review mail-derived project candidates and gated automation. ${totalPending} awaiting approval.`}
       activities={ACTIVITIES}
       stats={STATS}
-      onCommand={(cmd: string) => {
-        console.log("[Approvals] Command:", cmd);
-      }}
     >
       <div className="space-y-6">
         <section className="space-y-3">

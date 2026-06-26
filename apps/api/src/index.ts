@@ -14,9 +14,10 @@ import {
 import { getIntegrationTarget } from "@sangfor/infra";
 import { appRouter } from "./routers";
 import { createContext } from "./context/index";
-import { authMiddleware, errorHandler, rateLimiter } from "./middleware";
+import { apiKeyMiddleware, authMiddleware, errorHandler, rateLimiter } from "./middleware";
 import { metrics } from "@sangfor/infra";
 import { createEventRoutes, eventBus } from "./routes/events";
+import { createCfoHealthRoutes, createCfoRoutes } from "./routes/cfo";
 import { OutlookWebhookHandler } from "@sangfor/api-utils";
 
 const PORT = process.env.API_PORT || 3200;
@@ -102,6 +103,11 @@ export function createApp(): Express {
 
   // Event routes (SSE - before auth middleware)
   app.use("/api", createEventRoutes());
+
+  // CFO health is public; all other CFO REST routes require API key auth.
+  app.use("/api/cfo", createCfoHealthRoutes());
+
+  app.use("/api/cfo", apiKeyMiddleware, createCfoRoutes());
 
   // Auth middleware for other /api routes
   app.use("/api", authMiddleware);

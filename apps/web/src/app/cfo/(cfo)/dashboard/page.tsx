@@ -37,12 +37,9 @@ export default async function DashboardPage() {
         <p className="font-medium">CFO API에 연결할 수 없습니다</p>
         <p className="mt-1 text-zinc-600">{error}</p>
         <p className="mt-2 text-zinc-500">
-          1) <code className="rounded bg-white px-1">pnpm dev:api</code> (포트 4000)
+          1) <code className="rounded bg-white px-1">pnpm dev:api</code> (포트 3200)
           <br />
-          2) <code className="rounded bg-white px-1">pnpm dev:web</code> (포트 5555)
-          <br />
-          3) <code className="rounded bg-white px-1">.env</code>에{" "}
-          <code>CFO_API_URL=http://127.0.0.1:4000/api</code>
+          2) <code className="rounded bg-white px-1">pnpm dev:web</code> (포트 3110)
         </p>
       </div>
     );

@@ -12,7 +12,7 @@ export function ChatPanel() {
     setLoading(true);
     setReply(null);
     try {
-      const res = await fetch("/api/cfo/chatbot/chat", {
+      const res = await fetch("/api/finance/chatbot/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),

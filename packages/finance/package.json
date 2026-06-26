@@ -2,7 +2,7 @@
   "name": "@sangfor/finance",
   "version": "0.1.0",
   "private": true,
-  "description": "CFO-AIOS NestJS API (Prisma, Notion sync, Popbill, CODEF stubs)",
+  "description": "[DEPRECATED] Merged into apps/api (@sangfor/api:3200). Kept for reference only.",
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",

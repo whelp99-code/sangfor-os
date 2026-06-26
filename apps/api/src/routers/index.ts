@@ -11,6 +11,7 @@ import { codingRouter } from './coding.router';
 import { businessRouter } from './business.router';
 import { dashboardRouter } from './dashboard.router';
 import { searchRouter } from './search.router';
+import { cfoRouter } from './cfo';
 
 export const appRouter = router({
   mail: mailRouter,
@@ -20,6 +21,7 @@ export const appRouter = router({
   business: businessRouter,
   dashboard: dashboardRouter,
   search: searchRouter,
+  cfo: cfoRouter,
 });
 
 export type AppRouter = typeof appRouter;

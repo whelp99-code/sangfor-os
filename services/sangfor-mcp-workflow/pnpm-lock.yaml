@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@sangfor/chrome':
-        specifier: file:../whelp99-code-sangfor-engineer-mcp/packages/sangfor-chrome
-        version: file:../whelp99-code-sangfor-engineer-mcp/packages/sangfor-chrome
+        specifier: file:../sangfor-engineer-mcp/packages/sangfor-chrome
+        version: file:../sangfor-engineer-mcp/packages/sangfor-chrome
       '@sangfor/health-checker':
         specifier: workspace:*
         version: link:packages/health-checker
@@ -672,8 +672,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@sangfor/chrome@file:../whelp99-code-sangfor-engineer-mcp/packages/sangfor-chrome':
-    resolution: {directory: ../whelp99-code-sangfor-engineer-mcp/packages/sangfor-chrome, type: directory}
+  '@sangfor/chrome@file:../sangfor-engineer-mcp/packages/sangfor-chrome':
+    resolution: {directory: ../sangfor-engineer-mcp/packages/sangfor-chrome, type: directory}
 
   '@types/body-parser@1.19.6':
     resolution: {integrity: sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==}
@@ -2011,7 +2011,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.61.1':
     optional: true
 
-  '@sangfor/chrome@file:../whelp99-code-sangfor-engineer-mcp/packages/sangfor-chrome':
+  '@sangfor/chrome@file:../sangfor-engineer-mcp/packages/sangfor-chrome':
     dependencies:
       playwright: 1.61.0
 

@@ -1,7 +1,7 @@
-const DEFAULT_API = "http://127.0.0.1:4100/api";
+const DEFAULT_API = "http://127.0.0.1:3200/api/cfo";
 
 function apiBase() {
-  const raw = process.env.CFO_API_URL ?? DEFAULT_API;
+  const raw = process.env.CFO_API_URL ?? process.env.FINANCE_API_URL ?? DEFAULT_API;
   return raw.replace("localhost", "127.0.0.1").replace(/\/$/, "");
 }
 
@@ -14,8 +14,9 @@ export async function cfoFetch<T = unknown>(
     "Content-Type": "application/json",
     ...(init?.headers as Record<string, string>),
   };
-  if (process.env.API_KEY) {
-    headers["X-API-Key"] = process.env.API_KEY;
+  const apiKey = process.env.FINANCE_API_KEY ?? process.env.API_KEY;
+  if (apiKey) {
+    headers["X-API-Key"] = apiKey;
   }
   const res = await fetch(url, {
     ...init,
