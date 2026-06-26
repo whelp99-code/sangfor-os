@@ -1,5 +1,7 @@
-import { router, protectedProcedure } from './trpc'
-import { prisma } from '@sangfor/db'
+import { normalizeOpportunityStage } from '@sangfor/business';
+import { prisma } from '@sangfor/db';
+
+import { protectedProcedure, router } from './trpc';
 
 export const dashboardRouter = router({
 
@@ -10,11 +12,11 @@ export const dashboardRouter = router({
 
     return {
       pipeline: opportunities.map(o => ({ id: o.id, customer: o.customer?.name, stage: o.stage, value: Number(o.amount) || 0 })),
-      followUp: opportunities.filter(o => o.stage === 'discovery').length,
+      followUp: opportunities.filter(o => normalizeOpportunityStage(o.stage) === 'LEAD').length,
       pendingApprovals: pendingApprovals.length,
       proposalsInProgress: proposals.filter(p => p.status === 'draft').length,
       renewalsDue: 0,
-      riskDeals: opportunities.filter(o => o.stage === 'quote' && (Number(o.amount) || 0) > 50000).length,
+      riskDeals: opportunities.filter(o => normalizeOpportunityStage(o.stage) === 'NEGOTIATION' && (Number(o.amount) || 0) > 50000).length,
     }
   }),
 
@@ -71,14 +73,15 @@ export const dashboardRouter = router({
 
     const totalPipeline = opportunities.reduce((s, o) => s + (Number(o.amount) || 0), 0)
     const weightedPipeline = opportunities.reduce((s, o) => {
-      const weights: Record<string, number> = { lead: 0.1, discovery: 0.2, solution_fit: 0.4, quote: 0.6, poc: 0.8 }
-      return s + (Number(o.amount) || 0) * (weights[o.stage] || 0.1)
+      const stage = normalizeOpportunityStage(o.stage)
+      const weights: Record<string, number> = { LEAD: 0.1, QUALIFIED: 0.2, PROPOSAL: 0.4, NEGOTIATION: 0.6, POC: 0.8 }
+      return s + (Number(o.amount) || 0) * (weights[stage] || 0.1)
     }, 0)
 
     return {
       revenuePipeline: { total: totalPipeline, weighted: weightedPipeline, deals: opportunities.length },
       productForecast: [] as any[],
-      grossMarginRisk: { atRisk: opportunities.filter(o => o.stage === 'quote').length, total: opportunities.length },
+      grossMarginRisk: { atRisk: opportunities.filter(o => normalizeOpportunityStage(o.stage) === 'NEGOTIATION').length, total: opportunities.length },
       approvalBottleneck: approvals.filter(a => a.status === 'ready_for_human_approval').length,
       pocSuccessRate: { total: pocProjects.length, completed: pocProjects.filter(p => p.status === 'completed').length },
       deliveryDelay: deliveryProjects.filter(d => d.status === 'delayed').length,

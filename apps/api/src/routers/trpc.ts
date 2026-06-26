@@ -4,6 +4,7 @@
  */
 
 import { initTRPC, TRPCError } from '@trpc/server';
+import { assertNoUntrustedScopeFields } from '@sangfor/auth';
 import type { Context } from '../context';
 
 const t = initTRPC.context<Context>().create();
@@ -13,13 +14,24 @@ export const publicProcedure = t.procedure;
 export const middleware = t.middleware;
 
 // Auth middleware — userId가 없으면 401 반환
-const authMiddleware = middleware(async ({ ctx, next }) => {
+const authMiddleware = middleware(async ({ ctx, next, getRawInput }) => {
   if (!ctx.userId) {
     throw new TRPCError({
       code: 'UNAUTHORIZED',
       message: 'Authentication required. Provide Bearer token or valid session cookie.',
     });
   }
+
+  try {
+    const rawInput = await getRawInput();
+    assertNoUntrustedScopeFields(rawInput);
+  } catch (error) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: error instanceof Error ? error.message : 'Invalid scoped identity fields',
+    });
+  }
+
   return next({
     ctx: {
       ...ctx,

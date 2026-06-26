@@ -1,19 +1,64 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from './trpc';
 import { prisma } from '@sangfor/db';
-import { calculateQuote } from '@sangfor/business';
-import { routeColorAgents } from '@sangfor/business';
+import { calculateBantScore, calculateQuote, normalizeOpportunityStage, routeColorAgents, submitCommercialApproval } from '@sangfor/business';
 import { evaluateQuality, releaseGatePassed } from '@sangfor/business';
 
 export const businessRouter = router({
 
+  qualifyOpportunity: protectedProcedure
+    .input(z.object({
+      opportunityId: z.string(),
+      budgetScore: z.number().min(0).max(100),
+      authorityScore: z.number().min(0).max(100),
+      needScore: z.number().min(0).max(100),
+      timelineScore: z.number().min(0).max(100),
+    }))
+    .mutation(async ({ input }) => {
+      const { weightedScore, passed } = calculateBantScore({
+        budgetScore: input.budgetScore,
+        authorityScore: input.authorityScore,
+        needScore: input.needScore,
+        timelineScore: input.timelineScore,
+      });
+      const qualification = await prisma.dealQualification.create({
+        data: {
+          opportunityId: input.opportunityId,
+          budgetScore: input.budgetScore,
+          authorityScore: input.authorityScore,
+          needScore: input.needScore,
+          timelineScore: input.timelineScore,
+          weightedScore,
+          passed,
+        },
+      });
+      return qualification;
+    }),
+
+  submitQuoteForApproval: protectedProcedure
+    .input(z.object({ quoteId: z.string(), opportunityId: z.string(), reason: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.companyId) throw new Error('Authenticated company scope is required');
+      return submitCommercialApproval({ quoteId: input.quoteId, opportunityId: input.opportunityId, companyId: ctx.companyId, reason: input.reason });
+    }),
+
+  getDealQualification: protectedProcedure
+    .input(z.object({ opportunityId: z.string() }))
+    .query(async ({ input }) => {
+      const qualification = await prisma.dealQualification.findFirst({
+        where: { opportunityId: input.opportunityId },
+        orderBy: { qualifiedAt: 'desc' },
+      });
+      return { qualification };
+    }),
+
   // Customers
   listCustomers: protectedProcedure
-    .input(z.object({ companyId: z.string().optional(), search: z.string().optional() }).optional())
+    .input(z.object({ search: z.string().optional() }).optional())
     .query(async ({ ctx, input }) => {
       const customers = await prisma.customer.findMany({
         where: {
-          ...(input?.companyId ? { projectId: input.companyId } : {}),
+          ...(ctx.companyId ? { projectId: ctx.companyId } : {}),
           ...(input?.search ? {
             OR: [
               { name: { contains: input.search, mode: 'insensitive' } },
@@ -28,11 +73,12 @@ export const businessRouter = router({
     }),
 
   createCustomer: protectedProcedure
-    .input(z.object({ name: z.string(), email: z.string().optional(), phone: z.string().optional(), companyId: z.string().optional() }))
+    .input(z.object({ name: z.string(), email: z.string().optional(), phone: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.companyId) throw new Error('Authenticated company scope is required');
       const customer = await prisma.customer.create({
         data: {
-          projectId: input.companyId || ctx.userId,
+          projectId: ctx.companyId,
           name: input.name,
           contacts: input.email || input.phone ? {
             create: { name: input.name, email: input.email, phone: input.phone },
@@ -50,7 +96,7 @@ export const businessRouter = router({
       const opportunities = await prisma.opportunity.findMany({
         where: {
           ...(input?.customerId ? { customerId: input.customerId } : {}),
-          ...(input?.stage ? { stage: input.stage } : {}),
+          ...(input?.stage ? { stage: normalizeOpportunityStage(input.stage) } : {}),
         },
         include: { customer: true },
         orderBy: { createdAt: 'desc' },
@@ -59,10 +105,11 @@ export const businessRouter = router({
     }),
 
   createOpportunity: protectedProcedure
-    .input(z.object({ customerId: z.string(), name: z.string(), stage: z.string().default('lead') }))
+    .input(z.object({ customerId: z.string(), name: z.string(), stage: z.string().default('LEAD') }))
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.companyId) throw new Error('Authenticated company scope is required');
       const opp = await prisma.opportunity.create({
-        data: { projectId: ctx.userId, customerId: input.customerId, title: input.name, stage: input.stage },
+        data: { projectId: ctx.companyId, customerId: input.customerId, title: input.name, stage: normalizeOpportunityStage(input.stage) },
       });
       return opp;
     }),
@@ -88,8 +135,9 @@ export const businessRouter = router({
   createQuote: protectedProcedure
     .input(z.object({ opportunityId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.companyId || !ctx.userId) throw new Error('Authenticated user and company scope are required');
       const quote = await prisma.quote.create({
-        data: { opportunityId: input.opportunityId, companyId: ctx.userId, createdBy: ctx.userId, totalRevenue: 0, totalCost: 0, marginPct: 0 },
+        data: { opportunityId: input.opportunityId, companyId: ctx.companyId, createdBy: ctx.userId, totalRevenue: 0, totalCost: 0, marginPct: 0 },
       });
       return quote;
     }),
@@ -133,8 +181,9 @@ export const businessRouter = router({
   createPocProject: protectedProcedure
     .input(z.object({ opportunityId: z.string(), name: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.companyId) throw new Error('Authenticated company scope is required');
       const project = await prisma.pocProject.create({
-        data: { projectId: ctx.userId, title: input.name, status: 'planning' },
+        data: { projectId: ctx.companyId, title: input.name, status: 'planning' },
       });
       return project;
     }),
@@ -209,5 +258,47 @@ export const businessRouter = router({
     .input(z.object({ artifactType: z.string(), riskLevel: z.enum(['low','medium','high','critical']), isCustomerFacing: z.boolean(), hasRestrictedData: z.boolean(), isCommercial: z.boolean(), affectsUI: z.boolean(), affectsArchitecture: z.boolean() }))
     .mutation(async ({ input }) => {
       return routeColorAgents(input);
+    }),
+
+  completeDelivery: protectedProcedure
+    .input(z.object({ deliveryId: z.string(), assetName: z.string(), customerId: z.string() }))
+    .mutation(async ({ input }) => {
+      const project = await prisma.deliveryProject.update({
+        where: { id: input.deliveryId },
+        data: { status: "completed", completedAt: new Date() },
+      });
+      if (project.opportunityId) {
+        await prisma.opportunity.update({
+          where: { id: project.opportunityId },
+          data: { stage: "WON" },
+        });
+      }
+      const asset = await prisma.customerAsset.create({
+        data: { customerId: input.customerId, name: input.assetName, assetType: "product", status: "active" },
+      });
+      return { project, asset };
+    }),
+
+  processRenewals: protectedProcedure
+    .input(z.object({ daysAhead: z.number().default(30), companyId: z.string() }))
+    .mutation(async ({ input }) => {
+      const future = new Date();
+      future.setDate(future.getDate() + input.daysAhead);
+      const renewals = await prisma.renewalOpportunity.findMany({
+        where: { expiresAt: { lte: future }, status: "pending" },
+      });
+      const notifications = [];
+      for (const r of renewals) {
+        const n = await prisma.notificationEvent.create({
+          data: {
+            companyId: input.companyId,
+            channel: "internal",
+            eventType: "renewal.reminder",
+            payloadJson: { renewalId: r.id, customerId: r.customerId, expiresAt: r.expiresAt },
+          },
+        });
+        notifications.push(n);
+      }
+      return { renewals: renewals.length, notifications: notifications.length };
     }),
 });

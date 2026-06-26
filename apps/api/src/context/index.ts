@@ -5,7 +5,45 @@
 
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { Context } from "../context";
-import { getTokenManager } from "@sangfor/auth";
+import {
+  createAuthContextFromTokenPayload,
+  createDevelopmentAuthContext,
+  getTokenManager,
+  type AuthContext,
+} from "@sangfor/auth";
+
+function anonymousContext(): Context {
+  return {
+    userId: null,
+    userRole: null,
+    sessionId: null,
+    authContext: null,
+    tenantId: null,
+    companyId: null,
+    businessRole: null,
+  };
+}
+
+function contextFromAuth(authContext: AuthContext): Context {
+  return {
+    userId: authContext.userId,
+    userRole: authContext.businessRole,
+    sessionId: authContext.sessionId,
+    authContext,
+    tenantId: authContext.tenantId,
+    companyId: authContext.companyId,
+    businessRole: authContext.businessRole,
+  };
+}
+
+function developmentScopeFallback() {
+  if (process.env.NODE_ENV === "production") return undefined;
+  return {
+    tenantId: process.env.DEFAULT_TENANT_ID ?? "dev-tenant",
+    companyId: process.env.DEFAULT_COMPANY_ID ?? "dev-company",
+    businessRole: "account_manager" as const,
+  };
+}
 
 export async function createContext({ req }: CreateExpressContextOptions): Promise<Context> {
   const authHeader = req.headers.authorization;
@@ -15,18 +53,11 @@ export async function createContext({ req }: CreateExpressContextOptions): Promi
     const payload = await getTokenManager().verifyToken(token);
 
     if (payload) {
-      return {
-        userId: payload.sub,
-        userRole: "user",
-        sessionId: payload.jti,
-      };
+      const authContext = createAuthContextFromTokenPayload(payload, developmentScopeFallback());
+      if (authContext) return contextFromAuth(authContext);
     }
 
-    return {
-      userId: null,
-      userRole: null,
-      sessionId: null,
-    };
+    return anonymousContext();
   }
 
   const cookie = req.headers.cookie || "";
@@ -36,16 +67,14 @@ export async function createContext({ req }: CreateExpressContextOptions): Promi
     ?.split("=")[1];
 
   if (sessionToken) {
-    return {
-      userId: "session-user",
-      userRole: "user",
-      sessionId: sessionToken.slice(0, 8),
-    };
+    return contextFromAuth(
+      createDevelopmentAuthContext({
+        userId: "session-user",
+        sessionId: sessionToken.slice(0, 8),
+        businessRole: "account_manager",
+      }),
+    );
   }
 
-  return {
-    userId: null,
-    userRole: null,
-    sessionId: null,
-  };
+  return anonymousContext();
 }

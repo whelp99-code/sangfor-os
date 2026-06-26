@@ -14,7 +14,7 @@
     "dev": "tsc --watch",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests\""
+    "test": "vitest run"
   },
   "dependencies": {
     "jose": "^5.6.3",
@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "typescript": "^5.5.4",
-    "eslint": "^9.9.0"
+    "eslint": "^9.9.0",
+    "vitest": "^3.2.4"
   }
 }

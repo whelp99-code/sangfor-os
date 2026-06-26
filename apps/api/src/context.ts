@@ -4,12 +4,54 @@
  */
 
 import type { CreateNextContextOptions } from '@trpc/server/adapters/next';
-import { getTokenManager } from '@sangfor/auth';
+import {
+  createAuthContextFromTokenPayload,
+  createDevelopmentAuthContext,
+  getTokenManager,
+  type AuthContext,
+} from '@sangfor/auth';
 
 export interface Context {
   userId: string | null;
   userRole: string | null;
   sessionId: string | null;
+  authContext: AuthContext | null;
+  tenantId: string | null;
+  companyId: string | null;
+  businessRole: AuthContext['businessRole'] | null;
+}
+
+function anonymousContext(): Context {
+  return {
+    userId: null,
+    userRole: null,
+    sessionId: null,
+    authContext: null,
+    tenantId: null,
+    companyId: null,
+    businessRole: null,
+  };
+}
+
+function contextFromAuth(authContext: AuthContext): Context {
+  return {
+    userId: authContext.userId,
+    userRole: authContext.businessRole,
+    sessionId: authContext.sessionId,
+    authContext,
+    tenantId: authContext.tenantId,
+    companyId: authContext.companyId,
+    businessRole: authContext.businessRole,
+  };
+}
+
+function developmentScopeFallback() {
+  if (process.env.NODE_ENV === 'production') return undefined;
+  return {
+    tenantId: process.env.DEFAULT_TENANT_ID ?? 'dev-tenant',
+    companyId: process.env.DEFAULT_COMPANY_ID ?? 'dev-company',
+    businessRole: 'account_manager' as const,
+  };
 }
 
 /**
@@ -28,17 +70,10 @@ export async function createTRPCContext(opts: CreateNextContextOptions): Promise
     const tokenManager = getTokenManager();
     const payload = await tokenManager.verifyToken(token);
     if (payload) {
-      return {
-        userId: payload.sub,
-        userRole: 'user',
-        sessionId: payload.jti,
-      };
+      const authContext = createAuthContextFromTokenPayload(payload, developmentScopeFallback());
+      if (authContext) return contextFromAuth(authContext);
     }
-    return {
-      userId: null,
-      userRole: null,
-      sessionId: null,
-    };
+    return anonymousContext();
   }
 
   // 2. 쿠키에서 세션 확인 (NextAuth)
@@ -49,17 +84,15 @@ export async function createTRPCContext(opts: CreateNextContextOptions): Promise
     ?.split('=')[1];
 
   if (sessionToken) {
-    return {
-      userId: 'session-user',
-      userRole: 'user',
-      sessionId: sessionToken.slice(0, 8),
-    };
+    return contextFromAuth(
+      createDevelopmentAuthContext({
+        userId: 'session-user',
+        sessionId: sessionToken.slice(0, 8),
+        businessRole: 'account_manager',
+      }),
+    );
   }
 
   // 3. 인증 없음
-  return {
-    userId: null,
-    userRole: null,
-    sessionId: null,
-  };
+  return anonymousContext();
 }

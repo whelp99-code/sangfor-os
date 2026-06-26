@@ -5,6 +5,7 @@
 
 import { SignJWT, jwtVerify } from 'jose';
 import { getConfig } from '@sangfor/config';
+import type { AuthScope } from './types';
 
 /** 제품별 OAuth 스코프 레지스트리 */
 export const PRODUCT_SCOPES = {
@@ -41,6 +42,10 @@ export interface TokenPayload {
   sub: string;
   product: ProductName;
   scopes: string[];
+  tenantId?: string;
+  companyId?: string;
+  personaId?: string;
+  businessRole?: AuthScope['businessRole'];
   iat: number;
   exp: number;
   jti: string;
@@ -93,7 +98,12 @@ export class TokenManager {
   }
 
   /** 제품별 액세스 토큰 발급 (JWT) */
-  async issueAccessToken(userId: string, product: ProductName, customScopes?: string[]): Promise<string> {
+  async issueAccessToken(
+    userId: string,
+    product: ProductName,
+    customScopes?: string[],
+    authScope?: AuthScope,
+  ): Promise<string> {
     const scopes = customScopes ?? PRODUCT_SCOPES[product];
     const now = Math.floor(Date.now() / 1000);
     const exp = now + Math.floor(this.config.tokenTtlMs / 1000);
@@ -103,6 +113,14 @@ export class TokenManager {
       sub: userId,
       product,
       scopes,
+      ...(authScope
+        ? {
+            tenantId: authScope.tenantId,
+            companyId: authScope.companyId,
+            personaId: authScope.personaId,
+            businessRole: authScope.businessRole,
+          }
+        : {}),
     })
       .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
       .setIssuedAt(now)

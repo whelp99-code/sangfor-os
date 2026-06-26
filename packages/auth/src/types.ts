@@ -45,3 +45,17 @@ export type BusinessPermission =
   | 'user.manage'
   | 'system.admin'
   | 'restricted_data.read'
+
+export interface AuthScope {
+  tenantId: string
+  companyId: string
+  personaId?: string
+  businessRole: BusinessRole
+}
+
+export interface AuthContext extends AuthScope {
+  userId: string
+  sessionId: string | null
+  permissions: BusinessPermission[]
+  product?: string
+}

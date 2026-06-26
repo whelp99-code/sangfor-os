@@ -4,20 +4,57 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { getTokenManager } from '@sangfor/auth';
+import {
+  assertNoUntrustedScopeFields,
+  createAuthContextFromTokenPayload,
+  createDevelopmentAuthContext,
+  getTokenManager,
+  type AuthContext,
+} from '@sangfor/auth';
 
 export interface AuthUser {
   id: string;
   email: string;
   name?: string;
   role: string;
+  authContext: AuthContext;
 }
 
 declare global {
   namespace Express {
     interface Request {
       user?: AuthUser;
+      authContext?: AuthContext;
     }
+  }
+}
+
+function developmentScopeFallback() {
+  if (process.env.NODE_ENV === 'production') return undefined;
+  return {
+    tenantId: process.env.DEFAULT_TENANT_ID ?? 'dev-tenant',
+    companyId: process.env.DEFAULT_COMPANY_ID ?? 'dev-company',
+    businessRole: 'account_manager' as const,
+  };
+}
+
+function attachAuthContext(req: Request, authContext: AuthContext): void {
+  req.authContext = authContext;
+  req.user = {
+    id: authContext.userId,
+    email: authContext.userId,
+    name: authContext.userId,
+    role: authContext.businessRole,
+    authContext,
+  };
+}
+
+export function rejectUntrustedScopeFields(req: Request, res: Response, next: NextFunction): void {
+  try {
+    assertNoUntrustedScopeFields(req.body);
+    next();
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid scoped identity fields' });
   }
 }
 
@@ -29,20 +66,18 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     const payload = await getTokenManager().verifyToken(token);
 
     if (payload) {
-      req.user = {
-        id: payload.sub,
-        email: payload.sub,
-        name: payload.sub,
-        role: 'USER',
-      };
-      next();
-      return;
+      const authContext = createAuthContextFromTokenPayload(payload, developmentScopeFallback());
+      if (authContext) {
+        attachAuthContext(req, authContext);
+        next();
+        return;
+      }
     }
   }
 
   // 명시적 bypass 플래그 (개발 전용, 프로덕션에서는 사용 금지)
   if (process.env.AUTH_BYPASS_ENABLED === '1' && process.env.NODE_ENV === 'development') {
-    req.user = { id: 'dev-user', email: 'dev@aios.local', name: 'Developer', role: 'ADMIN' };
+    attachAuthContext(req, createDevelopmentAuthContext({ userId: 'dev-user', businessRole: 'system_admin' }));
     next();
     return;
   }
