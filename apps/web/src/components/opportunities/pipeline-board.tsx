@@ -17,7 +17,7 @@ type OpportunityRow = {
 };
 
 export function OpportunityPipelineBoard({ opportunities }: { opportunities: OpportunityRow[] }) {
-  const columns = CANONICAL_STAGES.filter((s) => s !== "won" && s !== "lost");
+  const columns = CANONICAL_STAGES.filter((s) => s !== "WON" && s !== "LOST");
   const byStage = new Map<string, OpportunityRow[]>();
   for (const stage of columns) byStage.set(stage, []);
   for (const opp of opportunities) {
@@ -55,7 +55,7 @@ export function OpportunityPipelineBoard({ opportunities }: { opportunities: Opp
 export function OpportunityClosedList({ opportunities }: { opportunities: OpportunityRow[] }) {
   const closed = opportunities.filter((o) => {
     const s = normalizeOpportunityStage(o.stage);
-    return s === "won" || s === "lost";
+    return s === "WON" || s === "LOST";
   });
   if (closed.length === 0) return null;
 

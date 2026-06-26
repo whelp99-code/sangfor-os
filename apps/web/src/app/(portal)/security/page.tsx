@@ -12,6 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { AIWorkspaceLayout } from '@/components/ai-workspace'
+import { ActivityItem } from '@/components/ai-workspace/ai-activity-feed'
 
 interface SecurityData {
   restrictedAccess: Array<{ user: string; resource: string; reason: string; time: string }>
@@ -23,6 +25,20 @@ interface SecurityData {
   workflowDefChanges: number
 }
 
+const securityActivities: ActivityItem[] = [
+  { id: 'sec1', time: new Date(Date.now() - 1000 * 60 * 2).toISOString(), text: '권한 변경 감지: admin → viewer 2건 자동 기록', type: 'warning' },
+  { id: 'sec2', time: new Date(Date.now() - 1000 * 60 * 25).toISOString(), text: '데이터 접근 로그 분석 완료: 비정상 패턴 0건', type: 'success' },
+  { id: 'sec3', time: new Date(Date.now() - 1000 * 60 * 90).toISOString(), text: '정책 위반 알림: 외부 공유 시도 1건 차단', type: 'error' },
+  { id: 'sec4', time: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), text: '감사 이상 탐지: 로그 갭 3분 → 자동 복구 확인', type: 'info' },
+]
+
+const securityStats = [
+  { label: '권한 변경', value: '2건', type: 'warning' as const },
+  { label: '정책 위반', value: '1건', type: 'error' as const },
+  { label: '감사 상태', value: '정상', type: 'success' as const },
+  { label: 'AI 위반', value: '0건', type: 'success' as const },
+]
+
 export default function SecurityPage() {
   const [data, setData] = useState<SecurityData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -31,12 +47,22 @@ export default function SecurityPage() {
     fetch('/api/dashboard/security').then(r => r.json()).then(d => { setData(d.result?.data || d); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="space-y-4 p-6">{Array.from({length:4}).map((_,i) => <Skeleton key={i} className="h-48" />)}</div>
+  function handleCommand(cmd: string) {
+    console.log('[Security] CEO command:', cmd)
+  }
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold">Security Dashboard</h1>
-      <div className="grid grid-cols-3 gap-4">
+    <AIWorkspaceLayout
+      title="Security Dashboard"
+      subtitle="Role-based operational dashboard"
+      activities={securityActivities}
+      stats={securityStats}
+      onCommand={handleCommand}
+    >
+      {loading && <div className="space-y-4">{Array.from({length:4}).map((_,i) => <Skeleton key={i} className="h-48" />)}</div>}
+      {!loading && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-3 gap-4">
         {/* Restricted Data Access */}
         <Card className="col-span-2"><CardHeader><CardTitle>Restricted Data Access</CardTitle></CardHeader>
           <CardContent>
@@ -106,7 +132,9 @@ export default function SecurityPage() {
         {/* Workflow Definition Changes */}
         <Card><CardHeader><CardTitle>Workflow Definition Changes</CardTitle></CardHeader>
           <CardContent><p className="text-3xl font-bold">{data?.workflowDefChanges || 0}</p></CardContent></Card>
-      </div>
-    </div>
+          </div>
+        </div>
+      )}
+    </AIWorkspaceLayout>
   )
 }

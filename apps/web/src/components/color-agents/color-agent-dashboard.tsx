@@ -1,11 +1,6 @@
 "use client";
 
 import {
-  CheckCircle2,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  MinusCircle,
   ArrowRight,
   Activity,
 } from "lucide-react";
@@ -13,6 +8,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ColorReviewBadge, ColorAgentDot } from "@/components/ui/color-review-badge";
 
 type ColorStatus = "passed" | "pending" | "failed" | "not_required";
 
@@ -57,64 +53,30 @@ const KANBAN_COLUMNS = [
   { name: "Escalated", deals: ["OPP-2024-0723 — SK Telecom"] },
 ];
 
-function StatusIcon({ status }: { status: ColorStatus }) {
-  switch (status) {
-    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label="Passed" />;
-    case "pending": return <Clock className="h-4 w-4 text-amber-500" role="img" aria-label="Pending" />;
-    case "failed": return <XCircle className="h-4 w-4 text-red-500" role="img" aria-label="Failed" />;
-    case "not_required": return <MinusCircle className="h-4 w-4 text-gray-400" role="img" aria-label="Not Required" />;
-  }
-}
-
-function StatusBadge({ status }: { status: ColorStatus }) {
-  const map: Record<ColorStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-    passed: { label: "Passed", variant: "default" },
-    pending: { label: "Pending", variant: "secondary" },
-    failed: { label: "Failed", variant: "destructive" },
-    not_required: { label: "N/A", variant: "outline" },
-  };
-  const { label, variant } = map[status];
-  return <Badge variant={variant}>{label}</Badge>;
-}
-
-function PriorityIcon({ priority }: { priority: string }) {
-  if (priority === "critical") return <AlertTriangle className="h-3.5 w-3.5 text-red-500" role="img" aria-label="Critical priority" />;
-  if (priority === "high") return <AlertTriangle className="h-3.5 w-3.5 text-amber-500" role="img" aria-label="High priority" />;
-  return <Clock className="h-3.5 w-3.5 text-blue-500" role="img" aria-label="Medium priority" />;
+function StatusBadge({ status, agent = "blue" }: { status: ColorStatus; agent?: string }) {
+  return <ColorReviewBadge agent={agent} status={status} size="sm" />;
 }
 
 export function ColorAgentDashboard() {
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl sm:p-8">
-        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
-        <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-blue-500/10 blur-2xl" />
-        <div className="relative">
-          <p className="text-sm font-medium text-gray-400">Sangfor Agentic OS</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Color Agents</h1>
-          <p className="mt-2 text-sm text-gray-400">
-            Review perspectives and Kanban handoff owners — they do not replace business personas
-          </p>
-        </div>
-      </div>
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {COLORS.map((c) => {
           const agent = AGENT_STATUSES.find((a) => a.name === c.name)!;
+          const agentKey = c.name.toLowerCase();
           return (
             <Card key={c.name} className="transition-shadow hover:shadow-md">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
-                  <StatusIcon status={agent.status} />
-                  <CardTitle className="text-base">{c.name}</CardTitle>
+                  <ColorAgentDot agent={agentKey} />
+                  <CardTitle className="text-base">{c.label}</CardTitle>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{c.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">{c.name} — {c.desc}</p>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <p className="text-xs text-muted-foreground">{c.desc}</p>
                 <div className="flex items-center justify-between rounded-lg bg-muted/30 px-2 py-1.5">
                   <span className="text-xs text-muted-foreground">Status</span>
-                  <StatusBadge status={agent.status} />
+                  <StatusBadge status={agent.status} agent={agentKey} />
                 </div>
                 <div className="flex items-center justify-between rounded-lg bg-muted/30 px-2 py-1.5">
                   <span className="text-xs text-muted-foreground">Deal</span>
@@ -140,20 +102,23 @@ export function ColorAgentDashboard() {
             <CardTitle className="text-base">My Color Reviews</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {MY_REVIEWS.map((r) => (
-              <div key={r.role} className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <PriorityIcon priority={r.priority} />
-                  <div>
-                    <p className="text-sm font-medium">{r.role}</p>
-                    <p className="text-xs text-muted-foreground">{r.deal}</p>
+              {MY_REVIEWS.map((r) => {
+                const agentKey = r.role.split(" — ")[0].toLowerCase();
+                return (
+                  <div key={r.role} className="flex items-center justify-between rounded-lg border bg-background/80 px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <ColorAgentDot agent={agentKey} />
+                      <div>
+                        <p className="text-sm font-medium">{r.role}</p>
+                        <p className="text-xs text-muted-foreground">{r.deal}</p>
+                      </div>
+                    </div>
+                    <Badge variant={r.priority === "critical" ? "destructive" : "secondary"}>
+                      {r.deadline}
+                    </Badge>
                   </div>
-                </div>
-                <Badge variant={r.priority === "critical" ? "destructive" : "secondary"}>
-                  {r.deadline}
-                </Badge>
-              </div>
-            ))}
+                );
+              })}
           </CardContent>
         </Card>
 
@@ -190,23 +155,30 @@ export function ColorAgentDashboard() {
           <CardTitle className="text-base">Project Board — Color Review Pipeline</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
-            {KANBAN_COLUMNS.map((col) => (
-              <div key={col.name} className="rounded-lg border bg-muted/20 p-2 min-h-[120px]">
-                <h3 className="text-xs font-semibold mb-2 text-center">{col.name}</h3>
-                <div className="space-y-1.5">
-                  {col.deals.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">—</p>
-                  ) : (
-                    col.deals.map((d) => (
-                      <div key={d} className="rounded border bg-background px-2 py-1.5 text-xs leading-tight">
-                        {d}
-                      </div>
-                    ))
-                  )}
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
+            {KANBAN_COLUMNS.map((col) => {
+              const agentKey = col.name.replace("To ", "").toLowerCase();
+              const isTerminal = col.name === "Resolved" || col.name === "Escalated";
+              return (
+                <div key={col.name} className={`rounded-lg border p-2 min-h-[140px] transition-shadow hover:shadow-sm ${isTerminal ? "bg-muted/10" : ""}`}>
+                  <div className="flex items-center gap-1.5 mb-2 px-1">
+                    {!isTerminal && <ColorAgentDot agent={agentKey} />}
+                    <h3 className={`text-xs font-semibold ${isTerminal ? "text-muted-foreground" : ""}`}>{col.name}</h3>
+                  </div>
+                  <div className="space-y-1.5">
+                    {col.deals.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-6 italic">—</p>
+                    ) : (
+                      col.deals.map((d) => (
+                        <div key={d} className="rounded-md border bg-background px-2 py-2 text-xs leading-tight shadow-sm hover:shadow transition-shadow">
+                          {d}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>

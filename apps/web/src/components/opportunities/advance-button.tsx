@@ -6,7 +6,7 @@ import { normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
 
 export function AdvanceOpportunityButton({ id, stage }: { id: string; stage: string }) {
   const canonical = normalizeOpportunityStage(stage);
-  if (canonical === "won" || canonical === "lost") return null;
+  if (canonical === "WON" || canonical === "LOST") return null;
 
   async function advance() {
     await fetch(`/api/opportunities/${id}`, {

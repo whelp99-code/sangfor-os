@@ -1,81 +1,213 @@
-# Sangfor Agentic OS — 통합 개발 계획서
+# Sangfor-os Complete Integration Development Plan
 
-## 현재 상태 (Phase 0 완료)
+## Current Goal
 
-| 항목 | 상태 |
-|------|------|
-| 7개 프로젝트 통합 | ✅ 960 files |
-| 패키지명 @sangfor 통일 | ✅ 12 packages |
-| Prisma Schema (87 Business + 16 New) | ✅ 103 models |
-| pnpm install | ✅ 성공 |
-| npm test | ⏳ 진행 예정 |
+The final goal is complete integration of all AIOS/SANGFOR related projects into
+`sangfor-os`. The repo must become the single maintainable modular monolithic
+monorepo for the operating platform, while preserving useful legacy assets
+through absorption, wrappers, bridges, and adapters.
 
-## Phase 1: API Layer 구축
+The implementation baseline is the SANGFOR Partner OS final package:
 
-### 1.1 Express API 앱 생성 (apps/api)
-- AIOSv2_integration Express API 포팅
-- tRPC 라우터 통합
-- Health/Metrics/SSE endpoints
-- JWT Auth middleware
+```text
+/Users/jmpark/Downloads/01.Pilot_Coding/agentic_company_os_sangfor_final_package_v3_2/
+```
 
-### 1.2 Finance API 통합
-- NestJS finance 패키지를 Express에 바인딩
-- /api/finance/* routes
-- Prisma → FinanceProject/Invoice/Expense/Cashflow 연동
+## Current State Snapshot
 
-## Phase 2: Build & Test Pipeline
+| Area | State | Next Action |
+| --- | --- | --- |
+| Source packages/docs | Final package docs are present under `docs/` | Keep docs as product baseline |
+| AIOS v1 | Proxy/bridge scripts and adapter exist | Verify feature parity and bridge health |
+| Business modules | CRM, PoC, quote, approval, mail, asset/renewal modules exist in `packages/business` | Map to final package milestones |
+| Finance | Finance modules exist under `packages/finance` | Connect to commercial workflow and dashboards |
+| SANGFOR MCP workflow | Present under `services/sangfor-mcp-workflow` | Keep wrapped service and absorb reusable logic |
+| Engineer MCP | Present under `services/sangfor-engineer-mcp` | Keep wrapped service and connect evidence/RAG |
+| UX/AI Workspace changes | In-progress uncommitted UI work exists | Triage as keep/defer/realign |
+| Verification | `pnpm typecheck` previously passed | Re-run after documentation and code changes |
 
-### 2.1 각 패키지 빌드 확인
-- packages/business (76 source files)
-- packages/finance (46 source files)
-- packages/auth/infra/security/cache/health/proxy-core
+## Milestone 0: Integration Baseline
 
-### 2.2 Test 실행
-- packages/business: 30+ tests
-- packages/finance: 0 tests (신규)
-- packages/auth: 0 tests
-- packages/db: seed tests
-- E2E tests: Playwright + Cypress
+### Goal
 
-## Phase 3: Business Layer 완성
+Fix the direction before deeper implementation. `sangfor-os` must be documented
+as the canonical integration repo, not a new UI-only product.
 
-### 3.1 Color Agent Organization
-- color_agents.py 스켈레톤 → TypeScript로 구현
-- ColorRoutingFunction: 입력 → 필요 Color 결정
-- KanbanHandoffCard CRUD
-- ColorReviewGate 체크 로직
+### Work
 
-### 3.2 Quote/Margin Engine
-- QuoteServiceLineItem → 서버 마진 계산
-- Commercial Gate: margin < 15% → CEO 승인 필요
-- Discount Request 정책
+- Update architecture and development docs to include all source projects.
+- Create source inventory and final package gap matrix.
+- Classify current UX/AI Workspace changes.
+- Keep AIOS v1 as a preserved runtime asset.
 
-### 3.3 Asset & Renewal Lifecycle
-- CustomerAsset → License → Subscription → Renewal
-- 자동 Renewal 알림 (30/14/7일 전)
+### Completion Criteria
 
-## Phase 4: AI Quality Gate
+- `docs/reports/integration-source-inventory.md` exists.
+- `docs/reports/project-to-sangfor-os-mapping.md` exists.
+- `docs/reports/final-package-gap-matrix.md` exists.
+- `docs/reports/aios-v1-integration-baseline.md` exists.
+- Current UX changes are classified.
 
-### 4.1 Golden Answer Set
-- AiGoldenAnswer: 7 categories, 155+ cases
-- AiQualityResult: score, passed, details
+## Milestone 1: Foundation
 
-### 4.2 Release Gate
-- score >= 85
-- prompt injection block >= 95%
-- restricted leakage = 0
+### Goal
 
-## Phase 5: 통합 검증
+Implement and verify the final package foundation requirements.
 
-### 5.1 Prisma Migration
-- pnpm db:push 실행
-- DB 연결 확인
+### Scope
 
-### 5.2 E2E 테스트
-- Portal all pages functional
-- CFO finance routes
-- API health + metrics
+- Tenant / Company
+- User / AuthContext
+- RBAC + ABAC
+- PostgreSQL RLS design and migration baseline
+- Append-only Audit Log and hash chain
+- Basic dashboard and health checks
 
-### 5.3 최종 커밋
-- 모든 변경사항 커밋
-- 태그: v1.0.0
+### Completion Criteria
+
+- Unauthenticated API access is blocked.
+- Tenant scope is enforced at API and DB policy design levels.
+- Audit events are recorded for sensitive operations.
+- RLS migration/test plan exists before any operational DB action.
+
+## Milestone 2: Deal Workflow
+
+### Goal
+
+Close the customer-to-approval workflow.
+
+### Scope
+
+- Customer, Partner, Contact
+- Opportunity
+- Deal Qualification
+- Discovery Note
+- Solution Fit Matrix
+- Workflow Run and Task
+- Approval Gate
+- AI Draft vs Approved Artifact separation
+
+### Completion Criteria
+
+- Opportunity can be created and qualified.
+- Qualification score is server-calculated.
+- Discovery artifact is versioned.
+- Solution Fit Gate supports approve/reject/request changes.
+- AI Draft cannot be treated as approved output.
+
+## Milestone 3: Quote & Commercial
+
+### Goal
+
+Close the product/SKU/quote/commercial approval workflow.
+
+### Scope
+
+- Product Family and SKU
+- Quote and Quote Line Items
+- Server-side margin calculation
+- Discount Request and Vendor Request
+- Commercial Gate
+- Proposal Artifact
+
+### Completion Criteria
+
+- Quote margin is calculated on the server.
+- Low margin creates approval requirements.
+- Customer send/export is blocked before approval.
+- Quote versions are immutable after approval.
+
+## Milestone 4: Delivery, Asset & Renewal
+
+### Goal
+
+Connect post-sale operations to assets, subscriptions, renewals, and support.
+
+### Scope
+
+- PoC Plan / Result
+- Delivery Checklist
+- Customer Asset
+- License / Subscription
+- Renewal Opportunity and reminders
+- Support Case / RCA / SLA seed
+
+### Completion Criteria
+
+- Acceptance creates asset/license/subscription records.
+- Expiring subscriptions create renewal opportunities.
+- Support cases can link to assets.
+- Renewal reminder generation is testable.
+
+## Milestone 5: Controlled AI and Color Agent Review
+
+### Goal
+
+Use AI as a controlled assistant, not an autonomous executor.
+
+### Scope
+
+- Lead Summary
+- Discovery Question Generator
+- Proposal Draft
+- RCA Draft
+- AI Quality Gate
+- Prompt / Model Registry
+- Evidence Link
+- Color Agent routing and review gates
+
+### Completion Criteria
+
+- AI Draft send is blocked before human review.
+- Source artifacts and missing fields are visible.
+- Color Agent review status is represented in UI and domain logic.
+- Automatic override of high-risk approvals is not possible.
+
+## Milestone 6: UX, Operations, and ROI
+
+### Goal
+
+Expose the integrated platform through role-based dashboards and operator
+workflows.
+
+### Scope
+
+- Role-based dashboard
+- Approval Queue
+- Mail Intelligence
+- Customer / Opportunity
+- Quote / Proposal
+- PoC / Delivery
+- Asset / Renewal
+- Support
+- Color Agents
+- Operator / Security
+- ROI and AI cost metrics
+
+### Completion Criteria
+
+- Users can complete the core operating loop in `sangfor-os`.
+- No critical workflow requires direct use of an old project UI.
+- Operator and Security views expose approval age, audit health, and system
+  health.
+
+## Verification Gates
+
+Run these after each material implementation batch:
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test
+```
+
+Run these before claiming integration readiness:
+
+```bash
+pnpm build
+pnpm test:e2e
+```
+
+Use local smoke checks only for read-only or approved actions. Do not send real
+mail, deploy, mutate production DBs, force push, or create release tags without
+explicit approval.

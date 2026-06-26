@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Ticket, Timer, ArrowUpRight, FileSearch, Repeat, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AIWorkspaceLayout } from "@/components/ai-workspace";
+import { ActivityItem } from "@/components/ai-workspace/ai-activity-feed";
 
 type SupportData = {
   newTickets: number;
@@ -11,6 +13,20 @@ type SupportData = {
   rcaRequired: number;
   repeatIssues: number;
 };
+
+const supportActivities: ActivityItem[] = [
+  { id: "s1", time: new Date(Date.now() - 1000 * 60 * 3).toISOString(), text: "Ticket 자동 분류 완료: #4821 → 네트워크/High", type: "success" },
+  { id: "s2", time: new Date(Date.now() - 1000 * 60 * 20).toISOString(), text: "SLA 모니터링: 2건 임박 (4시간 내)", type: "warning" },
+  { id: "s3", time: new Date(Date.now() - 1000 * 60 * 60).toISOString(), text: "에스컬레이션 감지: #4798 3차 지연 → HQ 전달", type: "error" },
+  { id: "s4", time: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), text: "RCA 자동 작성 완료: #4756 메모리 누수 분석", type: "success" },
+];
+
+const supportStats = [
+  { label: "신규 Ticket", value: "12건", type: "default" as const },
+  { label: "SLA 임박", value: "2건", type: "warning" as const },
+  { label: "에스컬레이션", value: "1건", type: "error" as const },
+  { label: "RCA 미작성", value: "3건", type: "default" as const },
+];
 
 function LoadingSkeleton() {
   return (
@@ -57,22 +73,23 @@ export default function SupportDashboardPage() {
     fetchData();
   }, []);
 
-  if (loading) return <LoadingSkeleton />;
-  if (error) return <ErrorState message={error} />;
+  function handleCommand(cmd: string) {
+    console.log("[Support] CEO command:", cmd);
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl sm:p-8">
-        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
-        <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-blue-500/10 blur-2xl" />
-        <div className="relative">
-          <p className="text-sm font-medium text-gray-400">Sangfor Agentic OS</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Support Engineer</h1>
-          <p className="mt-2 text-sm text-gray-400">Role-based operational dashboard</p>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <AIWorkspaceLayout
+      title="Support Engineer"
+      subtitle="Role-based operational dashboard"
+      activities={supportActivities}
+      stats={supportStats}
+      onCommand={handleCommand}
+    >
+      {loading && <LoadingSkeleton />}
+      {error && <ErrorState message={error} />}
+      {!loading && !error && (
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -153,8 +170,10 @@ export default function SupportDashboardPage() {
             ) : null}
           </CardContent>
         </Card>
-      </div>
-    </div>
+          </div>
+        </div>
+      )}
+    </AIWorkspaceLayout>
   );
 }
 

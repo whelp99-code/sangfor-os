@@ -26,7 +26,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
@@ -38,7 +38,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { STATUS_LABELS, STATUS_VARIANTS } from "@sangfor/shared";
+import { ColorReviewBadge } from "@/components/ui/color-review-badge";
+import { displayStatus } from "@/lib/ux-labels";
 
 type ApprovalStatus = "pending" | "approved" | "rejected" | "auto_validating" | "auto_failed" | "remediation_required" | "ready_for_human_approval" | "stale";
 
@@ -182,6 +183,7 @@ function Toast({ message, type, onClose }: { message: string; type: "success" | 
 }
 
 export default function ApprovalDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  void params;
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [requestChangesOpen, setRequestChangesOpen] = useState(false);
@@ -190,7 +192,7 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
   const [loading, setLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
-  const statusInfo = STATUS_LABELS[APPROVAL.status] ?? APPROVAL.status;
+  const statusInfo = displayStatus(APPROVAL.status);
   const variant = STATUS_VARIANT_MAP[APPROVAL.status] ?? "outline";
 
   const showToast = useCallback((message: string, type: "success" | "error" | "info") => {
@@ -212,152 +214,51 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
 
   const canAct = APPROVAL.status === "ready_for_human_approval";
 
+  const failedOrWarningValidations = VALIDATIONS.filter((v) => v.status === "failed" || v.status === "warning");
+
   return (
     <div className="space-y-6">
       {toast && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <Link href="/approvals" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to approvals
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">{APPROVAL.title}</h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={variant}>{statusInfo}</Badge>
-            <Badge variant="outline">{APPROVAL.id}</Badge>
-            <Badge variant="outline">{APPROVAL.type}</Badge>
-          </div>
+      {/* Header */}
+      <div className="flex flex-col gap-3">
+        <Link href="/approvals" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline">
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to approvals
+        </Link>
+        <h1 className="text-2xl font-semibold tracking-tight">{APPROVAL.title}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={variant}>{statusInfo}</Badge>
+          <Badge variant="outline">{APPROVAL.id}</Badge>
+          <Badge variant="outline">{APPROVAL.type}</Badge>
         </div>
-        {canAct && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Dialog open={requestChangesOpen} onOpenChange={setRequestChangesOpen}>
-              <DialogTrigger render={<Button variant="secondary" size="sm"><MessageSquare className="h-3.5 w-3.5" />Request Changes</Button>} />
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Request Changes</DialogTitle>
-                  <DialogDescription>Provide feedback for the requester to address.</DialogDescription>
-                </DialogHeader>
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Describe what needs to change..."
-                  rows={4}
-                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                />
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setRequestChangesOpen(false)}>Cancel</Button>
-                  <Button
-                    variant="secondary"
-                    disabled={loading === "request-changes"}
-                    onClick={() => handleAction("Changes requested")}
-                  >
-                    {loading === "request-changes" ? "Submitting..." : "Submit Request"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Dialog open={escalateOpen} onOpenChange={setEscalateOpen}>
-              <DialogTrigger render={<Button variant="outline" size="sm"><ArrowUpCircle className="h-3.5 w-3.5" />Escalate</Button>} />
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Escalate Approval</DialogTitle>
-                  <DialogDescription>Send this approval to a higher authority for review.</DialogDescription>
-                </DialogHeader>
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Reason for escalation..."
-                  rows={4}
-                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                />
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setEscalateOpen(false)}>Cancel</Button>
-                  <Button
-                    variant="default"
-                    disabled={loading === "escalate"}
-                    onClick={() => handleAction("Escalated")}
-                  >
-                    {loading === "escalate" ? "Escalating..." : "Confirm Escalation"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Separator orientation="vertical" className="h-6" />
-            <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-              <DialogTrigger render={<Button variant="destructive" size="sm">Reject</Button>} />
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Reject approval</DialogTitle>
-                  <DialogDescription>Are you sure you want to reject this approval? This will notify the requester.</DialogDescription>
-                </DialogHeader>
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Reason for rejection..."
-                  rows={3}
-                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                />
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
-                  <Button
-                    variant="destructive"
-                    disabled={loading === "reject"}
-                    onClick={() => handleAction("Rejected")}
-                  >
-                    {loading === "reject" ? "Rejecting..." : "Confirm Reject"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
-              <DialogTrigger render={<Button size="sm">Approve</Button>} />
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Approve this request?</DialogTitle>
-                  <DialogDescription>
-                    This will finalize the commercial approval for {APPROVAL.customer}.
-                    Review all checks before confirming.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setApproveOpen(false)}>Cancel</Button>
-                  <Button
-                    disabled={loading === "approve"}
-                    onClick={() => handleAction("Approved")}
-                  >
-                    {loading === "approve" ? "Approving..." : "Confirm Approval"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-6">
-          {/* Summary */}
+      {/* Main Content */}
+      <div className="flex flex-col gap-6 lg:flex-row">
+        {/* Left Column */}
+        <div className="flex-1 space-y-6">
+          {/* 1. Approval Summary */}
           <Card>
             <CardHeader>
-              <SectionHeader icon={<User className="h-3.5 w-3.5" />} title="Approval summary" />
+              <SectionHeader icon={<User className="h-3.5 w-3.5" />} title="승인 대상 요약" />
             </CardHeader>
             <CardContent>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <InfoRow label="Requester" value={APPROVAL.requester} />
-                <InfoRow label="Created" value={APPROVAL.createdAt} />
+                <InfoRow label="생성일" value={APPROVAL.createdAt} />
                 <InfoRow label="Customer" value={APPROVAL.customer} />
                 <InfoRow label="Opportunity" value={APPROVAL.opportunity} />
               </div>
             </CardContent>
           </Card>
 
-          {/* Diff View — FIRST */}
+          {/* 2. Diff Table */}
           <Card>
             <CardHeader>
-              <SectionHeader icon={<GitCompare className="h-3.5 w-3.5" />} title="Changes (Diff)" />
+              <SectionHeader icon={<GitCompare className="h-3.5 w-3.5" />} title="변경 Diff" />
             </CardHeader>
             <CardContent>
               <div className="overflow-hidden rounded-lg border">
@@ -383,10 +284,10 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
             </CardContent>
           </Card>
 
-          {/* Auto-validation Results — SECOND */}
+          {/* 3. Auto-validation Results */}
           <Card>
             <CardHeader>
-              <SectionHeader icon={<ShieldCheck className="h-3.5 w-3.5" />} title="Auto-validation results" />
+              <SectionHeader icon={<ShieldCheck className="h-3.5 w-3.5" />} title="자동 검증 결과" />
             </CardHeader>
             <CardContent>
               {loading === "validate" ? (
@@ -404,7 +305,7 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">{v.name}</span>
                           <Badge variant={v.status === "failed" ? "destructive" : v.status === "warning" ? "secondary" : "default"} className="text-xs">
-                            {v.status}
+                            {displayStatus(v.status)}
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">{v.detail}</p>
@@ -416,10 +317,44 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
             </CardContent>
           </Card>
 
-          {/* Revenue & Margin Impact — THIRD */}
+          {/* 4. Failed/Warning Highlight */}
+          {failedOrWarningValidations.length > 0 && (
+            <Card>
+              <CardHeader>
+                <SectionHeader icon={<AlertTriangle className="h-3.5 w-3.5" />} title="실패/경고 항목" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {failedOrWarningValidations.map((v) => (
+                    <div
+                      key={v.name}
+                      className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 ${
+                        v.status === "failed"
+                          ? "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
+                          : "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800"
+                      }`}
+                    >
+                      <ValidationStatusIcon status={v.status} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{v.name}</span>
+                          <Badge variant={v.status === "failed" ? "destructive" : "secondary"} className="text-xs">
+                            {displayStatus(v.status)}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{v.detail}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 5. Revenue & Margin */}
           <Card>
             <CardHeader>
-              <SectionHeader icon={<DollarSign className="h-3.5 w-3.5" />} title="Revenue &amp; Margin Impact" />
+              <SectionHeader icon={<DollarSign className="h-3.5 w-3.5" />} title="예상 매출/마진" />
             </CardHeader>
             <CardContent>
               <div className="grid gap-3 sm:grid-cols-3">
@@ -448,10 +383,10 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
             </CardContent>
           </Card>
 
-          {/* Related Artifacts */}
+          {/* 6. Related Artifacts */}
           <Card>
             <CardHeader>
-              <SectionHeader icon={<FileText className="h-3.5 w-3.5" />} title="Related artifacts" />
+              <SectionHeader icon={<FileText className="h-3.5 w-3.5" />} title="관련 Artifact" />
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -475,10 +410,10 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
             </CardContent>
           </Card>
 
-          {/* AI Generation Status */}
+          {/* 7. AI Generation Status */}
           <Card>
             <CardHeader>
-              <SectionHeader icon={<Brain className="h-3.5 w-3.5" />} title="AI Generation status" />
+              <SectionHeader icon={<Brain className="h-3.5 w-3.5" />} title="AI 생성 여부" />
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-3">
@@ -497,36 +432,36 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
           </Card>
         </div>
 
-        <div className="space-y-6">
-          {/* Color Agent Review Status — NOW in right column */}
+        {/* Right Column */}
+        <div className="w-full shrink-0 space-y-6 lg:w-96">
+          {/* 1. Color Agent Review */}
           <Card>
             <CardHeader>
               <SectionHeader icon={<Activity className="h-3.5 w-3.5" />} title="Color Agent Review" />
             </CardHeader>
             <CardContent className="space-y-2">
-              {COLOR_REVIEWS.map((cr) => (
-                <div key={cr.color} className="flex items-center justify-between rounded-lg border bg-muted/20 px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <ColorStatusIcon status={cr.status} />
-                    <div>
-                      <p className="text-sm font-medium">{cr.color}</p>
-                      <p className="text-xs text-muted-foreground">{cr.label}</p>
+              {COLOR_REVIEWS.map((cr) => {
+                const agentKey = cr.color.toLowerCase();
+                return (
+                  <div key={cr.color} className="flex items-center justify-between rounded-lg border bg-muted/20 px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <ColorStatusIcon status={cr.status} />
+                      <div>
+                        <p className="text-sm font-medium">{cr.label}</p>
+                        <p className="text-xs text-muted-foreground">{cr.desc}</p>
+                      </div>
                     </div>
+                    <ColorReviewBadge agent={agentKey} status={cr.status} size="sm" />
                   </div>
-                  <Badge variant={cr.status === "failed" ? "destructive" : cr.status === "pending" ? "secondary" : cr.status === "passed" ? "default" : "outline"} className="text-xs">
-                    {cr.status === "passed" ? "Passed" :
-                     cr.status === "pending" ? "Pending" :
-                     cr.status === "failed" ? "Failed" : "N/A"}
-                  </Badge>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
 
-          {/* Reviewer Comments */}
+          {/* 2. Reviewer Comments */}
           <Card>
             <CardHeader>
-              <SectionHeader icon={<MessageSquare className="h-3.5 w-3.5" />} title="Reviewer comments" />
+              <SectionHeader icon={<MessageSquare className="h-3.5 w-3.5" />} title="담당자 의견" />
             </CardHeader>
             <CardContent>
               <textarea
@@ -539,51 +474,148 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
             </CardContent>
           </Card>
 
-          {/* Approval History */}
-          {loading === "history" ? (
-            <Card>
-              <CardHeader>
-                <SectionHeader icon={<History className="h-3.5 w-3.5" />} title="Approval history" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-10 w-full" />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <SectionHeader icon={<History className="h-3.5 w-3.5" />} title="Approval history" />
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="relative ml-4 space-y-0">
-                  {HISTORY.map((event, i) => (
-                    <div key={i} className="relative flex gap-4 pb-5 pl-6 last:pb-0">
-                      <div className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-primary bg-background" />
-                      {i < HISTORY.length - 1 && (
-                        <div className="absolute left-[11px] top-4 h-full w-px bg-border" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium">{event.action}</p>
-                          <span className="text-xs text-muted-foreground">{event.timestamp}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{event.actor}</p>
-                        {event.note && (
-                          <p className="mt-0.5 text-xs text-muted-foreground italic">{event.note}</p>
-                        )}
+          {/* 3. Approval History */}
+          <Card>
+            <CardHeader>
+              <SectionHeader icon={<History className="h-3.5 w-3.5" />} title="승인 이력" />
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="relative ml-4 space-y-0">
+                {HISTORY.map((event, i) => (
+                  <div key={i} className="relative flex gap-4 pb-5 pl-6 last:pb-0">
+                    <div className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-primary bg-background" />
+                    {i < HISTORY.length - 1 && (
+                      <div className="absolute left-[11px] top-4 h-full w-px bg-border" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{event.action}</p>
+                        <span className="text-xs text-muted-foreground">{event.timestamp}</span>
                       </div>
+                      <p className="text-xs text-muted-foreground">{event.actor}</p>
+                      {event.note && (
+                        <p className="mt-0.5 text-xs text-muted-foreground italic">{event.note}</p>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
+
+      {/* Bottom Action Bar */}
+      {canAct && (
+        <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Dialog open={requestChangesOpen} onOpenChange={setRequestChangesOpen}>
+              <DialogTrigger render={<Button variant="secondary" size="sm"><MessageSquare className="h-3.5 w-3.5" />Request Changes</Button>} />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Request Changes</DialogTitle>
+                  <DialogDescription>Provide feedback for the requester to address.</DialogDescription>
+                </DialogHeader>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Describe what needs to change..."
+                  rows={4}
+                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                />
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setRequestChangesOpen(false)}>Cancel</Button>
+                  <Button
+                    variant="secondary"
+                    disabled={loading === "request-changes"}
+                    onClick={() => handleAction("Changes requested")}
+                  >
+                    {loading === "request-changes" ? "Submitting..." : "Submit Request"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={escalateOpen} onOpenChange={setEscalateOpen}>
+              <DialogTrigger render={<Button variant="outline" size="sm"><ArrowUpCircle className="h-3.5 w-3.5" />Escalate</Button>} />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Escalate Approval</DialogTitle>
+                  <DialogDescription>Send this approval to a higher authority for review.</DialogDescription>
+                </DialogHeader>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Reason for escalation..."
+                  rows={4}
+                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                />
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setEscalateOpen(false)}>Cancel</Button>
+                  <Button
+                    variant="default"
+                    disabled={loading === "escalate"}
+                    onClick={() => handleAction("Escalated")}
+                  >
+                    {loading === "escalate" ? "Escalating..." : "Confirm Escalation"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Separator orientation="vertical" className="h-6 hidden sm:block" />
+
+            <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+              <DialogTrigger render={<Button variant="destructive" size="sm">Reject</Button>} />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Reject approval</DialogTitle>
+                  <DialogDescription>Are you sure you want to reject this approval? This will notify the requester.</DialogDescription>
+                </DialogHeader>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Reason for rejection..."
+                  rows={3}
+                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                />
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
+                  <Button
+                    variant="destructive"
+                    disabled={loading === "reject"}
+                    onClick={() => handleAction("Rejected")}
+                  >
+                    {loading === "reject" ? "Rejecting..." : "Confirm Reject"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
+              <DialogTrigger render={<Button size="sm">Approve</Button>} />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Approve this request?</DialogTitle>
+                  <DialogDescription>
+                    This will finalize the commercial approval for {APPROVAL.customer}.
+                    Review all checks before confirming.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setApproveOpen(false)}>Cancel</Button>
+                  <Button
+                    disabled={loading === "approve"}
+                    onClick={() => handleAction("Approved")}
+                  >
+                    {loading === "approve" ? "Approving..." : "Confirm Approval"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

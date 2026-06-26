@@ -1,3 +1,4 @@
+import { normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
 import { NextResponse } from "next/server";
 import { prisma } from "@sangfor/db";
 
@@ -13,11 +14,11 @@ async function salesData() {
       stage: o.stage,
       value: Number(o.amount) || 0,
     })),
-    followUp: opportunities.filter((o) => o.stage === "discovery").length,
+    followUp: opportunities.filter((o) => normalizeOpportunityStage(o.stage) === "LEAD").length,
     pendingApprovals: pendingApprovals.length,
     proposalsInProgress: proposals.filter((p) => p.status === "draft").length,
     renewalsDue: 0,
-    riskDeals: opportunities.filter((o) => o.stage === "quote" && (Number(o.amount) || 0) > 50000).length,
+    riskDeals: opportunities.filter((o) => normalizeOpportunityStage(o.stage) === "NEGOTIATION" && (Number(o.amount) || 0) > 50000).length,
   };
 }
 
@@ -89,7 +90,7 @@ async function executiveData() {
     ],
     grossMarginRisk: {
       blendedMargin: 34.2,
-      belowThresholdDeals: opportunities.filter((o) => o.stage === "quote").length,
+      belowThresholdDeals: opportunities.filter((o) => normalizeOpportunityStage(o.stage) === "NEGOTIATION").length,
       avgDiscount: 28.5,
     },
     approvalBottleneck: [

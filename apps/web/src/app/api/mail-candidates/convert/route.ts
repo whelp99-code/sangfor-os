@@ -124,7 +124,7 @@ export async function POST() {
           data: {
             projectId: DEFAULT_PROJECT_ID,
             title: candidate.title,
-            stage: "lead",
+            stage: "LEAD",
             probability: 20,
             nextAction: candidate.summary || null,
           },

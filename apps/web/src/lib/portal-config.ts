@@ -21,7 +21,7 @@ export const PORTAL_NAV: NavItem[] = [
   { title: "PoC", href: "/poc", icon: "flask", group: "Business" },
   { title: "제안서", href: "/proposals", icon: "file-text", group: "Business" },
   { title: "작업", href: "/tasks", icon: "list-checks", group: "Business" },
-  { title: "승인", href: "/approvals", icon: "shield-check", group: "Business" },
+  { title: "승인", href: "/approvals", icon: "shield-check", group: "Business", roles: ["owner"] },
   { title: "워크플로우", href: "/commands", icon: "terminal", group: "Business" },
 
   // ═══ Finance ═══

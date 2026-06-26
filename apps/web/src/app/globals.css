@@ -81,6 +81,34 @@
   --sidebar-accent-foreground: oklch(0.205 0.005 247);
   --sidebar-border: oklch(0.91 0.005 247);
   --sidebar-ring: oklch(0.37 0.12 265);
+
+  /* ── Hermes Color Agents ── */
+  --color-blue-agent: oklch(0.55 0.15 265);
+  --color-blue-agent-bg: oklch(0.95 0.03 265);
+  --color-blue-agent-border: oklch(0.85 0.08 265);
+
+  --color-red-agent: oklch(0.55 0.20 25);
+  --color-red-agent-bg: oklch(0.95 0.04 25);
+  --color-red-agent-border: oklch(0.85 0.12 25);
+
+  --color-orange-agent: oklch(0.65 0.18 50);
+  --color-orange-agent-bg: oklch(0.96 0.04 50);
+  --color-orange-agent-border: oklch(0.88 0.10 50);
+
+  --color-gray-agent: oklch(0.50 0.01 247);
+  --color-gray-agent-bg: oklch(0.96 0.005 247);
+  --color-gray-agent-border: oklch(0.88 0.008 247);
+
+  --color-teal-agent: oklch(0.55 0.12 180);
+  --color-teal-agent-bg: oklch(0.95 0.03 180);
+  --color-teal-agent-border: oklch(0.85 0.08 180);
+
+  /* ── UX Status Colors ── */
+  --color-status-pending: oklch(0.60 0.12 85);
+  --color-status-validating: oklch(0.55 0.15 265);
+  --color-status-failed: oklch(0.55 0.20 25);
+  --color-status-approved: oklch(0.50 0.15 145);
+  --color-status-stale: oklch(0.60 0.15 50);
 }
 
 .dark {

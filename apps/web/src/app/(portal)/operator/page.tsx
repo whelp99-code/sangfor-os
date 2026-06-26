@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AIWorkspaceLayout } from '@/components/ai-workspace'
+import { ActivityItem } from '@/components/ai-workspace/ai-activity-feed'
 
 interface OperatorData {
   systemHealth: Record<string, string>
@@ -17,6 +19,20 @@ interface OperatorData {
   tenantHealth: { total: number; healthy: number }
 }
 
+const operatorActivities: ActivityItem[] = [
+  { id: 'op1', time: new Date(Date.now() - 1000 * 60 * 1).toISOString(), text: '시스템 상태 모니터링: 모든 서비스 정상', type: 'success' },
+  { id: 'op2', time: new Date(Date.now() - 1000 * 60 * 15).toISOString(), text: '워크플로우 자동 실행: 백신 정책 배포 완료', type: 'success' },
+  { id: 'op3', time: new Date(Date.now() - 1000 * 60 * 45).toISOString(), text: '장애 감지: DB 커넥션 풀 경고 → 자동 복구', type: 'warning' },
+  { id: 'op4', time: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(), text: '백업 상태 확인: 전체 테넌트 백업 완료', type: 'info' },
+]
+
+const operatorStats = [
+  { label: '시스템 상태', value: '정상', type: 'success' as const },
+  { label: '워크플로우 대기', value: '4건', type: 'default' as const },
+  { label: '실패 작업', value: '0건', type: 'success' as const },
+  { label: '백업 상태', value: 'OK', type: 'success' as const },
+]
+
 export default function OperatorPage() {
   const [data, setData] = useState<OperatorData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -25,12 +41,22 @@ export default function OperatorPage() {
     fetch('/api/dashboard/operator').then(r => r.json()).then(d => { setData(d.result?.data || d); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="grid grid-cols-3 gap-4 p-6">{Array.from({length:9}).map((_,i) => <Skeleton key={i} className="h-32" />)}</div>
+  function handleCommand(cmd: string) {
+    console.log('[Operator] CEO command:', cmd)
+  }
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold">Operator Console</h1>
-      <div className="grid grid-cols-3 gap-4">
+    <AIWorkspaceLayout
+      title="Operator Console"
+      subtitle="Role-based operational dashboard"
+      activities={operatorActivities}
+      stats={operatorStats}
+      onCommand={handleCommand}
+    >
+      {loading && <div className="grid grid-cols-3 gap-4">{Array.from({length:9}).map((_,i) => <Skeleton key={i} className="h-32" />)}</div>}
+      {!loading && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-3 gap-4">
         {/* System Health */}
         <Card><CardHeader><CardTitle>System Health</CardTitle></CardHeader>
           <CardContent>
@@ -66,7 +92,9 @@ export default function OperatorPage() {
         {/* Tenant Health */}
         <Card><CardHeader><CardTitle>Tenant Health</CardTitle></CardHeader>
           <CardContent><p>{data?.tenantHealth.healthy}/{data?.tenantHealth.total} 정상</p></CardContent></Card>
-      </div>
-    </div>
+          </div>
+        </div>
+      )}
+    </AIWorkspaceLayout>
   )
 }

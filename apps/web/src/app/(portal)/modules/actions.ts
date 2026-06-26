@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@sangfor/db";
+import { recordAuditEvent } from "@sangfor/business";
 import { toggleModuleRegistryStatus } from "@sangfor/business/module-admin";
 
 import { listSkillCatalog } from "@sangfor/business/skills";
@@ -65,15 +66,9 @@ export async function toggleConnectorCredentialMode(connectorKey: string, curren
     },
   });
 
-  // Create audit log
-  await prisma.auditLog.create({
-    data: {
-      eventType: "connector_credential_toggle",
-      actorId: "system",
-      resourceType: "connector",
-      resourceId: connectorKey,
-      details: { fromMode: currentMode, toMode: newMode },
-    },
+  await recordAuditEvent("connector_credential_toggle", "system", "connector", connectorKey, {
+    fromMode: currentMode,
+    toMode: newMode,
   });
 
   revalidatePath("/modules");

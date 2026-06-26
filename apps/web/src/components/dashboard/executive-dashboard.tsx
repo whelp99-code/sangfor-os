@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  TrendingUp,
   AlertTriangle,
   Clock,
   FlaskConical,
@@ -11,8 +10,6 @@ import {
   ShieldCheck,
   Activity,
   DollarSign,
-  BarChart3,
-  Users,
   CheckCircle2,
   XCircle,
   AlertCircle,
@@ -28,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { STATUS_LABELS } from "@sangfor/shared";
+import { ColorReviewBadge } from "@/components/ui/color-review-badge";
 
 type ColorReviewStatus = "passed" | "pending" | "failed" | "not_required";
 
@@ -93,30 +90,23 @@ type ExecutiveData = {
   securityAlerts: number;
 };
 
-const COLORS_DATA: { name: string; label: string; desc: string }[] = [
-  { name: "Blue", label: "기술 검토", desc: "Technical Direction / Architecture" },
-  { name: "Red", label: "리스크 검토", desc: "Risk & Safety / Security" },
-  { name: "Orange", label: "비즈니스 가치 검토", desc: "Product & Business Value" },
-  { name: "Gray", label: "문서/근거 검토", desc: "Documentation & Evidence" },
-  { name: "Teal", label: "UX/가시성 검토", desc: "UX & Visibility" },
+const COLORS_DATA: { name: string; agent: string; label: string; desc: string }[] = [
+  { name: "Blue", agent: "blue", label: "기술 검토", desc: "Technical Direction / Architecture" },
+  { name: "Red", agent: "red", label: "리스크 검토", desc: "Risk & Safety / Security" },
+  { name: "Orange", agent: "orange", label: "비즈니스 가치 검토", desc: "Product & Business Value" },
+  { name: "Gray", agent: "gray", label: "문서/근거 검토", desc: "Documentation & Evidence" },
+  { name: "Teal", agent: "teal", label: "UX/가시성 검토", desc: "UX & Visibility" },
 ];
 
-function ColorBadge({ status }: { status: ColorReviewStatus }) {
-  const map: Record<ColorReviewStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-    passed: { label: "Passed", variant: "default" },
-    pending: { label: "Pending", variant: "secondary" },
-    failed: { label: "Failed", variant: "destructive" },
-    not_required: { label: "N/A", variant: "outline" },
-  };
-  const { label, variant } = map[status];
-  return <Badge variant={variant}>{label}</Badge>;
+function ColorBadge({ status, agent = "blue" }: { status: ColorReviewStatus; agent?: string }) {
+  return <ColorReviewBadge agent={agent} status={status} size="sm" />;
 }
 
 function RiskBadge({ risk }: { risk: string }) {
   const map: Record<string, { label: string; variant: "destructive" | "secondary" | "outline" }> = {
-    high: { label: "High", variant: "destructive" },
-    medium: { label: "Medium", variant: "secondary" },
-    low: { label: "Low", variant: "outline" },
+    high: { label: "높음", variant: "destructive" },
+    medium: { label: "중간", variant: "secondary" },
+    low: { label: "낮음", variant: "outline" },
   };
   const { label, variant } = map[risk] ?? { label: risk, variant: "outline" as const };
   return <Badge variant={variant}>{label}</Badge>;
@@ -196,20 +186,6 @@ export function ExecutiveDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl sm:p-8">
-        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
-        <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-blue-500/10 blur-2xl" />
-        <div className="relative">
-          <p className="text-sm font-medium text-gray-400">Sangfor Agentic OS</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-            Executive Dashboard
-          </h1>
-          <p className="mt-2 text-sm text-gray-400">
-            Unified visibility across revenue, delivery, support, and governance
-          </p>
-        </div>
-      </div>
-
       <Card>
         <CardHeader className="flex flex-row items-center gap-2 pb-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/50">
@@ -414,16 +390,16 @@ export function ExecutiveDashboard() {
               {data.colorReviews.length === 0 ? (
                 <p className="col-span-5 py-4 text-center text-sm text-muted-foreground">No color reviews</p>
               ) : (
-                data.colorReviews.map((c) => {
-                  const colorDef = COLORS_DATA.find((x) => x.name === c.name)!;
-                  return (
-                    <div key={c.name} className="flex flex-col items-center gap-1 rounded-lg border p-2 text-center">
-                      <span className="text-xs font-semibold">{c.name}</span>
-                      <span className="text-xs text-muted-foreground">{colorDef?.label ?? ""}</span>
-                      <ColorBadge status={c.status as ColorReviewStatus} />
-                    </div>
-                  );
-                })
+                  data.colorReviews.map((c) => {
+                    const colorDef = COLORS_DATA.find((x) => x.name === c.name)!;
+                    return (
+                      <div key={c.name} className="flex flex-col items-center gap-1.5 rounded-lg border bg-background/60 p-3 text-center">
+                        <span className="text-xs font-semibold">{colorDef?.label ?? c.name}</span>
+                        <span className="text-[10px] text-muted-foreground">{colorDef?.desc ?? ""}</span>
+                        <ColorBadge status={c.status as ColorReviewStatus} agent={colorDef?.agent ?? "blue"} />
+                      </div>
+                    );
+                  })
               )}
             </div>
           </CardContent>
@@ -465,7 +441,7 @@ export function ExecutiveDashboard() {
       </Card>
 
       <div className="text-right text-xs text-muted-foreground">
-        <span>{STATUS_LABELS.ready_for_human_approval}</span>
+        <span>Package V3.2 — Hermes Color Agent</span>
       </div>
     </div>
   );
