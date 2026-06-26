@@ -860,7 +860,7 @@ model PocResultReport {
   pocProjectId String   @map("poc_project_id")
   title        String
   bodyMarkdown String   @map("body_markdown")
-  status       String   @default("draft")
+  status        QuoteStatus @default(DRAFT)
   createdAt    DateTime @default(now()) @map("created_at")
 
   pocProject PocProject @relation(fields: [pocProjectId], references: [id], onDelete: Cascade)
@@ -875,7 +875,7 @@ model Opportunity {
   customerId  String?   @map("customer_id")
   partnerId   String?   @map("partner_id")
   title       String
-  stage       String    @default("lead")
+  stage       OpportunityStage @default(LEAD)
   amount      Decimal?  @db.Decimal(12, 2)
   probability Int       @default(20)
   closeDate   DateTime? @map("close_date")
@@ -883,17 +883,36 @@ model Opportunity {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  customer    Customer? @relation(fields: [customerId], references: [id])
-  partner     Partner?  @relation(fields: [partnerId], references: [id])
-  stageEvents OpportunityStageEvent[]
-  links                OpportunityLink[]
+  qualification DealQualification?
+  customer       Customer? @relation(fields: [customerId], references: [id])
+  partner        Partner?  @relation(fields: [partnerId], references: [id])
+  stageEvents    OpportunityStageEvent[]
+  links          OpportunityLink[]
   quoteServiceLineItems QuoteServiceLineItem[]
-  quotes                Quote[]
-  vendorRequests        VendorRequest[]
-  deliveryProjects      DeliveryProject[]
+  quotes         Quote[]
+  vendorRequests  VendorRequest[]
+  deliveryProjects DeliveryProject[]
 
   @@index([projectId, stage])
   @@map("opportunities")
+}
+
+model DealQualification {
+  id               String            @id @default(cuid())
+  opportunityId    String            @unique @map("opportunity_id")
+  budgetScore      Int               @map("budget_score")
+  authorityScore   Int               @map("authority_score")
+  needScore        Int               @map("need_score")
+  timelineScore    Int               @map("timeline_score")
+  weightedScore    Float             @map("weighted_score")
+  passed           Boolean           @default(false)
+  qualifiedAt      DateTime          @default(now()) @map("qualified_at")
+  qualifiedBy      String?           @map("qualified_by")
+  notes            String?
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@map("deal_qualifications")
 }
 
 model OpportunityLink {
@@ -914,8 +933,8 @@ model OpportunityLink {
 model OpportunityStageEvent {
   id            String   @id @default(cuid())
   opportunityId String   @map("opportunity_id")
-  fromStage     String?  @map("from_stage")
-  toStage       String   @map("to_stage")
+  fromStage     OpportunityStage? @map("from_stage")
+  toStage       OpportunityStage  @map("to_stage")
   note          String?
   createdAt     DateTime @default(now()) @map("created_at")
 
@@ -1806,6 +1825,31 @@ model CompatibilityRule {
   @@index([sourceSkuId])
   @@index([targetSkuId])
   @@map("compatibility_rules")
+}
+
+// --- Enums ---
+
+enum QuoteStatus {
+  DRAFT
+  GATE_REVIEW
+  APPROVED
+  SENT
+  ACCEPTED
+  REJECTED
+
+  @@map("quote_status")
+}
+
+enum OpportunityStage {
+  LEAD
+  QUALIFIED
+  PROPOSAL
+  POC
+  NEGOTIATION
+  WON
+  LOST
+
+  @@map("opportunity_stage")
 }
 
 // --- Quotes & Commerce ---
