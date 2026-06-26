@@ -1,6 +1,7 @@
 import { prisma } from "@sangfor/db";
 
 import { logStateTransition } from "./audit";
+import { recordAuditEvent } from "./audit-db";
 
 export async function setModuleRegistryStatus(input: {
   moduleKey: string;
@@ -29,18 +30,17 @@ export async function setModuleRegistryStatus(input: {
     actorType,
   });
 
-  await prisma.auditLog.create({
-    data: {
-      eventType: "set_module_registry_status",
-      resourceType: "module_registry",
-      resourceId: input.moduleKey,
-      details: {
-        moduleKey: input.moduleKey,
-        fromStatus: existing.status,
-        toStatus: input.status,
-      },
+  await recordAuditEvent(
+    "set_module_registry_status",
+    actorType,
+    "module_registry",
+    input.moduleKey,
+    {
+      moduleKey: input.moduleKey,
+      fromStatus: existing.status,
+      toStatus: input.status,
     },
-  });
+  );
 
   return updated;
 }

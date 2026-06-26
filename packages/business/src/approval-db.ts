@@ -95,3 +95,44 @@ export async function approveRequest(approvalId: string, actorId?: string) {
 
   return approval;
 }
+
+export interface CommercialApprovalInput {
+  quoteId: string;
+  opportunityId: string;
+  companyId: string;
+  reason: string;
+}
+
+export async function submitCommercialApproval(input: CommercialApprovalInput) {
+  const existing = await prisma.approvalRequest.findFirst({
+    where: { reason: { contains: `commercial:${input.quoteId}` }, status: "pending" },
+  });
+  if (existing) return { approval: existing, created: false as const };
+
+  const approval = await prisma.approvalRequest.create({
+    data: {
+      status: "pending",
+      reason: `commercial:${input.quoteId}:${input.reason}`,
+    },
+  });
+
+  await prisma.notificationEvent.create({
+    data: {
+      companyId: input.companyId,
+      channel: "internal",
+      eventType: "approval.required",
+      payloadJson: { quoteId: input.quoteId, opportunityId: input.opportunityId, reason: input.reason },
+    },
+  });
+
+  await logStateTransition({
+    entityType: "approval_request",
+    entityId: approval.id,
+    fromStatus: null,
+    toStatus: "pending",
+    actorType: "engine",
+    metadata: { reason: input.reason, quoteId: input.quoteId },
+  });
+
+  return { approval, created: true as const };
+}

@@ -264,7 +264,7 @@ export async function generatePocResultReport(pocProjectId: string) {
       pocProjectId,
       title: `${poc.title} Result Report`,
       bodyMarkdown: lines.join("\n"),
-      status: "draft",
+      status: "DRAFT",
     },
   });
 }

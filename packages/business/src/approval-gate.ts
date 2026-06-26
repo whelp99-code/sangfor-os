@@ -69,4 +69,4 @@ export function autoTransition(currentState: ApprovalState, validation: { passed
   return validation.passed ? 'ready_for_human_approval' : 'auto_failed'
 }
 
-export { ensureApprovalForRun, createApprovalIfNeeded, approveRequest } from "./approval-db";
+export { ensureApprovalForRun, createApprovalIfNeeded, approveRequest, submitCommercialApproval } from "./approval-db";

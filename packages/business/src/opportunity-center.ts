@@ -10,6 +10,13 @@ import {
 
 const stageInput = z
   .enum([
+    "LEAD",
+    "QUALIFIED",
+    "PROPOSAL",
+    "POC",
+    "NEGOTIATION",
+    "WON",
+    "LOST",
     "lead",
     "qualified",
     "proposal",
@@ -27,7 +34,7 @@ export const createOpportunitySchema = z.object({
   title: z.string().min(2),
   customerId: z.string().optional(),
   partnerId: z.string().optional(),
-  stage: stageInput.default("lead"),
+  stage: stageInput.default("LEAD"),
   amount: z.number().optional(),
   probability: z.number().min(0).max(100).default(20),
   closeDate: z.string().datetime().optional(),

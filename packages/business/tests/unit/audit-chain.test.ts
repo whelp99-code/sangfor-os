@@ -36,6 +36,43 @@ describe("AuditChain", () => {
     expect(chain.getEvents()).toHaveLength(2);
   });
 
+  it("can create an event from a persisted previous hash", () => {
+    const event = AuditChain.createEvent(
+      "quote.approved",
+      "approver-1",
+      "quote",
+      "quote-1",
+      { gate: "commercial" },
+      "a".repeat(64),
+    );
+
+    expect(event.previousHash).toBe("a".repeat(64));
+    expect(event.hash).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it("hashes details deterministically regardless of object key order", () => {
+    const left = AuditChain.computeHash(
+      "quote.created",
+      "user-1",
+      "quote",
+      "quote-1",
+      { z: 1, a: { b: 2, a: 1 } },
+      "2026-06-26T00:00:00.000Z",
+      "0".repeat(64),
+    );
+    const right = AuditChain.computeHash(
+      "quote.created",
+      "user-1",
+      "quote",
+      "quote-1",
+      { a: { a: 1, b: 2 }, z: 1 },
+      "2026-06-26T00:00:00.000Z",
+      "0".repeat(64),
+    );
+
+    expect(left).toBe(right);
+  });
+
   it("verifies integrity of unmodified chain", () => {
     const chain = new AuditChain();
     chain.record("event.a", "actor-1", "type-a", "res-1");

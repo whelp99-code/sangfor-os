@@ -1,4 +1,6 @@
 export * from "./audit";
+export * from "./audit-chain";
+export * from "./audit-db";
 export * from "./approval-gate";
 export * from "./command-center";
 export * from "./workflow-runner";
@@ -32,3 +34,4 @@ export * from "./ai-quality-gate";
 export * from "./asset-renewal";
 export * from "./notification";
 export * from "./outlook-sync";
+export * from "./core-loop";

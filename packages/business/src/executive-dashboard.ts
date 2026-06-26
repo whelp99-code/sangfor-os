@@ -142,7 +142,7 @@ export async function getDashboardWidgets(
       include: { customer: true },
     }),
     prisma.opportunity.findMany({
-      where: { projectId, stage: { notIn: ["won", "lost"] } },
+      where: { projectId, stage: { notIn: ["WON", "LOST"] as const } },
       orderBy: { probability: "desc" },
       take: 8,
       include: { customer: true },
