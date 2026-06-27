@@ -31,6 +31,7 @@ export * from "./mail-candidates";
 export * from "./mail-candidate-connections";
 export * from "./color-agent";
 export * from "./quote-engine";
+export * from "./revenue-core";
 export * from "./commercial-approval";
 export * from "./stabilization-readiness";
 export * from "./ai-quality-gate";
