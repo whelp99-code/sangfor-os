@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateQuote } from "./quote-engine";
+import { calculateQuote, createQuoteSnapshot, evaluateQuoteMutation } from "./quote-engine";
 
 describe("quote engine commercial gate", () => {
   it("calculates quote totals and allows healthy review-only quote", () => {
@@ -62,5 +62,44 @@ describe("quote engine commercial gate", () => {
         { productName: "Bad", quantity: 1, unitPrice: 100_000, costPrice: 50_000, discountPct: Number.NaN },
       ]),
     ).toThrow("quote_discount_must_be_percentage");
+  });
+});
+
+describe("quote versioning and immutability", () => {
+  it("creates an immutable quote snapshot from calculated quote output", () => {
+    const quote = calculateQuote([
+      { productName: "HCI", quantity: 1, unitPrice: 100_000, costPrice: 60_000, discountPct: 5 },
+    ]);
+
+    expect(createQuoteSnapshot({ quoteId: "quote-1", version: 1, status: "draft", quote })).toEqual({
+      quoteId: "quote-1",
+      version: 1,
+      status: "draft",
+      lineItems: quote.lineItems,
+      totals: {
+        revenue: 95_000,
+        cost: 60_000,
+      },
+      margin: {
+        amount: 35_000,
+        pct: quote.overallMarginPct,
+      },
+      totalRevenue: 95_000,
+      totalCost: 60_000,
+      totalMargin: 35_000,
+      overallMarginPct: quote.overallMarginPct,
+      approvalDecision: quote.approvalDecision,
+    });
+  });
+
+  it("blocks mutation after quote approval", () => {
+    expect(evaluateQuoteMutation({ status: "approved", action: "edit-line-items" })).toEqual({
+      allowed: false,
+      reason: "approved_quote_is_immutable",
+    });
+  });
+
+  it("allows draft quote mutation", () => {
+    expect(evaluateQuoteMutation({ status: "draft", action: "edit-line-items" })).toEqual({ allowed: true });
   });
 });

@@ -95,3 +95,70 @@ export function calculateQuote(lineItems: QuoteLineItem[]): QuoteResult {
 
   return { lineItems: items, totalRevenue, totalCost, totalMargin, overallMarginPct, requiresCommercialApproval, commercialGateReason, approvalDecision }
 }
+
+export type QuoteLifecycleStatus = "draft" | "ready_for_approval" | "approved" | "rejected"
+
+export type QuoteSnapshotInput = {
+  quoteId: string
+  version: number
+  status: QuoteLifecycleStatus
+  quote: QuoteResult
+}
+
+export type QuoteSnapshot = {
+  quoteId: string
+  version: number
+  status: QuoteLifecycleStatus
+  lineItems: QuoteResult["lineItems"]
+  totals: {
+    revenue: number
+    cost: number
+  }
+  margin: {
+    amount: number
+    pct: number
+  }
+  totalRevenue: number
+  totalCost: number
+  totalMargin: number
+  overallMarginPct: number
+  approvalDecision: QuoteResult["approvalDecision"]
+}
+
+export type QuoteMutationInput = {
+  status: QuoteLifecycleStatus | string
+  action: "edit-line-items" | "change-discount" | "submit-for-approval" | string
+}
+
+export type QuoteMutationDecision =
+  | { allowed: true }
+  | { allowed: false; reason: "approved_quote_is_immutable" }
+
+export function createQuoteSnapshot(input: QuoteSnapshotInput): QuoteSnapshot {
+  return {
+    quoteId: input.quoteId,
+    version: input.version,
+    status: input.status,
+    lineItems: input.quote.lineItems,
+    totals: {
+      revenue: input.quote.totalRevenue,
+      cost: input.quote.totalCost,
+    },
+    margin: {
+      amount: input.quote.totalMargin,
+      pct: input.quote.overallMarginPct,
+    },
+    totalRevenue: input.quote.totalRevenue,
+    totalCost: input.quote.totalCost,
+    totalMargin: input.quote.totalMargin,
+    overallMarginPct: input.quote.overallMarginPct,
+    approvalDecision: input.quote.approvalDecision,
+  }
+}
+
+export function evaluateQuoteMutation(input: QuoteMutationInput): QuoteMutationDecision {
+  if (input.status === "approved") {
+    return { allowed: false, reason: "approved_quote_is_immutable" }
+  }
+  return { allowed: true }
+}
