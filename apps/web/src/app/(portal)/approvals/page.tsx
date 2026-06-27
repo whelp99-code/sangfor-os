@@ -1,8 +1,16 @@
 export const dynamic = "force-dynamic";
 
-import { prisma } from "@sangfor/db";
+import {
+  type RevenueApprovalItem,
+  filterRevenueApprovalQueue,
+} from "@sangfor/business";
+import { type Prisma, prisma } from "@sangfor/db";
 import Link from "next/link";
 
+import {
+  type RevenueApprovalFilterValues,
+  RevenueApprovalFilters,
+} from "@/components/approvals/revenue-approval-filters";
 import { AIWorkspaceLayout } from "@/components/ai-workspace";
 import { MailCandidateActions } from "@/components/development/mail-candidate-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,23 +68,133 @@ const STATS = [
   { label: "반려", value: "2건", type: "error" as const },
 ];
 
-export default async function ApprovalsPage() {
-  const [approvals, customerPartnerCandidates, rawProjectCandidates] = await Promise.all([
-    prisma.approvalRequest.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    }),
-    prisma.mailDerivedCandidate.findMany({
-      where: { status: "proposed", candidateType: { in: ["customer", "partner"] } },
-      orderBy: [{ confidence: "desc" }, { sourceReceivedAt: "desc" }, { createdAt: "desc" }],
-      take: 50,
-    }),
-    prisma.mailDerivedCandidate.findMany({
-      where: { status: "proposed", candidateType: { in: ["task", "opportunity", "poc"] } },
-      orderBy: [{ confidence: "desc" }, { sourceReceivedAt: "desc" }, { createdAt: "desc" }],
-      take: 1_000,
-    }),
-  ]);
+type ApprovalRequestRecord = Prisma.ApprovalRequestGetPayload<Record<string, never>>;
+type MailDerivedCandidateRecord = Prisma.MailDerivedCandidateGetPayload<Record<string, never>>;
+
+type RevenueApprovalQueueItem = RevenueApprovalItem & {
+  customer: string;
+  title: string;
+  amountKrw: string;
+  marginPercent: number;
+  discountPercent: number;
+  requestedBy: string;
+  metadata: string[];
+};
+
+const REVENUE_APPROVAL_QUEUE: RevenueApprovalQueueItem[] = [
+  {
+    id: "ra-quote-001",
+    itemType: "quote",
+    status: "ready_for_human_approval",
+    ownerRole: "cfo",
+    priority: "high",
+    customer: "Samsung SDS",
+    title: "Enterprise renewal quote with CFO margin review",
+    amountKrw: "₩480M",
+    marginPercent: 18,
+    discountPercent: 24,
+    requestedBy: "Sales Ops",
+    metadata: ["metadata-only", "approval-required", "no-export"],
+  },
+  {
+    id: "ra-proposal-002",
+    itemType: "proposal",
+    status: "draft",
+    ownerRole: "presales",
+    priority: "medium",
+    customer: "Hyundai Mobis",
+    title: "Presales proposal pack awaiting commercial evidence",
+    amountKrw: "₩260M",
+    marginPercent: 31,
+    discountPercent: 12,
+    requestedBy: "Presales Desk",
+    metadata: ["draft", "evidence-gap", "safe-demo"],
+  },
+  {
+    id: "ra-discount-003",
+    itemType: "discount",
+    status: "ready_for_human_approval",
+    ownerRole: "sales",
+    priority: "urgent",
+    customer: "Shinhan Bank",
+    title: "Exception discount request pending revenue owner approval",
+    amountKrw: "₩190M",
+    marginPercent: 22,
+    discountPercent: 32,
+    requestedBy: "Account Executive",
+    metadata: ["discount-threshold", "human-gate", "metadata-only"],
+  },
+  {
+    id: "ra-quote-004",
+    itemType: "quote",
+    status: "approved",
+    ownerRole: "cfo",
+    priority: "medium",
+    customer: "KT Cloud",
+    title: "Approved infrastructure expansion quote",
+    amountKrw: "₩340M",
+    marginPercent: 36,
+    discountPercent: 8,
+    requestedBy: "Revenue Desk",
+    metadata: ["approved", "audit-ready", "no-send-action"],
+  },
+  {
+    id: "ra-proposal-005",
+    itemType: "proposal",
+    status: "rejected",
+    ownerRole: "sales",
+    priority: "low",
+    customer: "Naver Cloud",
+    title: "Rejected proposal due to missing commercial guardrails",
+    amountKrw: "₩120M",
+    marginPercent: 14,
+    discountPercent: 18,
+    requestedBy: "Sales Team",
+    metadata: ["rejected", "guardrail-failed", "safe-demo"],
+  },
+];
+
+const OWNER_ROLES = ["all", "sales", "presales", "cfo"] as const;
+const ITEM_TYPES = ["all", "quote", "proposal", "discount"] as const;
+const STATUSES = ["all", "draft", "ready_for_human_approval", "approved", "rejected"] as const;
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function pickParam<const T extends readonly string[]>(
+  value: string | string[] | undefined,
+  allowedValues: T,
+): T[number] {
+  const firstValue = Array.isArray(value) ? value[0] : value;
+  return allowedValues.includes(firstValue ?? "") ? firstValue! : allowedValues[0];
+}
+
+export default async function ApprovalsPage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const revenueFilters: RevenueApprovalFilterValues = {
+    ownerRole: pickParam(params.ownerRole, OWNER_ROLES),
+    itemType: pickParam(params.itemType, ITEM_TYPES),
+    status: pickParam(params.status, STATUSES),
+  };
+  const filteredRevenueApprovals = filterRevenueApprovalQueue(REVENUE_APPROVAL_QUEUE, {
+    ownerRole: revenueFilters.ownerRole === "all" ? undefined : revenueFilters.ownerRole,
+    itemType: revenueFilters.itemType === "all" ? undefined : revenueFilters.itemType,
+    status: revenueFilters.status === "all" ? undefined : revenueFilters.status,
+  });
+
+  const approvals = await prisma.approvalRequest.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  }) as ApprovalRequestRecord[];
+  const customerPartnerCandidates = await prisma.mailDerivedCandidate.findMany({
+    where: { status: "proposed", candidateType: { in: ["customer", "partner"] } },
+    orderBy: [{ confidence: "desc" }, { sourceReceivedAt: "desc" }, { createdAt: "desc" }],
+    take: 50,
+  }) as MailDerivedCandidateRecord[];
+  const rawProjectCandidates = await prisma.mailDerivedCandidate.findMany({
+    where: { status: "proposed", candidateType: { in: ["task", "opportunity", "poc"] } },
+    orderBy: [{ confidence: "desc" }, { sourceReceivedAt: "desc" }, { createdAt: "desc" }],
+    take: 1_000,
+  }) as MailDerivedCandidateRecord[];
 
   const mailCandidates = [...customerPartnerCandidates, ...rawProjectCandidates.filter((candidate) =>
     hasAiRevalidation(candidate.metadata)
@@ -94,6 +212,63 @@ export default async function ApprovalsPage() {
       stats={STATS}
     >
       <div className="space-y-6">
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-medium">Revenue approval queue</h2>
+            <p className="text-sm text-muted-foreground">
+              Cursor-role commercial approval metadata for quotes, proposals, and discount exceptions.
+            </p>
+          </div>
+          <RevenueApprovalFilters
+            filters={revenueFilters}
+            filteredCount={filteredRevenueApprovals.length}
+            totalCount={REVENUE_APPROVAL_QUEUE.length}
+          />
+          <div className="grid gap-3">
+            {filteredRevenueApprovals.length === 0 ? (
+              <Card>
+                <CardContent className="py-6 text-sm text-muted-foreground">
+                  No revenue approvals match this filter.
+                </CardContent>
+              </Card>
+            ) : (
+              filteredRevenueApprovals.map((item) => (
+                <Card key={item.id}>
+                  <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">{item.ownerRole}</Badge>
+                        <Badge variant="outline">{item.itemType}</Badge>
+                        <Badge variant={item.status === "ready_for_human_approval" ? "default" : "secondary"}>
+                          {item.status}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {item.priority} priority · requested by {item.requestedBy}
+                        </span>
+                      </div>
+                      <CardTitle className="break-words text-base">{item.title}</CardTitle>
+                    </div>
+                    <div className="text-right text-sm">
+                      <p className="font-medium">{item.amountKrw}</p>
+                      <p className="text-muted-foreground">Margin {item.marginPercent}%</p>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <p className="text-muted-foreground">
+                      {item.customer} · Discount {item.discountPercent}% · metadata/status preview only
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {item.metadata.map((tag) => (
+                        <Badge key={tag} variant="outline">{tag}</Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </section>
+
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>

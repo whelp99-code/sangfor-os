@@ -10,6 +10,34 @@ type Kpi = {
   estimatedVat: number;
 };
 
+type CommercialApprovalCard = {
+  title: string;
+  value: string;
+  description: string;
+  status: string;
+};
+
+const COMMERCIAL_APPROVAL_CARDS: CommercialApprovalCard[] = [
+  {
+    title: "Pending commercial approvals",
+    value: "3",
+    description: "Quote, proposal, and discount metadata waiting for human review.",
+    status: "metadata-only",
+  },
+  {
+    title: "Low margin quotes",
+    value: "2",
+    description: "Demo quotes below 25% margin threshold for CFO visibility.",
+    status: "review-needed",
+  },
+  {
+    title: "High discount requests",
+    value: "1",
+    description: "Discount exception above 30% with no send/export/share action attached.",
+    status: "human-gated",
+  },
+];
+
 export default async function DashboardPage() {
   const now = new Date();
   const year = now.getFullYear();
@@ -54,6 +82,19 @@ export default async function DashboardPage() {
         <MetricCard title="순이익" value={formatKrw(kpi!.netIncome)} />
         <MetricCard title="미수금" value={formatKrw(kpi!.outstandingAmount)} />
       </div>
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-medium">Commercial approval controls</h2>
+          <p className="text-sm text-zinc-500">
+            Local demo status cards only. No send, export, or share action is attached.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {COMMERCIAL_APPROVAL_CARDS.map((card) => (
+            <CommercialApprovalCard key={card.title} card={card} />
+          ))}
+        </div>
+      </section>
       <div className="rounded-lg border bg-white p-4">
         <h2 className="mb-3 font-medium">월별 추이 (최근 6개월)</h2>
         <div className="overflow-x-auto">
@@ -89,6 +130,19 @@ function MetricCard({ title, value }: { title: string; value: string }) {
     <div className="rounded-lg border bg-white p-4">
       <p className="text-sm text-zinc-500">{title}</p>
       <p className="mt-1 text-xl font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function CommercialApprovalCard({ card }: { card: CommercialApprovalCard }) {
+  return (
+    <div className="rounded-lg border bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium text-zinc-600">{card.title}</p>
+        <span className="rounded-full border px-2 py-0.5 text-xs text-zinc-500">{card.status}</span>
+      </div>
+      <p className="mt-2 text-2xl font-semibold">{card.value}</p>
+      <p className="mt-2 text-sm text-zinc-500">{card.description}</p>
     </div>
   );
 }
