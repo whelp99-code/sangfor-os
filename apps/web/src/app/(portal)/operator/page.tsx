@@ -47,8 +47,8 @@ export default function OperatorPage() {
 
   return (
     <AIWorkspaceLayout
-      title="Operator Console"
-      subtitle="Role-based operational dashboard"
+      title="Operator workspace"
+      subtitle="W1-W2 stabilization readiness and role-based operational dashboard"
       activities={operatorActivities}
       stats={operatorStats}
       onCommand={handleCommand}
@@ -56,6 +56,13 @@ export default function OperatorPage() {
       {loading && <div className="grid grid-cols-3 gap-4">{Array.from({length:9}).map((_,i) => <Skeleton key={i} className="h-32" />)}</div>}
       {!loading && (
         <div className="space-y-6">
+          <Card>
+            <CardHeader><CardTitle>Stabilization readiness</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p>Runbook: docs/12_VERIFICATION/w1-w2-stabilization-runbook.md</p>
+              <p>Required gates: mode matrix, mail loop, commercial gate, role workspaces, health check, demo seed.</p>
+            </CardContent>
+          </Card>
           <div className="grid grid-cols-3 gap-4">
         {/* System Health */}
         <Card><CardHeader><CardTitle>System Health</CardTitle></CardHeader>
