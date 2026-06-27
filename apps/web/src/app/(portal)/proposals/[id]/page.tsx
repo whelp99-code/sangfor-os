@@ -8,6 +8,10 @@ import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestr
 import { SaveProposalForm } from "@/components/proposals/save-proposal-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  buildProposalActionGuards,
+  proposalActionLabels,
+} from "@/lib/proposal-action-guards";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -18,6 +22,8 @@ export default async function ProposalDetailPage({ params }: PageProps) {
     listMailEvidenceForEntity("proposal", id),
   ]);
   if (!document) notFound();
+
+  const actionGuards = buildProposalActionGuards(document.status);
 
   return (
     <div className="space-y-6">
@@ -31,6 +37,13 @@ export default async function ProposalDetailPage({ params }: PageProps) {
           <Badge variant="outline">{document.status}</Badge>
           {document.customer ? <Badge variant="outline">Customer: {document.customer.name}</Badge> : null}
           {document.pocProject ? <Badge variant="outline">PoC: {document.pocProject.title}</Badge> : null}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-sm text-muted-foreground">
+          {Object.entries(actionGuards).map(([action, guard]) => (
+            <Badge key={action} variant={guard.allowed ? "secondary" : "outline"}>
+              {proposalActionLabels[action as keyof typeof proposalActionLabels]}: {guard.allowed ? "allowed" : guard.reason}
+            </Badge>
+          ))}
         </div>
       </div>
       <PortalOrchestratorRunPanel
