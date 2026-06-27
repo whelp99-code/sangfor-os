@@ -13,19 +13,18 @@
  *   MAIL_INGEST_LIMIT=50 node scripts/ingest-mail-intelligence-to-knowledge.mjs
  *   MAIL_INTELLIGENCE_BASE_URL=http://localhost:3010 node scripts/ingest-mail-intelligence-to-knowledge.mjs
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const MAIL_INTELLIGENCE_ROOT =
+  process.env.MAIL_INTELLIGENCE_ROOT || join(ROOT, "..", "apps", "mail-intelligence");
 const DEFAULT_ACCOUNTS_PATH =
-  process.env.MAIL_ACCOUNTS_PATH ||
-  join(
-    process.env.MAIL_INTELLIGENCE_ROOT ||
-      join(ROOT, "..", "apps", "mail-intelligence"),
-    "data",
-    "accounts.json",
-  );
+  process.env.MAIL_ACCOUNTS_PATH || join(MAIL_INTELLIGENCE_ROOT, "data", "accounts.json");
+const DEFAULT_SQLITE_PATH =
+  process.env.MAIL_SQLITE_PATH || join(MAIL_INTELLIGENCE_ROOT, "data.db");
 const PORTAL_BASE = process.env.BASE_URL || "http://localhost:3101";
 const MAIL_INTELLIGENCE_BASE =
   process.env.MAIL_INTELLIGENCE_BASE_URL ||
@@ -145,7 +144,7 @@ async function mapWithConcurrency(items, concurrency, worker) {
   return results;
 }
 
-function loadMessages(accountsPath) {
+function loadMessagesFromAccountsJson(accountsPath) {
   const store = JSON.parse(readFileSync(accountsPath, "utf8"));
   const messages = [];
   for (const account of store.accounts || []) {
@@ -154,6 +153,62 @@ function loadMessages(accountsPath) {
       messages.push({ ...message, accountId: account.id, accountEmail: account.email });
     }
   }
+  return messages;
+}
+
+function parseJsonObject(value) {
+  try {
+    const parsed = value ? JSON.parse(value) : null;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function normalizeSqliteMessageRow(row) {
+  const raw = parseJsonObject(row.raw_json);
+  const from = row.from_addr || raw.from || raw.sender || "unknown";
+  return {
+    ...raw,
+    id: String(row.id),
+    subject: row.subject || raw.subject || "(no subject)",
+    from,
+    fromName: row.from_name || raw.fromName || raw.senderName || from,
+    receivedAt: row.received_at || raw.receivedAt,
+    bodyPreview: row.body_preview || raw.bodyPreview || raw.preview || "",
+    body: raw.body || row.body_preview || "",
+    accountId: raw.accountId || "mail-intel-sqlite",
+    accountEmail: raw.accountEmail || from,
+    revenueOpsTags: [row.category, row.urgency, row.sentiment].filter(Boolean),
+    aiEnhanced: false,
+    confidence: row.confidence ?? raw.confidence,
+  };
+}
+
+export function selectRawFallbackSource({ accountsPath, sqlitePath, exists = existsSync }) {
+  if (exists(accountsPath)) return "accounts-json";
+  if (exists(sqlitePath)) return "sqlite";
+  throw new Error(`no_supported_mail_cache_found:${accountsPath}:${sqlitePath}`);
+}
+
+function loadMessagesFromSqlite(sqlitePath) {
+  const sql = `
+    SELECT id, subject, from_addr, from_name, received_at, body_preview,
+           category, urgency, sentiment, confidence, raw_json
+    FROM messages
+    ORDER BY datetime(received_at) DESC
+    LIMIT ${INGEST_LIMIT};
+  `;
+  const output = execFileSync("sqlite3", ["-json", sqlitePath, sql], { encoding: "utf8" });
+  const rows = JSON.parse(output || "[]");
+  return rows.map(normalizeSqliteMessageRow);
+}
+
+function loadMessages(accountsPath = DEFAULT_ACCOUNTS_PATH, sqlitePath = DEFAULT_SQLITE_PATH) {
+  const source = selectRawFallbackSource({ accountsPath, sqlitePath });
+  const messages = source === "accounts-json"
+    ? loadMessagesFromAccountsJson(accountsPath)
+    : loadMessagesFromSqlite(sqlitePath);
   messages.sort(
     (a, b) => new Date(b.receivedAt || 0).getTime() - new Date(a.receivedAt || 0).getTime(),
   );
@@ -383,12 +438,17 @@ async function ingestThreadInsights() {
   return response.json;
 }
 
-async function generateCandidates() {
+export function buildCandidateRequestBody({ projectSlug, limit, legacyKnowledgeFallback }) {
+  return { projectSlug, limit, legacyKnowledgeFallback };
+}
+
+async function generateCandidates(legacyKnowledgeFallback = false) {
   if (!GENERATE_CANDIDATES || DRY_RUN) return null;
-  const response = await httpJson("POST", `${PORTAL_BASE}/api/mail-candidates`, {
+  const response = await httpJson("POST", `${PORTAL_BASE}/api/mail-candidates`, buildCandidateRequestBody({
     projectSlug: PROJECT_SLUG,
     limit: INGEST_LIMIT,
-  });
+    legacyKnowledgeFallback,
+  }));
   if (!response.ok) {
     throw new Error(response.json?.error || `candidate_generation_http_${response.status}`);
   }
@@ -416,7 +476,7 @@ async function ingestRawFallback() {
   const pending = messages.filter((message) => !ingestedIds.has(message.id)).slice(0, INGEST_LIMIT);
   console.log(`raw fallback to ingest: ${pending.length}`);
   if (pending.length === 0 || DRY_RUN) {
-    return { created: 0, failed: 0 };
+    return { created: 0, failed: 0, rawFallback: true };
   }
 
   const stats = { created: 0, failed: 0, errors: [] };
@@ -439,7 +499,7 @@ async function ingestRawFallback() {
       });
     }
   });
-  return stats;
+  return { ...stats, rawFallback: true };
 }
 
 async function main() {
@@ -474,7 +534,7 @@ async function main() {
 
   let candidateResult = null;
   if (threadResult && !threadResult.failed) {
-    candidateResult = await generateCandidates();
+    candidateResult = await generateCandidates(Boolean(threadResult.rawFallback));
   }
 
   console.log("");
@@ -496,7 +556,9 @@ async function main() {
   console.log("PASS: mail intelligence AIOS workflow ingest complete");
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

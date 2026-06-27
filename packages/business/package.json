@@ -18,6 +18,7 @@
     "./mail-insight-threads": "./src/mail-insight-threads.ts",
     "./mail-policy-memory": "./src/mail-policy-memory.ts",
     "./mail-candidates": "./src/mail-candidates.ts",
+    "./mail-candidate-connections": "./src/mail-candidate-connections.ts",
     "./phase14": "./src/phase14/index.ts",
     "./skills": "./src/skills/index.ts"
   },

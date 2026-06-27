@@ -3,6 +3,7 @@ import {
   getOpportunityDetail,
   listCustomers,
   listGeneratedDocuments,
+  listMailEvidenceForEntity,
   listPartners,
   listPocProjects,
   normalizeOpportunityStage,
@@ -15,6 +16,7 @@ import {
   AddOpportunityLinkForm,
   RemoveOpportunityLinkButton,
 } from "@/components/opportunities/add-link-form";
+import { MailEvidenceCard } from "@/components/mail-candidates/mail-evidence-card";
 import { AdvanceOpportunityButton } from "@/components/opportunities/advance-button";
 import { EditOpportunityForm } from "@/components/opportunities/edit-opportunity-form";
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
@@ -25,12 +27,13 @@ type PageProps = { params: Promise<{ id: string }> };
 
 export default async function OpportunityDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const [opportunity, customers, partners, pocProjects, proposals] = await Promise.all([
+  const [opportunity, customers, partners, pocProjects, proposals, mailEvidence] = await Promise.all([
     getOpportunityDetail(id),
     listCustomers(),
     listPartners(),
     listPocProjects(),
     listGeneratedDocuments(),
+    listMailEvidenceForEntity("opportunity", id),
   ]);
   if (!opportunity) notFound();
 
@@ -66,6 +69,7 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
         sourceEntityType="opportunity"
         sourceEntityId={opportunity.id}
       />
+      <MailEvidenceCard evidence={mailEvidence} />
       <Card>
         <CardHeader><CardTitle>Edit opportunity</CardTitle></CardHeader>
         <CardContent>

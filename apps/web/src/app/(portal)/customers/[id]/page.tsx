@@ -1,8 +1,9 @@
-import { getCustomerDetail } from "@sangfor/business";
+import { getCustomerDetail, listMailEvidenceForEntity } from "@sangfor/business";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CreateContactForm } from "@/components/customers/create-contact-form";
+import { MailEvidenceCard } from "@/components/mail-candidates/mail-evidence-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -10,7 +11,10 @@ type PageProps = { params: Promise<{ id: string }> };
 
 export default async function CustomerDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const customer = await getCustomerDetail(id);
+  const [customer, mailEvidence] = await Promise.all([
+    getCustomerDetail(id),
+    listMailEvidenceForEntity("customer", id),
+  ]);
   if (!customer) notFound();
 
   return (
@@ -68,6 +72,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </CardContent>
         </Card>
       </div>
+      <MailEvidenceCard evidence={mailEvidence} />
       <Card>
         <CardHeader><CardTitle>Activity timeline</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">

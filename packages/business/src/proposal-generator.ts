@@ -9,6 +9,8 @@ export const generateProposalSchema = z.object({
   templateKey: z.enum(PROPOSAL_TEMPLATE_KEYS).default("standard-proposal"),
   customerId: z.string().optional(),
   pocProjectId: z.string().optional(),
+  opportunityId: z.string().optional(),
+  sourceMailCandidateId: z.string().optional(),
   title: z.string().min(2),
   variables: z.record(z.string()).default({}),
 });

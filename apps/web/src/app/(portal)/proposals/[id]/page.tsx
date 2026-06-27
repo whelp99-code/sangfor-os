@@ -1,8 +1,9 @@
-import { getGeneratedDocumentDetail } from "@sangfor/business";
+import { getGeneratedDocumentDetail, listMailEvidenceForEntity } from "@sangfor/business";
 import { buildProposalOrchestratorSummary } from "@sangfor/business/skills";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { MailEvidenceCard } from "@/components/mail-candidates/mail-evidence-card";
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
 import { SaveProposalForm } from "@/components/proposals/save-proposal-form";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,10 @@ type PageProps = { params: Promise<{ id: string }> };
 
 export default async function ProposalDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const document = await getGeneratedDocumentDetail(id);
+  const [document, mailEvidence] = await Promise.all([
+    getGeneratedDocumentDetail(id),
+    listMailEvidenceForEntity("proposal", id),
+  ]);
   if (!document) notFound();
 
   return (
@@ -37,6 +41,7 @@ export default async function ProposalDetailPage({ params }: PageProps) {
         sourceEntityId={document.id}
         module="proposal"
       />
+      <MailEvidenceCard evidence={mailEvidence} />
       <Card>
         <CardHeader><CardTitle>Edit document</CardTitle></CardHeader>
         <CardContent>

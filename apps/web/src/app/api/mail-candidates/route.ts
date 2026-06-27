@@ -40,13 +40,16 @@ export async function POST(request: Request) {
     // hybrid=true 파라미터가 있으면 AI 하이브리드 분류 사용
     const useHybrid = body.hybrid === true || body.hybrid === "true";
 
+    const legacyKnowledgeFallback =
+      body.legacyKnowledgeFallback === true || body.legacyKnowledgeFallback === "true";
+    const input = {
+      limit: Number(body.limit ?? 50),
+      legacyKnowledgeFallback,
+    };
+
     const result = useHybrid
-      ? await generateMailDerivedCandidatesHybrid({
-          limit: Number(body.limit ?? 50),
-        })
-      : await generateMailDerivedCandidates({
-          limit: Number(body.limit ?? 50),
-        });
+      ? await generateMailDerivedCandidatesHybrid(input)
+      : await generateMailDerivedCandidates(input);
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

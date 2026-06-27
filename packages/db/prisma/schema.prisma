@@ -979,6 +979,7 @@ model MailDerivedCandidate {
   updatedAt         DateTime @updatedAt @map("updated_at")
   mailInsightThreadId String?  @map("mail_insight_thread_id")
   mailInsightThread  MailInsightThread? @relation(fields: [mailInsightThreadId], references: [id], onDelete: SetNull)
+  evidenceLinks MailEvidenceLink[]
 
   @@unique([knowledgeDocumentId, candidateType])
   @@unique([mailInsightThreadId, candidateType])
@@ -986,6 +987,22 @@ model MailDerivedCandidate {
   @@index([knowledgeDocumentId])
   @@index([mailInsightThreadId])
   @@map("mail_derived_candidates")
+}
+
+model MailEvidenceLink {
+  id                     String   @id @default(cuid())
+  mailDerivedCandidateId String   @map("mail_derived_candidate_id")
+  targetEntityType       String   @map("target_entity_type")
+  targetEntityId         String   @map("target_entity_id")
+  linkType               String   @default("related") @map("link_type")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  candidate MailDerivedCandidate @relation(fields: [mailDerivedCandidateId], references: [id], onDelete: Cascade)
+
+  @@unique([mailDerivedCandidateId, targetEntityType, targetEntityId, linkType])
+  @@index([mailDerivedCandidateId])
+  @@index([targetEntityType, targetEntityId])
+  @@map("mail_evidence_links")
 }
 
 model KnowledgeChunk {

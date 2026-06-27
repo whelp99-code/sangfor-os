@@ -44,6 +44,7 @@ export const mailCandidateStatusSchema = z.enum([
 const generateMailCandidatesSchema = z.object({
   projectSlug: z.string().default("demo-project"),
   limit: z.number().int().min(1).max(2_000).default(50),
+  legacyKnowledgeFallback: z.boolean().default(false),
 });
 
 const listMailCandidatesSchema = z.object({
@@ -345,6 +346,43 @@ export function classifyMailCandidateDocument(input: {
   const header = parseMailHeader(input.body);
   const text = normalizedText(input.title, input.body);
   const summary = compactSummary(input.body);
+  const domain = domainFromEmail(header.email);
+  const promotional = /\b(unsubscribe|newsletter|promo|promotion|marketing)\b|뉴스레터|홍보/i.test(text);
+  if (promotional) {
+    return {
+      header,
+      candidates: [],
+      excluded: [{
+        decision: "exclude",
+        entityRole: "unknown",
+        reason: "newsletter or promotional mail is not an AIOS business candidate",
+        candidateName: header.from,
+        matchedPolicyMemories: [],
+        participantDomains: domain ? [domain] : [],
+      } satisfies PolicyDecision],
+    };
+  }
+  if (isInternalDomain(domain, policy) || isSystemSenderDomain(domain, policy)) {
+    return {
+      header,
+      candidates: [],
+      excluded: [{
+        decision: "exclude",
+        entityRole: isInternalDomain(domain, policy) ? "internal_company" : "system_sender",
+        reason: isInternalDomain(domain, policy)
+          ? "raw mail sender domain matches internal company policy"
+          : "raw mail sender domain is a system sender",
+        candidateName: header.from,
+        matchedPolicyMemories: domain
+          ? matchedPolicyMemories(policy, [{
+              memoryType: isInternalDomain(domain, policy) ? "internal_domain" : "system_sender_domain",
+              key: domain,
+            }])
+          : [],
+        participantDomains: domain ? [domain] : [],
+      } satisfies PolicyDecision],
+    };
+  }
   const candidates: ClassifiedCandidate[] = [];
 
   const opportunityMatches = matchKeywords(text, KEYWORDS.opportunity);
@@ -383,7 +421,6 @@ export function classifyMailCandidateDocument(input: {
   const companyName = inferCompanyName(input.title, header, policy);
   if (companyName) {
     const partnerMatches = matchKeywords(text, KEYWORDS.partner);
-    const domain = domainFromEmail(header.email);
     const isPartner =
       partnerMatches.length > 0 ||
       isKnownPartner(companyName, policy) ||
@@ -397,7 +434,7 @@ export function classifyMailCandidateDocument(input: {
     });
   }
 
-  return { header, candidates };
+  return { header, candidates, excluded: [] as PolicyDecision[] };
 }
 
 type ThreadLike = {
@@ -967,15 +1004,16 @@ function candidateLooksPolicyExcluded(
   const entityName = candidate.title.replace(/^(Customer|Partner):\s*/i, "").trim();
   const mailIntelligence = asRecord(metadata.mailIntelligence);
   const candidateText = `${candidate.title}\n${candidate.summary}\n${String(mailIntelligence.summary ?? "")}`.toLowerCase();
-  if (
+  const explicitBusinessSignal = /고객사|견적\s*요청|계약\s*조건|검증\s*요청|quote\s+request|please\s+send\s+(a\s+)?quote|proposal\s+request/i.test(candidateText);
+  const promotionalSignal = /\b(unsubscribe|newsletter|promo|promotion|marketing)\b|뉴스레터|홍보/.test(candidateText);
+  const autopilotMarketing =
     /\bautopilot\b/.test(candidateText) &&
-    /\bcrew\b|wallet|\$\d|shipped/.test(candidateText) &&
-    !/고객사|견적\s*요청|계약\s*조건|검증\s*요청|quote\s+request/.test(candidateText)
-  ) {
+    /\bcrew\b|wallet|\$\d|shipped/.test(candidateText);
+  if ((promotionalSignal || autopilotMarketing) && !explicitBusinessSignal) {
     return {
       decision: "exclude",
       entityRole: "unknown",
-      reason: "promotional thread is not a customer or partner candidate",
+      reason: "promotional or newsletter candidate is not a customer or partner candidate",
       candidateName: entityName,
       matchedPolicyMemories: [],
       participantDomains: asStringArray(metadata.participantDomains),
@@ -1365,7 +1403,7 @@ export async function generateMailDerivedCandidates(
     }
   }
 
-  if (threads.length === 0 && process.env.MAIL_CANDIDATES_LEGACY_KNOWLEDGE_FALLBACK === "1") {
+  if (parsed.legacyKnowledgeFallback || process.env.MAIL_CANDIDATES_LEGACY_KNOWLEDGE_FALLBACK === "1") {
     const legacy = await generateLegacyKnowledgeCandidates(projectId, parsed.limit, policy);
     created += legacy.created;
     skipped += legacy.skipped;
@@ -1518,7 +1556,7 @@ export async function generateMailDerivedCandidatesHybrid(
     }
   }
 
-  if (threads.length === 0 && process.env.MAIL_CANDIDATES_LEGACY_KNOWLEDGE_FALLBACK === "1") {
+  if (parsed.legacyKnowledgeFallback || process.env.MAIL_CANDIDATES_LEGACY_KNOWLEDGE_FALLBACK === "1") {
     const legacy = await generateLegacyKnowledgeCandidates(projectId, parsed.limit, policy);
     created += legacy.created;
     skipped += legacy.skipped;
