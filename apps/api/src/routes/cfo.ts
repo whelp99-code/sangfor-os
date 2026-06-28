@@ -75,6 +75,7 @@ router.get('/cashflows', ok((req: any) => cashflows.list({
 })));
 router.get('/cashflows/:id', ok((req: any) => cashflows.get(req.params.id)));
 router.post('/cashflows/import', ok((req: any) => cashflows.importMany(req.body.rows ?? [])));
+router.post('/cashflows/rematch', ok(() => cashflows.rematchAll()));
 router.post('/cashflows', ok((req: any) => cashflows.create(req.body)));
 router.patch('/cashflows/:id', ok((req: any) => cashflows.update(req.params.id, req.body)));
 router.delete('/cashflows/:id', ok((req: any) => cashflows.delete(req.params.id)));

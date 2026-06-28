@@ -1,5 +1,44 @@
 import { prisma } from '@sangfor/db';
 
+// Normalize a company name for fuzzy counterparty↔project matching.
+function normName(s: string | null | undefined): string {
+  return (s ?? '').replace(/\(주\)|주식회사|㈜|\s|\.|,|-/g, '').toLowerCase();
+}
+
+type ProjEntry = { projectId: string; amount: number };
+
+/**
+ * Build name→project lookup maps from invoice buyers (for inflows) and expense
+ * vendors (for outflows). Used to auto-attribute bank cashflows to projects.
+ */
+async function buildProjectMatchMaps() {
+  const [invoices, expenses] = await Promise.all([
+    prisma.invoice.findMany({ where: { projectId: { not: null } }, select: { buyer: true, amount: true, projectId: true } }),
+    prisma.expense.findMany({ where: { projectId: { not: null } }, select: { vendor: true, amount: true, projectId: true } }),
+  ]);
+  const buyer = new Map<string, ProjEntry[]>();
+  for (const i of invoices) if (i.buyer) (buyer.get(normName(i.buyer)) ?? buyer.set(normName(i.buyer), []).get(normName(i.buyer))!).push({ projectId: i.projectId!, amount: i.amount });
+  const vendor = new Map<string, ProjEntry[]>();
+  for (const e of expenses) if (e.vendor) (vendor.get(normName(e.vendor)) ?? vendor.set(normName(e.vendor), []).get(normName(e.vendor))!).push({ projectId: e.projectId!, amount: e.amount });
+  return { buyer, vendor };
+}
+
+function matchProjectId(
+  maps: { buyer: Map<string, ProjEntry[]>; vendor: Map<string, ProjEntry[]> },
+  counterparty: string,
+  amount: number,
+  inflow: boolean,
+): string | null {
+  const cands = (inflow ? maps.buyer : maps.vendor).get(normName(counterparty));
+  if (!cands || cands.length === 0) return null;
+  const projects = new Set(cands.map((c) => c.projectId));
+  if (projects.size === 1) return cands[0].projectId;
+  // Disambiguate a multi-project counterparty by exact amount.
+  const byAmount = cands.filter((c) => c.amount === amount);
+  const amtProjects = new Set(byAmount.map((c) => c.projectId));
+  return amtProjects.size === 1 ? byAmount[0].projectId : null;
+}
+
 export class CreateCashflowDto {
   projectId?: string;
   counterparty!: string;
@@ -47,7 +86,7 @@ export class CashflowsService {
   create(dto: CreateCashflowDto) {
     return prisma.cashflow.create({
       data: {
-        projectId: dto.projectId,
+        projectId: dto.projectId || null,
         counterparty: dto.counterparty,
         amount: dto.amount,
         type: dto.type,
@@ -64,7 +103,7 @@ export class CashflowsService {
   async update(id: string, dto: UpdateCashflowDto) {
     await this.get(id);
     const data: Record<string, unknown> = {};
-    if (dto.projectId !== undefined) data.projectId = dto.projectId;
+    if (dto.projectId !== undefined) data.projectId = dto.projectId || null;
     if (dto.counterparty !== undefined) data.counterparty = dto.counterparty;
     if (dto.amount !== undefined) { data.amount = dto.amount; data.cashChange = dto.amount; }
     if (dto.type !== undefined) data.type = dto.type;
@@ -103,6 +142,8 @@ export class CashflowsService {
   ) {
     let created = 0;
     let skipped = 0;
+    let matched = 0;
+    const maps = await buildProjectMatchMaps();
     for (const r of rows) {
       const amount = Math.round(Number(r.amount) || 0);
       const cashChange = Math.round(Number(r.cashChange) || 0);
@@ -120,6 +161,8 @@ export class CashflowsService {
         skipped += 1;
         continue;
       }
+      const projectId = matchProjectId(maps, counterparty, amount, cashChange >= 0);
+      if (projectId) matched += 1;
       await prisma.cashflow.create({
         data: {
           counterparty,
@@ -130,10 +173,29 @@ export class CashflowsService {
           outAccount: r.outAccount?.trim() || null,
           date,
           memo,
+          projectId,
         },
       });
       created += 1;
     }
-    return { created, skipped, total: rows.length };
+    return { created, skipped, matched, total: rows.length };
+  }
+
+  /**
+   * Re-attribute existing cashflows to projects by counterparty.
+   * Only fills rows that are not yet linked (does not overwrite manual edits).
+   */
+  async rematchAll() {
+    const maps = await buildProjectMatchMaps();
+    const rows = await prisma.cashflow.findMany({ where: { projectId: null } });
+    let matched = 0;
+    for (const c of rows) {
+      const projectId = matchProjectId(maps, c.counterparty, c.amount, c.cashChange >= 0);
+      if (projectId) {
+        await prisma.cashflow.update({ where: { id: c.id }, data: { projectId } });
+        matched += 1;
+      }
+    }
+    return { scanned: rows.length, matched };
   }
 }
