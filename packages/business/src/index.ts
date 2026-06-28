@@ -43,6 +43,8 @@ export * from "./domain-structured";
 export * from "./domain-llm-fallback";
 export * from "./domain-dashboard";
 export * from "./domain-embedder";
+export * from "./domain-default-generator";
+export * from "./domain-embedder-openai";
 export * from "./quote-engine";
 export * from "./revenue-core";
 export * from "./commercial-approval";

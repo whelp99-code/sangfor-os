@@ -6,10 +6,12 @@
  * 운영 임베딩으로 바꾸려면 createHashEmbedder 대신 실제 Embedder 를 주입.
  */
 import { prisma } from "@sangfor/db";
-import { createHashEmbedder, embeddingTextFor } from "../src/domain-embedder";
+import { embeddingTextFor } from "../src/domain-embedder";
+import { resolveEmbedder, describeEmbedder } from "../src/domain-embedder-openai";
 
 async function main() {
-  const embed = createHashEmbedder(256);
+  const embed = resolveEmbedder({ dim: 256 });
+  console.log(`임베더: ${describeEmbedder()}`);
   const rows = await prisma.domainMemory.findMany({
     select: { id: true, label: true, tags: true, valueJson: true, embedding: true },
   });
