@@ -67,19 +67,8 @@ services:
       timeout: 5s
       retries: 3
 
-  # finance: [DEPRECATED — merged into api]
-  # finance:
-  #   build:
-  #     context: ./packages/finance
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "4100:4100"
-  #   environment:
-  #     NODE_ENV: production
-  #     DATABASE_URL: postgresql://sangfor:sangfor_password@postgres:5432/sangfor_os
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
+  # The CFO/finance API is served by `api` at /api/cfo (single backend,
+  # public schema). The former standalone finance service was removed.
 
   web:
     build:
