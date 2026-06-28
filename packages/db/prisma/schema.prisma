@@ -1437,6 +1437,7 @@ model Cashflow {
   outAccount   String?        @map("out_account")
   inAccount    String?        @map("in_account")
   date         DateTime       @default(now())
+  balanceAfter Int?           @map("balance_after")
   memo         String?
 
   @@map("finance_cashflows")
