@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as XLSX from "xlsx";
 
 type Row = {
   date: string;
@@ -53,7 +54,19 @@ const toIsoDate = (v: string): string => {
 
 const find = (headers: string[], re: RegExp) => headers.findIndex((h) => re.test(h));
 
-function detect(rows: string[][]): { rows: Row[]; mapping: string } {
+// Bank exports often have a title row (and a 합계 summary row); locate the real
+// header row by scanning for one that carries a date column + an amount column.
+function findHeaderRow(rows: string[][]): number {
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const h = rows[i].map((c) => (c ?? "").trim());
+    if (find(h, /거래일|일자|날짜|거래일시/) >= 0 && find(h, /입금|출금|거래금액|^금액$/) >= 0) return i;
+  }
+  return 0;
+}
+
+function detect(all: string[][]): { rows: Row[]; mapping: string } {
+  const hi = findHeaderRow(all);
+  const rows = all.slice(hi);
   if (rows.length < 2) return { rows: [], mapping: "헤더/데이터 없음" };
   const headers = rows[0].map((h) => h.trim());
   const iDate = find(headers, /거래일|일자|날짜|거래일시|승인일시?/);
@@ -78,9 +91,11 @@ function detect(rows: string[][]): { rows: Row[]; mapping: string } {
       cashChange = /입금|입|\+/.test(dir) ? a : /출금|출|-/.test(dir) ? -a : num(cell(iAmt));
     }
     if (cashChange === 0) continue;
+    const date = toIsoDate(cell(iDate));
+    if (!date) continue; // skip title/summary(합계) rows without a real date
     const memo = cell(iMemo);
     out.push({
-      date: toIsoDate(cell(iDate)),
+      date,
       counterparty: cell(iCp) || memo,
       amount: Math.abs(cashChange),
       cashChange,
@@ -110,8 +125,15 @@ export function BankCsvImport() {
   const onFile = async (file: File) => {
     setResult(null);
     setFileName(file.name);
-    const text = await file.text();
-    const parsed = detect(parseCsv(text));
+    let matrix: string[][];
+    if (/\.xlsx?$/i.test(file.name)) {
+      const wb = XLSX.read(await file.arrayBuffer());
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      matrix = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, raw: false, defval: "" });
+    } else {
+      matrix = parseCsv(await file.text());
+    }
+    const parsed = detect(matrix);
     setRows(parsed.rows);
     setMapping(parsed.mapping);
   };
@@ -141,14 +163,14 @@ export function BankCsvImport() {
     <div className="rounded-xl border bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-700">통장 거래내역 가져오기 (CSV)</h2>
-          <p className="text-xs text-zinc-400">은행에서 받은 거래내역 CSV를 올리면 자금흐름으로 자동 입력됩니다 (중복 자동 제외).</p>
+          <h2 className="text-sm font-semibold text-zinc-700">통장 거래내역 가져오기 (CSV · Excel)</h2>
+          <p className="text-xs text-zinc-400">은행에서 받은 거래내역 파일(.xlsx/.csv)을 올리면 자금흐름으로 자동 입력됩니다 (제목·합계행 자동 제외, 중복 자동 제외).</p>
         </div>
         <label className="cursor-pointer rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
           파일 선택
           <input
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="hidden"
             onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
           />
