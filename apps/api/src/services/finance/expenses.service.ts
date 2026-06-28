@@ -59,7 +59,7 @@ export class ExpensesService {
     const vat = this.calcVat(supply);
     const expense = await prisma.expense.create({
       data: {
-        projectId: dto.projectId,
+        projectId: dto.projectId || null,
         expenseName: dto.expenseName,
         amount: supply,
         category: dto.category ?? '기타',
@@ -86,7 +86,7 @@ export class ExpensesService {
     const updated = await prisma.expense.update({
       where: { id },
       data: {
-        projectId: dto.projectId,
+        projectId: dto.projectId || null,
         expenseName: dto.expenseName,
         amount: dto.amount,
         category: dto.category,

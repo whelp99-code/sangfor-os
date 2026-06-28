@@ -8,6 +8,7 @@ type Row = {
   counterparty: string;
   amount: number;
   cashChange: number;
+  balanceAfter: number | null;
   memo: string;
 };
 
@@ -76,6 +77,7 @@ function detect(all: string[][]): { rows: Row[]; mapping: string } {
   const iDir = find(headers, /입출|^구분$|입출금/);
   const iMemo = find(headers, /적요|내용|거래내용|비고|메모|기재|기록사항/);
   const iCp = find(headers, /거래처|의뢰인|수취인|보내는|받는|상대|예금주|이체메모/);
+  const iBal = find(headers, /거래후잔액|잔액/);
 
   const out: Row[] = [];
   for (const r of rows.slice(1)) {
@@ -94,11 +96,13 @@ function detect(all: string[][]): { rows: Row[]; mapping: string } {
     const date = toIsoDate(cell(iDate));
     if (!date) continue; // skip title/summary(합계) rows without a real date
     const memo = cell(iMemo);
+    const balCell = cell(iBal);
     out.push({
       date,
       counterparty: cell(iCp) || memo,
       amount: Math.abs(cashChange),
       cashChange,
+      balanceAfter: balCell ? num(balCell) : null,
       memo,
     });
   }

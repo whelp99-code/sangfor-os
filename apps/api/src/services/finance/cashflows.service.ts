@@ -125,8 +125,10 @@ export class CashflowsService {
 
   /**
    * Bulk-import bank-statement rows into cashflows, skipping duplicates.
-   * A row is a duplicate when date + cashChange + counterparty + memo match.
-   * `date` is treated as a UTC calendar date (YYYY-MM-DD) to avoid TZ drift.
+   * Uniqueness: when a post-transaction balance (거래후잔액) is present it is the
+   * surest discriminator (it differs even for same-day same-amount rows); we use
+   * date + cashChange + balanceAfter then. Otherwise fall back to date +
+   * cashChange + counterparty + memo. Dates are UTC calendar dates (no TZ drift).
    */
   async importMany(
     rows: Array<{
@@ -137,6 +139,7 @@ export class CashflowsService {
       type?: string;
       inAccount?: string;
       outAccount?: string;
+      balanceAfter?: number | null;
       memo?: string;
     }>,
   ) {
@@ -154,8 +157,13 @@ export class CashflowsService {
       const date = r.date ? new Date(`${r.date.slice(0, 10)}T00:00:00.000Z`) : new Date();
       const counterparty = (r.counterparty ?? '').trim();
       const memo = (r.memo ?? '').trim() || null;
+      const balanceAfter =
+        r.balanceAfter != null && Number.isFinite(Number(r.balanceAfter)) ? Math.round(Number(r.balanceAfter)) : null;
       const dup = await prisma.cashflow.findFirst({
-        where: { date, cashChange, counterparty, memo },
+        where:
+          balanceAfter != null
+            ? { date, cashChange, balanceAfter }
+            : { date, cashChange, counterparty, memo },
       });
       if (dup) {
         skipped += 1;
@@ -172,6 +180,7 @@ export class CashflowsService {
           inAccount: r.inAccount?.trim() || null,
           outAccount: r.outAccount?.trim() || null,
           date,
+          balanceAfter,
           memo,
           projectId,
         },

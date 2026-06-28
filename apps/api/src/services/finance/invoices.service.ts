@@ -56,7 +56,7 @@ export class InvoicesService {
     const vat = this.calcVat(supply);
     const invoice = await prisma.invoice.create({
       data: {
-        projectId: dto.projectId,
+        projectId: dto.projectId || null,
         amount: supply,
         depositAmount: dto.depositAmount,
         depositStatus: dto.depositStatus ?? '미수',
@@ -82,7 +82,7 @@ export class InvoicesService {
     const updated = await prisma.invoice.update({
       where: { id },
       data: {
-        projectId: dto.projectId,
+        projectId: dto.projectId || null,
         amount: dto.amount,
         depositAmount: dto.depositAmount,
         depositStatus: dto.depositStatus,

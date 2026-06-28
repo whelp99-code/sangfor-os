@@ -1,6 +1,7 @@
 "use client";
 
 import CrudTable from "@/components/cfo/crud-table";
+import { useProjectOptions } from "@/components/cfo/use-project-options";
 
 const EXPENSE_FIELDS = [
   { name: "expenseName", label: "지출명", type: "text" as const, required: true },
@@ -65,13 +66,18 @@ const EXPENSE_COLUMNS = [
 ];
 
 export default function ExpensesPage() {
+  const projectOptions = useProjectOptions();
+  const fields = [
+    ...EXPENSE_FIELDS,
+    { name: "projectId", label: "프로젝트", type: "select" as const, options: projectOptions },
+  ];
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">매입 / 비용</h1>
       <CrudTable
         title=""
         endpoint="expenses"
-        fields={EXPENSE_FIELDS}
+        fields={fields}
         columns={EXPENSE_COLUMNS}
       />
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import CrudTable from "@/components/cfo/crud-table";
+import { useProjectOptions } from "@/components/cfo/use-project-options";
 
 const INVOICE_FIELDS = [
   { name: "issueDate", label: "발행일", type: "date" as const },
@@ -59,13 +60,18 @@ const INVOICE_COLUMNS = [
 ];
 
 export default function InvoicesPage() {
+  const projectOptions = useProjectOptions();
+  const fields = [
+    ...INVOICE_FIELDS,
+    { name: "projectId", label: "프로젝트", type: "select" as const, options: projectOptions },
+  ];
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">미수금 / 인보이스</h1>
       <CrudTable
         title=""
         endpoint="invoices"
-        fields={INVOICE_FIELDS}
+        fields={fields}
         columns={INVOICE_COLUMNS}
       />
     </div>
