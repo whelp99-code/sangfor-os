@@ -46,15 +46,22 @@ const EXPENSE_FIELDS = [
   { name: "isPaid", label: "납입완료", type: "checkbox" as const },
 ];
 
+const wonE = (v: number) => `₩${(v ?? 0).toLocaleString()}`;
+
+// Columns mirror the Notion "매입/비용 DB" view:
+// 프로젝트, 지출명, 매입처, 일자, 구분, 공급가액, VAT, 합계, 결재수단, 증빙, 납입여부
 const EXPENSE_COLUMNS = [
+  { key: "project", label: "프로젝트", format: (_: unknown, row: { project?: { name?: string } }) => row.project?.name ?? "-" },
   { key: "expenseName", label: "지출명" },
   { key: "vendor", label: "매입처" },
-  { key: "category", label: "구분" },
   { key: "date", label: "일자", format: (v: string) => (v ? new Date(v).toLocaleDateString("ko-KR") : "-") },
-  { key: "amount", label: "공급가액", format: (v: number) => `₩${(v ?? 0).toLocaleString()}` },
-  { key: "vat", label: "VAT", format: (v: number) => `₩${(v ?? 0).toLocaleString()}` },
-  { key: "total", label: "합계", format: (v: number) => `₩${(v ?? 0).toLocaleString()}` },
-  { key: "isPaid", label: "납입", format: (v: boolean) => (v ? "✅" : "⬜") },
+  { key: "category", label: "구분" },
+  { key: "amount", label: "공급가액", format: wonE },
+  { key: "vat", label: "VAT", format: wonE },
+  { key: "total", label: "합계", format: wonE },
+  { key: "paymentMethod", label: "결재수단", format: (v: string) => v || "-" },
+  { key: "proofType", label: "증빙", format: (v: string) => v || "-" },
+  { key: "isPaid", label: "납입여부", format: (v: boolean) => (v ? "✅" : "⬜") },
 ];
 
 export default function ExpensesPage() {
