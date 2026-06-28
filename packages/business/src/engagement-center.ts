@@ -26,6 +26,10 @@ export const convertOpportunityToProjectSchema = z.object({
       poc: z.boolean().default(true),
       quotes: z.boolean().default(true),
       meetings: z.boolean().default(true),
+      // P7 #4: by default only auto-attach trusted (status="confirmed") meetings.
+      // Low-confidence auto-promoted notes (status="suggested") need human review;
+      // set true to absorb them too.
+      suggestedMeetings: z.boolean().default(false),
     })
     .default({}),
 });
@@ -151,9 +155,12 @@ export async function convertOpportunityToProject(
       // Absorb meeting notes scoped to this opportunity.
       let meetings = 0;
       if (parsed.absorb.meetings) {
+        const allowedStatuses = parsed.absorb.suggestedMeetings
+          ? ["confirmed", "suggested"]
+          : ["confirmed"];
         meetings = (
           await tx.meetingNote.updateMany({
-            where: { opportunityId: opp.id, engagementId: null },
+            where: { opportunityId: opp.id, engagementId: null, status: { in: allowedStatuses } },
             data: { engagementId: engagement.id },
           })
         ).count;

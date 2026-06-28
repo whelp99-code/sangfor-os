@@ -30,14 +30,22 @@ const MEETING_KEYWORDS = [
   "google meet",
 ];
 
-function looksLikeMeeting(text: string): boolean {
+// Trust score = number of DISTINCT meeting keywords found (P7 #4). A higher score
+// means stronger evidence the thread is an actual meeting.
+function meetingScore(text: string): number {
   const lower = text.toLowerCase();
-  return MEETING_KEYWORDS.some((k) => lower.includes(k));
+  return MEETING_KEYWORDS.filter((k) => lower.includes(k)).length;
 }
 
+// Default trust threshold: at/above this distinct-keyword count, a promoted meeting
+// is auto-`confirmed` (so conversion absorbs it); below it stays `suggested` for
+// human review and is NOT auto-attached. Override via opts.confirmThreshold.
+const DEFAULT_CONFIRM_THRESHOLD = 2;
+
 export async function promoteMeetingThreads(
-  opts: { opportunityId?: string } = {},
-): Promise<{ scanned: number; promoted: number }> {
+  opts: { opportunityId?: string; confirmThreshold?: number } = {},
+): Promise<{ scanned: number; promoted: number; confirmed: number; suggested: number }> {
+  const confirmThreshold = opts.confirmThreshold ?? DEFAULT_CONFIRM_THRESHOLD;
   const candidates = await prisma.mailDerivedCandidate.findMany({
     where: {
       candidateType: "opportunity",
@@ -51,12 +59,16 @@ export async function promoteMeetingThreads(
 
   let scanned = 0;
   let promoted = 0;
+  let confirmed = 0;
+  let suggested = 0;
   for (const candidate of candidates) {
     if (!candidate.mailInsightThreadId || !candidate.createdEntityId) continue;
     const thread = await prisma.mailInsightThread.findUnique({ where: { id: candidate.mailInsightThreadId } });
     if (!thread) continue;
     scanned++;
-    if (!looksLikeMeeting(`${thread.threadTitle} ${thread.summary}`)) continue;
+    const score = meetingScore(`${thread.threadTitle} ${thread.summary}`);
+    if (score === 0) continue;
+    const status = score >= confirmThreshold ? "confirmed" : "suggested";
 
     await prisma.meetingNote.upsert({
       where: {
@@ -65,18 +77,21 @@ export async function promoteMeetingThreads(
           mailInsightThreadId: thread.id,
         },
       },
-      update: {},
+      // Only raise trust (suggested → confirmed); never silently downgrade a human-confirmed note.
+      update: status === "confirmed" ? { status: "confirmed" } : {},
       create: {
         opportunityId: candidate.createdEntityId,
         mailInsightThreadId: thread.id,
         title: thread.threadTitle.slice(0, 200),
         bodyMarkdown: thread.summary,
         source: "mail",
-        status: "suggested",
+        status,
       },
     });
     promoted++;
+    if (status === "confirmed") confirmed++;
+    else suggested++;
   }
 
-  return { scanned, promoted };
+  return { scanned, promoted, confirmed, suggested };
 }

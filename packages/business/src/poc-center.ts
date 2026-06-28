@@ -6,6 +6,7 @@ import { logStateTransition } from "./audit";
 export const createPocSchema = z.object({
   projectSlug: z.string().default("demo-project"),
   title: z.string().min(2),
+  opportunityId: z.string().optional(),
   customerId: z.string().optional(),
   partnerId: z.string().optional(),
   productName: z.string().optional(),
@@ -72,6 +73,7 @@ export async function createPocProject(input: z.infer<typeof createPocSchema>) {
     data: {
       projectId,
       title: parsed.title,
+      opportunityId: parsed.opportunityId,
       customerId: parsed.customerId,
       partnerId: parsed.partnerId,
       productName: parsed.productName,
@@ -84,6 +86,22 @@ export async function createPocProject(input: z.infer<typeof createPocSchema>) {
       requirements: parsed.requirements,
     },
   });
+
+  // P7 #6: going-forward, auto-link the POC to its opportunity (FK + audit link)
+  // so engagement conversion's POC absorption works without a backfill.
+  if (parsed.opportunityId) {
+    await prisma.opportunityLink.upsert({
+      where: {
+        opportunityId_entityType_entityId: {
+          opportunityId: parsed.opportunityId,
+          entityType: "poc",
+          entityId: poc.id,
+        },
+      },
+      update: {},
+      create: { opportunityId: parsed.opportunityId, entityType: "poc", entityId: poc.id, linkType: "confirmed" },
+    });
+  }
 
   await prisma.pocChecklistItem.createMany({
     data: SANGFOR_CHECKLIST_DEFAULTS.map((label, i) => ({

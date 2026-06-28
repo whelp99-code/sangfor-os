@@ -61,6 +61,23 @@ export default function MailConnectionPage() {
     }
   }
 
+  const handleCalendarSync = async () => {
+    setSyncing(true)
+    setSyncResult('Outlook 캘린더 미팅 가져오는 중…')
+    try {
+      const res = await fetch('/api/mail/calendar-sync', { method: 'POST' }).then(r => r.json())
+      setSyncResult(
+        res.success
+          ? `캘린더 — 이벤트 ${res.fetched}건 조회, 영업기회 매칭 ${res.matched}건, 미팅 ${res.created}건 생성`
+          : `캘린더 오류: ${res.error}`,
+      )
+    } catch {
+      setSyncResult('Calendar sync failed')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -161,13 +178,22 @@ export default function MailConnectionPage() {
           <p className="text-sm text-muted-foreground">
             받은 메일과 보낸 메일 전체를 가져와 대화(스레드) 단위로 묶어 학습합니다.
           </p>
-          <button
-            onClick={handleSync}
-            disabled={syncing || !status?.connected}
-            className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {syncing ? '처리 중…' : '전체 메일 가져와서 학습'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleSync}
+              disabled={syncing || !status?.connected}
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {syncing ? '처리 중…' : '전체 메일 가져와서 학습'}
+            </button>
+            <button
+              onClick={handleCalendarSync}
+              disabled={syncing || !status?.connected}
+              className="inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+            >
+              캘린더 미팅 가져오기
+            </button>
+          </div>
           {syncResult && <p className="text-sm text-muted-foreground">{syncResult}</p>}
         </CardContent>
       </Card>
