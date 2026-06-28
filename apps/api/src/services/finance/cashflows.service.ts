@@ -83,4 +83,57 @@ export class CashflowsService {
     await this.get(id);
     return prisma.cashflow.delete({ where: { id } });
   }
+
+  /**
+   * Bulk-import bank-statement rows into cashflows, skipping duplicates.
+   * A row is a duplicate when date + cashChange + counterparty + memo match.
+   * `date` is treated as a UTC calendar date (YYYY-MM-DD) to avoid TZ drift.
+   */
+  async importMany(
+    rows: Array<{
+      date?: string;
+      counterparty?: string;
+      amount: number;
+      cashChange: number;
+      type?: string;
+      inAccount?: string;
+      outAccount?: string;
+      memo?: string;
+    }>,
+  ) {
+    let created = 0;
+    let skipped = 0;
+    for (const r of rows) {
+      const amount = Math.round(Number(r.amount) || 0);
+      const cashChange = Math.round(Number(r.cashChange) || 0);
+      if (!amount && !cashChange) {
+        skipped += 1;
+        continue;
+      }
+      const date = r.date ? new Date(`${r.date.slice(0, 10)}T00:00:00.000Z`) : new Date();
+      const counterparty = (r.counterparty ?? '').trim();
+      const memo = (r.memo ?? '').trim() || null;
+      const dup = await prisma.cashflow.findFirst({
+        where: { date, cashChange, counterparty, memo },
+      });
+      if (dup) {
+        skipped += 1;
+        continue;
+      }
+      await prisma.cashflow.create({
+        data: {
+          counterparty,
+          amount,
+          cashChange,
+          type: (r.type ?? '').trim() || (cashChange >= 0 ? '입금' : '출금'),
+          inAccount: r.inAccount?.trim() || null,
+          outAccount: r.outAccount?.trim() || null,
+          date,
+          memo,
+        },
+      });
+      created += 1;
+    }
+    return { created, skipped, total: rows.length };
+  }
 }

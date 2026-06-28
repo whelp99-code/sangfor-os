@@ -1,6 +1,7 @@
 "use client";
 
 import CrudTable from "@/components/cfo/crud-table";
+import { BankCsvImport } from "@/components/cfo/bank-csv-import";
 
 const CASHFLOW_FIELDS = [
   { name: "counterparty", label: "거래처", type: "text" as const, required: true },
@@ -87,6 +88,7 @@ export default function CashflowsPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">자금흐름</h1>
+      <BankCsvImport />
       <CrudTable
         title=""
         endpoint="cashflows"
