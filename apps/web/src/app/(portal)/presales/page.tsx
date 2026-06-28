@@ -15,38 +15,7 @@ type PresalesData = {
   aiDraftReview: number;
 };
 
-const MOCK_ACTIVITIES: ActivityItem[] = [
-  {
-    id: "act-1",
-    time: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    text: "Discovery 자동 분석 완료: 고객 A사 인프라 요구사항 12건 추출",
-    type: "success",
-  },
-  {
-    id: "act-2",
-    time: new Date(Date.now() - 1000 * 60 * 32).toISOString(),
-    text: "Solution Fit 검토 중: aCloud + HCI 조합 적합도 87%",
-    type: "info",
-  },
-  {
-    id: "act-3",
-    time: new Date(Date.now() - 1000 * 60 * 58).toISOString(),
-    text: "Sizing 계산 완료: vCPU 64Core / Memory 256GB / Storage 10TB",
-    type: "success",
-  },
-  {
-    id: "act-4",
-    time: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    text: "PoC 환경 준비 시작: B사 PoC용 ESXi 클러스터 프로비저닝",
-    type: "info",
-  },
-  {
-    id: "act-5",
-    time: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-    text: "AI Draft 생성 완료: 제안서 초안 3부서 공유 완료",
-    type: "success",
-  },
-];
+const MOCK_ACTIVITIES: ActivityItem[] = [];
 
 function LoadingSkeleton() {
   return (

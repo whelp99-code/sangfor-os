@@ -8,10 +8,6 @@ import {
   Diff,
   CreditCard,
   AlertTriangle,
-  Calculator,
-  Receipt,
-  FileCheck,
-  Landmark,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { STATUS_LABELS } from "@sangfor/shared";
@@ -25,51 +21,9 @@ type FinanceData = {
   exceptionPayments: number;
 };
 
-// Mock AI activities for Finance
-const FINANCE_ACTIVITIES = [
-  {
-    id: "1",
-    time: new Date(Date.now() - 1000 * 30).toISOString(),
-    icon: <Calculator className="h-3.5 w-3.5" />,
-    text: "정산 자동 처리 — 6월 마감 정산 12건 완료",
-    type: "success" as const,
-  },
-  {
-    id: "2",
-    time: new Date(Date.now() - 1000 * 120).toISOString(),
-    icon: <FileCheck className="h-3.5 w-3.5" />,
-    text: "송장 검증 완료 — 현대모비스 입금 확인 ✅",
-    type: "success" as const,
-  },
-  {
-    id: "3",
-    time: new Date(Date.now() - 1000 * 300).toISOString(),
-    icon: <Receipt className="h-3.5 w-3.5" />,
-    text: "VAT 계산 — 삼성SDS 거래 10% 세금 계산 완료",
-    type: "info" as const,
-  },
-  {
-    id: "4",
-    time: new Date(Date.now() - 1000 * 600).toISOString(),
-    icon: <AlertTriangle className="h-3.5 w-3.5" />,
-    text: "컨디션 리스크 감지 — 신한은행 지연 Payment 3일 초과",
-    type: "warning" as const,
-  },
-  {
-    id: "5",
-    time: new Date(Date.now() - 1000 * 1800).toISOString(),
-    icon: <Landmark className="h-3.5 w-3.5" />,
-    text: "예산 초과 알림 — KT 프로젝트 컨설팅 비용 한도 도달",
-    type: "warning" as const,
-  },
-];
+const FINANCE_ACTIVITIES: { id: string; time: string; icon?: React.ReactNode; text: string; type: "success" | "info" | "warning" | "error" }[] = [];
 
-const FINANCE_STATS = [
-  { label: "오늘 처리 건수", value: "24건", type: "success" as const },
-  { label: "승인 대기", value: "3건", type: "warning" as const },
-  { label: "예외 케이스", value: "2건", type: "error" as const },
-  { label: "총 처리 금액", value: "₩1.8B", type: "default" as const },
-];
+const FINANCE_STATS: { label: string; value: string; type: "success" | "warning" | "error" | "default" }[] = [];
 
 function LoadingSkeleton() {
   return (

@@ -1,7 +1,9 @@
 import {
   addOpportunityLink,
   advanceOpportunityStage,
+  convertOpportunityToProject,
   getOpportunityDetail,
+  promoteMeetingThreads,
   removeOpportunityLink,
   updateOpportunity,
 } from "@sangfor/business";
@@ -46,6 +48,17 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (body.action === "remove_link") {
       await removeOpportunityLink(body.linkId);
       return NextResponse.json({ ok: true });
+    }
+
+    if (body.action === "convert_to_project") {
+      // Surface mail-derived meeting threads first so the conversion absorbs them.
+      await promoteMeetingThreads({ opportunityId: id });
+      const result = await convertOpportunityToProject({
+        opportunityId: id,
+        name: body.name,
+        force: body.force,
+      });
+      return NextResponse.json(serializeDecimalAtBoundary(result), { status: result.created ? 201 : 200 });
     }
 
     const opportunity = await updateOpportunity(id, body);

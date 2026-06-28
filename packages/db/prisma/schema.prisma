@@ -590,6 +590,14 @@ model MailAccount {
   status    String   @default("mock")
   createdAt DateTime @default(now()) @map("created_at")
 
+  // Delegated OAuth (auth-code flow) token storage for personal/work mailboxes.
+  tenantId       String?   @map("tenant_id")
+  accessToken    String?   @map("access_token")
+  refreshToken   String?   @map("refresh_token")
+  tokenExpiresAt DateTime? @map("token_expires_at")
+  tokenScope     String?   @map("token_scope")
+  lastSyncedAt   DateTime? @map("last_synced_at")
+
   messages MailMessage[]
 
   @@map("mail_accounts")
@@ -604,9 +612,17 @@ model MailMessage {
   groupKey    String?  @map("group_key")
   createdAt   DateTime @default(now()) @map("created_at")
 
+  // Graph message id + conversation threading + direction (inbound/outbound).
+  externalId     String?   @unique @map("external_id")
+  conversationId String?   @map("conversation_id")
+  direction      String?
+  toEmail        String?   @map("to_email")
+  receivedAt     DateTime? @map("received_at")
+
   account MailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId])
+  @@index([conversationId])
   @@map("mail_messages")
 }
 
@@ -783,6 +799,8 @@ model PocProject {
   scheduleAt      DateTime? @map("schedule_at")
   status          String    @default("planning")
   requirements    String?
+  opportunityId   String?   @map("opportunity_id")   // 결정 D: opt-in 영업기회 링크 + 백필
+  engagementId    String?   @map("engagement_id")    // 흡수 result (opt-in)
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
@@ -796,6 +814,7 @@ model PocProject {
   generatedDocuments GeneratedDocument[]
 
   @@index([projectId, status])
+  @@index([opportunityId])
   @@map("poc_projects")
 }
 
@@ -891,7 +910,7 @@ model Opportunity {
   quoteServiceLineItems QuoteServiceLineItem[]
   quotes         Quote[]
   vendorRequests  VendorRequest[]
-  deliveryProjects DeliveryProject[]
+  engagement      Engagement?
 
   @@index([projectId, stage])
   @@map("opportunities")
@@ -1042,12 +1061,18 @@ model GeneratedDocument {
   status         String   @default("draft")
   createdAt      DateTime @default(now()) @map("created_at")
 
+  opportunityId  String?  @map("opportunity_id")   // 흡수 source of truth (P2)
+  engagementId   String?  @map("engagement_id")    // 흡수 result (re-parent)
+
   template DocumentTemplate @relation(fields: [templateId], references: [id])
   customer Customer? @relation(fields: [customerId], references: [id])
   pocProject PocProject? @relation(fields: [pocProjectId], references: [id])
+  engagement Engagement? @relation(fields: [engagementId], references: [id])
   versions DocumentVersion[]
 
   @@index([templateId])
+  @@index([opportunityId])
+  @@index([engagementId])
   @@map("generated_documents")
 }
 
@@ -2017,19 +2042,30 @@ model VendorRequestEvent {
 
 // --- Delivery ---
 
-model DeliveryProject {
-  id            String    @id @default(cuid())
-  opportunityId String    @map("opportunity_id")
-  name          String
-  status        String    @default("planned")
-  sowApprovedAt DateTime? @map("sow_approved_at")
-  startedAt     DateTime? @map("started_at")
-  completedAt   DateTime? @map("completed_at")
+// Engagement = the project an Opportunity converts into once a POC plan is
+// confirmed with the customer. Renamed from DeliveryProject (table preserved via
+// @@map). Absorbs proposals / POC / meetings / quote-derived amount.
+model Engagement {
+  id                 String    @id @default(cuid())
+  opportunityId      String    @unique @map("opportunity_id")
+  projectId          String?   @map("project_id")
+  customerId         String?   @map("customer_id")
+  name               String
+  status             String    @default("planned")
+  amount             Decimal?  @db.Decimal(12, 2)
+  amountQuoteId      String?   @map("amount_quote_id")
+  summaryMarkdown    String?   @map("summary_markdown")
+  convertedAt        DateTime? @map("converted_at")
+  convertedFromStage String?   @map("converted_from_stage")
+  sowApprovedAt      DateTime? @map("sow_approved_at")
+  startedAt          DateTime? @map("started_at")
+  completedAt        DateTime? @map("completed_at")
 
-  opportunity    Opportunity           @relation(fields: [opportunityId], references: [id])
-  checklistItems DeliveryChecklistItem[]
+  opportunity        Opportunity            @relation(fields: [opportunityId], references: [id])
+  checklistItems     DeliveryChecklistItem[]
+  generatedDocuments GeneratedDocument[]
+  meetingNotes       MeetingNote[]
 
-  @@index([opportunityId])
   @@map("delivery_projects")
 }
 
@@ -2040,10 +2076,34 @@ model DeliveryChecklistItem {
   status      String    @default("pending")
   completedAt DateTime? @map("completed_at")
 
-  delivery DeliveryProject @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  delivery Engagement @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
 
   @@index([deliveryId])
   @@map("delivery_checklist_items")
+}
+
+// Meeting notes (미팅내용). Manually authored or promoted from a mail thread.
+// Absorbed into an Engagement on conversion. `@@unique` keeps thread-promotion idempotent.
+model MeetingNote {
+  id                  String    @id @default(cuid())
+  opportunityId       String?   @map("opportunity_id")
+  engagementId        String?   @map("engagement_id")
+  customerId          String?   @map("customer_id")
+  mailInsightThreadId String?   @map("mail_insight_thread_id")
+  title               String
+  occurredAt          DateTime? @map("occurred_at")
+  attendees           String[]  @default([])
+  bodyMarkdown        String    @map("body_markdown")
+  source              String    @default("manual")
+  status              String    @default("confirmed")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  engagement Engagement? @relation(fields: [engagementId], references: [id])
+
+  @@unique([opportunityId, mailInsightThreadId])
+  @@index([opportunityId])
+  @@index([engagementId])
+  @@map("meeting_notes")
 }
 
 // --- Support ---

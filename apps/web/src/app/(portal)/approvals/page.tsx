@@ -53,20 +53,9 @@ function approvalBadges(candidate: { metadata: unknown; candidateType: string })
   };
 }
 
-const ACTIVITIES = [
-  { id: "1", time: new Date(Date.now() - 30000).toISOString(), text: "승인 자동 처리 — KT 유지보수 (조건 충족)", type: "success" as const },
-  { id: "2", time: new Date(Date.now() - 180000).toISOString(), text: "승인 요청 — 신한은행 제안서 (할인율 초과)", type: "warning" as const },
-  { id: "3", time: new Date(Date.now() - 600000).toISOString(), text: "반려 처리 — 네이버 라이선스 (예산 초과)", type: "error" as const },
-  { id: "4", time: new Date(Date.now() - 1200000).toISOString(), text: "Color Review 통과 — 삼성SDS 기술검토", type: "success" as const },
-  { id: "5", time: new Date(Date.now() - 3600000).toISOString(), text: "재검토 요청 — 현대모비스 SOW 변경", type: "info" as const },
-];
+const ACTIVITIES: { id: string; time: string; icon?: React.ReactNode; text: string; type: "success" | "info" | "warning" | "error" }[] = [];
 
-const STATS = [
-  { label: "승인 대기", value: "5건", type: "warning" as const },
-  { label: "오늘 처리", value: "12건", type: "success" as const },
-  { label: "자동 승인", value: "8건", type: "default" as const },
-  { label: "반려", value: "2건", type: "error" as const },
-];
+const STATS: { label: string; value: string; type: "success" | "warning" | "error" | "default" }[] = [];
 
 type ApprovalRequestRecord = Prisma.ApprovalRequestGetPayload<Record<string, never>>;
 type MailDerivedCandidateRecord = Prisma.MailDerivedCandidateGetPayload<Record<string, never>>;
@@ -81,78 +70,7 @@ type RevenueApprovalQueueItem = RevenueApprovalItem & {
   metadata: string[];
 };
 
-const REVENUE_APPROVAL_QUEUE: RevenueApprovalQueueItem[] = [
-  {
-    id: "ra-quote-001",
-    itemType: "quote",
-    status: "ready_for_human_approval",
-    ownerRole: "cfo",
-    priority: "high",
-    customer: "Samsung SDS",
-    title: "Enterprise renewal quote with CFO margin review",
-    amountKrw: "₩480M",
-    marginPercent: 18,
-    discountPercent: 24,
-    requestedBy: "Sales Ops",
-    metadata: ["metadata-only", "approval-required", "no-export"],
-  },
-  {
-    id: "ra-proposal-002",
-    itemType: "proposal",
-    status: "draft",
-    ownerRole: "presales",
-    priority: "medium",
-    customer: "Hyundai Mobis",
-    title: "Presales proposal pack awaiting commercial evidence",
-    amountKrw: "₩260M",
-    marginPercent: 31,
-    discountPercent: 12,
-    requestedBy: "Presales Desk",
-    metadata: ["draft", "evidence-gap", "safe-demo"],
-  },
-  {
-    id: "ra-discount-003",
-    itemType: "discount",
-    status: "ready_for_human_approval",
-    ownerRole: "sales",
-    priority: "urgent",
-    customer: "Shinhan Bank",
-    title: "Exception discount request pending revenue owner approval",
-    amountKrw: "₩190M",
-    marginPercent: 22,
-    discountPercent: 32,
-    requestedBy: "Account Executive",
-    metadata: ["discount-threshold", "human-gate", "metadata-only"],
-  },
-  {
-    id: "ra-quote-004",
-    itemType: "quote",
-    status: "approved",
-    ownerRole: "cfo",
-    priority: "medium",
-    customer: "KT Cloud",
-    title: "Approved infrastructure expansion quote",
-    amountKrw: "₩340M",
-    marginPercent: 36,
-    discountPercent: 8,
-    requestedBy: "Revenue Desk",
-    metadata: ["approved", "audit-ready", "no-send-action"],
-  },
-  {
-    id: "ra-proposal-005",
-    itemType: "proposal",
-    status: "rejected",
-    ownerRole: "sales",
-    priority: "low",
-    customer: "Naver Cloud",
-    title: "Rejected proposal due to missing commercial guardrails",
-    amountKrw: "₩120M",
-    marginPercent: 14,
-    discountPercent: 18,
-    requestedBy: "Sales Team",
-    metadata: ["rejected", "guardrail-failed", "safe-demo"],
-  },
-];
+const REVENUE_APPROVAL_QUEUE: RevenueApprovalQueueItem[] = [];
 
 const OWNER_ROLES = ["all", "sales", "presales", "cfo"] as const;
 const ITEM_TYPES = ["all", "quote", "proposal", "discount"] as const;

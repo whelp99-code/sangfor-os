@@ -14,19 +14,9 @@ type SupportData = {
   repeatIssues: number;
 };
 
-const supportActivities: ActivityItem[] = [
-  { id: "s1", time: new Date(Date.now() - 1000 * 60 * 3).toISOString(), text: "Ticket 자동 분류 완료: #4821 → 네트워크/High", type: "success" },
-  { id: "s2", time: new Date(Date.now() - 1000 * 60 * 20).toISOString(), text: "SLA 모니터링: 2건 임박 (4시간 내)", type: "warning" },
-  { id: "s3", time: new Date(Date.now() - 1000 * 60 * 60).toISOString(), text: "에스컬레이션 감지: #4798 3차 지연 → HQ 전달", type: "error" },
-  { id: "s4", time: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), text: "RCA 자동 작성 완료: #4756 메모리 누수 분석", type: "success" },
-];
+const supportActivities: ActivityItem[] = [];
 
-const supportStats = [
-  { label: "신규 Ticket", value: "12건", type: "default" as const },
-  { label: "SLA 임박", value: "2건", type: "warning" as const },
-  { label: "에스컬레이션", value: "1건", type: "error" as const },
-  { label: "RCA 미작성", value: "3건", type: "default" as const },
-];
+const supportStats: { label: string; value: string; type: "success" | "warning" | "error" | "default" }[] = [];
 
 function LoadingSkeleton() {
   return (

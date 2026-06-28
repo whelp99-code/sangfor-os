@@ -25,28 +25,11 @@ const COLORS: { name: string; label: string; desc: string; focus: string }[] = [
   { name: "Teal", label: "UX/가시성 검토", desc: "UX & Visibility", focus: "UI/UX, 대시보드, 가시성" },
 ];
 
-const AGENT_STATUSES = [
-  { name: "Blue", status: "passed" as ColorStatus, deal: "OPP-2024-0842 — 신한은행", reviewer: "김기술" },
-  { name: "Red", status: "pending" as ColorStatus, deal: "OPP-2024-0791 — 현대모비스", reviewer: "박리스크" },
-  { name: "Orange", status: "failed" as ColorStatus, deal: "OPP-2024-0765 — LG CNS", reviewer: "최비즈" },
-  { name: "Gray", status: "passed" as ColorStatus, deal: "OPP-2024-0723 — SK Telecom", reviewer: "정문서" },
-  { name: "Teal", status: "not_required" as ColorStatus, deal: "OPP-2024-0842 — 신한은행", reviewer: "—" },
-];
+const AGENT_STATUSES: { name: string; status: ColorStatus; deal: string; reviewer: string }[] = [];
 
-const HANDOFFS = [
-  { from: "Blue", to: "Red", deal: "OPP-2024-0842 — 신한은행", time: "10 min ago" },
-  { from: "Red", to: "Orange", deal: "OPP-2024-0791 — 현대모비스", time: "1 hr ago" },
-  { from: "Orange", to: "Gray", deal: "OPP-2024-0765 — LG CNS", time: "3 hr ago" },
-  { from: "Gray", to: "Teal", deal: "OPP-2024-0765 — LG CNS", time: "5 hr ago" },
-  { from: "Blue", to: "Red", deal: "OPP-2024-0723 — SK Telecom", time: "1 day ago" },
-];
+const HANDOFFS: { from: string; to: string; deal: string; time: string }[] = [];
 
-const MY_REVIEWS = [
-  { role: "Blue — 기술 검토", deal: "OPP-2024-0842 — 신한은행", deadline: "Today", priority: "critical" },
-  { role: "Red — 리스크 검토", deal: "OPP-2024-0791 — 현대모비스", deadline: "Tomorrow", priority: "high" },
-  { role: "Orange — 비즈니스 가치 검토", deal: "OPP-2024-0765 — LG CNS", deadline: "Jul 30", priority: "medium" },
-  { role: "Gray — 문서/근거 검토", deal: "OPP-2024-0723 — SK Telecom", deadline: "Jul 28", priority: "high" },
-];
+const MY_REVIEWS: { role: string; deal: string; deadline: string; priority: string }[] = [];
 
 
 
@@ -94,12 +77,12 @@ export default function AgentsPage() {
       {/* Color Agent Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {COLORS.map((c) => {
-          const agent = AGENT_STATUSES.find((a) => a.name === c.name)!;
+          const agent = AGENT_STATUSES.find((a) => a.name === c.name);
           return (
             <Card key={c.name} className="transition-shadow hover:shadow-md">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
-                  <StatusIcon status={agent.status} />
+                  <StatusIcon status={agent?.status ?? "not_required"} />
                   <CardTitle className="text-base">{c.name}</CardTitle>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">{c.label}</p>
@@ -108,15 +91,15 @@ export default function AgentsPage() {
                 <p className="text-xs text-muted-foreground">{c.desc}</p>
                 <div className="flex items-center justify-between rounded-lg bg-muted/30 px-2 py-1.5">
                   <span className="text-xs text-muted-foreground">Status</span>
-                  <StatusBadge status={agent.status} />
+                  <StatusBadge status={agent?.status ?? "not_required"} />
                 </div>
                 <div className="flex items-center justify-between rounded-lg bg-muted/30 px-2 py-1.5">
                   <span className="text-xs text-muted-foreground">Deal</span>
-                  <span className="text-xs font-medium truncate ml-2">{agent.deal}</span>
+                  <span className="text-xs font-medium truncate ml-2">{agent?.deal ?? "—"}</span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg bg-muted/30 px-2 py-1.5">
                   <span className="text-xs text-muted-foreground">Reviewer</span>
-                  <span className="text-xs font-medium">{agent.reviewer}</span>
+                  <span className="text-xs font-medium">{agent?.reviewer ?? "—"}</span>
                 </div>
                 <p className="text-xs text-muted-foreground pt-1">{c.focus}</p>
               </CardContent>
