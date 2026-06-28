@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DollarSign, Phone, Clock, FileText, RefreshCw, AlertTriangle, BarChart3, CheckCircle2 } from "lucide-react";
+import { DollarSign, Phone, Clock, FileText, RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { STATUS_LABELS } from "@sangfor/shared";
@@ -16,21 +16,9 @@ type SalesData = {
   riskDeals: number;
 };
 
-// Mock AI activities for Sales
-const SALES_ACTIVITIES = [
-  { id: '1', time: new Date(Date.now() - 1000*30).toISOString(), icon: <BarChart3 className="h-3.5 w-3.5" />, text: '파이프라인 자동 업데이트 — 신규 Deal 2건 등록', type: 'success' as const },
-  { id: '2', time: new Date(Date.now() - 1000*120).toISOString(), icon: <FileText className="h-3.5 w-3.5" />, text: '견적서 자동 생성 — 현대모비스 PoC 견적', type: 'info' as const },
-  { id: '3', time: new Date(Date.now() - 1000*300).toISOString(), icon: <CheckCircle2 className="h-3.5 w-3.5" />, text: 'Color Review 통과 — 삼성SDS 기술검토 ✅', type: 'success' as const },
-  { id: '4', time: new Date(Date.now() - 1000*600).toISOString(), icon: <AlertTriangle className="h-3.5 w-3.5" />, text: '리스크 감지 — 신한은행 Deal 할인율 22% 초과', type: 'warning' as const },
-  { id: '5', time: new Date(Date.now() - 1000*1800).toISOString(), icon: <CheckCircle2 className="h-3.5 w-3.5" />, text: '메일 분류 완료 — KT 유지보수 제안서 → AI 검토 중', type: 'info' as const },
-]
+const SALES_ACTIVITIES: { id: string; time: string; icon?: React.ReactNode; text: string; type: 'success' | 'info' | 'warning' | 'error' }[] = []
 
-const SALES_STATS = [
-  { label: 'AI 처리 오늘', value: '12건', type: 'success' as const },
-  { label: '승인 대기', value: '2건', type: 'warning' as const },
-  { label: 'Pipeline 총액', value: '₩2.4B', type: 'default' as const },
-  { label: '예외 케이스', value: '1건', type: 'error' as const },
-]
+const SALES_STATS: { label: string; value: string; type: 'success' | 'warning' | 'error' | 'default' }[] = []
 
 function LoadingSkeleton() {
   return (

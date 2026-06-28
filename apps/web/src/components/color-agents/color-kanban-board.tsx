@@ -24,47 +24,13 @@ type KanbanColumn = {
 };
 
 const INITIAL_COLUMNS: KanbanColumn[] = [
-  {
-    name: "To Blue",
-    cards: [
-      { id: "C-001", title: "삼성SDS 클라우드 마이그레이션", fromColor: "New", toColor: "Blue", priority: "critical", status: "pending", dueDate: "2026-06-28", linkedArtifact: "OPP-2024-0912" },
-      { id: "C-002", title: "CJ올리브네트웍스 SD-WAN", fromColor: "New", toColor: "Blue", priority: "high", status: "pending", dueDate: "2026-06-30", linkedArtifact: "OPP-2024-0901" },
-    ],
-  },
-  {
-    name: "To Red",
-    cards: [
-      { id: "C-003", title: "신한은행 차세대 보안 인프라", fromColor: "Blue", toColor: "Red", priority: "critical", status: "in_review", dueDate: "2026-06-27", linkedArtifact: "OPP-2024-0842" },
-      { id: "C-004", title: "현대모비스 스마트팩토리", fromColor: "Blue", toColor: "Red", priority: "high", status: "in_review", dueDate: "2026-07-01", linkedArtifact: "OPP-2024-0791" },
-    ],
-  },
-  {
-    name: "To Orange",
-    cards: [
-      { id: "C-005", title: "LG CNS AI 플랫폼 구축", fromColor: "Red", toColor: "Orange", priority: "medium", status: "in_review", dueDate: "2026-07-05", linkedArtifact: "OPP-2024-0765" },
-    ],
-  },
-  {
-    name: "To Gray",
-    cards: [] as KanbanCard[],
-  },
-  {
-    name: "To Teal",
-    cards: [] as KanbanCard[],
-  },
-  {
-    name: "Resolved",
-    cards: [
-      { id: "C-006", title: "KT 5G 엣지 컴퓨팅", fromColor: "Teal", toColor: "Resolved", priority: "low", status: "done", dueDate: "2026-06-20", linkedArtifact: "OPP-2024-0689" },
-      { id: "C-007", title: "네이버 데이터센터 보안", fromColor: "Orange", toColor: "Resolved", priority: "medium", status: "done", dueDate: "2026-06-18", linkedArtifact: "OPP-2024-0654" },
-    ],
-  },
-  {
-    name: "Escalated",
-    cards: [
-      { id: "C-008", title: "SK Telecom 5G 슬라이싱", fromColor: "Red", toColor: "Escalated", priority: "critical", status: "blocked", dueDate: "2026-06-25", linkedArtifact: "OPP-2024-0723" },
-    ],
-  },
+  { name: "To Blue", cards: [] },
+  { name: "To Red", cards: [] },
+  { name: "To Orange", cards: [] },
+  { name: "To Gray", cards: [] },
+  { name: "To Teal", cards: [] },
+  { name: "Resolved", cards: [] },
+  { name: "Escalated", cards: [] },
 ];
 
 function PriorityIndicator({ priority }: { priority: KanbanCard["priority"] }) {

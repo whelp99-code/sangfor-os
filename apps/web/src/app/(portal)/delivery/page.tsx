@@ -14,19 +14,9 @@ type DeliveryData = {
   handoverDocs: number;
 };
 
-const deliveryActivities: ActivityItem[] = [
-  { id: "d1", time: new Date(Date.now() - 1000 * 60 * 5).toISOString(), text: "구축 일정 자동 조정 완료: 고객 A사 일정 2일 단축", type: "success" },
-  { id: "d2", time: new Date(Date.now() - 1000 * 60 * 30).toISOString(), text: "SOW 검토 중: B사 계약서 조항 3건 플래그", type: "warning" },
-  { id: "d3", time: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), text: "자재 발주 완료: C사 스위치 12대 주문 생성", type: "success" },
-  { id: "d4", time: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(), text: "인수 일정 알림: D사 FAT 테스트 3일 전", type: "info" },
-];
+const deliveryActivities: ActivityItem[] = [];
 
-const deliveryStats = [
-  { label: "구축 예정", value: "4건", type: "default" as const },
-  { label: "SOW 확인 대기", value: "2건", type: "warning" as const },
-  { label: "라이선스 미활성", value: "1건", type: "error" as const },
-  { label: "인수 진행 중", value: "3건", type: "success" as const },
-];
+const deliveryStats: { label: string; value: string; type: "success" | "warning" | "error" | "default" }[] = [];
 
 function LoadingSkeleton() {
   return (
