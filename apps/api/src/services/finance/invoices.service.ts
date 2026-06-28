@@ -7,6 +7,7 @@ export class CreateInvoiceDto {
   depositAmount?: number;
   depositStatus?: string;
   depositDate?: string;
+  issueDate?: string;
   memo?: string;
   buyer?: string;
 }
@@ -17,6 +18,7 @@ export class UpdateInvoiceDto {
   depositAmount?: number;
   depositStatus?: string;
   depositDate?: string;
+  issueDate?: string;
   memo?: string;
   buyer?: string;
 }
@@ -59,6 +61,7 @@ export class InvoicesService {
         depositAmount: dto.depositAmount,
         depositStatus: dto.depositStatus ?? '미수',
         depositDate: dto.depositDate ? new Date(dto.depositDate) : null,
+        issueDate: dto.issueDate ? new Date(dto.issueDate) : null,
         memo: dto.memo,
         buyer: dto.buyer,
         vat,
@@ -84,6 +87,7 @@ export class InvoicesService {
         depositAmount: dto.depositAmount,
         depositStatus: dto.depositStatus,
         depositDate: dto.depositDate ? new Date(dto.depositDate) : undefined,
+        issueDate: dto.issueDate ? new Date(dto.issueDate) : undefined,
         memo: dto.memo,
         buyer: dto.buyer,
         vat,
