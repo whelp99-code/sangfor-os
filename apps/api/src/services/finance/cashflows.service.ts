@@ -1,7 +1,7 @@
 import { prisma } from '@sangfor/db';
 
 // Normalize a company name for fuzzy counterparty↔project matching.
-function normName(s: string | null | undefined): string {
+export function normName(s: string | null | undefined): string {
   return (s ?? '').replace(/\(주\)|주식회사|㈜|\s|\.|,|-/g, '').toLowerCase();
 }
 
@@ -23,7 +23,7 @@ async function buildProjectMatchMaps() {
   return { buyer, vendor };
 }
 
-function matchProjectId(
+export function matchProjectId(
   maps: { buyer: Map<string, ProjEntry[]>; vendor: Map<string, ProjEntry[]> },
   counterparty: string,
   amount: number,
