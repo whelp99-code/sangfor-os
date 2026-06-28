@@ -3,7 +3,6 @@
  */
 
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createLogger } from '@sangfor/workflow-shared';
 import { McpStdioClient, type ToolRegistry } from '@sangfor/workflow-engine';
@@ -19,11 +18,11 @@ const MCP_TOOL_ALIASES: Record<string, string> = {
   generate_setting_guide_pptx: 'sangfor.generate_setting_guide_pptx',
 };
 
-function resolveMcpCwd(): string {
-  return (
-    process.env.SANGFOR_MCP_CWD
-    ?? join(homedir(), 'Documents/Playground/whelp99-code-sangfor-engineer-mcp')
-  );
+function resolveMcpCwd(workflowCwd: string): string {
+  // Default to the in-repo sibling service (services/sangfor-engineer-mcp);
+  // workflowCwd is services/sangfor-mcp-workflow. Previously this pointed at a
+  // hardcoded ~/Documents clone, which silently fell back to stub tools.
+  return process.env.SANGFOR_MCP_CWD ?? join(workflowCwd, '..', 'sangfor-engineer-mcp');
 }
 
 function resolveTsxCli(mcpCwd: string): string {
@@ -43,9 +42,13 @@ export async function bootstrapMcpClient(
   toolRegistry: ToolRegistry,
   workflowCwd: string,
 ): Promise<McpStdioClient | null> {
-  const mcpCwd = resolveMcpCwd();
+  const mcpCwd = resolveMcpCwd(workflowCwd);
   if (!existsSync(join(mcpCwd, 'apps/mcp-server/src/index.ts'))) {
-    log.warn(`Engineer MCP not found at ${mcpCwd} — using stub tools`);
+    log.warn(
+      `Engineer MCP not found at ${mcpCwd} — using STUB tools. ` +
+        'Ensure services/sangfor-engineer-mcp is present and provisioned ' +
+        '(pnpm install && pnpm exec prisma generate), or set SANGFOR_MCP_CWD.',
+    );
     return null;
   }
 
