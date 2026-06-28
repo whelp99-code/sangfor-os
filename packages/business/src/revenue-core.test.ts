@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { UNSAFE_ACTIONS, requiresApprovalForAction } from "@sangfor/shared/modes";
+
 import { evaluateProposalAction } from "./proposal-generator";
 import { filterRevenueApprovalQueue } from "./revenue-core";
 
@@ -39,5 +41,35 @@ describe("proposal action guard", () => {
 
   it("allows review action for draft proposals", () => {
     expect(evaluateProposalAction({ status: "draft", action: "review" })).toEqual({ allowed: true });
+  });
+});
+
+describe("unsafe action matrix", () => {
+  it("keeps customer-facing proposal actions blocked until approval", () => {
+    for (const action of ["send", "export", "share"] as const) {
+      expect(evaluateProposalAction({ status: "draft", action })).toEqual({
+        allowed: false,
+        reason: "proposal_action_requires_approval",
+      });
+      expect(evaluateProposalAction({ status: "approved", action })).toEqual({ allowed: true });
+    }
+  });
+
+  it("keeps shared unsafe actions approval-gated", () => {
+    expect(UNSAFE_ACTIONS).toEqual(
+      expect.arrayContaining([
+        "send",
+        "export",
+        "share",
+        "delete",
+        "deploy",
+        "real-upstream-write",
+        "production-db-mutation",
+        "release-tag",
+      ]),
+    );
+    for (const action of UNSAFE_ACTIONS) {
+      expect(requiresApprovalForAction(action)).toBe(true);
+    }
   });
 });
