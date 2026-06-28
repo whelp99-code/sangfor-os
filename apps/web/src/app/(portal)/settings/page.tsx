@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { IntegrationHealthPanel } from "@/components/integrations/integration-health-panel";
 
 export default function SettingsPage() {
   return (
@@ -21,8 +22,13 @@ export default function SettingsPage() {
           <Link className={buttonVariants({ variant: "outline" })} href="/modules">
             Modules
           </Link>
+          <Link className={buttonVariants({ variant: "outline" })} href="/tools">
+            MCP Tools
+          </Link>
         </CardContent>
       </Card>
+
+      <IntegrationHealthPanel compact />
     </div>
   );
 }

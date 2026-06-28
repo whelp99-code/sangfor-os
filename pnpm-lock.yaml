@@ -112,12 +112,18 @@ importers:
       '@base-ui/react':
         specifier: ^1.5.0
         version: 1.6.0(@types/react@19.2.17)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@sangfor/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
       '@sangfor/business':
         specifier: workspace:*
         version: link:../../packages/business
       '@sangfor/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@sangfor/infra':
+        specifier: workspace:*
+        version: link:../../packages/infra
       '@sangfor/mail-intelligence':
         specifier: workspace:*
         version: link:../../packages/mail-intelligence
@@ -196,6 +202,22 @@ importers:
         version: 4.3.1
       typescript:
         specifier: ^5
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.22.4)
+
+  packages/agent:
+    dependencies:
+      '@sangfor/business':
+        specifier: workspace:*
+        version: link:../business
+      '@sangfor/infra':
+        specifier: workspace:*
+        version: link:../infra
+    devDependencies:
+      typescript:
+        specifier: ^5.5.4
         version: 5.9.3
       vitest:
         specifier: ^3.2.4
@@ -334,10 +356,17 @@ importers:
         version: 5.9.3
 
   packages/infra:
+    dependencies:
+      '@sangfor/config':
+        specifier: workspace:*
+        version: link:../config
     devDependencies:
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.22.4)
 
   packages/mail-intelligence:
     dependencies:

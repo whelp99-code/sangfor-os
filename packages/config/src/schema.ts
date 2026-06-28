@@ -60,8 +60,11 @@ export const OptionalSecretsSchema = z.object({
   SANGFOR_ALLOW_REAL_EXECUTION: z.coerce.boolean().default(false),
   SANGFOR_ALLOW_PRODUCTION_EXECUTION: z.coerce.boolean().default(false),
 
-  // whelp99 MCP
-  WHELP99_MCP_PATH: z.string().default('../whelp99-code-sangfor-engineer-mcp'),
+  // whelp99 MCP — in-repo containerized copy (matches docker-compose build context)
+  WHELP99_MCP_PATH: z.string().default('./services/sangfor-engineer-mcp'),
+  // MCP HTTP bridge + workflow service URLs (defaults from PORT_REGISTRY via getEnvDefaults)
+  WHELP99_MCP_HTTP_URL: z.string().url().default('http://localhost:3600'),
+  SANGFOR_MCP_URL: z.string().url().default('http://localhost:3500'),
 
   // GitHub Owner
   GITHUB_OWNER: z.string().default('whelp99-code'),
