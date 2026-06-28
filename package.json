@@ -15,7 +15,7 @@
     "test:e2e": "playwright test",
     "test:coverage": "pnpm -r test:coverage",
     "typecheck": "pnpm -r typecheck",
-    "db:generate": "pnpm --filter @sangfor/db db:generate && pnpm --filter @sangfor/finance db:generate",
+    "db:generate": "pnpm --filter @sangfor/db db:generate",
     "db:push": "pnpm --filter @sangfor/db db:push",
     "db:migrate": "pnpm --filter @sangfor/db db:migrate",
     "db:migrate:deploy": "pnpm --filter @sangfor/db db:migrate:deploy",
