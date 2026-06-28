@@ -26,12 +26,15 @@
 
 재무 데이터가 사라지면 다른 모든 작업이 무의미하므로 최우선.
 
-### P0-1. 마스터 데이터 유실 원인 규명
-- **증상**: public 스키마의 `finance_projects/invoices/expenses` 및 `cashflows`가 작업 중 두 차례 전부 사라짐.
-- **할 일**:
-  - 의심 경로 점검: `prisma db push`(스키마 드리프트 시 data loss), 로컬 docker 볼륨 재생성, `import-finance-csv.ts`의 `deleteMany`(파괴적) 우발 실행, 동시 실행 프로세스.
-  - Postgres 로그 + 컨테이너 재시작 이력 확인, `docker compose` 볼륨 영속성 검증.
-- **수용 기준**: 재현 경로 1개 이상 특정 또는 "볼륨/스키마 안정" 확인 문서화.
+### P0-1. 마스터 데이터 유실 원인 규명 ✅ (규명 완료)
+- **증상**: public 스키마의 `finance_*` 데이터가 작업 중 두 차례 사라짐.
+- **근본 원인 확정**: 로컬 작업트리의 `packages/db/prisma/schema.prisma`가 **origin/main과 divergent(stale)** 상태였음
+  (main의 `DeliveryProject` 모델이 로컬엔 없고 옛 `Engagement`/`MeetingNote`로 되어 있었음). 이 상태에서 `pnpm db:push`를
+  여러 번 실행 → Prisma가 DB를 **stale 스키마 형상으로 동기화하며 테이블 drop/rename** → 데이터 소실.
+- **조치 완료**:
+  - 로컬 `schema.prisma`를 origin/main과 일치하도록 복원, finance 필드(P1-1)만 정상 add.
+  - 향후 `db:push` 전 **`git diff origin/main -- schema.prisma`로 드리프트 확인** 습관화(런북에 명시).
+- **재발 방지(권장)**: 로컬 `db:push` 의존을 줄이고 P0-3의 마이그레이션으로 전환, push 전 `cfo:snapshot` 자동화.
 
 ### P0-2. 비파괴적 · 멱등 복원 시드 ✅ (완료)
 - ~~현재 `import-finance-csv.ts`는 전체 deleteMany 후 재생성이라 자금흐름까지 날림.~~
