@@ -199,7 +199,11 @@ function loadMessagesFromSqlite(sqlitePath) {
     ORDER BY datetime(received_at) DESC
     LIMIT ${INGEST_LIMIT};
   `;
-  const output = execFileSync("sqlite3", ["-json", sqlitePath, sql], { encoding: "utf8" });
+  const output = execFileSync("sqlite3", ["-json", sqlitePath, sql], {
+    encoding: "utf8",
+    // Large mailboxes (raw_json per row) easily exceed the 1MB default buffer.
+    maxBuffer: 512 * 1024 * 1024,
+  });
   const rows = JSON.parse(output || "[]");
   return rows.map(normalizeSqliteMessageRow);
 }
