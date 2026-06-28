@@ -111,6 +111,10 @@ services:
     build:
       context: ./services/sangfor-engineer-mcp
       dockerfile: Dockerfile
+    # Run BOTH the HTTP bridge (3600) and the operator console (3502).
+    # Belt-and-suspenders with the image CMD (docker-entrypoint.sh) so the
+    # console comes up even if the image is rebuilt from an older Dockerfile.
+    command: ["sh", "./docker-entrypoint.sh"]
     ports:
       - "3600:3600"
       - "3502:3502"
