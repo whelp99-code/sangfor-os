@@ -3,6 +3,7 @@ import {
   advanceOpportunityStage,
   convertOpportunityToProject,
   getOpportunityDetail,
+  promoteMeetingThreads,
   removeOpportunityLink,
   updateOpportunity,
 } from "@sangfor/business";
@@ -50,6 +51,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     if (body.action === "convert_to_project") {
+      // Surface mail-derived meeting threads first so the conversion absorbs them.
+      await promoteMeetingThreads({ opportunityId: id });
       const result = await convertOpportunityToProject({
         opportunityId: id,
         name: body.name,
