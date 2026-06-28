@@ -74,6 +74,7 @@ router.get('/cashflows', ok((req: any) => cashflows.list({
   type: q(req, 'type'), projectId: q(req, 'projectId'), limit: num(q(req, 'limit')) ?? 100,
 })));
 router.get('/cashflows/:id', ok((req: any) => cashflows.get(req.params.id)));
+router.post('/cashflows/import', ok((req: any) => cashflows.importMany(req.body.rows ?? [])));
 router.post('/cashflows', ok((req: any) => cashflows.create(req.body)));
 router.patch('/cashflows/:id', ok((req: any) => cashflows.update(req.params.id, req.body)));
 router.delete('/cashflows/:id', ok((req: any) => cashflows.delete(req.params.id)));
