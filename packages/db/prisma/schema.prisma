@@ -1385,6 +1385,7 @@ model DomainMemory {
   source     String   @default("agent")
   confidence Int      @default(80)
   status     String   @default("active")
+  embedding  Float[]  @default([]) // V2: semantic recall (app-layer cosine)
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 

@@ -27,6 +27,7 @@ export interface DomainMemoryRecord {
   confidence: number;
   status: string;
   createdAt?: Date;
+  embedding?: number[];
 }
 
 export interface RecallQuery {
@@ -97,6 +98,7 @@ export async function upsertDomainMemory(input: {
   source?: string;
   confidence?: number;
   status?: string;
+  embedding?: number[];
 }) {
   const projectId = await resolveProjectId(input.projectSlug);
   const data = {
@@ -107,6 +109,7 @@ export async function upsertDomainMemory(input: {
     source: input.source ?? "agent",
     confidence: input.confidence ?? 80,
     status: input.status ?? "active",
+    ...(input.embedding ? { embedding: input.embedding } : {}),
   };
   return prisma.domainMemory.upsert({
     where: {
@@ -175,6 +178,7 @@ export async function loadDomainMemories(
     confidence: row.confidence,
     status: row.status,
     createdAt: row.createdAt,
+    embedding: (row as { embedding?: number[] }).embedding ?? [],
   }));
 }
 

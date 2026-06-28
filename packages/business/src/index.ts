@@ -32,6 +32,8 @@ export * from "./mail-candidate-connections";
 export * from "./color-agent";
 export * from "./domain-pipeline";
 export * from "./domain-memory";
+export * from "./domain-agent-runtime";
+export * from "./domain-embedding";
 export * from "./quote-engine";
 export * from "./revenue-core";
 export * from "./commercial-approval";
