@@ -36,6 +36,7 @@ export const PORTAL_NAV: NavItem[] = [
 
   // ═══ Knowledge & Intelligence ═══
   { title: "Agent Console", href: "/agent-console", icon: "bot", group: "Intelligence" },
+  { title: "Knowledge Search", href: "/knowledge-search", icon: "search", group: "Intelligence" },
   { title: "지식베이스", href: "/knowledge", icon: "book-open", group: "Intelligence" },
   { title: "Mail Intelligence", href: "/mail-intelligence", icon: "mail", group: "Intelligence" },
   { title: "메일 후보", href: "/development/mail-candidates", icon: "inbox", group: "Intelligence" },

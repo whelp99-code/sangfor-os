@@ -20,5 +20,21 @@ export type {
 export { listMcpTools, callMcpTool } from './mcp-client'
 export type { McpTool, McpCallResult, McpClientOptions } from './mcp-client'
 
+export {
+  withRetry,
+  defaultShouldRetry,
+  CircuitBreaker,
+  HttpStatusError,
+} from './resilience'
+export type { RetryOptions, CircuitBreakerOptions, CircuitState } from './resilience'
+
 export { engineerConsole } from './engineer-console'
-export type { EngineerConsoleOptions } from './engineer-console'
+export type {
+  EngineerConsoleOptions,
+  RagHit,
+  RagSearchResult,
+  ProductInfo,
+  ProductsResult,
+  KnowledgeItem,
+  KnowledgeResult,
+} from './engineer-console'
