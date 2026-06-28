@@ -14,8 +14,10 @@ import {
 describe("mode matrix", () => {
   it("defines every required role, AI, and operating mode", () => {
     expect(ROLE_MODES).toEqual([
+      "marketing",
       "sales",
       "presales",
+      "engineer",
       "delivery",
       "support",
       "cfo",
