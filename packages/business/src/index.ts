@@ -36,6 +36,7 @@ export * from "./domain-agent-runtime";
 export * from "./domain-embedding";
 export * from "./opencode-client";
 export * from "./domain-llm";
+export * from "./domain-model-policy";
 export * from "./quote-engine";
 export * from "./revenue-core";
 export * from "./commercial-approval";
