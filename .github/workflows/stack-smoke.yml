@@ -1,0 +1,62 @@
+name: Stack Smoke
+
+# Regression guard for the reproducible bring-up (see
+# docs/plans/reproducibility-and-config-durability-plan.md, P1/P3):
+# build + start the container stack and assert that the engineer-mcp container
+# serves BOTH the bridge (3600) and the operator console (3502) — the P0 fix —
+# plus the mock console (3400). The host workflow console (3500) is exercised
+# locally via `make up`, not here (it needs host pnpm provisioning).
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docker-compose.yml'
+      - 'services/sangfor-engineer-mcp/**'
+      - 'scripts/stack.sh'
+      - 'Makefile'
+      - '.github/workflows/stack-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  container-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate compose + shell scripts
+        run: |
+          docker compose config -q
+          bash -n scripts/stack.sh
+          bash -n services/sangfor-engineer-mcp/docker-entrypoint.sh
+          bash -n services/sangfor-mcp-workflow/start-console.sh
+
+      - name: Build + start container stack
+        run: |
+          docker compose up -d --build \
+            postgres redis sangfor-engineer-mcp sangfor-mcp-mock-console
+
+      - name: Assert health (bridge 3600 / console 3502 / mock 3400)
+        run: |
+          probe() { curl -s -o /dev/null -w '%{http_code}' --max-time 4 "$1" || echo 000; }
+          fail=0
+          for ep in \
+            "bridge:3600|http://localhost:3600/health" \
+            "console:3502|http://localhost:3502/api/health/store" \
+            "mock:3400|http://localhost:3400/"; do
+            name="${ep%%|*}"; url="${ep##*|}"; ok=0
+            for _ in $(seq 1 60); do
+              if [ "$(probe "$url")" = "200" ]; then echo "✓ $name"; ok=1; break; fi
+              sleep 2
+            done
+            if [ "$ok" != 1 ]; then echo "✗ $name ($url)"; fail=1; fi
+          done
+          exit "$fail"
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs sangfor-engineer-mcp sangfor-mcp-mock-console || true
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v || true

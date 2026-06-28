@@ -88,20 +88,27 @@ services:
         condition: service_healthy
 
   # ═══ External Services (Mock Mode) ═══
+  # These are STATIC 200 stubs, not real services. They are gated behind the
+  # `mock` profile so a plain `docker compose up` never starts them (a green
+  # stub would otherwise read as "working"). Start explicitly with:
+  #   docker compose --profile mock up -d
   sangfor-mcp:
     image: node:20-alpine
+    profiles: ["mock"]
     command: node -e "const http=require('http');http.createServer((q,r)=>{r.writeHead(200,{'Content-Type':'application/json'});r.end(JSON.stringify({status:'ok',service:'sangfor-mcp'}))}).listen(3500)"
     ports:
       - "3501:3500"
 
   vibe-coding:
     image: node:20-alpine
+    profiles: ["mock"]
     command: node -e "const http=require('http');http.createServer((q,r)=>{r.writeHead(200,{'Content-Type':'application/json'});r.end(JSON.stringify({status:'ok',service:'vibe-coding'}))}).listen(4000)"
     ports:
       - "4000:4000"
 
   mail-intelligence:
     image: node:20-alpine
+    profiles: ["mock"]
     command: node -e "const http=require('http');http.createServer((q,r)=>{r.writeHead(200,{'Content-Type':'application/json'});r.end(JSON.stringify({status:'ok',service:'mail-intelligence'}))}).listen(3010)"
     ports:
       - "3010:3010"
