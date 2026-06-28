@@ -1,5 +1,9 @@
 import Link from "next/link";
 
+// CFO pages render live data from the api (/api/cfo) and use client-only
+// charts; opt out of static prerender for the whole section.
+export const dynamic = "force-dynamic";
+
 const NAV = [
   { href: "/cfo/dashboard", label: "대시보드" },
   { href: "/cfo/invoices", label: "미수금" },
