@@ -1,4 +1,4 @@
-import type { AgentStatus, AgentStep } from "@sangfor/agent";
+import type { AgentStatus, AgentStep, StageResult } from "@sangfor/agent";
 
 export type RunSource = "manual" | "playbook" | "schedule";
 
@@ -29,6 +29,19 @@ export interface Playbook {
   allowUnsafe: boolean;
   maxSteps?: number;
   createdAt: string;
+}
+
+/** A persisted cross-service workflow run. */
+export interface WorkflowRunRecord {
+  id: string;
+  requirements: string;
+  status: "running" | "completed" | "blocked" | "error";
+  stages: StageResult[];
+  awaitingApproval?: string;
+  approvals: string[];
+  error?: string;
+  createdAt: string;
+  finishedAt?: string;
 }
 
 /** An interval schedule that runs a playbook. */

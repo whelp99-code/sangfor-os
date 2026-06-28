@@ -19,3 +19,6 @@ export type {
 
 export { listMcpTools, callMcpTool } from './mcp-client'
 export type { McpTool, McpCallResult, McpClientOptions } from './mcp-client'
+
+export { engineerConsole } from './engineer-console'
+export type { EngineerConsoleOptions } from './engineer-console'

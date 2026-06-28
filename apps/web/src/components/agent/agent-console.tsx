@@ -1,18 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, BookMarked, CalendarClock, type LucideIcon } from "lucide-react";
+import { Bot, BookMarked, CalendarClock, Workflow, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 import { PlaybooksPanel } from "./playbooks-panel";
 import { RunPanel } from "./run-panel";
 import { SchedulesPanel } from "./schedules-panel";
+import { WorkflowPanel } from "./workflow-panel";
 
-type View = "run" | "playbooks" | "schedules";
+type View = "run" | "workflow" | "playbooks" | "schedules";
 
 const TABS: { id: View; label: string; Icon: LucideIcon }[] = [
   { id: "run", label: "실행", Icon: Bot },
+  { id: "workflow", label: "워크플로우", Icon: Workflow },
   { id: "playbooks", label: "플레이북", Icon: BookMarked },
   { id: "schedules", label: "스케줄", Icon: CalendarClock },
 ];
@@ -58,6 +60,7 @@ export function AgentConsole() {
       </div>
 
       {view === "run" && <RunPanel />}
+      {view === "workflow" && <WorkflowPanel />}
       {view === "playbooks" && <PlaybooksPanel />}
       {view === "schedules" && <SchedulesPanel />}
     </div>

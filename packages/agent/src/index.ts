@@ -1,3 +1,5 @@
+import { engineerConsole } from "@sangfor/infra";
+
 import { runAgent } from "./agent";
 import {
   SAFE_MCP_TOOLS,
@@ -5,6 +7,8 @@ import {
   executeMcpTool,
   listMcpAgentTools,
 } from "./adapters";
+import { buildConfigAutomationWorkflow, runWorkflow } from "./workflow";
+import type { StageResult, WorkflowRunResult } from "./workflow";
 import type { AgentRunResult, AgentStep, AgentTool, LlmComplete, ToolExecutor } from "./types";
 
 export { runAgent } from "./agent";
@@ -28,6 +32,17 @@ export type {
   ToolExecResult,
   ToolExecutor,
 } from "./types";
+export { runWorkflow, buildConfigAutomationWorkflow } from "./workflow";
+export type {
+  StageDef,
+  StageResult,
+  StageStatus,
+  StageContext,
+  WorkflowStageKind,
+  WorkflowRunResult,
+  RunWorkflowOptions,
+  ConfigAutomationDeps,
+} from "./workflow";
 
 export interface RunMcpAgentInput {
   goal: string;
@@ -58,4 +73,30 @@ export async function runMcpAgent(input: RunMcpAgentInput): Promise<AgentRunResu
     maxSteps: input.maxSteps,
     onStep: input.onStep,
   });
+}
+
+export interface RunConfigAutomationInput {
+  requirements: string;
+  /** Approval stage ids that have been signed off (resume after approval). */
+  approvals?: string[];
+  onStage?: (stage: StageResult) => void;
+  llm?: LlmComplete;
+}
+
+/**
+ * Convenience entry point for the cross-service config-automation workflow,
+ * wired to the live engineer console + configured LLM. The mutating apply stage
+ * is intentionally left unconfigured (no-op) until an explicit apply client is
+ * provided.
+ */
+export function runConfigAutomation(input: RunConfigAutomationInput): Promise<WorkflowRunResult> {
+  const { id, title, stages } = buildConfigAutomationWorkflow({
+    requirements: input.requirements,
+    deps: {
+      analyzeProject: (body) => engineerConsole.analyzeProject(body),
+      generateConfigPlan: (body) => engineerConsole.generateConfigPlan(body),
+      llm: input.llm ?? createOpenAiLlm({ jsonMode: true }),
+    },
+  });
+  return runWorkflow({ id, title, stages, approvals: input.approvals, onStage: input.onStage });
 }
