@@ -41,9 +41,9 @@ export function MonthlyPnlChart({ data }: { data: TrendPoint[] }) {
         <YAxis tickFormatter={krwCompact} tick={{ fontSize: 11, fill: "#a1a1aa" }} tickLine={false} axisLine={false} width={48} />
         <Tooltip formatter={(value) => krwFull(Number(value))} labelStyle={{ color: "#18181b" }} />
         <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="매출" fill="#2563eb" radius={[4, 4, 0, 0]} maxBarSize={28} />
-        <Bar dataKey="비용" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={28} />
-        <Line dataKey="순이익" stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} />
+        <Bar dataKey="매출" fill="#1B7A5A" radius={[4, 4, 0, 0]} maxBarSize={28} />
+        <Bar dataKey="비용" fill="#B4413A" radius={[4, 4, 0, 0]} maxBarSize={28} />
+        <Line dataKey="순이익" stroke="#C8A24B" strokeWidth={2} dot={{ r: 3 }} />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -56,15 +56,15 @@ export function CashflowForecastChart({ data }: { data: ForecastPoint[] }) {
       <AreaChart data={rows} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
         <defs>
           <linearGradient id="bal" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35} />
-            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+            <stop offset="5%" stopColor="#1B7A5A" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="#1B7A5A" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
         <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#71717a" }} tickLine={false} minTickGap={24} />
         <YAxis tickFormatter={krwCompact} tick={{ fontSize: 11, fill: "#a1a1aa" }} tickLine={false} axisLine={false} width={48} />
         <Tooltip formatter={(value) => krwFull(Number(value))} labelStyle={{ color: "#18181b" }} />
-        <Area dataKey="잔액" stroke="#6366f1" strokeWidth={2} fill="url(#bal)" />
+        <Area dataKey="잔액" stroke="#1B7A5A" strokeWidth={2} fill="url(#bal)" />
       </AreaChart>
     </ResponsiveContainer>
   );
