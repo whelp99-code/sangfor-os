@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AIOS_DIR="/Users/jmpark/Playground/AIOS v1"
-MAIL_DIR="/Users/jmpark/Playground/apps/mail-intelligence"
+# External projects — override via env; default under $HOME (was a hardcoded
+# /Users/jmpark/... path).
+AIOS_DIR="${AIOS_V1_DIR:-$HOME/Playground/AIOS v1}"
+MAIL_DIR="${MAIL_INTELLIGENCE_DIR:-$HOME/Playground/apps/mail-intelligence}"
 LOG_DIR="${AIOS_DIR}/.launcher-logs"
 
 mkdir -p "${LOG_DIR}"
@@ -54,19 +56,19 @@ if [[ -d "${MAIL_DIR}" && -f "${MAIL_DIR}/package.json" && ! -d "${MAIL_DIR}/nod
 fi
 
 log "Starting AIOS web dev server in a new Terminal window..."
-osascript <<'APPLESCRIPT'
+osascript <<APPLESCRIPT
 tell application "Terminal"
   activate
-  do script "cd '/Users/jmpark/Playground/AIOS v1' && echo 'Starting AIOS v1 web server...' && PORT=10100 pnpm dev"
+  do script "cd '${AIOS_DIR}' && echo 'Starting AIOS v1 web server...' && PORT=10100 pnpm dev"
 end tell
 APPLESCRIPT
 
 if [[ -d "${MAIL_DIR}" && -f "${MAIL_DIR}/package.json" ]]; then
   log "Starting standalone Mail Intelligence in a new Terminal window..."
-  osascript <<'APPLESCRIPT'
+  osascript <<APPLESCRIPT
 tell application "Terminal"
   activate
-  do script "cd '/Users/jmpark/Playground/apps/mail-intelligence' && echo 'Starting standalone Mail Intelligence...' && pnpm dev"
+  do script "cd '${MAIL_DIR}' && echo 'Starting standalone Mail Intelligence...' && pnpm dev"
 end tell
 APPLESCRIPT
 fi
