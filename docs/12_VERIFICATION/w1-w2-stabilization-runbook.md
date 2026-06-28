@@ -27,7 +27,7 @@ pnpm build
 ## Health check
 
 ```bash
-WEB_URL=http://localhost:3101 API_URL=http://localhost:3200 FINANCE_URL=http://localhost:4100 bash scripts/health-check.sh
+WEB_URL=http://localhost:3101 API_URL=http://localhost:3200 FINANCE_URL=http://localhost:3200/api/cfo bash scripts/health-check.sh
 ```
 
 Critical checks must pass. Optional service checks may report skipped/unavailable when the service is not running.

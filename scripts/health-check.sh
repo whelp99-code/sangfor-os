@@ -4,7 +4,9 @@ set -u
 FAILED=0
 API_BASE="${API_URL:-http://localhost:3200}"
 WEB_BASE="${WEB_URL:-http://localhost:3101}"
-FINANCE_BASE="${FINANCE_URL:-http://localhost:4100}"
+# Finance/CFO is served by the api at /api/cfo (the standalone :4100 service
+# was removed). Health route: /api/cfo/health.
+FINANCE_BASE="${FINANCE_URL:-http://localhost:3200/api/cfo}"
 
 check_required() {
   local name="$1" url="$2" expected="$3"
