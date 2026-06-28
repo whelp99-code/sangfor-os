@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import CrudTable from "@/components/cfo/crud-table";
 import { BankCsvImport } from "@/components/cfo/bank-csv-import";
 
@@ -85,14 +86,59 @@ const CASHFLOW_COLUMNS = [
 ];
 
 export default function CashflowsPage() {
+  const [projectOptions, setProjectOptions] = useState<{ value: string; label: string }[]>([]);
+  const [rematching, setRematching] = useState(false);
+  const [rematchMsg, setRematchMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/finance/projects?limit=500")
+      .then((r) => r.json())
+      .then((rows: { id: string; name: string }[]) =>
+        setProjectOptions([{ value: "", label: "(미지정)" }, ...rows.map((p) => ({ value: p.id, label: p.name }))]),
+      )
+      .catch(() => setProjectOptions([{ value: "", label: "(미지정)" }]));
+  }, []);
+
+  const rematch = async () => {
+    setRematching(true);
+    setRematchMsg(null);
+    try {
+      const res = await fetch("/api/finance/cashflows/rematch", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "실패");
+      setRematchMsg(`✅ ${data.matched}건 프로젝트 자동 연결 (${data.scanned}건 검사)`);
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e) {
+      setRematchMsg(`❌ ${e instanceof Error ? e.message : "오류"}`);
+    } finally {
+      setRematching(false);
+    }
+  };
+
+  // Project select is appended so rows can be (re)assigned manually.
+  const fields = [
+    ...CASHFLOW_FIELDS,
+    { name: "projectId", label: "프로젝트", type: "select" as const, options: projectOptions },
+  ];
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">자금흐름</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">자금흐름</h1>
+        <button
+          onClick={rematch}
+          disabled={rematching}
+          className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+        >
+          {rematching ? "매칭 중…" : "프로젝트 자동 재매칭"}
+        </button>
+      </div>
+      {rematchMsg && <p className="text-sm">{rematchMsg}</p>}
       <BankCsvImport />
       <CrudTable
         title=""
         endpoint="cashflows"
-        fields={CASHFLOW_FIELDS}
+        fields={fields}
         columns={CASHFLOW_COLUMNS}
       />
     </div>
