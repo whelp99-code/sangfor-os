@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { probeAllIntegrationTargets } from "@sangfor/infra";
 
+import { healthHistory } from "@/lib/health/history-store";
+import { notifyTransitions } from "@/lib/health/alerts";
+
 export const dynamic = "force-dynamic";
 
 /**
@@ -10,6 +13,15 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const targets = await probeAllIntegrationTargets();
+
+    // Record the probe into the time-series and alert on healthiness flips.
+    const transitions = healthHistory.recordAndDetect(
+      targets.map((t) => ({ id: t.id, status: t.status, latencyMs: t.latencyMs })),
+    );
+    if (transitions.length > 0) {
+      void notifyTransitions(transitions);
+    }
+
     const healthy = targets.filter((t) => t.status === "healthy").length;
     const degraded = targets.filter((t) => t.status === "degraded").length;
     const unreachable = targets.filter((t) => t.status === "unreachable").length;

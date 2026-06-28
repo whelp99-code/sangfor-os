@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshCw, ServerCog } from "lucide-react";
+import { LineChart, RefreshCw, ServerCog } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+import { HealthTrends } from "./health-trends";
 import { STATUS_META, StatusPill, normalizeStatus, type IntegrationStatus } from "./status-ui";
 
 type Target = {
@@ -49,6 +50,7 @@ export function IntegrationHealthPanel({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [showTrends, setShowTrends] = useState(false);
   const mounted = useRef(true);
 
   const load = useCallback(async () => {
@@ -102,6 +104,17 @@ export function IntegrationHealthPanel({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {!loading && data && <StatusPill status={overallStatus} />}
+          {!compact && (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => setShowTrends((v) => !v)}
+              aria-label="추이 보기 전환"
+              aria-pressed={showTrends}
+            >
+              <LineChart className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+          )}
           <Button
             variant="outline"
             size="icon-sm"
@@ -183,6 +196,13 @@ export function IntegrationHealthPanel({
               );
             })}
           </ul>
+        )}
+
+        {showTrends && !compact && (
+          <div className="border-t border-border pt-3">
+            <p className="mb-2 text-xs font-semibold text-muted-foreground">레이턴시 추이 · 가동률</p>
+            <HealthTrends />
+          </div>
         )}
       </CardContent>
     </Card>
