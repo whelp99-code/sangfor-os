@@ -28,18 +28,24 @@
     "docker:dev": "docker compose -f docker-compose.yml up -d postgres redis"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@prisma/client", "prisma"],
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "prisma"
+    ],
     "overrides": {
       "postcss": "8.5.10"
     }
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.60.0",
     "@types/node": "^20.0.0",
     "cypress": "^15.16.0",
+    "eslint": "^9.39.4",
     "playwright": "^1.60.0",
     "turbo": "^2.5.0",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.62.0",
     "vitest": "^3.2.4"
   },
   "dependencies": {

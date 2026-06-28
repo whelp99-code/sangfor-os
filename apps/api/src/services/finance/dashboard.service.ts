@@ -81,13 +81,11 @@ export class DashboardService {
       where: { depositStatus: { not: '완료' } },
       _sum: { amount: true },
     });
-    let currentCash = outstanding._sum.amount ?? 0;
-
     const forecast: { date: string; balance: number }[] = [];
     for (let d = 0; d <= days; d += 7) {
       const date = new Date(today);
       date.setDate(date.getDate() + d);
-      currentCash = (outstanding._sum.amount ?? 0) - dailyExpense * d;
+      const currentCash = (outstanding._sum.amount ?? 0) - dailyExpense * d;
       forecast.push({
         date: date.toISOString().slice(0, 10),
         balance: Math.round(currentCash),
