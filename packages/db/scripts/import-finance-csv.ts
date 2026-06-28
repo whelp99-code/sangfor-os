@@ -90,7 +90,9 @@ function kdate(v: string | undefined): Date | null {
   if (!v) return null;
   const m = v.match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
   if (!m) return null;
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  // Use UTC midnight so the stored instant round-trips to the exact calendar
+  // date regardless of the host timezone (local midnight would shift a day).
+  return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
 }
 
 function projName(v: string | undefined): string | null {
@@ -239,7 +241,7 @@ async function main() {
   const idByName = new Map<string, string>();
   for (const p of projects) {
     const created = await prisma.financeProject.create({
-      data: { name: p.name, status: p.status ?? undefined },
+      data: { name: p.name, status: p.status },
     });
     idByName.set(p.name, created.id);
   }
@@ -347,27 +349,40 @@ async function main() {
     if (db !== csv) diffs.push(`${label}: db=${db} csv=${csv}`);
   }
 
-  // Row-level: every CSV invoice has a matching DB row (project+buyer+amount+total+depositStatus)
+  // Row-level: every CSV row must match a DB row on all mapped fields incl. dates.
+  const dstr = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
   const invKey = (r: {
-    project?: string | null;
-    projectId?: string | null;
     buyer: string | null;
     amount: number;
     total: number;
     depositStatus: string | null;
-  }) => `${r.buyer}|${r.amount}|${r.total}|${r.depositStatus}`;
+    depositAmount: number | null;
+    depositDate: Date | null;
+  }) =>
+    `${r.buyer}|${r.amount}|${r.total}|${r.depositStatus}|${r.depositAmount ?? ""}|${dstr(r.depositDate)}`;
   const dbInvKeys = new Set(dbInv.map((r) => invKey(r)));
   for (const i of invoices) {
     if (!dbInvKeys.has(invKey(i))) diffs.push(`invoice missing in db: ${invKey(i)}`);
   }
-  const expKey = (r: { expenseName: string; vendor: string | null; amount: number; total: number }) =>
-    `${r.expenseName}|${r.vendor}|${r.amount}|${r.total}`;
+  const expKey = (r: {
+    expenseName: string;
+    vendor: string | null;
+    amount: number;
+    total: number;
+    date: Date | null;
+    isPaid: boolean;
+  }) => `${r.expenseName}|${r.vendor}|${r.amount}|${r.total}|${dstr(r.date)}|${r.isPaid}`;
   const dbExpKeys = new Set(dbExp.map((r) => expKey(r)));
   for (const e of expenses) {
     if (!dbExpKeys.has(expKey(e))) diffs.push(`expense missing in db: ${expKey(e)}`);
   }
-  const cashKey = (r: { counterparty: string; amount: number; cashChange: number; type: string }) =>
-    `${r.counterparty}|${r.amount}|${r.cashChange}|${r.type}`;
+  const cashKey = (r: {
+    counterparty: string;
+    amount: number;
+    cashChange: number;
+    type: string;
+    date: Date | null;
+  }) => `${r.counterparty}|${r.amount}|${r.cashChange}|${r.type}|${dstr(r.date)}`;
   const dbCashKeys = new Set(dbCash.map((r) => cashKey(r)));
   for (const c of cashflows) {
     if (!dbCashKeys.has(cashKey(c))) diffs.push(`cashflow missing in db: ${cashKey(c)}`);
