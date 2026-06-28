@@ -3,11 +3,23 @@ import { ApiKeyManager, createDevelopmentAuthContext, type Role, type BusinessRo
 
 const keyManager = new ApiKeyManager()
 
+const ENV_API_KEYS: Array<{ env: string; name: string; role: Role }> = [
+  { env: 'FINANCE_API_KEY', name: 'finance', role: 'manager' },
+  { env: 'API_KEY', name: 'default', role: 'admin' },
+]
+
 const API_KEY_ROLE_TO_BUSINESS_ROLE: Record<Role, BusinessRole> = {
   admin: 'system_admin',
   manager: 'finance_manager',
   user: 'account_manager',
   viewer: 'account_manager',
+}
+
+for (const { env, name, role } of ENV_API_KEYS) {
+  const key = process.env[env]?.trim()
+  if (key) {
+    keyManager.registerKey(key, name, role)
+  }
 }
 
 export function apiKeyMiddleware(req: Request, res: Response, next: NextFunction) {

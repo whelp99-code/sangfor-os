@@ -4,6 +4,8 @@ import {
 } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
+import { buildProposalActionGuards } from "@/lib/proposal-action-guards";
+
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(_request: Request, context: RouteContext) {
@@ -11,7 +13,10 @@ export async function GET(_request: Request, context: RouteContext) {
   try {
     const document = await getGeneratedDocumentDetail(id);
     if (!document) return NextResponse.json({ error: "not_found" }, { status: 404 });
-    return NextResponse.json({ document });
+    return NextResponse.json({
+      document,
+      actionGuards: buildProposalActionGuards(document.status),
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "fetch_failed" },

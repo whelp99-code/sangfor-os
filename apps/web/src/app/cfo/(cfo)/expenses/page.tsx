@@ -16,9 +16,9 @@ const EXPENSE_FIELDS = [
       { value: "기타", label: "기타" },
     ],
   },
-  { name: "supplier", label: "매입처", type: "text" as const },
+  { name: "vendor", label: "매입처", type: "text" as const },
   { name: "date", label: "일자", type: "date" as const },
-  { name: "supplyAmount", label: "공급가액", type: "number" as const, step: 1000 },
+  { name: "amount", label: "공급가액", type: "number" as const, step: 1000 },
   { name: "vat", label: "VAT", type: "number" as const, step: 100 },
   {
     name: "paymentMethod",
@@ -48,10 +48,10 @@ const EXPENSE_FIELDS = [
 
 const EXPENSE_COLUMNS = [
   { key: "expenseName", label: "지출명" },
-  { key: "supplier", label: "매입처" },
+  { key: "vendor", label: "매입처" },
   { key: "category", label: "구분" },
   { key: "date", label: "일자", format: (v: string) => (v ? new Date(v).toLocaleDateString("ko-KR") : "-") },
-  { key: "supplyAmount", label: "공급가액", format: (v: number) => `₩${(v ?? 0).toLocaleString()}` },
+  { key: "amount", label: "공급가액", format: (v: number) => `₩${(v ?? 0).toLocaleString()}` },
   { key: "vat", label: "VAT", format: (v: number) => `₩${(v ?? 0).toLocaleString()}` },
   { key: "total", label: "합계", format: (v: number) => `₩${(v ?? 0).toLocaleString()}` },
   { key: "isPaid", label: "납입", format: (v: boolean) => (v ? "✅" : "⬜") },

@@ -34,9 +34,6 @@ export const PORT_REGISTRY = {
   WHELP99_MCP_BRIDGE: 3600,
   WHELP99_OPERATOR_CONSOLE: 3502, // sangfor-mcp-workflow(3500)와 분리
 
-  // Non-integration (Playground sibling — vibe 4000 충돌 방지)
-  CFO_AI_API: 4100,
-
   // External
   LM_STUDIO: 1234,
 } as const;

@@ -276,3 +276,117 @@ Result: PASS. Recursive workspace tests passed, including:
 
 - This hardens tRPC protected routes. Next.js route handlers under
   `apps/web/src/app/api` still need route-by-route scope review.
+
+## Batch: opencode CFO Integration Review
+
+### Scope
+
+- Reviewed opencode's CFO integration changes that merge the old CFO service
+  surface into `apps/api` on port 3200.
+- Fixed CFO REST route exposure so `/api/cfo/health*` remains public but all
+  other `/api/cfo/*` REST routes require API key middleware.
+- Fixed the web finance proxy to forward `/api/finance/*` to the integrated
+  `/api/cfo/*` API path.
+- Removed client-side hardcoded `localhost:3200/api/cfo` calls from CFO CRUD and
+  chat components, routing them through the same-origin `/api/finance/*` proxy.
+- Aligned CFO expenses UI field names with the new API model:
+  `vendor` and `amount`.
+- Fixed Docker web environment to expose `NEXT_PUBLIC_FINANCE_URL` as
+  `http://localhost:3200/api/cfo` instead of leaving a commented/null value.
+- Aligned server-side CFO client API key lookup with the proxy by supporting
+  `FINANCE_API_KEY` before falling back to `API_KEY`.
+- Hardened the finance proxy response handling so non-JSON upstream errors keep
+  the upstream status instead of being collapsed into a generic 503.
+
+### Commands
+
+```bash
+git diff --check
+```
+
+Result: PASS. No whitespace or patch formatting errors.
+
+```bash
+rg -n "fetch\\(\\\"/api/cfo|fetch\\('/api/cfo|localhost:4100|127\\.0\\.0\\.1:4100|CFO REST routes \\(before auth|most need auth" apps packages docker-compose.yml HEALTH-REGISTRY.yaml PORT-MAPPING.yaml -g '!node_modules'
+```
+
+Result: PASS. No stale direct CFO API calls or old 4100 references found.
+
+```bash
+find . -maxdepth 3 -path '*/node_modules/.bin/tsc' -o -path '*/node_modules/.bin/vitest' -o -path '*/node_modules/.bin/prisma'
+```
+
+Result: BLOCKED. No local `tsc`, `vitest`, or `prisma` binaries are currently
+linked under workspace `node_modules`, so typecheck/test cannot run without
+restoring dependencies.
+
+```bash
+pnpm typecheck
+pnpm test
+```
+
+Result: BLOCKED in this environment. `pnpm` attempted supply-chain lockfile
+verification through `registry.npmjs.org`, but network access is restricted.
+The install/check attempt was interrupted to avoid waiting on retries, and the
+workspace dependency links still need to be restored before full verification.
+
+### Notes
+
+- The Prisma finance schema changes are not applied to any live database in
+  this batch. DB migration/push remains approval-required.
+- Full typecheck/test should be rerun after dependencies are restored in a
+  network-enabled or pre-warmed environment.
+
+## Batch: CFO Integration P0/P1 Remediation
+
+### Scope
+
+- Fixed `/api/cfo/*` API key validation by adding `ApiKeyManager.registerKey()`
+  and registering `FINANCE_API_KEY` / `API_KEY` at API startup.
+- Aligned Docker web-to-api CFO routing with the integrated API service by
+  setting `FINANCE_API_URL` and `CFO_API_URL` to `http://api:3200/api/cfo`.
+- Added matching `FINANCE_API_KEY` environment wiring to both `api` and `web`
+  containers.
+- Removed the duplicate Docker host port collision by moving the mock
+  `sangfor-mcp` host port from `3500` to `3501`, preserving
+  `sangfor-mcp-workflow` on canonical host port `3500`.
+- Changed root `pnpm dev:finance` to run the integrated `@sangfor/api` service
+  instead of the deprecated standalone `@sangfor/finance` service.
+- Removed the stale `CFO_AI_API: 4100` port registry entry and added a unit test
+  for registering existing API secrets.
+
+### Commands
+
+```bash
+git diff --check
+```
+
+Result: PASS. No whitespace or patch formatting errors.
+
+```bash
+ruby -ryaml -e 'data=YAML.load_file("docker-compose.yml"); ports=Hash.new{|h,k| h[k]=[]}; data.fetch("services").each{|svc,cfg| Array(cfg["ports"]).each{|p| host=p.to_s.split(":").first; ports[host] << svc if host && host != "" }}; dup=ports.select{|_,v| v.size>1}; puts dup.empty? ? "no duplicate host ports" : dup.inspect; exit(dup.empty? ? 0 : 1)'
+```
+
+Result: PASS. Docker Compose has no duplicate host ports.
+
+```bash
+rg -n 'CFO_AI_API|@sangfor/finance dev|NEXT_PUBLIC_FINANCE_URL: http://localhost:4100|FINANCE_API_URL: http://api:3200/api/cfo|CFO_API_URL: http://api:3200/api/cfo|FINANCE_API_KEY:|registerKey' package.json docker-compose.yml PORT-MAPPING.yaml packages/config/src/ports.ts apps/api/src/middleware/api-key.ts packages/auth/src apps/web/src/lib/cfo-client.ts 'apps/web/src/app/api/finance/[...path]/route.ts'
+```
+
+Result: PASS. Expected `registerKey`, Docker CFO env, and updated port entries
+are present; stale `CFO_AI_API` and legacy `@sangfor/finance dev` references
+are absent.
+
+```bash
+pnpm --filter @sangfor/auth test
+```
+
+Result: BLOCKED in this environment. `pnpm` attempted supply-chain lockfile
+verification through `registry.npmjs.org`, but network access is restricted.
+The command was interrupted after repeated DNS retry warnings.
+
+### Notes
+
+- `.pnpm-store/` created by the blocked pnpm attempt was removed.
+- Full typecheck/test remains pending until dependencies are restored in a
+  network-enabled or pre-warmed environment.

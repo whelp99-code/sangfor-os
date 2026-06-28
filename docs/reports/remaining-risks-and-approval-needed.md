@@ -10,6 +10,7 @@ Date: 2026-06-26
 | Lint gate unavailable | `pnpm lint` fails because `eslint` is not found in workspace scripts | Decide whether to add/restore lint dependency or adjust package lint scripts |
 | AIOS v1 parity unproven | Bridge and scripts exist, but smoke evidence is pending | Run mock/read-only bridge health checks |
 | Foundation gaps remain | AuthContext scope, tRPC protected input scope guard, RLS code/test baseline, and centralized audit hash-chain writer are started; Next API route scope review, DB-level audit immutability, high-risk event coverage, and operational RLS application remain partial | Continue Next API route-by-route scope migration and broaden hashed audit coverage; apply RLS only after approval |
+| CFO schema migration risk | opencode merged CFO models/routes into `apps/api`, but Prisma finance model changes are not applied to a live DB | Run Prisma validate/typecheck after dependency restore; prepare explicit migration before DB push |
 | Certification Matrix missing | Final package includes it, canonical TypeScript implementation not found | Locate source implementation or add package/API model |
 | Data Export Governance partial | Skeleton/docs exist, runtime gate coverage not proven | Map export/share/print/copy paths and gate them |
 

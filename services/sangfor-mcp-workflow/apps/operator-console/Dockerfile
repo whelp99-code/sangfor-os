@@ -5,10 +5,12 @@ WORKDIR /app
 RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages/*/package.json packages/*/
-COPY apps/operator-console/package.json apps/operator-console/
+COPY apps ./apps
+COPY packages ./packages
+RUN find apps packages -type f ! -name 'package.json' -delete \
+ && find apps packages -type d -empty -delete 2>/dev/null || true
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 COPY . .
 

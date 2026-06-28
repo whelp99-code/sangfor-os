@@ -1,3 +1,5 @@
+import { evaluateCommercialApproval, type CommercialApprovalDecision } from "./commercial-approval";
+
 export interface QuoteLineItem {
   productName: string
   quantity: number
@@ -19,12 +21,27 @@ export interface QuoteResult {
   overallMarginPct: number
   requiresCommercialApproval: boolean
   commercialGateReason?: string
+  approvalDecision: CommercialApprovalDecision
 }
 
 const MIN_MARGIN_PCT = 15
 const MAX_DISCOUNT_PCT = 25
 
+function assertPercentage(value: number, errorCode: string) {
+  if (!Number.isFinite(value) || value < 0 || value > 100) throw new Error(errorCode)
+}
+
+function validateLineItem(item: QuoteLineItem) {
+  if (!Number.isFinite(item.quantity) || item.quantity <= 0) throw new Error("quote_quantity_must_be_positive")
+  if (!Number.isFinite(item.unitPrice) || item.unitPrice < 0) throw new Error("quote_price_must_be_non_negative")
+  if (!Number.isFinite(item.costPrice) || item.costPrice < 0) throw new Error("quote_price_must_be_non_negative")
+  assertPercentage(item.discountPct, "quote_discount_must_be_percentage")
+}
+
 export function calculateQuote(lineItems: QuoteLineItem[]): QuoteResult {
+  if (lineItems.length === 0) throw new Error("quote_line_items_required")
+  lineItems.forEach(validateLineItem)
+
   const items = lineItems.map(item => {
     const revenue = item.quantity * item.unitPrice * (1 - item.discountPct / 100)
     const cost = item.quantity * item.costPrice
@@ -37,21 +54,111 @@ export function calculateQuote(lineItems: QuoteLineItem[]): QuoteResult {
   const totalCost = items.reduce((s, i) => s + i.cost, 0)
   const totalMargin = totalRevenue - totalCost
   const overallMarginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0
+  const maxDiscount = Math.max(...lineItems.map(i => i.discountPct))
 
-  let requiresCommercialApproval = false
+  const approvalDecision = totalRevenue > 0
+    ? evaluateCommercialApproval({
+        revenue: totalRevenue,
+        cost: totalCost,
+        discountPercent: maxDiscount,
+        action: "view-dashboard",
+        lowMarginThresholdPercent: MIN_MARGIN_PCT,
+        highDiscountThresholdPercent: MAX_DISCOUNT_PCT,
+      })
+    : {
+        revenue: totalRevenue,
+        cost: totalCost,
+        grossMargin: totalMargin,
+        grossMarginPercent: 0,
+        decision: "requires_approval" as const,
+        blocked: true,
+        reasons: ["low_margin" as const],
+      }
+  if (maxDiscount === MAX_DISCOUNT_PCT) {
+    approvalDecision.reasons = approvalDecision.reasons.filter(reason => reason !== "high_discount")
+    approvalDecision.decision = approvalDecision.reasons.length > 0 ? "requires_approval" : "allowed"
+    approvalDecision.blocked = approvalDecision.reasons.length > 0
+  }
+
+  let requiresCommercialApproval = approvalDecision.reasons.some(reason => reason === "low_margin" || reason === "high_discount")
   let commercialGateReason: string | undefined
 
   if (overallMarginPct < MIN_MARGIN_PCT) {
-    requiresCommercialApproval = true
     commercialGateReason = `Overall margin ${overallMarginPct.toFixed(1)}% is below ${MIN_MARGIN_PCT}% threshold`
   }
 
-  const maxDiscount = Math.max(...lineItems.map(i => i.discountPct))
   if (maxDiscount > MAX_DISCOUNT_PCT) {
     requiresCommercialApproval = true
     const reason = `Discount ${maxDiscount}% exceeds ${MAX_DISCOUNT_PCT}% maximum`
     commercialGateReason = commercialGateReason ? `${commercialGateReason}; ${reason}` : reason
   }
 
-  return { lineItems: items, totalRevenue, totalCost, totalMargin, overallMarginPct, requiresCommercialApproval, commercialGateReason }
+  return { lineItems: items, totalRevenue, totalCost, totalMargin, overallMarginPct, requiresCommercialApproval, commercialGateReason, approvalDecision }
+}
+
+export type QuoteLifecycleStatus = "draft" | "ready_for_approval" | "approved" | "rejected"
+
+export type QuoteSnapshotInput = {
+  quoteId: string
+  version: number
+  status: QuoteLifecycleStatus
+  quote: QuoteResult
+}
+
+export type QuoteSnapshot = {
+  quoteId: string
+  version: number
+  status: QuoteLifecycleStatus
+  lineItems: QuoteResult["lineItems"]
+  totals: {
+    revenue: number
+    cost: number
+  }
+  margin: {
+    amount: number
+    pct: number
+  }
+  totalRevenue: number
+  totalCost: number
+  totalMargin: number
+  overallMarginPct: number
+  approvalDecision: QuoteResult["approvalDecision"]
+}
+
+export type QuoteMutationInput = {
+  status: QuoteLifecycleStatus | string
+  action: "edit-line-items" | "change-discount" | "submit-for-approval" | string
+}
+
+export type QuoteMutationDecision =
+  | { allowed: true }
+  | { allowed: false; reason: "approved_quote_is_immutable" }
+
+export function createQuoteSnapshot(input: QuoteSnapshotInput): QuoteSnapshot {
+  return {
+    quoteId: input.quoteId,
+    version: input.version,
+    status: input.status,
+    lineItems: input.quote.lineItems,
+    totals: {
+      revenue: input.quote.totalRevenue,
+      cost: input.quote.totalCost,
+    },
+    margin: {
+      amount: input.quote.totalMargin,
+      pct: input.quote.overallMarginPct,
+    },
+    totalRevenue: input.quote.totalRevenue,
+    totalCost: input.quote.totalCost,
+    totalMargin: input.quote.totalMargin,
+    overallMarginPct: input.quote.overallMarginPct,
+    approvalDecision: input.quote.approvalDecision,
+  }
+}
+
+export function evaluateQuoteMutation(input: QuoteMutationInput): QuoteMutationDecision {
+  if (input.status === "approved") {
+    return { allowed: false, reason: "approved_quote_is_immutable" }
+  }
+  return { allowed: true }
 }

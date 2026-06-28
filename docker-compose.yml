@@ -55,6 +55,7 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgresql://sangfor:sangfor_password@postgres:5432/sangfor_os
       REDIS_URL: redis://redis:6379
+      FINANCE_API_KEY: ${FINANCE_API_KEY:-sangfor-internal-finance}
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,18 +67,19 @@ services:
       timeout: 5s
       retries: 3
 
-  finance:
-    build:
-      context: ./packages/finance
-      dockerfile: Dockerfile
-    ports:
-      - "4100:4100"
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://sangfor:sangfor_password@postgres:5432/sangfor_os
-    depends_on:
-      postgres:
-        condition: service_healthy
+  # finance: [DEPRECATED — merged into api]
+  # finance:
+  #   build:
+  #     context: ./packages/finance
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "4100:4100"
+  #   environment:
+  #     NODE_ENV: production
+  #     DATABASE_URL: postgresql://sangfor:sangfor_password@postgres:5432/sangfor_os
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
 
   web:
     build:
@@ -88,7 +90,10 @@ services:
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: http://localhost:3200
-      NEXT_PUBLIC_FINANCE_URL: http://localhost:4100
+      NEXT_PUBLIC_FINANCE_URL: http://localhost:3200/api/cfo
+      FINANCE_API_URL: http://api:3200/api/cfo
+      CFO_API_URL: http://api:3200/api/cfo
+      FINANCE_API_KEY: ${FINANCE_API_KEY:-sangfor-internal-finance}
     depends_on:
       api:
         condition: service_healthy
@@ -98,7 +103,7 @@ services:
     image: node:20-alpine
     command: node -e "const http=require('http');http.createServer((q,r)=>{r.writeHead(200,{'Content-Type':'application/json'});r.end(JSON.stringify({status:'ok',service:'sangfor-mcp'}))}).listen(3500)"
     ports:
-      - "3500:3500"
+      - "3501:3500"
 
   vibe-coding:
     image: node:20-alpine

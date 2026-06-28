@@ -4,11 +4,27 @@ import { z } from "zod";
 
 export { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey };
 
+const CUSTOMER_FACING_PROPOSAL_ACTIONS = ["send", "export", "share"] as const;
+
+type ProposalAction = (typeof CUSTOMER_FACING_PROPOSAL_ACTIONS)[number] | "review" | "edit";
+
+export function evaluateProposalAction(input: { status: string; action: ProposalAction | string }) {
+  if (
+    (CUSTOMER_FACING_PROPOSAL_ACTIONS as readonly string[]).includes(input.action) &&
+    input.status !== "approved"
+  ) {
+    return { allowed: false, reason: "proposal_action_requires_approval" } as const;
+  }
+  return { allowed: true } as const;
+}
+
 export const generateProposalSchema = z.object({
   projectSlug: z.string().default("demo-project"),
   templateKey: z.enum(PROPOSAL_TEMPLATE_KEYS).default("standard-proposal"),
   customerId: z.string().optional(),
   pocProjectId: z.string().optional(),
+  opportunityId: z.string().optional(),
+  sourceMailCandidateId: z.string().optional(),
   title: z.string().min(2),
   variables: z.record(z.string()).default({}),
 });

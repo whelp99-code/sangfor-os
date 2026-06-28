@@ -30,7 +30,7 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:4100/api/${endpoint}`);
+      const res = await fetch(`/api/finance/${endpoint}`);
       if (!res.ok) throw new Error("조회 실패");
       const json = await res.json();
       setData(json);
@@ -71,8 +71,8 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
     try {
       setSaving(true);
       const url = editRow
-        ? `http://localhost:4100/api/${endpoint}/${editRow.id}`
-        : `http://localhost:4100/api/${endpoint}`;
+        ? `/api/finance/${endpoint}/${editRow.id}`
+        : `/api/finance/${endpoint}`;
       const method = editRow ? "PATCH" : "POST";
       const res = await fetch(url, {
         method,
@@ -92,7 +92,7 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
   const handleDelete = async (id: string) => {
     if (!confirm("정말 삭제하시겠습니까?")) return;
     try {
-      const res = await fetch(`http://localhost:4100/api/${endpoint}/${id}`, {
+      const res = await fetch(`/api/finance/${endpoint}/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("삭제 실패");

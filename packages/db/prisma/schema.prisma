@@ -979,6 +979,7 @@ model MailDerivedCandidate {
   updatedAt         DateTime @updatedAt @map("updated_at")
   mailInsightThreadId String?  @map("mail_insight_thread_id")
   mailInsightThread  MailInsightThread? @relation(fields: [mailInsightThreadId], references: [id], onDelete: SetNull)
+  evidenceLinks MailEvidenceLink[]
 
   @@unique([knowledgeDocumentId, candidateType])
   @@unique([mailInsightThreadId, candidateType])
@@ -986,6 +987,22 @@ model MailDerivedCandidate {
   @@index([knowledgeDocumentId])
   @@index([mailInsightThreadId])
   @@map("mail_derived_candidates")
+}
+
+model MailEvidenceLink {
+  id                     String   @id @default(cuid())
+  mailDerivedCandidateId String   @map("mail_derived_candidate_id")
+  targetEntityType       String   @map("target_entity_type")
+  targetEntityId         String   @map("target_entity_id")
+  linkType               String   @default("related") @map("link_type")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  candidate MailDerivedCandidate @relation(fields: [mailDerivedCandidateId], references: [id], onDelete: Cascade)
+
+  @@unique([mailDerivedCandidateId, targetEntityType, targetEntityId, linkType])
+  @@index([mailDerivedCandidateId])
+  @@index([targetEntityType, targetEntityId])
+  @@map("mail_evidence_links")
 }
 
 model KnowledgeChunk {
@@ -1350,135 +1367,188 @@ model PolicyDecisionLog {
   @@map("policy_decision_logs")
 }
 
-// --- Finance models (CFO-AIOS) ---
+// --- CFO models (Korean accounting) ---
 
 model FinanceProject {
-  id          String   @id @default(cuid())
-  projectId   String   @map("project_id")
-  name        String
-  budget      Decimal? @db.Decimal(14, 2)
-  currency    String   @default("KRW")
-  status      String   @default("active")
-  startDate   DateTime? @map("start_date")
-  endDate     DateTime? @map("end_date")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id        String         @id @default(cuid())
+  name      String
+  status    String?        @default("active")
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  invoices  Invoice[]
+  expenses  Expense[]
+  cashflows Cashflow[]
 
-  invoices     FinanceInvoice[]
-  expenses     FinanceExpense[]
-  cashflows    FinanceCashflow[]
-  subscriptions FinanceSubscription[]
-  ledgerEntries LedgerEntry[]
-  monthCloses  MonthClose[]
-
-  @@index([projectId])
   @@map("finance_projects")
 }
 
-model FinanceInvoice {
-  id             String    @id @default(cuid())
-  financeProjectId String  @map("finance_project_id")
-  invoiceNumber  String    @map("invoice_number")
-  amount         Decimal   @db.Decimal(14, 2)
-  currency       String    @default("KRW")
-  status         String    @default("draft")
-  issuedAt       DateTime? @map("issued_at")
-  dueAt          DateTime? @map("due_at")
-  paidAt         DateTime? @map("paid_at")
-  notes          String?
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+model Invoice {
+  id             String        @id @default(cuid())
+  projectId      String?
+  project        FinanceProject? @relation(fields: [projectId], references: [id])
+  amount         Int           @default(0)
+  vat            Int           @default(0)
+  total          Int           @default(0)
+  depositAmount  Int?
+  depositStatus  String?       @default("미수")
+  depositDate    DateTime?
+  buyer          String?
+  memo           String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  taxInvoices    TaxInvoice[]
 
-  financeProject FinanceProject @relation(fields: [financeProjectId], references: [id], onDelete: Cascade)
-
-  @@index([financeProjectId])
-  @@index([status])
   @@map("finance_invoices")
 }
 
-model FinanceExpense {
-  id             String   @id @default(cuid())
-  financeProjectId String @map("finance_project_id")
-  description    String
-  category       String
-  amount         Decimal  @db.Decimal(14, 2)
-  currency       String   @default("KRW")
-  incurredAt     DateTime @default(now()) @map("incurred_at")
-  receiptUrl     String?  @map("receipt_url")
-  status         String   @default("pending")
-  createdAt      DateTime @default(now()) @map("created_at")
+model Expense {
+  id            String         @id @default(cuid())
+  projectId     String?
+  project       FinanceProject? @relation(fields: [projectId], references: [id])
+  expenseName   String         @default("")
+  amount        Int            @default(0)
+  vat           Int            @default(0)
+  total         Int            @default(0)
+  category      String?        @default("기타")
+  vendor        String?
+  date          DateTime       @default(now())
+  proofType     String?
+  paymentMethod String?
+  isPaid        Boolean        @default(false)
+  memo          String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
-  financeProject FinanceProject @relation(fields: [financeProjectId], references: [id], onDelete: Cascade)
-
-  @@index([financeProjectId])
   @@map("finance_expenses")
 }
 
-model FinanceCashflow {
-  id             String   @id @default(cuid())
-  financeProjectId String @map("finance_project_id")
-  flowType       String   @map("flow_type")
-  amount         Decimal  @db.Decimal(14, 2)
-  currency       String   @default("KRW")
-  occurredAt     DateTime @default(now()) @map("occurred_at")
-  description    String?
-  createdAt      DateTime @default(now()) @map("created_at")
+model Cashflow {
+  id           String         @id @default(cuid())
+  projectId    String?
+  project      FinanceProject? @relation(fields: [projectId], references: [id])
+  counterparty String         @default("")
+  amount       Int            @default(0)
+  cashChange   Int            @default(0)
+  type         String         @default("")
+  outAccount   String?        @map("out_account")
+  inAccount    String?        @map("in_account")
+  date         DateTime       @default(now())
+  memo         String?
 
-  financeProject FinanceProject @relation(fields: [financeProjectId], references: [id], onDelete: Cascade)
-
-  @@index([financeProjectId])
   @@map("finance_cashflows")
 }
 
 model FinanceSubscription {
-  id             String    @id @default(cuid())
-  financeProjectId String  @map("finance_project_id")
-  serviceName    String    @map("service_name")
-  amount         Decimal   @db.Decimal(14, 2)
-  billingCycle   String    @map("billing_cycle")
-  nextBillingAt  DateTime? @map("next_billing_at")
-  status         String    @default("active")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  id               String   @id @default(cuid())
+  name             String   @default("")
+  vendor           String?
+  amount           Int      @default(0)
+  currency         String   @default("KRW")
+  cycle            String   @default("monthly")
+  category         String?
+  nextBillingDate  DateTime @map("next_billing_date")
+  paymentMethod    String?  @map("payment_method")
+  notifyDaysBefore Int      @default(7) @map("notify_days_before")
+  isActive         Boolean  @default(true) @map("is_active")
+  memo             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  financeProject FinanceProject @relation(fields: [financeProjectId], references: [id], onDelete: Cascade)
-
-  @@index([financeProjectId])
   @@map("finance_subscriptions")
 }
 
 model LedgerEntry {
   id             String   @id @default(cuid())
-  financeProjectId String @map("finance_project_id")
-  entryType      String   @map("entry_type")
-  amount         Decimal  @db.Decimal(14, 2)
-  currency       String   @default("KRW")
-  accountCode    String?  @map("account_code")
-  description    String?
-  entryDate      DateTime @default(now()) @map("entry_date")
-  createdAt      DateTime @default(now()) @map("created_at")
+  date           DateTime @default(now())
+  description    String   @default("")
+  debitAccount   String   @map("debit_account")
+  creditAccount  String   @map("credit_account")
+  amount         Int      @default(0)
+  reference      String?
+  referenceType  String?  @map("reference_type")
+  memo           String?
 
-  financeProject FinanceProject @relation(fields: [financeProjectId], references: [id], onDelete: Cascade)
-
-  @@index([financeProjectId])
-  @@index([entryDate])
-  @@map("ledger_entries")
+  @@map("finance_ledger_entries")
 }
 
 model MonthClose {
-  id             String   @id @default(cuid())
-  financeProjectId String @map("finance_project_id")
-  closeMonth     Int      @map("close_month")
-  closeYear      Int      @map("close_year")
-  status         String   @default("open")
-  closedAt       DateTime? @map("closed_at")
-  notes          String?
-  createdAt      DateTime @default(now()) @map("created_at")
+  id                 String   @id @default(cuid())
+  year               Int
+  month              Int
+  status             String   @default("in_progress")
+  startedAt          DateTime? @map("started_at")
+  completedAt        DateTime? @map("completed_at")
+  totalRevenue       Int?     @map("total_revenue")
+  totalExpense       Int?     @map("total_expense")
+  netIncome          Int?     @map("net_income")
+  uncategorizedCount Int?     @map("uncategorized_count")
+  notes              String?
 
-  financeProject FinanceProject @relation(fields: [financeProjectId], references: [id], onDelete: Cascade)
+  @@unique([year, month])
+  @@map("finance_month_closes")
+}
 
-  @@unique([financeProjectId, closeYear, closeMonth])
-  @@map("month_closes")
+model TaxInvoice {
+  id              String   @id @default(cuid())
+  invoiceId       String?  @map("invoice_id")
+  projectId       String?  @map("project_id")
+  invoice         Invoice? @relation(fields: [invoiceId], references: [id])
+  direction       String   @default("sales")
+  status          String   @default("draft")
+  supplierCorpNum String   @map("supplier_corp_num")
+  supplierName    String   @map("supplier_name")
+  buyerCorpNum    String   @map("buyer_corp_num")
+  buyerName       String   @map("buyer_name")
+  supplyAmount    Int      @default(0) @map("supply_amount")
+  vatAmount       Int      @default(0) @map("vat_amount")
+  totalAmount     Int      @default(0) @map("total_amount")
+  issueDate       DateTime @map("issue_date")
+  memo            String?
+  rawResponse     String?  @map("raw_response")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("finance_tax_invoices")
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  title     String   @default("새 대화")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages  ChatMessage[]
+
+  @@map("finance_chat_sessions")
+}
+
+model ChatMessage {
+  id         String      @id @default(cuid())
+  sessionId  String      @map("session_id")
+  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role       String      @default("user")
+  content    String      @default("")
+  toolName   String?     @map("tool_name")
+  toolResult String?     @map("tool_result")
+  createdAt  DateTime    @default(now())
+
+  @@index([sessionId])
+  @@map("finance_chat_messages")
+}
+
+model FinanceAccount {
+  id           String    @id @default(cuid())
+  type         String    @default("bank")
+  organization String    @default("")
+  accountName  String    @map("account_name")
+  accountNum   String?   @map("account_num")
+  connectedId  String?   @map("connected_id")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastSyncedAt DateTime? @map("last_synced_at")
+  memo         String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("finance_accounts")
 }
 
 // --- Color Agent models ---

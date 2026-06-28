@@ -1,41 +1,44 @@
 import { describe, expect, it } from "vitest";
+import { buildFinanceProxyUrl } from "../../src/lib/finance-proxy";
 
 describe("finance proxy", () => {
-  it("should use FINANCE_API_URL from env with fallback", () => {
-    const url = process.env.FINANCE_API_URL || "http://localhost:4100";
+  it("should use FINANCE_API_URL from env with fallback to CFO API path", () => {
+    const url = process.env.FINANCE_API_URL || "http://localhost:3200/api/cfo";
     expect(url).toBeTruthy();
   });
 
   it("should construct proxy URL correctly", () => {
-    const path = "dashboard/summary";
-    const financeUrl = "http://localhost:4100";
-    const url = `${financeUrl}/api/${path}`;
-    expect(url).toBe("http://localhost:4100/api/dashboard/summary");
+    const url = buildFinanceProxyUrl(
+      "/api/finance/dashboard/summary",
+      "",
+      "http://localhost:3200/api/cfo",
+    );
+    expect(url).toBe("http://localhost:3200/api/cfo/dashboard/summary");
   });
 
   it("should append query params to proxied URL", () => {
-    const path = "invoices";
-    const search = "?status=open&page=1";
-    const financeUrl = "http://localhost:4100";
-    const url = `${financeUrl}/api/${path}${search}`;
-    expect(url).toBe("http://localhost:4100/api/invoices?status=open&page=1");
+    const url = buildFinanceProxyUrl(
+      "/api/finance/invoices",
+      "?status=open&page=1",
+      "http://localhost:3200/api/cfo",
+    );
+    expect(url).toBe("http://localhost:3200/api/cfo/invoices?status=open&page=1");
   });
 
   it("should send X-API-Key header", () => {
-    const key = process.env.FINANCE_API_KEY || "test-key";
+    const key = process.env.FINANCE_API_KEY || process.env.API_KEY || "test-key";
     expect(key).toBeTruthy();
   });
 
-  it("should return 503 when finance service is unreachable", async () => {
-    const financeUrl = "http://localhost:0";
+  it("should return 503 when API service is unreachable", async () => {
+    const apiUrl = "http://localhost:0";
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 100);
     try {
-      await fetch(`${financeUrl}/api/health`, {
+      await fetch(`${apiUrl}/api/health`, {
         signal: controller.signal,
       });
     } catch {
-      // expected to fail — service unavailable
       expect(true).toBe(true);
     } finally {
       clearTimeout(timeout);

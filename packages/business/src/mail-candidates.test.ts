@@ -71,6 +71,62 @@ describe("mail candidate classification", () => {
     expect(result.candidates.some((candidate) => candidate.title.includes("Customer: 넥시아스"))).toBe(false);
   });
 
+  it("suppresses internal domain raw mail fallback documents", () => {
+    const result = classifyMailCandidateDocument({
+      title: "Mail: [URGENT] Server is down - need immediate fix",
+      body: [
+        "From: Kim Ops",
+        "Email: ops@blro.co.kr",
+        "Received: 2026-06-20T09:15:00Z",
+        "MessageId: msg001",
+        "",
+        "Production server crashed at 9am. All services down.",
+      ].join("\n"),
+      tags: ["mail-intelligence", "urgent", "critical"],
+    });
+
+    expect(result.candidates).toHaveLength(0);
+    expect(result.excluded[0]?.entityRole).toBe("internal_company");
+  });
+
+  it("suppresses newsletter raw mail fallback documents", () => {
+    const result = classifyMailCandidateDocument({
+      title: "Mail: FW: Industry newsletter - June edition",
+      body: [
+        "From: Industry News",
+        "Email: newsletter@industry.com",
+        "Received: 2026-06-20T06:30:00Z",
+        "MessageId: msg004",
+        "",
+        "June newsletter with industry updates.",
+      ].join("\n"),
+      tags: ["mail-intelligence"],
+    });
+
+    expect(result.candidates).toHaveLength(0);
+    expect(result.excluded[0]?.reason).toContain("newsletter");
+  });
+
+  it("keeps actionable customer proposal raw mail documents", () => {
+    const result = classifyMailCandidateDocument({
+      title: "Mail: RE: Product demo feedback",
+      body: [
+        "From: Choi Client",
+        "Email: client@samsung.com",
+        "Received: 2026-06-20T06:00:00Z",
+        "MessageId: msg006",
+        "",
+        "Great demo! We want to proceed with 200 units. Can you send proposal?",
+      ].join("\n"),
+      tags: ["mail-intelligence"],
+    });
+
+    expect(result.candidates.map((candidate) => candidate.candidateType)).toEqual(
+      expect.arrayContaining(["customer", "opportunity", "task"]),
+    );
+    expect(result.excluded).toHaveLength(0);
+  });
+
   it("excludes internal-company Mail Intelligence threads from customer candidates", () => {
     const result = classifyMailInsightThread({
       threadKey: "conv-internal",
@@ -176,5 +232,89 @@ describe("mail candidate classification", () => {
 
     expect(result.candidates.some((c) => c.candidateType === "partner" && c.title.includes("Sangfor Tech Support"))).toBe(true);
     expect(result.excluded).toHaveLength(0);
+  });
+
+  it("suppresses existing proposed promotional fallback customer candidates", async () => {
+    const { prisma } = await import("@sangfor/db");
+    const { generateMailDerivedCandidates } = await import("./mail-candidates");
+    const { resolveProjectId } = await import("./mail-policy-memory");
+
+    const projectId = await resolveProjectId("demo-project");
+    const unique = Date.now();
+    const candidate = await prisma.mailDerivedCandidate.create({
+      data: {
+        candidateType: "customer",
+        title: `Customer: Newsletter ${unique}`,
+        summary: "Industry newsletter with unsubscribe and promotional updates.",
+        sourceTitle: "Mail: Industry newsletter",
+        sourceSender: "Industry News",
+        confidence: 70,
+        status: "proposed",
+        metadata: {
+          email: `newsletter.${unique}@industry.example.com`,
+          legacyKnowledgeFallback: true,
+          tags: ["mail-intelligence"],
+        },
+      },
+    });
+
+    await generateMailDerivedCandidates({ projectSlug: "demo-project", limit: 8 });
+
+    const updated = await prisma.mailDerivedCandidate.findUniqueOrThrow({ where: { id: candidate.id } });
+    expect(updated.status).toBe("knowledge_only");
+    expect(updated.metadata).toMatchObject({
+      policyDecision: { reason: expect.stringContaining("promotional") },
+    });
+  });
+
+  it("processes legacy knowledge fallback documents even when mail insight threads exist", async () => {
+    const { prisma } = await import("@sangfor/db");
+    const { generateMailDerivedCandidates } = await import("./mail-candidates");
+    const { resolveProjectId } = await import("./mail-policy-memory");
+
+    const projectId = await resolveProjectId("demo-project");
+    const unique = Date.now();
+    await prisma.mailInsightThread.create({
+      data: {
+        projectId,
+        threadKey: `test-thread-${unique}`,
+        threadTitle: `Existing thread ${unique}`,
+        summary: "Existing thread keeps threads.length above zero.",
+        status: "active",
+        effectiveStatus: "active",
+        aiEnhanced: false,
+        messageIds: [],
+        nextActions: [],
+        evidenceItems: [],
+        revenueOpsTags: [],
+        participantDomains: ["example.com"],
+      },
+    });
+    const document = await prisma.knowledgeDocument.create({
+      data: {
+        projectId,
+        title: `Mail: Legacy quote request ${unique}`,
+        body: [
+          "From: Legacy Buyer",
+          `Email: legacy.${unique}@buyer.example.com`,
+          "Received: 2026-06-20T06:00:00Z",
+          `MessageId: legacy-${unique}`,
+          "",
+          "Please send a quote and proposal for 200 units.",
+        ].join("\n"),
+        tags: ["mail-intelligence"],
+        source: "mail-intelligence",
+      },
+    });
+
+    await generateMailDerivedCandidates({ projectSlug: "demo-project", limit: 20, legacyKnowledgeFallback: true });
+
+    const created = await prisma.mailDerivedCandidate.findFirst({
+      where: {
+        knowledgeDocumentId: document.id,
+        candidateType: "opportunity",
+      },
+    });
+    expect(created).not.toBeNull();
   });
 });

@@ -53,8 +53,8 @@ export default function SecurityPage() {
 
   return (
     <AIWorkspaceLayout
-      title="Security Dashboard"
-      subtitle="Role-based operational dashboard"
+      title="Security workspace"
+      subtitle="Unsafe action policy, approval responsibilities, and audit/evidence readiness"
       activities={securityActivities}
       stats={securityStats}
       onCommand={handleCommand}
@@ -62,6 +62,13 @@ export default function SecurityPage() {
       {loading && <div className="space-y-4">{Array.from({length:4}).map((_,i) => <Skeleton key={i} className="h-48" />)}</div>}
       {!loading && (
         <div className="space-y-6">
+          <Card>
+            <CardHeader><CardTitle>Unsafe actions</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p>send, export, share, delete, deploy, real-upstream-write, production-db-mutation, release-tag</p>
+              <p>All unsafe actions require approval before external or irreversible execution.</p>
+            </CardContent>
+          </Card>
           <div className="grid grid-cols-3 gap-4">
         {/* Restricted Data Access */}
         <Card className="col-span-2"><CardHeader><CardTitle>Restricted Data Access</CardTitle></CardHeader>

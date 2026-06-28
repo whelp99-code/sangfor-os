@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "pnpm --filter @sangfor/db build && pnpm -r --parallel dev",
     "dev:web": "pnpm --filter @sangfor/web dev",
-    "dev:finance": "pnpm --filter @sangfor/finance dev",
+    "dev:finance": "pnpm --filter @sangfor/api dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",

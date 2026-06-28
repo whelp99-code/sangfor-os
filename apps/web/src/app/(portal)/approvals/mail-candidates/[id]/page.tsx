@@ -3,9 +3,11 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { buildMailCandidateConnectionDefaults } from "@sangfor/business/mail-candidate-connections";
 import { prisma } from "@sangfor/db";
 
 import { MailCandidateActions } from "@/components/development/mail-candidate-actions";
+import { ApproveConnectForm } from "@/components/mail-candidates/approve-connect-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -92,6 +94,7 @@ export default async function MailCandidateApprovalDetailPage({ params }: PagePr
   const policyDecision = nestedRecord(candidate.metadata, "policyDecision");
   const requiresAiCheck =
     ["task", "opportunity", "poc"].includes(candidate.candidateType) && !revalidation;
+  const connectionDefaults = buildMailCandidateConnectionDefaults(candidate);
 
   return (
     <div className="space-y-6">
@@ -166,9 +169,22 @@ export default async function MailCandidateApprovalDetailPage({ params }: PagePr
             ) : null}
           </CardContent>
         </Card>
-	      </div>
+      </div>
 
-	      <div className="grid gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Approve and connect to CRM / proposal</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ApproveConnectForm
+            candidateId={candidate.id}
+            status={candidate.status}
+            defaults={connectionDefaults}
+          />
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
 	        <Card>
 	          <CardHeader>
 	            <CardTitle>Mail Intelligence evidence</CardTitle>

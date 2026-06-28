@@ -45,13 +45,9 @@ services:
       expect_status: [200]
     notes: "/api/health 없음 — outlook/status 사용"
 
-  cfo-aios:
-    port: 4100
-    path: ~/Playground/CFO-AIOS/apps/api
-    health:
-      type: http
-      url: "http://127.0.0.1:4100/api/health"
-      expect_status: [200]
+  # cfo-aios: [DEPRECATED — merged into aiosv2-api:3200]
+  # CFO routes now live under aiosv2-api:
+  #   url: "http://127.0.0.1:3200/api/cfo/health"
 
   sangfor-operator:
     port: 3500

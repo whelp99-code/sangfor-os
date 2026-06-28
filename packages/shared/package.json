@@ -8,11 +8,18 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./tracing": {
       "types": "./dist/tracing/otel.d.ts",
-      "import": "./dist/tracing/otel.js"
+      "import": "./dist/tracing/otel.js",
+      "default": "./dist/tracing/otel.js"
+    },
+    "./modes": {
+      "types": "./src/modes.ts",
+      "import": "./src/modes.ts",
+      "default": "./src/modes.ts"
     }
   },
   "scripts": {

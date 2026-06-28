@@ -193,7 +193,8 @@ describe.skipIf(!integrationEnabled)("phase13 orchestrator integration", () => {
       });
 
       expect(result.commandRunId).toBeTruthy();
-      expect(result.skillRuns.length).toBeGreaterThan(3);
+      // Default phase-13 flow runs analyze-feature-requests + aios-work-breakdown.
+      expect(result.skillRuns.length).toBeGreaterThanOrEqual(2);
       expect(result.workBreakdownItems.length).toBeGreaterThan(0);
       expect(result.skillRuns.every((run) => run.executionMode === "template")).toBe(
         true,

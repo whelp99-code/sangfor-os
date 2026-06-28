@@ -4,7 +4,7 @@ import { LedgerService } from '../ledger/ledger.service';
 export class CreateExpenseDto {
   projectId?: string;
   expenseName!: string;
-  supplyAmount?: number;
+  amount?: number;
   category?: string;
   vendor?: string;
   date?: string;
@@ -16,7 +16,7 @@ export class CreateExpenseDto {
 export class UpdateExpenseDto {
   projectId?: string;
   expenseName?: string;
-  supplyAmount?: number;
+  amount?: number;
   category?: string;
   vendor?: string;
   date?: string;
@@ -64,13 +64,13 @@ export class ExpensesService {
   }
 
   async create(dto: CreateExpenseDto) {
-    const supply = dto.supplyAmount ?? 0;
+    const supply = dto.amount ?? 0;
     const vat = this.calcVat(supply);
     const expense = await this.prisma.expense.create({
       data: {
         projectId: dto.projectId,
         expenseName: dto.expenseName,
-        supplyAmount: supply,
+        amount: supply,
         category: dto.category ?? '기타',
         vendor: dto.vendor,
         date: dto.date ? new Date(dto.date) : new Date(),
@@ -90,14 +90,14 @@ export class ExpensesService {
 
   async update(id: string, dto: UpdateExpenseDto) {
     const existing = await this.get(id);
-    const supply = dto.supplyAmount ?? existing.supplyAmount ?? 0;
+    const supply = dto.amount ?? existing.amount ?? 0;
     const vat = this.calcVat(supply);
     const updated = await this.prisma.expense.update({
       where: { id },
       data: {
         projectId: dto.projectId,
         expenseName: dto.expenseName,
-        supplyAmount: dto.supplyAmount,
+        amount: dto.amount,
         category: dto.category,
         vendor: dto.vendor,
         date: dto.date ? new Date(dto.date) : undefined,
