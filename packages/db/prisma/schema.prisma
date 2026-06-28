@@ -39,6 +39,8 @@ model Project {
   mailInsightThreads MailInsightThread[]
   policyMemories     PolicyMemory[]
   policyDecisionLogs PolicyDecisionLog[]
+  domainMemories     DomainMemory[]
+  domainDecisionLogs DomainDecisionLog[]
 
   @@map("projects")
 }
@@ -1365,6 +1367,52 @@ model PolicyDecisionLog {
   @@index([projectId, decisionType, createdAt])
   @@index([entityType, entityId])
   @@map("policy_decision_logs")
+}
+
+// --- Domain-axis memory (종축 도메인별 학습/기록) ---
+// PolicyMemory 패턴을 GTM 도메인 축으로 확장. `domain` 컬럼이 단독-writer 소유 경계.
+
+model DomainMemory {
+  id         String   @id @default(cuid())
+  projectId  String   @map("project_id")
+  domain     String // GtmDomain: marketing|sales|presales|engineer|cfo
+  memoryType String   @map("memory_type") // case | rule | exception
+  key        String
+  label      String
+  tags       String[] @default([])
+  valueJson  Json     @map("value_json")
+  outcome    String? // approved | rejected | corrected
+  source     String   @default("agent")
+  confidence Int      @default(80)
+  status     String   @default("active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, domain, memoryType, key])
+  @@index([projectId, domain, status])
+  @@map("domain_memories")
+}
+
+model DomainDecisionLog {
+  id            String   @id @default(cuid())
+  projectId     String   @map("project_id")
+  domain        String // GtmDomain
+  caseRef       String?  @map("case_ref") // 연결된 산출물 id (Quote/Invoice 등)
+  decisionType  String   @map("decision_type")
+  inputJson     Json?    @map("input_json")
+  outputJson    Json?    @map("output_json")
+  colorGateJson Json?    @map("color_gate_json") // 통과/실패한 컬러 렌즈
+  humanEditJson Json?    @map("human_edit_json") // 인간 반려/수정 (피드백 루프)
+  outcome       String? // approved | rejected | corrected
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, domain, decisionType, createdAt])
+  @@index([domain, caseRef])
+  @@map("domain_decision_logs")
 }
 
 // --- CFO models (Korean accounting) ---

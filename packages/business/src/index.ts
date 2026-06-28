@@ -30,6 +30,8 @@ export * from "./mail-policy-memory";
 export * from "./mail-candidates";
 export * from "./mail-candidate-connections";
 export * from "./color-agent";
+export * from "./domain-pipeline";
+export * from "./domain-memory";
 export * from "./quote-engine";
 export * from "./revenue-core";
 export * from "./commercial-approval";
