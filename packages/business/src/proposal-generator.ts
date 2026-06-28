@@ -2,6 +2,8 @@ import { prisma } from "@sangfor/db";
 import { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey } from "@sangfor/shared";
 import { z } from "zod";
 
+import { loadLlmConfigFromDb } from "./llm-settings";
+
 export { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey };
 
 const CUSTOMER_FACING_PROPOSAL_ACTIONS = ["send", "export", "share"] as const;
@@ -122,6 +124,7 @@ async function maybeEnhanceWithLlm(body: string, title: string): Promise<string>
 
 export async function generateProposal(input: z.infer<typeof generateProposalSchema>) {
   const parsed = generateProposalSchema.parse(input);
+  await loadLlmConfigFromDb(); // pick up web-saved OpenAI key for LLM enhancement
   await ensureProposalTemplates(parsed.projectSlug);
   const projectId = await resolveProjectId(parsed.projectSlug);
 
