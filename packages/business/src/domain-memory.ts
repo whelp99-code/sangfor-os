@@ -80,7 +80,7 @@ export function recallDomainMemories(
 
 // --- DB layer ---
 
-export async function resolveProjectId(slug = "demo-project") {
+export async function resolveDomainProjectId(slug = "demo-project") {
   const project = await prisma.project.findUniqueOrThrow({ where: { slug } });
   return project.id;
 }
@@ -100,7 +100,7 @@ export async function upsertDomainMemory(input: {
   status?: string;
   embedding?: number[];
 }) {
-  const projectId = await resolveProjectId(input.projectSlug);
+  const projectId = await resolveDomainProjectId(input.projectSlug);
   const data = {
     tags: input.tags ?? [],
     label: input.label,
@@ -143,7 +143,7 @@ export async function recordDomainDecision(input: {
   humanEditJson?: Prisma.InputJsonValue;
   outcome?: DomainOutcome;
 }) {
-  const projectId = await resolveProjectId(input.projectSlug);
+  const projectId = await resolveDomainProjectId(input.projectSlug);
   return prisma.domainDecisionLog.create({
     data: {
       projectId,
@@ -164,7 +164,7 @@ export async function loadDomainMemories(
   domain: GtmDomain,
   projectSlug = "demo-project",
 ): Promise<DomainMemoryRecord[]> {
-  const projectId = await resolveProjectId(projectSlug);
+  const projectId = await resolveDomainProjectId(projectSlug);
   const rows = await prisma.domainMemory.findMany({
     where: { projectId, domain, status: "active" },
   });
