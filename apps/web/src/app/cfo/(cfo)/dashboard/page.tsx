@@ -1,5 +1,7 @@
-import { cfoFetch, formatKrw } from "@/lib/cfo-client";
+import { cfoFetch } from "@/lib/cfo-client";
+import { CFO, krw } from "@/lib/cfo-theme";
 import { CashflowForecastChart, MonthlyPnlChart } from "@/components/cfo/dashboard-charts";
+import { RunwayGauge } from "@/components/cfo/runway-gauge";
 
 export const dynamic = "force-dynamic";
 
@@ -61,12 +63,10 @@ export default async function DashboardPage() {
     );
   }
 
-  // Year-to-date aggregates from the 12-month trend.
   const ytdRevenue = trend.reduce((s, t) => s + t.revenue, 0);
   const ytdExpense = trend.reduce((s, t) => s + t.expense, 0);
   const ytdNet = ytdRevenue - ytdExpense;
 
-  // Receivables: unpaid / partially-paid invoices, by remaining balance.
   const receivables = invoices
     .map((i) => ({
       buyer: i.buyer ?? i.project?.name ?? "—",
@@ -77,7 +77,6 @@ export default async function DashboardPage() {
     .sort((a, b) => b.remaining - a.remaining);
   const receivablesTotal = receivables.reduce((s, r) => s + r.remaining, 0);
 
-  // Project P&L: revenue (invoice supply) vs cost (expense supply).
   const pnl = new Map<string, { name: string; revenue: number; cost: number }>();
   for (const i of invoices) {
     const name = i.project?.name ?? "미배정";
@@ -97,116 +96,125 @@ export default async function DashboardPage() {
     .slice(0, 8);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">CFO 대시보드</h1>
-        <p className="text-sm text-zinc-500">최근 12개월 기준 · {year}년 {month}월</p>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-8" style={{ color: CFO.ink }}>
+      {/* Masthead — ledger title with a single brass rule */}
+      <header>
+        <div className="flex items-baseline justify-between">
+          <h1 className="text-2xl font-semibold tracking-tight">재무 콘솔</h1>
+          <span className="font-mono text-xs" style={{ color: CFO.muted }}>{year}.{String(month).padStart(2, "0")} · 최근 12개월</span>
+        </div>
+        <div className="mt-2 h-px w-full" style={{ background: CFO.hairline }} />
+        <div className="h-0.5 w-16" style={{ background: CFO.brass }} />
+      </header>
 
-      {/* Hero KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric title="미수금 잔액" value={formatKrw(kpi.outstandingAmount)} sub={`${kpi.outstandingCount}건 미회수`} accent="amber" />
-        <Metric title="현금 런웨이" value={kpi.cashRunwayMonths != null ? `${kpi.cashRunwayMonths}개월` : "—"} sub="미수금 ÷ 월 지출" accent="indigo" />
-        <Metric title="누적 매출 (12M)" value={formatKrw(ytdRevenue)} sub="입금 기준" accent="blue" />
-        <Metric title="누적 순이익 (12M)" value={formatKrw(ytdNet)} sub={`비용 ${formatKrw(ytdExpense)}`} accent={ytdNet >= 0 ? "green" : "red"} />
-      </div>
+      {/* Hero — the signature runway gauge */}
+      <RunwayGauge months={kpi.cashRunwayMonths} currentCash={forecast.currentCash} />
+
+      {/* Ledger KPI strip — hairline-divided, monospaced figures */}
+      <section className="grid grid-cols-2 gap-px overflow-hidden rounded-xl md:grid-cols-3 lg:grid-cols-6" style={{ background: CFO.hairline }}>
+        <LedgerCell label="미수금 잔액" value={krw(kpi.outstandingAmount)} note={`${kpi.outstandingCount}건 미회수`} tone="outflow" />
+        <LedgerCell label="누적매출 12M" value={krw(ytdRevenue)} note="입금 기준" tone="inflow" />
+        <LedgerCell label="누적순이익 12M" value={krw(ytdNet)} note={`비용 ${krw(ytdExpense)}`} tone={ytdNet >= 0 ? "inflow" : "outflow"} />
+        <LedgerCell label="이번 달 매출" value={krw(kpi.totalRevenue)} note={`${month}월`} />
+        <LedgerCell label="예상 부가세" value={krw(kpi.estimatedVat)} note="매입 VAT 기준" />
+        <LedgerCell label="월 구독비" value={krw(kpi.monthlySubscription)} note="정기 결제" />
+      </section>
 
       {/* Charts */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-xl border bg-white p-4 lg:col-span-2">
-          <h2 className="mb-3 text-sm font-semibold text-zinc-700">월별 매출 · 비용 · 순이익</h2>
+      <section className="grid gap-5 lg:grid-cols-3">
+        <Panel title="월별 매출 · 비용 · 순이익" className="lg:col-span-2">
           <MonthlyPnlChart data={trend} />
-        </div>
-        <div className="rounded-xl border bg-white p-4">
-          <h2 className="text-sm font-semibold text-zinc-700">자금흐름 예측 (90일)</h2>
-          <p className="mb-2 text-xs text-zinc-400">현재 현금 {formatKrw(forecast.currentCash)}</p>
+        </Panel>
+        <Panel title="자금흐름 예측 (90일)" subtitle={`현재 ${krw(forecast.currentCash)}`}>
           <CashflowForecastChart data={forecast.forecast} />
-        </div>
-      </div>
+        </Panel>
+      </section>
 
-      {/* Receivables + Project P&L */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border bg-white p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-zinc-700">미수금 현황</h2>
-            <span className="text-sm font-medium text-amber-600">{formatKrw(receivablesTotal)}</span>
-          </div>
-          <Table
+      {/* Ledgers */}
+      <section className="grid gap-5 lg:grid-cols-2">
+        <Panel title="미수금 현황" headerRight={<span className="font-mono text-sm" style={{ color: CFO.outflow }}>{krw(receivablesTotal)}</span>}>
+          <Ledger
             head={["거래처", "상태", "잔액"]}
-            rows={receivables.slice(0, 8).map((r, i) => [r.buyer, <Badge key={i} status={r.status} />, formatKrw(r.remaining)])}
+            rows={receivables.slice(0, 8).map((r, i) => [
+              r.buyer,
+              <StatusTag key={i} status={r.status} />,
+              <Num key={i} v={r.remaining} tone="outflow" />,
+            ])}
             empty="미수금 없음"
           />
-        </div>
-        <div className="rounded-xl border bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-zinc-700">프로젝트 손익 (Top 8)</h2>
-          <Table
+        </Panel>
+        <Panel title="프로젝트 손익 (Top 8)">
+          <Ledger
             head={["프로젝트", "매출", "원가", "이익"]}
             rows={projectPnl.map((p) => [
               p.name,
-              formatKrw(p.revenue),
-              formatKrw(p.cost),
-              <span key={p.name} className={p.profit >= 0 ? "text-green-600" : "text-red-600"}>{formatKrw(p.profit)}</span>,
+              <Num key="r" v={p.revenue} />,
+              <Num key="c" v={p.cost} />,
+              <Num key="p" v={p.profit} tone={p.profit >= 0 ? "inflow" : "outflow"} />,
             ])}
             empty="데이터 없음"
           />
+        </Panel>
+      </section>
+    </div>
+  );
+}
+
+function LedgerCell({ label, value, note, tone }: { label: string; value: string; note?: string; tone?: "inflow" | "outflow" }) {
+  const color = tone ? CFO[tone] : CFO.ink;
+  return (
+    <div className="bg-white px-4 py-3">
+      <p className="text-[11px] font-medium" style={{ color: CFO.muted }}>{label}</p>
+      <p className="mt-1 font-mono tabular-nums text-lg font-semibold" style={{ color }}>{value}</p>
+      {note && <p className="mt-0.5 text-[11px]" style={{ color: CFO.muted }}>{note}</p>}
+    </div>
+  );
+}
+
+function Panel({ title, subtitle, headerRight, className, children }: { title: string; subtitle?: string; headerRight?: React.ReactNode; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={`rounded-xl border bg-white p-4 ${className ?? ""}`} style={{ borderColor: CFO.hairline }}>
+      <div className="mb-3 flex items-baseline justify-between">
+        <div>
+          <h2 className="text-sm font-semibold" style={{ color: CFO.ink }}>{title}</h2>
+          {subtitle && <p className="text-xs" style={{ color: CFO.muted }}>{subtitle}</p>}
         </div>
+        {headerRight}
       </div>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Metric title="이번 달 매출" value={formatKrw(kpi.totalRevenue)} sub={`${month}월`} accent="blue" small />
-        <Metric title="예상 부가세" value={formatKrw(kpi.estimatedVat)} sub="매입 VAT 기준" accent="zinc" small />
-        <Metric title="월 구독비" value={formatKrw(kpi.monthlySubscription)} sub="정기 결제" accent="zinc" small />
-      </div>
+      {children}
     </div>
   );
 }
 
-const ACCENTS: Record<string, string> = {
-  amber: "#d97706",
-  indigo: "#4f46e5",
-  blue: "#2563eb",
-  green: "#16a34a",
-  red: "#dc2626",
-  zinc: "#52525b",
-};
-
-function Metric({ title, value, sub, accent = "zinc", small }: { title: string; value: string; sub?: string; accent?: string; small?: boolean }) {
+function Ledger({ head, rows, empty }: { head: string[]; rows: React.ReactNode[][]; empty: string }) {
+  if (rows.length === 0) return <p className="py-6 text-center text-sm" style={{ color: CFO.muted }}>{empty}</p>;
   return (
-    <div className="rounded-xl border bg-white p-4">
-      <p className="text-xs font-medium text-zinc-500">{title}</p>
-      <p className={`mt-1 font-semibold ${small ? "text-lg" : "text-2xl"}`} style={{ color: ACCENTS[accent] }}>{value}</p>
-      {sub && <p className="mt-1 text-xs text-zinc-400">{sub}</p>}
-    </div>
-  );
-}
-
-function Badge({ status }: { status: string }) {
-  const color = status === "부분" ? "#d97706" : status === "미수" ? "#dc2626" : "#52525b";
-  return <span className="rounded-full px-2 py-0.5 text-xs" style={{ border: `1px solid ${color}33`, color }}>{status}</span>;
-}
-
-function Table({ head, rows, empty }: { head: string[]; rows: React.ReactNode[][]; empty: string }) {
-  if (rows.length === 0) return <p className="py-6 text-center text-sm text-zinc-400">{empty}</p>;
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left text-xs text-zinc-400">
-            {head.map((h, i) => (
-              <th key={h} className={`py-2 font-medium ${i > 0 ? "text-right" : ""}`}>{h}</th>
+    <table className="w-full text-sm">
+      <thead>
+        <tr style={{ color: CFO.muted }}>
+          {head.map((h, i) => (
+            <th key={h} className={`pb-2 text-[11px] font-medium uppercase tracking-wide ${i > 0 ? "text-right" : "text-left"}`}>{h}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, ri) => (
+          <tr key={ri} style={{ borderTop: `1px solid ${CFO.hairline}` }}>
+            {r.map((c, ci) => (
+              <td key={ci} className={`py-2 ${ci > 0 ? "text-right" : "font-medium"}`} style={ci === 0 ? { color: CFO.ink } : undefined}>{c}</td>
             ))}
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, ri) => (
-            <tr key={ri} className="border-b last:border-0">
-              {r.map((c, ci) => (
-                <td key={ci} className={`py-2 ${ci > 0 ? "text-right tabular-nums" : "font-medium text-zinc-700"}`}>{c}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
+}
+
+function Num({ v, tone }: { v: number; tone?: "inflow" | "outflow" }) {
+  return <span className="font-mono tabular-nums" style={{ color: tone ? CFO[tone] : CFO.ink }}>{krw(v)}</span>;
+}
+
+function StatusTag({ status }: { status: string }) {
+  const c = status === "부분" ? CFO.brass : status === "미수" ? CFO.outflow : CFO.muted;
+  return <span className="rounded-sm px-1.5 py-0.5 font-mono text-[11px]" style={{ border: `1px solid ${c}40`, color: c }}>{status}</span>;
 }
