@@ -20,10 +20,16 @@ const INVOICE_FIELDS = [
   { name: "memo", label: "메모", type: "text" as const },
 ];
 
+const won = (v: number) => `₩${(v ?? 0).toLocaleString()}`;
+
+// Columns mirror the Notion "미수금/입금관리" view:
+// 프로젝트, 거래처, 공급가액, VAT, 합계, 입금상태, 입금일, 입금액, 메모
 const INVOICE_COLUMNS = [
+  { key: "project", label: "프로젝트", format: (_: unknown, row: { project?: { name?: string } }) => row.project?.name ?? "-" },
   { key: "buyer", label: "거래처" },
-  { key: "amount", label: "금액", format: (v: number) => `₩${(v ?? 0).toLocaleString()}` },
-  { key: "depositAmount", label: "입금액", format: (v: number) => `₩${(v ?? 0).toLocaleString()}` },
+  { key: "amount", label: "공급가액", format: won },
+  { key: "vat", label: "VAT", format: won },
+  { key: "total", label: "합계", format: won },
   {
     key: "depositStatus",
     label: "입금상태",
@@ -46,6 +52,8 @@ const INVOICE_COLUMNS = [
     label: "입금일",
     format: (v: string) => (v ? new Date(v).toLocaleDateString("ko-KR") : "-"),
   },
+  { key: "depositAmount", label: "입금액", format: won },
+  { key: "memo", label: "메모", format: (v: string) => v || "-" },
 ];
 
 export default function InvoicesPage() {

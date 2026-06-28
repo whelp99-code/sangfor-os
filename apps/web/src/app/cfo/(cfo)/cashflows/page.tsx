@@ -43,9 +43,13 @@ const CASHFLOW_FIELDS = [
   { name: "memo", label: "메모", type: "text" as const },
 ];
 
+const wonC = (v: number) => `₩${(v ?? 0).toLocaleString()}`;
+
+// Columns mirror the Notion "자금흐름 DB" view:
+// 프로젝트, 거래처, 유형, 일자, 금액, 현금변동, 입금계좌, 출금계좌, 메모
 const CASHFLOW_COLUMNS = [
-  { key: "counterparty", label: "거래처" },
-  { key: "amount", label: "금액", format: (v: number) => `₩${(v ?? 0).toLocaleString()}` },
+  { key: "project", label: "프로젝트", format: (_: unknown, row: { project?: { name?: string } }) => row.project?.name ?? "-" },
+  { key: "counterparty", label: "거래처", format: (v: string) => v || "-" },
   {
     key: "type",
     label: "유형",
@@ -68,9 +72,15 @@ const CASHFLOW_COLUMNS = [
     label: "일자",
     format: (v: string) => (v ? new Date(v).toLocaleDateString("ko-KR") : "-"),
   },
-  { key: "outAccount", label: "출금계좌" },
-  { key: "inAccount", label: "입금계좌" },
-  { key: "memo", label: "메모" },
+  { key: "amount", label: "금액", format: wonC },
+  {
+    key: "cashChange",
+    label: "현금변동",
+    format: (v: number) => <span className={(v ?? 0) < 0 ? "text-red-600" : "text-green-600"}>{wonC(v)}</span>,
+  },
+  { key: "inAccount", label: "입금계좌", format: (v: string) => v || "-" },
+  { key: "outAccount", label: "출금계좌", format: (v: string) => v || "-" },
+  { key: "memo", label: "메모", format: (v: string) => v || "-" },
 ];
 
 export default function CashflowsPage() {

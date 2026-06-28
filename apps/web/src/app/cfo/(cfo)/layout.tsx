@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 const NAV = [
   { href: "/cfo/dashboard", label: "대시보드" },
+  { href: "/cfo/projects", label: "프로젝트" },
   { href: "/cfo/invoices", label: "미수금" },
   { href: "/cfo/expenses", label: "비용" },
   { href: "/cfo/cashflows", label: "자금흐름" },
