@@ -231,6 +231,18 @@ async function main() {
     `Source: projects=${projects.length} invoices=${invoices.length} expenses=${expenses.length} cashflows=${cashflows.length}`,
   );
 
+  // Footgun guard: this importer wipes ALL cashflows. If real (bank-imported)
+  // cashflows are present, refuse unless explicitly forced — use cfo:restore or
+  // the bank importer instead.
+  const existingCash = await prisma.cashflow.count();
+  if (existingCash > cashflows.length && process.env.FORCE !== "1") {
+    console.error(
+      `Refusing to run: ${existingCash} cashflows exist (CSV has ${cashflows.length}). ` +
+        `This importer deletes ALL cashflows. Set FORCE=1 to override, or use cfo:restore.`,
+    );
+    process.exit(1);
+  }
+
   // Clean slate (idempotent, exact-match import)
   await prisma.cashflow.deleteMany();
   await prisma.expense.deleteMany();

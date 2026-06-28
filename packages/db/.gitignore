@@ -1,0 +1,3 @@
+
+# Local CFO data backups (private financial data — do not commit)
+.cfo-backup/

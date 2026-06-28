@@ -25,7 +25,9 @@
     "mock:upstreams": "node scripts/mock-upstreams.mjs",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "docker:dev": "docker compose -f docker-compose.yml up -d postgres redis"
+    "docker:dev": "docker compose -f docker-compose.yml up -d postgres redis",
+    "cfo:snapshot": "pnpm --filter @sangfor/db cfo:snapshot",
+    "cfo:restore": "pnpm --filter @sangfor/db cfo:restore"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

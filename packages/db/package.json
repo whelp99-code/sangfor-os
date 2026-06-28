@@ -15,7 +15,9 @@
     "db:studio": "prisma studio",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "import:finance-csv": "tsx scripts/import-finance-csv.ts"
+    "import:finance-csv": "tsx scripts/import-finance-csv.ts",
+    "cfo:snapshot": "tsx scripts/cfo-snapshot.ts",
+    "cfo:restore": "tsx scripts/cfo-restore.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
