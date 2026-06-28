@@ -69,9 +69,13 @@ function applyToEnv(s: LlmSettings) {
  */
 export async function loadLlmConfigFromDb(): Promise<void> {
   const stored = await readStored();
-  if (stored.apiKey && !process.env.OPENAI_API_KEY?.trim()) process.env.OPENAI_API_KEY = stored.apiKey;
-  if (stored.baseUrl && !process.env.OPENAI_BASE_URL?.trim()) process.env.OPENAI_BASE_URL = stored.baseUrl;
-  if (stored.model && !process.env.OPENAI_MODEL?.trim()) process.env.OPENAI_MODEL = stored.model;
+  // Web-saved settings are the source of truth and OVERRIDE any (possibly stale)
+  // env values — otherwise a leftover OPENAI_BASE_URL/MODEL in .env would shadow
+  // what the user just chose in the Settings UI. Env is only the fallback when
+  // nothing is saved.
+  if (stored.apiKey) process.env.OPENAI_API_KEY = stored.apiKey;
+  if (stored.baseUrl) process.env.OPENAI_BASE_URL = stored.baseUrl;
+  if (stored.model) process.env.OPENAI_MODEL = stored.model;
 }
 
 /** Masked status for the settings UI — never returns the full key. */
@@ -84,13 +88,14 @@ export async function getLlmSettingsStatus(): Promise<{
 }> {
   const envKey = process.env.OPENAI_API_KEY?.trim();
   const stored = await readStored();
-  const key = envKey || stored.apiKey;
+  // Web-saved values take precedence (they override env at runtime).
+  const key = stored.apiKey || envKey;
   const mask = (k?: string) => (k && k.length > 6 ? `${k.slice(0, 3)}…${k.slice(-4)}` : k ? "•••" : undefined);
   return {
     configured: Boolean(key),
-    source: envKey ? "env" : stored.apiKey ? "saved" : "none",
+    source: stored.apiKey ? "saved" : envKey ? "env" : "none",
     keyMasked: mask(key),
-    baseUrl: process.env.OPENAI_BASE_URL?.trim() || stored.baseUrl,
-    model: process.env.OPENAI_MODEL?.trim() || stored.model || "gpt-4o-mini",
+    baseUrl: stored.baseUrl || process.env.OPENAI_BASE_URL?.trim(),
+    model: stored.model || process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini",
   };
 }
