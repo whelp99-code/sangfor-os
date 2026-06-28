@@ -45,10 +45,10 @@
 - **검증**: 매입 15건 삭제 → `cfo:restore`로 +15 복구, 자금흐름 179건 무손상. 재실행 멱등.
 - **남은 것**: 정기 자동 스냅샷(cron/주기) + 운영 백업(pg_dump)은 P0-3에서.
 
-### P0-3. 마이그레이션 · 백업 체계
-- `prisma db push` 의존 → **마이그레이션(`prisma migrate`) 전환**으로 스키마 변경 시 데이터 보존.
-- 로컬/운영 **정기 백업**(pg_dump) 스크립트 + 복구 런북.
-- **수용 기준**: 스키마 변경이 데이터 손실 없이 적용됨, 백업/복구 절차 문서화.
+### P0-3. 마이그레이션 · 백업 체계 ✅ (완료)
+- **마이그레이션 전환**: db-push된 현재 스키마(finance·engagement·domain 포함)를 baseline 마이그레이션으로 생성, fresh 임시 DB에서 `migrate deploy` 후 schema와 **empty-diff 검증**. 로컬은 `migrate resolve --applied`로 baseline 표기. CI test 잡을 `db:push` → **`db:migrate:deploy`** 전환.
+- **자동 백업**: `db:push:safe`(스냅샷 후 push) + 런북에 시간별 cron 등록 가이드.
+- **남은 것**: pg_dump 전체 백업(추후, 스냅샷으로 핵심 재무는 커버).
 
 ---
 
