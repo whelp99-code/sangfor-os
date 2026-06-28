@@ -29,6 +29,45 @@ async function upsertPolicyMemory(projectId: string, memoryType: string, key: st
   });
 }
 
+async function seedDashboardRegistry() {
+  await prisma.moduleRegistry.upsert({
+    where: { moduleKey: "dashboard" },
+    update: { displayName: "Dashboard", status: "active" },
+    create: { moduleKey: "dashboard", displayName: "Dashboard", status: "active" },
+  });
+
+  await prisma.queryRegistry.upsert({
+    where: { queryKey: "dashboard_today_summary" },
+    update: { sourceType: "business", configJson: { handler: "dashboard_today_summary" } },
+    create: {
+      queryKey: "dashboard_today_summary",
+      sourceType: "business",
+      configJson: { handler: "dashboard_today_summary" },
+    },
+  });
+
+  const block = await prisma.blockRegistry.upsert({
+    where: { blockKey: "dashboard-metrics" },
+    update: {
+      moduleKey: "dashboard",
+      displayName: "Dashboard Metrics",
+      configJson: { queryKey: "dashboard_today_summary" },
+    },
+    create: {
+      blockKey: "dashboard-metrics",
+      moduleKey: "dashboard",
+      displayName: "Dashboard Metrics",
+      configJson: { queryKey: "dashboard_today_summary" },
+    },
+  });
+
+  await prisma.layoutSlot.upsert({
+    where: { pageKey_slotKey: { pageKey: "dashboard", slotKey: "main" } },
+    update: { sortOrder: 0, blockRegistryId: block.id },
+    create: { pageKey: "dashboard", slotKey: "main", sortOrder: 0, blockRegistryId: block.id },
+  });
+}
+
 async function main() {
   const project = await prisma.project.upsert({
     where: { slug: "demo-project" },
@@ -54,6 +93,8 @@ async function main() {
 
   await upsertPolicyMemory(project.id, "internal_domain", "blro.co.kr", "BLRO internal domain");
   await upsertPolicyMemory(project.id, "system_sender_domain", "bill36524.com", "Bill36524 system sender");
+
+  await seedDashboardRegistry();
 
   const existingCustomer = await prisma.customer.findFirst({
     where: { projectId: project.id, domain: "demo-customer.example.com" },

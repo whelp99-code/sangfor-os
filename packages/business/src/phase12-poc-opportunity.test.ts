@@ -86,10 +86,10 @@ describe.skipIf(!integrationEnabled)("Phase 12 opportunity center", () => {
       stage: "discovery",
       probability: 30,
     });
-    expect(normalizeOpportunityStage(opp.stage)).toBe("lead");
+    expect(normalizeOpportunityStage(opp.stage)).toBe("LEAD");
 
     const advanced = await advanceOpportunityStage(opp.id);
-    expect(advanced.stage).toBe("qualified");
+    expect(advanced.stage).toBe("QUALIFIED");
 
     const poc = await createPocProject({
       projectSlug: "demo-project",
