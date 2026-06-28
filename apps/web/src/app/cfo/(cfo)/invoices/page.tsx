@@ -3,6 +3,7 @@
 import CrudTable from "@/components/cfo/crud-table";
 
 const INVOICE_FIELDS = [
+  { name: "issueDate", label: "발행일", type: "date" as const },
   { name: "buyer", label: "거래처", type: "text" as const, required: true },
   { name: "amount", label: "금액", type: "number" as const, required: true, step: 1000 },
   { name: "depositAmount", label: "입금액", type: "number" as const, step: 1000 },
@@ -26,6 +27,7 @@ const won = (v: number) => `₩${(v ?? 0).toLocaleString()}`;
 // 프로젝트, 거래처, 공급가액, VAT, 합계, 입금상태, 입금일, 입금액, 메모
 const INVOICE_COLUMNS = [
   { key: "project", label: "프로젝트", format: (_: unknown, row: { project?: { name?: string } }) => row.project?.name ?? "-" },
+  { key: "issueDate", label: "일자", format: (v: string) => (v ? new Date(v).toLocaleDateString("ko-KR") : "-") },
   { key: "buyer", label: "거래처" },
   { key: "amount", label: "공급가액", format: won },
   { key: "vat", label: "VAT", format: won },

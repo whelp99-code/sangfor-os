@@ -1373,6 +1373,9 @@ model FinanceProject {
   id        String         @id @default(cuid())
   name      String
   status    String?        @default("active")
+  client    String?
+  startDate DateTime?      @map("start_date")
+  endDate   DateTime?      @map("end_date")
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   invoices  Invoice[]
@@ -1392,6 +1395,7 @@ model Invoice {
   depositAmount  Int?
   depositStatus  String?       @default("미수")
   depositDate    DateTime?
+  issueDate      DateTime?     @map("issue_date")
   buyer          String?
   memo           String?
   createdAt      DateTime      @default(now())

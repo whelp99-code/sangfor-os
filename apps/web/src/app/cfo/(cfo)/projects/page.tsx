@@ -2,7 +2,7 @@ import { cfoFetch, formatKrw } from "@/lib/cfo-client";
 
 export const dynamic = "force-dynamic";
 
-type Project = { id: string; name: string; status: string | null };
+type Project = { id: string; name: string; status: string | null; client: string | null; startDate: string | null; endDate: string | null };
 type Ref = { id: string } | null;
 type Invoice = { amount: number; depositAmount: number | null; project: { id: string } | null };
 type Expense = { amount: number; project: { id: string } | null };
@@ -58,7 +58,9 @@ export default async function ProjectsPage() {
           <thead>
             <tr className="border-b bg-zinc-50 text-left text-xs text-zinc-500">
               <th className="px-3 py-2 font-medium">프로젝트명</th>
+              <th className="px-3 py-2 font-medium">거래처</th>
               <th className="px-3 py-2 font-medium">상태</th>
+              <th className="px-3 py-2 font-medium">기간</th>
               <th className="px-3 py-2 text-right font-medium">총매출</th>
               <th className="px-3 py-2 text-right font-medium">총원가/비용</th>
               <th className="px-3 py-2 text-right font-medium">영업이익</th>
@@ -70,7 +72,9 @@ export default async function ProjectsPage() {
             {rollup.map((p) => (
               <tr key={p.id} className="border-b last:border-0 hover:bg-zinc-50">
                 <td className="px-3 py-2 font-medium text-zinc-700">{p.name}</td>
+                <td className="px-3 py-2 text-zinc-600">{p.client ?? "-"}</td>
                 <td className="px-3 py-2"><StatusBadge status={p.status} /></td>
+                <td className="px-3 py-2 text-xs text-zinc-500">{fmtRange(p.startDate, p.endDate)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatKrw(p.revenue)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatKrw(p.cost)}</td>
                 <td className={`px-3 py-2 text-right tabular-nums ${p.profit >= 0 ? "text-green-600" : "text-red-600"}`}>{formatKrw(p.profit)}</td>
@@ -81,7 +85,7 @@ export default async function ProjectsPage() {
           </tbody>
           <tfoot>
             <tr className="border-t-2 bg-zinc-50 font-semibold">
-              <td className="px-3 py-2" colSpan={2}>합계</td>
+              <td className="px-3 py-2" colSpan={4}>합계</td>
               <td className="px-3 py-2 text-right tabular-nums">{formatKrw(totals.revenue)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{formatKrw(totals.cost)}</td>
               <td className={`px-3 py-2 text-right tabular-nums ${totals.profit >= 0 ? "text-green-600" : "text-red-600"}`}>{formatKrw(totals.profit)}</td>
@@ -93,6 +97,12 @@ export default async function ProjectsPage() {
       </div>
     </div>
   );
+}
+
+function fmtRange(start: string | null, end: string | null) {
+  const d = (s: string | null) => (s ? s.slice(0, 10) : "");
+  if (!start && !end) return "-";
+  return `${d(start) || "?"} ~ ${d(end) || "?"}`;
 }
 
 function StatusBadge({ status }: { status: string | null }) {

@@ -122,7 +122,7 @@ const invoicesCsv = findCsv([/41896edcd7eab0556b_all\.csv$/]);
 const expensesCsv = findCsv([/98cf696d7cb9402_all\.csv$/]);
 const cashflowsCsv = findCsv([/f98ebdc6bf8b647f9b_all\.csv$/]);
 
-type ProjIn = { name: string; status: string | null };
+type ProjIn = { name: string; status: string | null; client: string | null; startDate: Date | null; endDate: Date | null };
 type InvIn = {
   project: string | null;
   buyer: string | null;
@@ -132,6 +132,7 @@ type InvIn = {
   depositStatus: string | null;
   depositAmount: number | null;
   depositDate: Date | null;
+  issueDate: Date | null;
   memo: string | null;
 };
 type ExpIn = {
@@ -164,6 +165,9 @@ function loadProjects(): ProjIn[] {
     .map((r) => ({
       name: (r["프로젝트명(Title)"] || "").trim(),
       status: (r["상태"] || "").trim() || null,
+      client: (r["거래처"] || "").trim() || null,
+      startDate: kdate(r["시작일"]),
+      endDate: kdate(r["종료일"]),
     }))
     .filter((p) => p.name);
 }
@@ -179,9 +183,8 @@ function loadInvoices(): InvIn[] {
       depositStatus: (r["입금상태"] || "").trim() || null,
       depositAmount: r["입금액"] ? won(r["입금액"]) : null,
       depositDate: kdate(r["입금일"]),
-      memo: [r["속성"], r["메모"], r["일자"] ? `일자:${r["일자"]}` : ""]
-        .filter(Boolean)
-        .join(" | ") || null,
+      issueDate: kdate(r["일자"]),
+      memo: [r["속성"], r["메모"]].filter(Boolean).join(" | ") || null,
     }))
     .filter((i) => i.buyer || i.project || i.amount);
 }
@@ -253,7 +256,7 @@ async function main() {
   const idByName = new Map<string, string>();
   for (const p of projects) {
     const created = await prisma.financeProject.create({
-      data: { name: p.name, status: p.status },
+      data: { name: p.name, status: p.status, client: p.client, startDate: p.startDate, endDate: p.endDate },
     });
     idByName.set(p.name, created.id);
   }
@@ -270,6 +273,7 @@ async function main() {
         depositStatus: i.depositStatus ?? undefined,
         depositAmount: i.depositAmount ?? undefined,
         depositDate: i.depositDate ?? undefined,
+        issueDate: i.issueDate ?? undefined,
         memo: i.memo,
       },
     });
