@@ -263,7 +263,7 @@ export const businessRouter = router({
   completeDelivery: protectedProcedure
     .input(z.object({ deliveryId: z.string(), assetName: z.string(), customerId: z.string() }))
     .mutation(async ({ input }) => {
-      const project = await prisma.deliveryProject.update({
+      const project = await prisma.engagement.update({
         where: { id: input.deliveryId },
         data: { status: "completed", completedAt: new Date() },
       });

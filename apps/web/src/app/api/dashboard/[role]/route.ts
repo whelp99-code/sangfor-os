@@ -45,8 +45,9 @@ async function financeData() {
 }
 
 async function deliveryData() {
-  const projects = await prisma.deliveryProject.findMany();
+  const projects = await prisma.engagement.findMany();
   return {
+    preEngagement: projects.filter((p) => p.status === "pre_engagement").length,
     upcomingDeployments: projects.filter((p) => p.status === "planned").length,
     sowConfirmation: projects.filter((p) => p.status === "sow_pending").length,
     licenseActivation: 0,
@@ -70,7 +71,7 @@ async function executiveData() {
   const opportunities = await prisma.opportunity.findMany({ include: { customer: true } });
   const approvals = await prisma.approvalRequest.findMany();
   const pocProjects = await prisma.pocProject.findMany();
-  const deliveryProjects = await prisma.deliveryProject.findMany();
+  const deliveryProjects = await prisma.engagement.findMany();
   const supportCases = await prisma.supportCase.findMany();
 
   const totalPipeline = opportunities.reduce((s, o) => s + (Number(o.amount) || 0), 0);

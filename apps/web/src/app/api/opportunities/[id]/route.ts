@@ -1,6 +1,7 @@
 import {
   addOpportunityLink,
   advanceOpportunityStage,
+  convertOpportunityToProject,
   getOpportunityDetail,
   removeOpportunityLink,
   updateOpportunity,
@@ -46,6 +47,15 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (body.action === "remove_link") {
       await removeOpportunityLink(body.linkId);
       return NextResponse.json({ ok: true });
+    }
+
+    if (body.action === "convert_to_project") {
+      const result = await convertOpportunityToProject({
+        opportunityId: id,
+        name: body.name,
+        force: body.force,
+      });
+      return NextResponse.json(serializeDecimalAtBoundary(result), { status: result.created ? 201 : 200 });
     }
 
     const opportunity = await updateOpportunity(id, body);

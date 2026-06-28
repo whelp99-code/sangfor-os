@@ -145,6 +145,7 @@ export async function generateProposal(input: z.infer<typeof generateProposalSch
       templateId: template.id,
       customerId: parsed.customerId,
       pocProjectId: parsed.pocProjectId,
+      opportunityId: parsed.opportunityId,
       title: parsed.title,
       bodyMarkdown: finalBody,
       status: "draft",
