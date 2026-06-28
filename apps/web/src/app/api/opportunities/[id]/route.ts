@@ -9,6 +9,7 @@ import {
 } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
+import { syncCalendarMeetings } from "@/lib/outlook-graph";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -53,6 +54,12 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (body.action === "convert_to_project") {
       // Surface mail-derived meeting threads first so the conversion absorbs them.
       await promoteMeetingThreads({ opportunityId: id });
+      // Best-effort: pull Outlook calendar meetings for this deal too (skip if not connected).
+      try {
+        await syncCalendarMeetings({ opportunityId: id });
+      } catch {
+        /* calendar optional — proceed with conversion regardless */
+      }
       const result = await convertOpportunityToProject({
         opportunityId: id,
         name: body.name,

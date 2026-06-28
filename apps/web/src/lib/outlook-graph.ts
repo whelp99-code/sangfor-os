@@ -264,3 +264,105 @@ export async function getDelegatedConnection(): Promise<{
   }
   return { connected: false };
 }
+
+interface GraphCalendarEvent {
+  id: string;
+  subject?: string;
+  bodyPreview?: string;
+  start?: { dateTime?: string };
+  end?: { dateTime?: string };
+  organizer?: { emailAddress?: { address?: string; name?: string } };
+  attendees?: Array<{ emailAddress?: { address?: string; name?: string } }>;
+}
+
+function domainOfEmail(email?: string | null): string | null {
+  if (!email || !email.includes("@")) return null;
+  return email.split("@")[1]?.toLowerCase() ?? null;
+}
+
+/**
+ * P7 #5: collect Outlook calendar events (`/me/calendarView`) as MeetingNotes.
+ *
+ * Scoped mode (`opportunityId`) attaches every event in the window to that deal.
+ * Global mode matches each event to an opportunity by attendee/organizer email
+ * domain → Customer.domain → that customer's most recent opportunity. Calendar
+ * events are real meetings, so they are stored `status="confirmed"`. Idempotent:
+ * an existing (opportunityId, source=calendar, title, occurredAt) note is skipped.
+ */
+export async function syncCalendarMeetings(
+  opts: { opportunityId?: string; daysBack?: number; daysAhead?: number } = {},
+): Promise<{ fetched: number; created: number; matched: number }> {
+  const account = await prisma.mailAccount.findFirst({
+    where: { provider: "outlook", refreshToken: { not: null } },
+  });
+  if (!account) return { fetched: 0, created: 0, matched: 0 };
+  if (account.tokenScope && !account.tokenScope.includes("Calendars.Read")) {
+    throw new Error("Connected mailbox is missing the Calendars.Read scope — reconnect Outlook.");
+  }
+
+  const token = await getValidAccessToken(account);
+  const start = new Date(Date.now() - (opts.daysBack ?? 120) * 86400000).toISOString();
+  const end = new Date(Date.now() + (opts.daysAhead ?? 30) * 86400000).toISOString();
+  const url =
+    `${GRAPH}/me/calendarView?startDateTime=${start}&endDateTime=${end}` +
+    `&$top=100&$orderby=start/dateTime desc` +
+    `&$select=id,subject,bodyPreview,start,end,organizer,attendees`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.timezone="UTC"' },
+  });
+  if (!res.ok) {
+    throw new Error(`Graph /me/calendarView ${res.status}: ${await res.text()}`);
+  }
+  const data = (await res.json()) as { value?: GraphCalendarEvent[] };
+  const events = data.value ?? [];
+
+  let created = 0;
+  let matched = 0;
+  for (const ev of events) {
+    const occurredAt = ev.start?.dateTime ? new Date(ev.start.dateTime) : null;
+    const title = sanitizeText(ev.subject) || "(no subject)";
+    const attendeeEmails = [
+      ev.organizer?.emailAddress?.address,
+      ...(ev.attendees ?? []).map((a) => a.emailAddress?.address),
+    ].filter((e): e is string => Boolean(e));
+
+    let opportunityId = opts.opportunityId ?? null;
+    if (!opportunityId) {
+      const domains = Array.from(new Set(attendeeEmails.map(domainOfEmail).filter((d): d is string => Boolean(d))));
+      for (const domain of domains) {
+        const customer = await prisma.customer.findFirst({
+          where: { domain },
+          select: { opportunities: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true } } },
+        });
+        const oppId = customer?.opportunities[0]?.id;
+        if (oppId) {
+          opportunityId = oppId;
+          break;
+        }
+      }
+    }
+    if (!opportunityId) continue;
+    matched++;
+
+    const exists = await prisma.meetingNote.findFirst({
+      where: { opportunityId, source: "calendar", title, occurredAt },
+      select: { id: true },
+    });
+    if (exists) continue;
+
+    await prisma.meetingNote.create({
+      data: {
+        opportunityId,
+        title,
+        occurredAt,
+        attendees: attendeeEmails.map((e) => sanitizeText(e)),
+        bodyMarkdown: sanitizeText(ev.bodyPreview) || title,
+        source: "calendar",
+        status: "confirmed",
+      },
+    });
+    created++;
+  }
+
+  return { fetched: events.length, created, matched };
+}

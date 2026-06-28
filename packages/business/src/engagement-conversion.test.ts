@@ -105,4 +105,57 @@ describe.skipIf(!integrationEnabled)("Opportunity → Engagement conversion", ()
       await prisma.opportunity.deleteMany({ where: { id: opp.id } });
     }
   });
+
+  it("P7 #6: createPocProject auto-links the POC to its opportunity", async () => {
+    const { prisma } = await import("@sangfor/db");
+    const { createPocProject } = await import("./poc-center");
+
+    const tag = `IT_POCLINK_${Date.now()}`;
+    const project = await prisma.project.findFirstOrThrow();
+    const opp = await prisma.opportunity.create({ data: { projectId: project.id, title: `${tag} 기회`, stage: "POC" } });
+    try {
+      const poc = await createPocProject({ projectSlug: project.slug, title: `${tag} POC`, opportunityId: opp.id });
+      // FK persisted + OpportunityLink('poc') written automatically.
+      const pocRow = await prisma.pocProject.findUnique({ where: { id: poc!.id } });
+      expect(pocRow?.opportunityId).toBe(opp.id);
+      const link = await prisma.opportunityLink.findFirst({
+        where: { opportunityId: opp.id, entityType: "poc", entityId: poc!.id },
+      });
+      expect(link).not.toBeNull();
+    } finally {
+      await prisma.opportunityLink.deleteMany({ where: { opportunityId: opp.id } });
+      await prisma.pocChecklistItem.deleteMany({ where: { pocProject: { opportunityId: opp.id } } });
+      await prisma.pocProject.deleteMany({ where: { opportunityId: opp.id } });
+      await prisma.stateTransitionLog.deleteMany({ where: { entityType: "poc_project" } });
+      await prisma.opportunity.deleteMany({ where: { id: opp.id } });
+    }
+  });
+
+  it("P7 #4: only confirmed meetings auto-attach; suggested need opt-in", async () => {
+    const { prisma } = await import("@sangfor/db");
+    const { convertOpportunityToProject } = await import("./engagement-center");
+
+    const tag = `IT_MTGTHRESH_${Date.now()}`;
+    const project = await prisma.project.findFirstOrThrow();
+    const opp = await prisma.opportunity.create({ data: { projectId: project.id, title: `${tag} 기회`, stage: "POC" } });
+    const poc = await prisma.pocProject.create({ data: { projectId: project.id, title: `${tag} POC`, opportunityId: opp.id } });
+    await prisma.meetingNote.create({ data: { opportunityId: opp.id, title: `${tag} 확정미팅`, bodyMarkdown: "x", status: "confirmed" } });
+    await prisma.meetingNote.create({ data: { opportunityId: opp.id, title: `${tag} 제안미팅`, bodyMarkdown: "x", status: "suggested" } });
+
+    try {
+      const def = await convertOpportunityToProject({ opportunityId: opp.id });
+      expect(def.absorbed.meetings).toBe(1); // only the confirmed one
+      // suggested note remains unattached and is opt-in absorbable on a (would-be) re-run
+      const suggestedStill = await prisma.meetingNote.count({ where: { opportunityId: opp.id, engagementId: null, status: "suggested" } });
+      expect(suggestedStill).toBe(1);
+    } finally {
+      await prisma.meetingNote.deleteMany({ where: { opportunityId: opp.id } });
+      await prisma.pocChecklistItem.deleteMany({ where: { pocProjectId: poc.id } });
+      await prisma.pocProject.deleteMany({ where: { id: poc.id } });
+      await prisma.opportunityStageEvent.deleteMany({ where: { opportunityId: opp.id } });
+      await prisma.stateTransitionLog.deleteMany({ where: { entityId: opp.id } });
+      await prisma.engagement.deleteMany({ where: { opportunityId: opp.id } });
+      await prisma.opportunity.deleteMany({ where: { id: opp.id } });
+    }
+  });
 });
