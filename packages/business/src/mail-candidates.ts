@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { createCustomer, createPartner } from "./customer-partner";
 import { createImprovementCandidateFromError } from "./improvement-loop";
+import { loadLlmConfigFromDb } from "./llm-settings";
 import {
   buildMailPolicyLookup,
   buildStaticMailPolicyLookup,
@@ -1310,6 +1311,7 @@ export async function generateMailDerivedCandidates(
   input: z.input<typeof generateMailCandidatesSchema> = {},
 ) {
   const parsed = generateMailCandidatesSchema.parse(input);
+  await loadLlmConfigFromDb(); // pick up web-saved OpenAI key for AI revalidation
   await seedDefaultMailPolicyMemory(parsed.projectSlug);
   const projectId = await resolveProjectId(parsed.projectSlug);
   const policy = await buildMailPolicyLookup(parsed.projectSlug);

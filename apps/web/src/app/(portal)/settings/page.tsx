@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { IntegrationHealthPanel } from "@/components/integrations/integration-health-panel";
+import { LlmSettingsCard } from "@/components/settings/llm-settings-card";
 
 export default function SettingsPage() {
   return (
@@ -27,6 +28,8 @@ export default function SettingsPage() {
           </Link>
         </CardContent>
       </Card>
+
+      <LlmSettingsCard />
 
       <IntegrationHealthPanel compact />
     </div>
