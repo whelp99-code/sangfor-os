@@ -185,8 +185,16 @@ app.get('/api/config', (_req, res) => {
 });
 
 app.get('/api/system/health', (_req, res) => {
+  // Deep-ish: report real dependency state instead of a hardcoded "ok".
+  // HTTP stays 200 (the process is up and serving) so existing probes/CI keep
+  // working; `status` reflects whether MCP tools are actually wired vs stubbed.
+  const checks = {
+    mcp: mcpConnected ? 'connected' : 'stub',
+    auth: process.env.SANGFOR_API_KEY ? 'configured' : 'missing',
+  };
   res.json({
-    status: 'ok',
+    status: mcpConnected ? 'ok' : 'degraded',
+    checks,
     uptime: process.uptime(),
     mcpConnected,
     authConfigured: Boolean(process.env.SANGFOR_API_KEY),
