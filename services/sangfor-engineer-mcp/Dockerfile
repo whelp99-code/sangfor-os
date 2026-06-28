@@ -32,4 +32,6 @@ ENV PORT=3600
 EXPOSE 3600
 EXPOSE 3502
 
-CMD ["pnpm", "exec", "tsx", "apps/http-bridge/src/server.ts"]
+# Run both the HTTP bridge (3600) and the operator console (3502) in one container
+RUN chmod +x docker-entrypoint.sh
+CMD ["./docker-entrypoint.sh"]

@@ -48,7 +48,7 @@ const SERVICES = [
   },
   {
     name: "sangfor",
-    cwd: process.env.SANGFOR_PATH || join(PLAYGROUND, "sangfor-mcp-workflow"),
+    cwd: process.env.SANGFOR_PATH || join(ROOT, "services/sangfor-mcp-workflow"),
     cmd: "pnpm",
     args: ["dev:web"],
     env: { SANGFOR_API_KEY: process.env.SANGFOR_API_KEY || "integration-dev-key" },
@@ -65,7 +65,7 @@ const SERVICES = [
   },
   {
     name: "whelp99-bridge",
-    cwd: process.env.WHELP99_PATH || join(PLAYGROUND, "whelp99-code-sangfor-engineer-mcp"),
+    cwd: process.env.WHELP99_PATH || join(ROOT, "services/sangfor-engineer-mcp"),
     cmd: "pnpm",
     args: ["dev:http-bridge"],
     env: { PORT: "3600" },
