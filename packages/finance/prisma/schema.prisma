@@ -1,5 +1,9 @@
 generator client {
   provider = "prisma-client-js"
+  // Dedicated output so the finance (schema=finance) client never collides
+  // with @sangfor/db's default @prisma/client (schema=public). Without this,
+  // whichever `prisma generate` runs last overwrites the other.
+  output   = "../generated/prisma"
 }
 
 datasource db {
