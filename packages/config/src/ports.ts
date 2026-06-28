@@ -73,7 +73,7 @@ export function getEnvDefaults(): Record<string, string> {
     VIBE_CODING_OS_URL: getUrl('VIBE_CODING_OS'),
     MAIL_INTELLIGENCE_URL: getUrl('MAIL_INTELLIGENCE'),
     LM_STUDIO_URL: getUrl('LM_STUDIO'),
-    WHELP99_MCP_PATH: '../whelp99-code-sangfor-engineer-mcp',
+    WHELP99_MCP_PATH: './services/sangfor-engineer-mcp',
     WHELP99_MCP_HTTP_URL: getUrl('WHELP99_MCP_BRIDGE'),
   };
 }

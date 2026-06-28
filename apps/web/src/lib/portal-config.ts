@@ -35,6 +35,7 @@ export const PORTAL_NAV: NavItem[] = [
   { title: "재무 챗봇", href: "/cfo/chat", icon: "terminal", group: "Finance" },
 
   // ═══ Knowledge & Intelligence ═══
+  { title: "Agent Console", href: "/agent-console", icon: "bot", group: "Intelligence" },
   { title: "지식베이스", href: "/knowledge", icon: "book-open", group: "Intelligence" },
   { title: "Mail Intelligence", href: "/mail-intelligence", icon: "mail", group: "Intelligence" },
   { title: "메일 후보", href: "/development/mail-candidates", icon: "inbox", group: "Intelligence" },
@@ -45,6 +46,7 @@ export const PORTAL_NAV: NavItem[] = [
   { title: "개선사항", href: "/development/improvements", icon: "blocks", group: "Development" },
 
   // ═══ System ═══
+  { title: "MCP Tools", href: "/tools", icon: "wrench", group: "System" },
   { title: "Operator Console", href: "/operator", icon: "activity", group: "System" },
   { title: "Security", href: "/security", icon: "shield-check", group: "System" },
   { title: "설정", href: "/settings", icon: "settings", group: "System" },

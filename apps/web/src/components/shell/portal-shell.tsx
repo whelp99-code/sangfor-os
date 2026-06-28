@@ -6,6 +6,7 @@ import {
   BarChart3,
   Blocks,
   BookOpen,
+  Bot,
   CheckCircle2,
   Code2,
   DollarSign,
@@ -26,6 +27,7 @@ import {
   TrendingUp,
   Truck,
   Users,
+  Wrench,
 } from "lucide-react";
 
 import {
@@ -55,6 +57,8 @@ const ICONS = {
   activity: BarChart3,
   blocks: Blocks,
   "book-open": BookOpen,
+  bot: Bot,
+  wrench: Wrench,
   code: Code2,
   sparkles: Sparkles,
   "check-circle": CheckCircle2,

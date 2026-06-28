@@ -9,9 +9,11 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { fileURLToPath } from "node:url";
 import {
   probeIntegrationTarget,
-  resolveAiosWorkspaceRoot,
+  probeAllIntegrationTargets,
+  getIntegrationTarget,
+  listMcpTools,
+  callMcpTool,
 } from "@sangfor/infra";
-import { getIntegrationTarget } from "@sangfor/infra";
 import { appRouter } from "./routers";
 import { createContext } from "./context/index";
 import { apiKeyMiddleware, authMiddleware, errorHandler, rateLimiter } from "./middleware";
@@ -65,17 +67,16 @@ export function createApp(): Express {
     });
   });
 
-  // whelp99 health bridge — filesystem probe for MCP extension
+  // whelp99 health bridge — HTTP probe against the MCP HTTP bridge (/health)
   app.get("/api/whelp99/health", async (_req, res) => {
     try {
       const target = getIntegrationTarget("whelp99-code-sangfor-engineer-mcp");
-      const result = await probeIntegrationTarget(target, {
-        workspaceRoot: resolveAiosWorkspaceRoot(),
-      });
-      res.json({
+      const result = await probeIntegrationTarget(target);
+      res.status(result.status === "healthy" ? 200 : 503).json({
         id: result.id,
         status: result.status,
         upstream: result.upstream,
+        latencyMs: result.latencyMs,
         details: result.details ?? target.readinessNote,
       });
     } catch (error) {
@@ -84,6 +85,55 @@ export function createApp(): Express {
         status: "unreachable",
         upstream: "",
         details: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  // Aggregate health for every registered integration target (MCP services).
+  app.get("/api/integrations/health", async (_req, res) => {
+    try {
+      const results = await probeAllIntegrationTargets();
+      const allHealthy = results.every((r) => r.status === "healthy");
+      res.status(allHealthy ? 200 : 503).json({
+        status: allHealthy ? "ok" : "degraded",
+        targets: results,
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        details: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  // List MCP tools exposed by the whelp99 bridge.
+  app.get("/api/whelp99/tools", async (_req, res) => {
+    try {
+      const tools = await listMcpTools();
+      res.json({ tools });
+    } catch (error) {
+      res.status(502).json({
+        error: error instanceof Error ? error.message : String(error),
+        tools: [],
+      });
+    }
+  });
+
+  // Invoke an MCP tool through the whelp99 bridge.
+  // Body: { name: string, arguments?: Record<string, unknown> }
+  app.post("/api/whelp99/tools/call", express.json(), async (req, res) => {
+    const name = typeof req.body?.name === "string" ? req.body.name : "";
+    if (!name) {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    try {
+      const args = (req.body?.arguments ?? req.body?.args ?? {}) as Record<string, unknown>;
+      const result = await callMcpTool(name, args);
+      res.status(result.error ? 502 : 200).json(result);
+    } catch (error) {
+      res.status(500).json({
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   });

@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./opportunity-stage": "./src/opportunity-stage.ts",
+    "./openai-config": "./src/openai-config.ts",
     "./improvement-loop": "./src/improvement-loop.ts",
     "./module-runtime": "./src/module-runtime.ts",
     "./module-admin": "./src/module-admin.ts",

@@ -8,9 +8,13 @@
     "build": "tsc",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests\""
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sangfor/config": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^3.2.4"
   }
 }

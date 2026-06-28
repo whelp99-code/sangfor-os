@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AIWorkspaceLayout } from '@/components/ai-workspace'
 import { ActivityItem } from '@/components/ai-workspace/ai-activity-feed'
+import { IntegrationHealthPanel } from '@/components/integrations/integration-health-panel'
 
 interface OperatorData {
   systemHealth: Record<string, string>
@@ -19,19 +20,10 @@ interface OperatorData {
   tenantHealth: { total: number; healthy: number }
 }
 
-const operatorActivities: ActivityItem[] = [
-  { id: 'op1', time: new Date(Date.now() - 1000 * 60 * 1).toISOString(), text: '시스템 상태 모니터링: 모든 서비스 정상', type: 'success' },
-  { id: 'op2', time: new Date(Date.now() - 1000 * 60 * 15).toISOString(), text: '워크플로우 자동 실행: 백신 정책 배포 완료', type: 'success' },
-  { id: 'op3', time: new Date(Date.now() - 1000 * 60 * 45).toISOString(), text: '장애 감지: DB 커넥션 풀 경고 → 자동 복구', type: 'warning' },
-  { id: 'op4', time: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(), text: '백업 상태 확인: 전체 테넌트 백업 완료', type: 'info' },
-]
+// Populated from real system telemetry; empty until wired.
+const operatorActivities: ActivityItem[] = []
 
-const operatorStats = [
-  { label: '시스템 상태', value: '정상', type: 'success' as const },
-  { label: '워크플로우 대기', value: '4건', type: 'default' as const },
-  { label: '실패 작업', value: '0건', type: 'success' as const },
-  { label: '백업 상태', value: 'OK', type: 'success' as const },
-]
+const operatorStats: { label: string; value: string; type: 'success' | 'default' | 'warning' | 'error' }[] = []
 
 export default function OperatorPage() {
   const [data, setData] = useState<OperatorData | null>(null)
@@ -63,6 +55,7 @@ export default function OperatorPage() {
               <p>Required gates: mode matrix, mail loop, commercial gate, role workspaces, health check, demo seed.</p>
             </CardContent>
           </Card>
+          <IntegrationHealthPanel />
           <div className="grid grid-cols-3 gap-4">
         {/* System Health */}
         <Card><CardHeader><CardTitle>System Health</CardTitle></CardHeader>
