@@ -1,6 +1,8 @@
 export const ROLE_MODES = [
+  "marketing",
   "sales",
   "presales",
+  "engineer",
   "delivery",
   "support",
   "cfo",
@@ -9,6 +11,32 @@ export const ROLE_MODES = [
 ] as const;
 
 export type RoleMode = (typeof ROLE_MODES)[number];
+
+/**
+ * 종축(업무 도메인) 파이프라인 순서 — 마케팅 → 영업 → 프리세일즈 → 엔지니어 → CFO.
+ * 컬러 렌즈(횡축)와 직교한다. 도메인 AI가 추가되는 축.
+ * operator/security 는 GTM 파이프라인 밖의 내부 거버넌스 모드라 제외.
+ */
+export const GTM_PIPELINE = [
+  "marketing",
+  "sales",
+  "presales",
+  "engineer",
+  "cfo",
+] as const;
+
+export type GtmDomain = (typeof GTM_PIPELINE)[number];
+
+export function isGtmDomain(role: string): role is GtmDomain {
+  return (GTM_PIPELINE as readonly string[]).includes(role);
+}
+
+/** 파이프라인에서 다음 도메인 (마지막이면 null). */
+export function nextGtmDomain(domain: GtmDomain): GtmDomain | null {
+  const idx = GTM_PIPELINE.indexOf(domain);
+  if (idx < 0 || idx === GTM_PIPELINE.length - 1) return null;
+  return GTM_PIPELINE[idx + 1];
+}
 
 export const AI_EXECUTION_MODES = [
   "draft",
@@ -64,6 +92,15 @@ const ALL_UNSAFE = [...UNSAFE_ACTIONS];
 
 export const MODE_MATRIX: readonly ModeMatrixEntry[] = [
   {
+    role: "marketing",
+    dashboardPath: "/marketing",
+    allowedActions: ["view-dashboard", "classify-lead", "attribute-campaign", "draft-content"],
+    blockedActions: ALL_UNSAFE,
+    approvalResponsibilities: ["qualify lead with evidence before sales handoff"],
+    evidenceVisible: true,
+    successScenario: "Classify inbound lead, attribute to campaign, and hand a qualified lead to sales.",
+  },
+  {
     role: "sales",
     dashboardPath: "/sales",
     allowedActions: ["view-dashboard", "create-customer", "create-opportunity", "request-approval"],
@@ -80,6 +117,15 @@ export const MODE_MATRIX: readonly ModeMatrixEntry[] = [
     approvalResponsibilities: ["review technical fit and attach implementation evidence"],
     evidenceVisible: true,
     successScenario: "Review PoC or proposal evidence and prepare technical approval input.",
+  },
+  {
+    role: "engineer",
+    dashboardPath: "/engineer",
+    allowedActions: ["view-dashboard", "record-field-engagement", "update-delivery-checklist", "draft-rca"],
+    blockedActions: ALL_UNSAFE,
+    approvalResponsibilities: ["confirm field deployment and asset handoff before finance review"],
+    evidenceVisible: true,
+    successScenario: "Complete on-site engineering (SE) deployment and produce auditable asset handoff for CFO.",
   },
   {
     role: "delivery",
