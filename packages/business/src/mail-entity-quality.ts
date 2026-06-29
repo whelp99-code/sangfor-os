@@ -13,6 +13,7 @@ const SELF_DOMAINS = new Set([
   'berlo.co.kr',
   'sangfor.com',
   'sangfor.co.kr',
+  'sangforsecurity.com',
   'ai-portal.local',
 ]);
 
@@ -62,6 +63,7 @@ const KNOWN_DOMAIN_MAP: Record<string, string> = {
 export const VENDOR_SAAS_DOMAINS: Set<string> = new Set([
   'notion.so',
   'notion.com',
+  'makenotion.com',
   'anthropic.com',
   'openai.com',
   'ecount.com',
