@@ -2,8 +2,16 @@ import { prisma } from "@sangfor/db";
 import { deriveEntityFromCandidate } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
-// Default project ID for entities
-const DEFAULT_PROJECT_ID = "cmq2jhoxd00019kwe5k5p7tsw";
+// Resolve the active portal project (slug "demo-project"; fall back to the
+// first project). The previous hardcoded id was stale, so converted records
+// landed under a non-existent project and never showed in the portal.
+async function resolveProjectId(): Promise<string> {
+  const bySlug = await prisma.project.findFirst({ where: { slug: "demo-project" }, select: { id: true } });
+  if (bySlug) return bySlug.id;
+  const first = await prisma.project.findFirst({ select: { id: true } });
+  if (!first) throw new Error("no project found to attach entities to");
+  return first.id;
+}
 
 // 업종 추론
 function inferIndustry(summary?: string | null): string {
@@ -19,6 +27,8 @@ function inferIndustry(summary?: string | null): string {
 
 export async function POST() {
   try {
+    const DEFAULT_PROJECT_ID = await resolveProjectId();
+
     // 1. Approved 고객 후보를 customers 테이블로 변환
     const approvedCustomers = await prisma.mailDerivedCandidate.findMany({
       where: { candidateType: "customer", status: "approved" },
