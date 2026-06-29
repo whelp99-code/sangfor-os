@@ -8,6 +8,7 @@
  * when a user clicks "Connect Outlook".
  */
 import { prisma } from "@sangfor/db";
+import { cfoFetch } from "./cfo-client";
 
 const AUTH_HOST = "https://login.microsoftonline.com";
 const GRAPH = "https://graph.microsoft.com/v1.0";
@@ -201,6 +202,44 @@ async function fetchFolderMessages(
   return out.slice(0, maxMessages);
 }
 
+/** Returns true when the sender email belongs to the Korean NTS Hometax domain. */
+export function isHometaxSender(fromEmail: string): boolean {
+  return (fromEmail || "").toLowerCase().includes("hometax.go.kr");
+}
+
+/**
+ * Fetches attachments for a Graph message and returns the decoded UTF-8 content
+ * of the first HTML attachment (NTS_eTaxInvoice.html). Returns null and logs a
+ * warning (never throws) on any error or when no HTML attachment is found.
+ */
+export async function fetchMessageAttachmentHtml(
+  token: string,
+  graphMessageId: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${GRAPH}/me/messages/${graphMessageId}/attachments`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      console.warn(`[hometax] attachments fetch failed for ${graphMessageId}: ${res.status}`);
+      return null;
+    }
+    const data = (await res.json()) as {
+      value?: Array<{ name?: string; contentType?: string; contentBytes?: string }>;
+    };
+    const att = (data.value ?? []).find(
+      (a) =>
+        a.name?.toLowerCase().endsWith(".html") ||
+        a.contentType?.toLowerCase() === "text/html",
+    );
+    if (!att?.contentBytes) return null;
+    return Buffer.from(att.contentBytes, "base64").toString("utf8");
+  } catch (err) {
+    console.warn(`[hometax] error fetching attachment for ${graphMessageId}:`, err);
+    return null;
+  }
+}
+
 /**
  * Pull the full mailbox — every Inbox (received) and Sent Items (sent) message —
  * and upsert by Graph message id. Sent + received are tagged with `direction`
@@ -208,7 +247,7 @@ async function fetchFolderMessages(
  */
 export async function syncDelegatedOutlook(
   opts: { maxMessages?: number } = {},
-): Promise<{ synced: number; inbox: number; sent: number; account?: string }> {
+): Promise<{ synced: number; inbox: number; sent: number; account?: string; taxInvoices?: { scanned: number; created: number } }> {
   const maxMessages = opts.maxMessages ?? DEFAULT_MAX_MESSAGES;
   const account = await prisma.mailAccount.findFirst({
     where: { provider: "outlook", refreshToken: { not: null } },
@@ -227,6 +266,9 @@ export async function syncDelegatedOutlook(
   ];
 
   let synced = 0;
+  // Collect inbound hometax messages for post-loop tax-invoice ingestion.
+  const hometaxPending: Array<{ msg: GraphMessage; rowId: string }> = [];
+
   for (const { msg, direction } of items) {
     const fromEmail = sanitizeText(msg.from?.emailAddress?.address) || "unknown";
     const toEmail = sanitizeText(msg.toRecipients?.[0]?.emailAddress?.address) || null;
@@ -242,15 +284,50 @@ export async function syncDelegatedOutlook(
       receivedAt: msg.receivedDateTime ? new Date(msg.receivedDateTime) : null,
       groupKey: conversationId,
     };
-    await prisma.mailMessage.upsert({
+    const row = await prisma.mailMessage.upsert({
       where: { externalId: msg.id },
       create: { externalId: msg.id, ...base },
       update: base,
     });
     synced++;
+
+    if (direction === "inbound" && isHometaxSender(fromEmail)) {
+      hometaxPending.push({ msg, rowId: row.id });
+    }
   }
   await prisma.mailAccount.update({ where: { id: account.id }, data: { lastSyncedAt: new Date() } });
-  return { synced, inbox: inbox.length, sent: sent.length, account: account.email };
+
+  // Best-effort tax-invoice ingestion — never breaks mail sync.
+  let tiScanned = 0;
+  let tiCreated = 0;
+  if (hometaxPending.length > 0) {
+    try {
+      for (const { msg, rowId } of hometaxPending) {
+        tiScanned++;
+        const html = await fetchMessageAttachmentHtml(token, msg.id);
+        if (!html) continue;
+        try {
+          const res = await cfoFetch<{ status: string; taxInvoiceId?: string }>(
+            "tax-invoices/upload-html",
+            { method: "POST", body: JSON.stringify({ html, sourceMessageId: rowId }) },
+          );
+          if (res.status === "created") tiCreated++;
+        } catch (uploadErr) {
+          console.warn(`[hometax] upload-html failed for message ${msg.id}:`, uploadErr);
+        }
+      }
+    } catch (outerErr) {
+      console.warn("[hometax] tax-invoice ingestion loop failed:", outerErr);
+    }
+  }
+
+  return {
+    synced,
+    inbox: inbox.length,
+    sent: sent.length,
+    account: account.email,
+    taxInvoices: { scanned: tiScanned, created: tiCreated },
+  };
 }
 
 export async function getDelegatedConnection(): Promise<{
