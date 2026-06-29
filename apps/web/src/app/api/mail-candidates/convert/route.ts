@@ -1,28 +1,9 @@
 import { prisma } from "@sangfor/db";
+import { deriveEntityFromCandidate } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 // Default project ID for entities
 const DEFAULT_PROJECT_ID = "cmq2jhoxd00019kwe5k5p7tsw";
-
-// 발신자 도메인에서 회사명 추출
-function extractCompanyFromDomain(domain: string): string {
-  const domainMap: Record<string, string> = {
-    'berlo.co.kr': '베를로',
-    'berlo.com': '베를로',
-    'nexias.com': '넥시아스',
-    'partner.co.kr': '파트너사',
-    'customer.kr': '고객사',
-    'sangfor.com': 'Sangfor',
-  };
-  return domainMap[domain] || domain.split('.')[0];
-}
-
-// 발신자명에서 담당자 추출
-function extractContactFromEmail(email: string, name?: string): string {
-  if (name) return name;
-  const localPart = email.split('@')[0];
-  return localPart.replace(/[0-9]/g, '').replace('.', ' ');
-}
 
 // 업종 추론
 function inferIndustry(summary?: string | null): string {
@@ -44,35 +25,29 @@ export async function POST() {
     });
 
     let customersCreated = 0;
+    let customersSkipped = 0;
     for (const candidate of approvedCustomers) {
-      const customerName = candidate.title.replace("Customer: ", "");
-      const sourceEmail = candidate.sourceSender || '';
-      const domain = sourceEmail.split('@')[1] || '';
-      const contactName = extractContactFromEmail(sourceEmail);
-
-      const existing = await prisma.customer.findFirst({
-        where: { name: customerName, projectId: DEFAULT_PROJECT_ID },
-      });
-
+      const e = deriveEntityFromCandidate(candidate);
+      if (e.skip) {
+        await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: 'rejected' } });
+        customersSkipped++;
+        continue;
+      }
+      const existing = await prisma.customer.findFirst({ where: { domain: e.domain, projectId: DEFAULT_PROJECT_ID } });
       if (!existing) {
         await prisma.customer.create({
           data: {
             projectId: DEFAULT_PROJECT_ID,
-            name: extractCompanyFromDomain(domain) || customerName,
-            domain: domain || (candidate.metadata as any)?.domain || null,
+            name: e.name,
+            domain: e.domain,
             industry: inferIndustry(candidate.summary),
             status: "active",
-            notes: `담당자: ${contactName} | 원본: ${candidate.sourceTitle || ''}`,
+            notes: `원본: ${candidate.sourceTitle || ''}`,
           },
         });
         customersCreated++;
       }
-
-      // 후보 상태를 converted로 변경
-      await prisma.mailDerivedCandidate.update({
-        where: { id: candidate.id },
-        data: { status: "converted" },
-      });
+      await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: 'converted' } });
     }
 
     // 2. Approved 파트너 후보를 partners 테이블로 변환
@@ -81,31 +56,27 @@ export async function POST() {
     });
 
     let partnersCreated = 0;
+    let partnersSkipped = 0;
     for (const candidate of approvedPartners) {
-      const partnerName = candidate.title.replace("Partner: ", "");
-      const sourceEmail = candidate.sourceSender || '';
-      const domain = sourceEmail.split('@')[1] || '';
-
-      const existing = await prisma.partner.findFirst({
-        where: { name: partnerName, projectId: DEFAULT_PROJECT_ID },
-      });
-
+      const e = deriveEntityFromCandidate(candidate);
+      if (e.skip) {
+        await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: 'rejected' } });
+        partnersSkipped++;
+        continue;
+      }
+      const existing = await prisma.partner.findFirst({ where: { name: e.name, projectId: DEFAULT_PROJECT_ID } });
       if (!existing) {
         await prisma.partner.create({
           data: {
             projectId: DEFAULT_PROJECT_ID,
-            name: extractCompanyFromDomain(domain) || partnerName,
+            name: e.name,
             partnerType: (candidate.metadata as any)?.partnerType || null,
             status: "active",
           },
         });
         partnersCreated++;
       }
-
-      await prisma.mailDerivedCandidate.update({
-        where: { id: candidate.id },
-        data: { status: "converted" },
-      });
+      await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: 'converted' } });
     }
 
     // 3. Approved opportunity 후보를 opportunities 테이블로 변환
@@ -172,9 +143,11 @@ export async function POST() {
       success: true,
       customersCreated,
       partnersCreated,
+      customersSkipped,
+      partnersSkipped,
       opportunitiesCreated,
       tasksCreated,
-      message: `고객: ${customersCreated}개, 파트너: ${partnersCreated}개, 기회: ${opportunitiesCreated}개, 작업: ${tasksCreated}개 생성 완료`,
+      message: `고객: ${customersCreated}개 생성, ${customersSkipped}개 제외 | 파트너: ${partnersCreated}개 생성, ${partnersSkipped}개 제외 | 기회: ${opportunitiesCreated}개 | 작업: ${tasksCreated}개`,
     });
   } catch (error) {
     return NextResponse.json(
