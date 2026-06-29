@@ -15,6 +15,10 @@ import {
   type DomainMemoryRecord,
   type DomainOutcome,
 } from "./domain-memory";
+import {
+  createDefaultDomainGenerator,
+  type DefaultGeneratorOptions,
+} from "./domain-default-generator";
 
 /**
  * V2 — 도메인 AI 런타임.
@@ -55,12 +59,23 @@ export type ColorGateEvaluator = (input: {
 }) => Promise<{ reviewed: ColorKey[]; failed: ColorKey[] }>;
 
 export interface DomainRuntimeDeps {
-  generate: DomainGenerator;
+  /**
+   * LLM 생성기. 생략하면 `createDefaultDomainGenerator(defaultGeneratorOptions)`
+   * (구조화→텍스트→stub, opencode 헬스 폴백)가 자동으로 쓰인다.
+   */
+  generate?: DomainGenerator;
+  /** generate 를 생략했을 때 기본 생성기에 넘길 옵션(모델맵·opencode 설정 등). */
+  defaultGeneratorOptions?: DefaultGeneratorOptions;
   evaluateGate?: ColorGateEvaluator;
   projectSlug?: string;
   recallTopK?: number;
   /** 학습 저장 끄기 (드라이런). 기본 false. */
   skipLearning?: boolean;
+}
+
+/** generate 가 주입되면 그대로, 아니면 권장 기본 생성기를 만든다. */
+export function resolveDomainGenerator(deps: DomainRuntimeDeps): DomainGenerator {
+  return deps.generate ?? createDefaultDomainGenerator(deps.defaultGeneratorOptions);
 }
 
 export interface DomainStageResult {
@@ -113,13 +128,14 @@ export async function runDomainStage(
   const def = DOMAIN_DEFINITIONS[domain];
   const projectSlug = deps.projectSlug ?? "demo-project";
   const evaluateGate = deps.evaluateGate ?? defaultGate;
+  const generate = resolveDomainGenerator(deps);
 
   // 1) recall (도메인 격리)
   const recalled = await recallFromDb({ domain, tags: c.tags }, projectSlug, deps.recallTopK ?? 3);
 
-  // 2) prompt → 3) generate (LLM 주입)
+  // 2) prompt → 3) generate (LLM 주입; 미주입 시 권장 기본 생성기)
   const prompt = buildDomainPrompt(domain, c, recalled);
-  const artifact = await deps.generate({ domain, case: c, recalled, prompt });
+  const artifact = await generate({ domain, case: c, recalled, prompt });
 
   // 4) 횡축 컬러 렌즈 → 5) 게이트
   const lenses = lensesForDomain(domain);
@@ -175,9 +191,11 @@ export async function runDomainPipeline(
   deps: DomainRuntimeDeps,
 ): Promise<DomainStageResult[]> {
   const results: DomainStageResult[] = [];
+  // 기본 생성기를 단계마다 새로 만들지 않도록 파이프라인에서 한 번만 해소해 재사용.
+  const stageDeps: DomainRuntimeDeps = { ...deps, generate: resolveDomainGenerator(deps) };
   let cursor: GtmDomain | null = GTM_PIPELINE[0];
   while (cursor) {
-    const result = await runDomainStage(cursor, c, deps);
+    const result = await runDomainStage(cursor, c, stageDeps);
     results.push(result);
     if (!result.gatePass) break; // 게이트 실패 → 같은 도메인 재작업 필요, 핸드오프 중단
     cursor = result.handoffTo;
