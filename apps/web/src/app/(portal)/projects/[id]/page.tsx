@@ -1,122 +1,87 @@
-import { getEngagementDetail } from "@sangfor/business";
-import Link from "next/link";
+import { getProjectHub } from "@sangfor/business";
 import { notFound } from "next/navigation";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CFO } from "@/lib/cfo-theme";
+import { LaneDecisionControls } from "@/components/hub/lane-decision-controls";
 
 type PageProps = { params: Promise<{ id: string }> };
+const won = (n?: number) => `₩${(n ?? 0).toLocaleString()}`;
+const DOMAIN_LABEL: Record<string, string> = { marketing: "마케팅", sales: "세일즈", presales: "프리세일즈", engineer: "엔지니어", cfo: "CFO" };
+const DOT: Record<string, string> = { done: "●", active: "◐", pending: "○" };
 
 export default async function ProjectDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const engagement = await getEngagementDetail(id);
-  if (!engagement) notFound();
+  const hub = await getProjectHub(id);
+  if (!hub) notFound();
+  const { engagement, lanes, pnl } = hub;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">{engagement.name}</h1>
-          <p className="text-muted-foreground">
-            {engagement.opportunity?.customer?.name ?? "고객 미지정"}
-            {engagement.amount != null ? ` · ${engagement.amount.toString()}` : ""}
-            {engagement.convertedFromStage ? ` · 전환 단계 ${engagement.convertedFromStage}` : ""}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <Badge>{engagement.status}</Badge>
-          {engagement.opportunity && (
-            <Link
-              href={`/opportunities/${engagement.opportunityId}`}
-              className="text-sm text-primary underline-offset-2 hover:underline"
-            >
-              ← 원 영업기회: {engagement.opportunity.title}
-            </Link>
-          )}
-        </div>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight" style={{ color: CFO.ink }}>{engagement!.name}</h1>
+        <p className="text-muted-foreground">{engagement!.opportunity?.customer?.name ?? "고객 미연결"} · {engagement!.status}</p>
+        <div className="mt-1 h-0.5 w-12" style={{ background: CFO.brass }} />
       </div>
 
+      {/* 도메인 파이프라인 바 */}
+      <div className="flex items-center gap-2 text-sm">
+        {lanes.map((l, i) => (
+          <span key={l.domain} className="flex items-center gap-2">
+            <span style={{ color: l.status === "pending" ? CFO.muted : CFO.ink }}>{DOT[l.status]} {DOMAIN_LABEL[l.domain]}</span>
+            {i < lanes.length - 1 && <span style={{ color: CFO.hairline }}>──▶</span>}
+          </span>
+        ))}
+      </div>
+
+      {/* CFO 손익 스트립 */}
+      <Card>
+        <CardHeader><CardTitle>딜 손익</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-4 gap-4 tabular-nums">
+            <div><div className="text-xs text-muted-foreground">매출</div><div style={{ color: CFO.inflow }}>{won(pnl.revenue)}</div></div>
+            <div><div className="text-xs text-muted-foreground">매입</div><div style={{ color: CFO.outflow }}>{won(pnl.purchase)}</div></div>
+            <div><div className="text-xs text-muted-foreground">비용</div><div style={{ color: CFO.outflow }}>{won(pnl.expense)}</div></div>
+            <div><div className="text-xs text-muted-foreground">마진</div><div style={{ color: pnl.margin >= 0 ? CFO.inflow : CFO.outflow }}>{won(pnl.margin)} ({pnl.marginPct}%)</div></div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 도메인 학습 안내 */}
+      <p className="text-xs text-muted-foreground">AI 제안을 사람이 승인/수정/반려하면 그 결정이 도메인 학습으로 반영되어 자율도가 올라갑니다.</p>
+
+      {/* 도메인 레인 */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>제안서 ({engagement.generatedDocuments.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {engagement.generatedDocuments.length === 0 ? (
-              <p className="text-muted-foreground">흡수된 제안서 없음</p>
-            ) : (
-              engagement.generatedDocuments.map((d) => (
-                <div key={d.id} className="flex items-center justify-between gap-2">
-                  <Link href={`/proposals/${d.id}`} className="hover:underline">
-                    {d.title}
-                  </Link>
-                  <Badge variant="secondary">{d.status}</Badge>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>POC ({engagement.pocProjects.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {engagement.pocProjects.length === 0 ? (
-              <p className="text-muted-foreground">흡수된 POC 없음</p>
-            ) : (
-              engagement.pocProjects.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-2">
-                  <Link href={`/poc/${p.id}`} className="hover:underline">
-                    {p.title}
-                  </Link>
-                  <Badge variant="secondary">{p.status}</Badge>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>미팅내용 ({engagement.meetingNotes.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {engagement.meetingNotes.length === 0 ? (
-              <p className="text-muted-foreground">흡수된 미팅 없음</p>
-            ) : (
-              engagement.meetingNotes.map((m) => (
-                <div key={m.id} className="space-y-1 rounded-lg border bg-background/60 p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium">{m.title}</span>
-                    <Badge variant={m.status === "suggested" ? "outline" : "secondary"}>
-                      {m.source}
-                    </Badge>
-                  </div>
-                  <p className="line-clamp-2 text-xs text-muted-foreground">{m.bodyMarkdown}</p>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>딜리버리 체크리스트 ({engagement.checklistItems.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {engagement.checklistItems.length === 0 ? (
-              <p className="text-muted-foreground">체크리스트 없음</p>
-            ) : (
-              engagement.checklistItems.map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-2">
-                  <span>{c.itemKey}</span>
-                  <Badge variant="secondary">{c.status}</Badge>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+        {lanes.map((l) => (
+          <Card key={l.domain}>
+            <CardHeader className="flex-row items-center justify-between">
+              <CardTitle>{DOMAIN_LABEL[l.domain]}</CardTitle>
+              <Badge variant="outline">{DOT[l.status]} {l.status}</Badge>
+            </CardHeader>
+            <CardContent>
+              {l.autonomy && (
+                <p className="text-xs mb-2" style={{ color: CFO.muted }}>
+                  {l.autonomy.pct !== null
+                    ? `자율도 ${l.autonomy.pct}% · ${l.autonomy.label} (표본 ${l.autonomy.sample})`
+                    : `자율도 학습중 (표본 ${l.autonomy.sample})`}
+                </p>
+              )}
+              {l.artifacts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">산출물 없음</p>
+              ) : (
+                <ul className="space-y-1 text-sm">
+                  {l.artifacts.map((a) => (
+                    <li key={a.id} className="flex justify-between gap-2">
+                      <span>{a.label}</span>
+                      {a.status && <Badge variant="secondary">{a.status}</Badge>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <LaneDecisionControls projectId={id} domain={l.domain} />
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );

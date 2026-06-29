@@ -1475,7 +1475,9 @@ model Invoice {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   taxInvoices    TaxInvoice[]
+  engagementId   String?       @map("engagement_id")
 
+  @@index([engagementId])
   @@map("finance_invoices")
 }
 
@@ -1496,7 +1498,9 @@ model Expense {
   memo          String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  engagementId  String?        @map("engagement_id")
 
+  @@index([engagementId])
   @@map("finance_expenses")
 }
 
@@ -1593,7 +1597,9 @@ model TaxInvoice {
   rawResponse     String?  @map("raw_response")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  engagementId    String?  @map("engagement_id")
 
+  @@index([engagementId])
   @@map("finance_tax_invoices")
 }
 

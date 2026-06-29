@@ -60,3 +60,8 @@ export * from "./engagement-center";
 export * from "./meeting-promotion";
 export * from "./llm-settings";
 export * from "./mail-entity-quality";
+export * from "./domain-pnl";
+export * from "./artifact-domain-map";
+export * from "./project-hub";
+export * from "./ai-classify-batch";
+export * from "./project-decision";

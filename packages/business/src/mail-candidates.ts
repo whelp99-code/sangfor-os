@@ -1,4 +1,5 @@
 import { Prisma, prisma } from "@sangfor/db";
+import { GROUND_TRUTH_CALIBRATION } from "./ai-classify-batch";
 import { z } from "zod";
 
 import { createCustomer, createPartner } from "./customer-partner";
@@ -879,13 +880,16 @@ async function classifyWithAI(thread: ThreadLike): Promise<AiClassificationResul
 제목: ${thread.threadTitle}
 발신자: ${thread.participantDomains.join(', ')}
 본문: ${thread.summary}
+
+## 분류 기준(사용자 확정)
+${GROUND_TRUTH_CALIBRATION}
 `;
 
   const apiKey = getOpenAiApiKey();
   if (!apiKey) throw new Error("openai_api_key_missing");
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
+  const timeoutId = setTimeout(() => controller.abort(), Number(process.env.OPENAI_TIMEOUT_MS) || 25000); // AI 응답 타임아웃(게이트웨이 지연 고려; OPENAI_TIMEOUT_MS로 조정)
 
   try {
     const response = await fetch(getOpenAiChatCompletionsUrl(), {
@@ -1933,7 +1937,7 @@ async function callLlmRevalidation(
 
   const metadata = asRecord(candidate.metadata);
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
+  const timeoutId = setTimeout(() => controller.abort(), Number(process.env.OPENAI_TIMEOUT_MS) || 25000); // AI 응답 타임아웃(게이트웨이 지연 고려; OPENAI_TIMEOUT_MS로 조정)
 
   try {
     const response = await fetch(getOpenAiChatCompletionsUrl(), {
