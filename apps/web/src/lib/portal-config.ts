@@ -18,6 +18,7 @@ export const PORTAL_NAV: NavItem[] = [
   { title: "고객사", href: "/customers", icon: "users", group: "Business" },
   { title: "파트너", href: "/partners", icon: "handshake", group: "Business" },
   { title: "영업기회", href: "/opportunities", icon: "trending-up", group: "Business" },
+  { title: "프로젝트", href: "/projects", icon: "folder-kanban", group: "Business" },
   { title: "PoC", href: "/poc", icon: "flask", group: "Business" },
   { title: "제안서", href: "/proposals", icon: "file-text", group: "Business" },
   { title: "작업", href: "/tasks", icon: "list-checks", group: "Business" },
