@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyMailCandidateDocument, classifyMailInsightThread } from "./mail-candidates";
+import {
+  classifyMailCandidateDocument,
+  classifyMailInsightThread,
+  combineHybridClassification,
+} from "./mail-candidates";
+import type { AiClassificationResult } from "./mail-candidates";
 
 describe("mail candidate classification", () => {
   it("finds opportunity, task, and customer candidates from real mail-like content", () => {
@@ -316,5 +321,140 @@ describe("mail candidate classification", () => {
       },
     });
     expect(created).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// combineHybridClassification — pure unit tests (no network, no DB)
+// ---------------------------------------------------------------------------
+
+function makeAiResult(
+  category: AiClassificationResult["category"],
+  confidence = 85,
+): AiClassificationResult {
+  return { category, confidence, reasoning: "test", urgency: "medium", sentiment: "neutral" };
+}
+
+/** Build a minimal policyResult that has one customer candidate and no excluded. */
+function makeCustomerPolicyResult() {
+  return classifyMailInsightThread({
+    threadKey: "conv-customer",
+    threadTitle: "[SamsungSDS] Sangfor 라이선스 견적 요청",
+    summary: "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+    status: "active",
+    aiEnhanced: true,
+    messageIds: ["m1"],
+    nextActions: [{ recommendedAction: "견적 회신" }],
+    evidenceItems: ["견적 요청"],
+    revenueOpsTags: ["견적/계약"],
+    participantDomains: ["samsungsds.com"],
+    metadata: { messages: [{ id: "m1", from: "buyer@samsungsds.com", fromName: "Samsung SDS" }] },
+  });
+}
+
+/** Build a minimal policyResult that has one partner candidate. */
+function makePartnerPolicyResult() {
+  return classifyMailInsightThread({
+    threadKey: "conv-partner",
+    threadTitle: "[넥시아스] 고객사 SASE 견적 문의",
+    summary: "파트너가 고객사를 위해 견적을 요청했습니다.",
+    status: "active",
+    aiEnhanced: true,
+    messageIds: ["m1"],
+    nextActions: [{ recommendedAction: "견적 확인" }],
+    evidenceItems: ["견적"],
+    revenueOpsTags: ["견적/계약"],
+    participantDomains: ["nexias.co.kr"],
+    metadata: { messages: [{ id: "m1", from: "hgyang@nexias.co.kr", fromName: "넥시아스" }] },
+  });
+}
+
+describe("combineHybridClassification", () => {
+  it("returns policyResult unchanged when aiResult is null", () => {
+    const policyResult = makeCustomerPolicyResult();
+    const combined = combineHybridClassification(policyResult, null);
+    expect(combined.candidates).toEqual(policyResult.candidates);
+    expect(combined.excluded).toEqual(policyResult.excluded);
+    expect(combined.aiClassification).toBeNull();
+  });
+
+  it("drops all candidates and moves them to excluded when AI says vendor", () => {
+    const policyResult = makeCustomerPolicyResult();
+    // policy should produce at least one candidate
+    expect(policyResult.candidates.length).toBeGreaterThan(0);
+
+    const combined = combineHybridClassification(policyResult, makeAiResult("vendor"));
+    expect(combined.candidates).toHaveLength(0);
+    expect(combined.excluded.length).toBeGreaterThan(0);
+    expect(combined.excluded.some(e => e.reason.includes("vendor"))).toBe(true);
+    expect(combined.aiClassification?.category).toBe("vendor");
+  });
+
+  it("drops all candidates and moves them to excluded when AI says exclude", () => {
+    const policyResult = makeCustomerPolicyResult();
+    expect(policyResult.candidates.length).toBeGreaterThan(0);
+
+    const combined = combineHybridClassification(policyResult, makeAiResult("exclude"));
+    expect(combined.candidates).toHaveLength(0);
+    expect(combined.excluded.length).toBeGreaterThan(0);
+    expect(combined.aiClassification?.category).toBe("exclude");
+  });
+
+  it("corrects a customer candidate to partner when AI says partner with confidence >= 70", () => {
+    const policyResult = makeCustomerPolicyResult();
+    const customerCandidates = policyResult.candidates.filter(c => c.candidateType === "customer");
+    expect(customerCandidates.length).toBeGreaterThan(0);
+
+    const combined = combineHybridClassification(policyResult, makeAiResult("partner", 80));
+    const corrected = combined.candidates.filter(c => c.candidateType === "partner" && c.title.startsWith("Partner:"));
+    // Every originally-customer candidate should now be partner
+    expect(corrected.length).toBeGreaterThanOrEqual(customerCandidates.length);
+    // No leftover customer candidate with the same name
+    expect(combined.candidates.some(c => c.candidateType === "customer" && c.title.startsWith("Customer:"))).toBe(false);
+  });
+
+  it("does NOT correct customer→partner when AI confidence is below 70", () => {
+    const policyResult = makeCustomerPolicyResult();
+    const combined = combineHybridClassification(policyResult, makeAiResult("partner", 65));
+    // candidateType unchanged
+    expect(combined.candidates.some(c => c.candidateType === "customer")).toBe(true);
+  });
+
+  it("corrects a partner candidate to customer when AI says customer with confidence >= 70", () => {
+    const policyResult = makePartnerPolicyResult();
+    const partnerCandidates = policyResult.candidates.filter(c => c.candidateType === "partner");
+    expect(partnerCandidates.length).toBeGreaterThan(0);
+
+    const combined = combineHybridClassification(policyResult, makeAiResult("customer", 75));
+    const corrected = combined.candidates.filter(c => c.candidateType === "customer" && c.title.startsWith("Customer:"));
+    expect(corrected.length).toBeGreaterThanOrEqual(partnerCandidates.length);
+  });
+
+  it("blends confidence 30% policy / 70% AI when category is opportunity", () => {
+    const policyResult = makeCustomerPolicyResult();
+    const firstCandidate = policyResult.candidates[0];
+    if (!firstCandidate) return; // skip if no candidates (shouldn't happen)
+
+    const aiResult = makeAiResult("opportunity", 90);
+    const combined = combineHybridClassification(policyResult, aiResult);
+    const blended = combined.candidates[0];
+    expect(blended).toBeDefined();
+    const expected = Math.min(100, Math.round((firstCandidate.confidence * 0.3) + (90 * 0.7)));
+    expect(blended!.confidence).toBe(expected);
+    expect((blended as Record<string, unknown>).aiClassification).toBe(aiResult);
+  });
+
+  it("does not modify non-customer/partner candidates (opportunity, poc, task) during type correction", () => {
+    const policyResult = makeCustomerPolicyResult();
+    const aiResult = makeAiResult("partner", 90);
+    const combined = combineHybridClassification(policyResult, aiResult);
+    // opportunity/poc/task types must be preserved
+    const preserved = combined.candidates.filter(c =>
+      c.candidateType === "opportunity" || c.candidateType === "poc" || c.candidateType === "task"
+    );
+    const original = policyResult.candidates.filter(c =>
+      c.candidateType === "opportunity" || c.candidateType === "poc" || c.candidateType === "task"
+    );
+    expect(preserved.length).toBe(original.length);
   });
 });
