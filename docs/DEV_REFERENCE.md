@@ -272,10 +272,13 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 | `opencode-structured.ts` | opencode 구조화 출력(format, `info.structured`) |
 | `domain-structured.ts` | 구조화 출력 생성기 |
 | `domain-llm-fallback.ts` | 가용성 폴백 체인(`createResilientDomainGenerator`) |
-| `domain-default-generator.ts` | 권장 기본 생성기(구조화→텍스트→stub) |
-| `domain-dashboard.ts` | 대시보드 스냅샷 빌더(`buildDomainDashboardSnapshot`) |
+| `domain-default-generator.ts` | 권장 기본 생성기(구조화→텍스트→stub). **runDomainPipeline의 기본값**(generate 미주입 시 `resolveDomainGenerator`가 자동 사용) |
+| `domain-persistence.ts` | **구조화 산출물→실 DB 레코드 매핑**(`createDomainPersister`, 멱등 `dompipe:*` id). runtime `persist` 주입점 |
+| `domain-dashboard.ts` | 대시보드 스냅샷 빌더(`buildDomainDashboardSnapshot`) + outcomeBreakdown/recentDecisions |
 | `domain-embedder.ts` | 로컬 해시 임베더(`createHashEmbedder`) |
 | `domain-embedder-openai.ts` | OpenAI 임베더 + `resolveEmbedder` |
+
+웹(대시보드): `apps/web/.../api/domain-pipeline/stream/route.ts`(SSE 실시간), `(portal)/domain-pipeline/page.tsx`(EventSource·카드 상세). CFO: `components/cfo/page-heading.tsx`(공유 ledger 머스트헤드).
 
 ### `packages/business/src/` — 기타 핵심(어제 관련)
 | 파일 | 역할 |
@@ -356,13 +359,13 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 
 ## 9. 후속 작업 (백로그)
 
-- [ ] `runDomainPipeline` 기본 generator를 `createDefaultDomainGenerator`로 디폴트화(현재 명시 주입).
+- [x] ~~`runDomainPipeline` 기본 generator를 `createDefaultDomainGenerator`로 디폴트화~~ (2026-06-29, `bc37df1`: `generate` 선택화 + `resolveDomainGenerator`).
 - [ ] 실 임베딩 키 설정 후 백필 재실행(recall 품질↑).
-- [ ] 도메인 구조화 산출물 → 실제 DB 레코드(Opportunity/Quote/Invoice) 매핑.
-- [ ] 도메인 대시보드 실시간(SSE) 갱신, 카드 상세화.
+- [x] ~~도메인 구조화 산출물 → 실제 DB 레코드(Opportunity/Quote/Invoice) 매핑~~ (2026-06-29, `0c82a31`: `domain-persistence.ts`, runtime `persist` 주입).
+- [x] ~~도메인 대시보드 실시간(SSE) 갱신, 카드 상세화~~ (2026-06-29, `edeb114`: SSE 스트림 + outcomeBreakdown/recentDecisions 카드).
 - [x] ~~현재 워킹트리 정리~~ (2026-06-29 완료: origin/main 동기화 → `dev-clean`, 손상본 `backup/worktree-thrashing-2026-06-29`에 백업).
 - [ ] 불필요한 stale 워크트리 정리(`git worktree remove`) — 특히 `.worktrees/opportunity-to-engagement`가 stale main을 점유.
-- [ ] CFO ledger 테마를 나머지 CFO 페이지·포털 전체로 확장.
+- [x] ~~CFO ledger 테마를 나머지 CFO 페이지로 확장~~ (2026-06-29, `08e7550`: crud-table·page-heading·loading/error·뱃지). 후속: projects/vat/subscriptions의 read-only 요약 테이블 내부(zinc) + 포털 전역까지.
 - [ ] 재무 Postgres RLS(비소유 롤+테넌트 컨텍스트) 세분 통제, pg_dump 전체 백업 cron.
 - [ ] workflow console(3500) 컨테이너화(현 `file:` 의존성으로 보류).
 
@@ -386,3 +389,4 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ## 변경 이력
 - **2026-06-29**: 최초 작성. 2026-06-28 7개 워크스트림(A 도메인 / B CFO / C MCP / D Engagement / E 웹LLM / F 메일 / G DB마이그레이션) 일괄 정리.
 - **2026-06-29**: 워킹트리 thrashing 손상 치유 — `origin/main`(99c69e9) 동기화 → 작업 브랜치 `dev-clean`, 손상본 `backup/worktree-thrashing-2026-06-29` 백업. thrashing 근원(동시 워크트리) 규명·기록(§8).
+- **2026-06-29**: 후속 개발 4종(브랜치 `feat-domain-followups`): D 기본 생성기 디폴트화(`bc37df1`) · A 구조화→실 DB 매핑(`0c82a31`) · B 대시보드 SSE+상세(`edeb114`) · C CFO ledger 테마 확장(`08e7550`). 전부 TDD/typecheck/lint 통과, B는 실 DB 검증.
