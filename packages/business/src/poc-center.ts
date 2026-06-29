@@ -240,6 +240,10 @@ export async function addPocEvent(
   });
 }
 
+export async function archivePocProject(id: string) {
+  return updatePocProject(id, { status: "archived" });
+}
+
 export async function generatePocResultReport(pocProjectId: string) {
   const poc = await getPocDetail(pocProjectId);
   if (!poc) throw new Error("poc_not_found");

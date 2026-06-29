@@ -221,6 +221,10 @@ export async function listGeneratedDocuments(projectSlug = "demo-project") {
   });
 }
 
+export async function archiveProposal(id: string) {
+  return prisma.generatedDocument.update({ where: { id }, data: { status: "archived" } });
+}
+
 export async function listProposalTemplates(projectSlug = "demo-project") {
   await ensureProposalTemplates(projectSlug);
   const projectId = await resolveProjectId(projectSlug);
