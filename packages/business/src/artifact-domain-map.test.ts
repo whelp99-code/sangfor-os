@@ -28,3 +28,15 @@ describe('buildLanes', () => {
     expect(buildLanes([]).every((l) => l.status === 'pending')).toBe(true);
   });
 });
+
+describe('buildLanes gap case', () => {
+  it('empty domains stay pending even when a later domain has artifacts', () => {
+    const lanes = buildLanes([{ kind: 'taxInvoice', id: 't1', label: '매입' }]); // only cfo
+    const byDomain = Object.fromEntries(lanes.map((l) => [l.domain, l.status]));
+    expect(byDomain.cfo).toBe('active');
+    expect(byDomain.marketing).toBe('pending');
+    expect(byDomain.sales).toBe('pending');
+    expect(byDomain.presales).toBe('pending');
+    expect(byDomain.engineer).toBe('pending');
+  });
+});

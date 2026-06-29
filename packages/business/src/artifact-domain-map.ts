@@ -34,9 +34,12 @@ export function buildLanes(artifacts: LaneArtifact[]): DomainLane[] {
     (acc, d, i) => (byDomain.get(d)!.length > 0 ? i : acc),
     -1,
   );
-  return DOMAIN_ORDER.map((domain, i) => ({
-    domain,
-    artifacts: byDomain.get(domain)!,
-    status: i < lastIdx ? 'done' : i === lastIdx ? 'active' : 'pending',
-  }));
+  // A domain with no artifacts is always 'pending' (honest — empty ≠ done),
+  // even if a later domain has progressed. The last domain that DOES have
+  // artifacts is 'active'; earlier domains that have artifacts are 'done'.
+  return DOMAIN_ORDER.map((domain, i) => {
+    const has = byDomain.get(domain)!.length > 0;
+    const status: DomainLane['status'] = !has ? 'pending' : i === lastIdx ? 'active' : 'done';
+    return { domain, artifacts: byDomain.get(domain)!, status };
+  });
 }
