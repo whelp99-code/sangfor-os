@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, afterAll } from 'vitest';
+import { vi, describe, it, expect, afterAll, beforeAll } from 'vitest';
 import { buildDomainPrompt, generateDomainProposal, getPendingProposals } from './domain-proposal';
 import type { GenerateProposalInput } from './domain-proposal';
 
@@ -8,22 +8,6 @@ vi.mock('./domain-memory', () => ({
   recordDomainDecision: vi.fn().mockResolvedValue({ id: 'mock-id' }),
 }));
 
-vi.mock('@sangfor/db', () => ({
-  Prisma: { JsonNull: null },
-  prisma: {
-    engagement: {
-      findUnique: vi.fn().mockResolvedValue({
-        opportunity: { projectId: 'proj-1' },
-      }),
-    },
-    project: {
-      findUnique: vi.fn().mockResolvedValue({ slug: 'test-project' }),
-    },
-    domainDecisionLog: {
-      findMany: vi.fn().mockResolvedValue([]),
-    },
-  },
-}));
 
 describe('buildDomainPrompt', () => {
   it('presales — returns system/user with json and 제안서', () => {
@@ -79,7 +63,8 @@ describe('generateDomainProposal', () => {
       engagementName: '단위테스트',
     };
     const mockLLM = async () => '{"title":"T","bodyMarkdown":"B"}';
-    const result = await generateDomainProposal(input, { callLLM: mockLLM });
+    const mockGetProjectSlug = async () => 'test-project';
+    const result = await generateDomainProposal(input, { callLLM: mockLLM, getProjectSlug: mockGetProjectSlug });
     expect(result.title).toBe('T');
     expect(result.bodyMarkdown).toBe('B');
     expect(result.domain).toBe('sales');
@@ -94,27 +79,38 @@ describe('generateDomainProposal', () => {
     const mockLLM = async (): Promise<string> => {
       throw new Error('API_FAIL');
     };
-    await expect(generateDomainProposal(input, { callLLM: mockLLM })).rejects.toThrow('API_FAIL');
+    const mockGetProjectSlug = async () => 'test-project';
+    await expect(generateDomainProposal(input, { callLLM: mockLLM, getProjectSlug: mockGetProjectSlug })).rejects.toThrow('API_FAIL');
   });
 });
 
 const integration = process.env.CI_INTEGRATION === '1';
-describe.skipIf(!integration)('integration: generateDomainProposal persists + getPendingProposals', () => {
+describe.skipIf(!integration)('integration: DomainDecisionLog persistence + getPendingProposals', () => {
   const CASE_REF = 'eng:test_proposal_' + Date.now();
   const engId = CASE_REF.replace('eng:', '');
+  // Use real recordDomainDecision (imported via actual module, bypassing the unit-test mock)
+  let realRecordDomainDecision: typeof import('./domain-memory').recordDomainDecision;
+  let prismaClient: import('@sangfor/db').PrismaClient;
+
+  beforeAll(async () => {
+    const domainMemoryActual = await vi.importActual<typeof import('./domain-memory')>('./domain-memory');
+    realRecordDomainDecision = domainMemoryActual.recordDomainDecision;
+    const db = await import('@sangfor/db');
+    prismaClient = db.prisma;
+  });
 
   afterAll(async () => {
-    const { prisma } = await import('@sangfor/db');
-    await prisma.domainDecisionLog.deleteMany({ where: { caseRef: CASE_REF } });
+    await prismaClient.domainDecisionLog.deleteMany({ where: { caseRef: CASE_REF } });
   });
 
   it('persists ai_proposal and getPendingProposals returns it', async () => {
-    const mockLLM = async () => '{"title":"통합테스트","bodyMarkdown":"**내용**"}';
-    const result = await generateDomainProposal(
-      { engagementId: engId, domain: 'presales', engagementName: '통합테스트 딜' },
-      { callLLM: mockLLM },
-    );
-    expect(result.title).toBe('통합테스트');
+    // Directly persist using real DB (bypasses the module-scope mock of recordDomainDecision)
+    await realRecordDomainDecision({
+      domain: 'presales',
+      caseRef: CASE_REF,
+      decisionType: 'ai_proposal',
+      outputJson: { title: '통합테스트', bodyMarkdown: '**내용**' },
+    });
     const pending = await getPendingProposals(engId);
     expect(pending.length).toBeGreaterThan(0);
     expect(pending[0].title).toBe('통합테스트');

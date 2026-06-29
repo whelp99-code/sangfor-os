@@ -85,6 +85,8 @@ export async function generateDomainProposal(
   input: GenerateProposalInput,
   deps?: {
     callLLM?: (system: string, user: string) => Promise<string>;
+    /** injectable for tests; default: looks up via engagement→opportunity→project */
+    getProjectSlug?: (engagementId: string) => Promise<string | undefined>;
   },
 ): Promise<DomainProposal> {
   // 1. Load memories from DB
@@ -146,16 +148,20 @@ export async function generateDomainProposal(
   const bodyMarkdown = parsed.bodyMarkdown ?? '';
 
   // 7. Look up projectSlug via engagement → opportunity → project chain
-  const { prisma: prismaClient } = await import('@sangfor/db');
-  const eng = await prismaClient.engagement.findUnique({
-    where: { id: input.engagementId },
-    select: { opportunity: { select: { projectId: true } } },
-  });
-  const projectId = eng?.opportunity?.projectId ?? null;
-  const projectRow = projectId
-    ? await prismaClient.project.findUnique({ where: { id: projectId }, select: { slug: true } })
-    : null;
-  const projectSlug = projectRow?.slug ?? undefined;
+  let projectSlug: string | undefined;
+  if (deps?.getProjectSlug) {
+    projectSlug = await deps.getProjectSlug(input.engagementId);
+  } else {
+    const eng = await prisma.engagement.findUnique({
+      where: { id: input.engagementId },
+      select: { opportunity: { select: { projectId: true } } },
+    });
+    const projectId = eng?.opportunity?.projectId ?? null;
+    const projectRow = projectId
+      ? await prisma.project.findUnique({ where: { id: projectId }, select: { slug: true } })
+      : null;
+    projectSlug = projectRow?.slug ?? undefined;
+  }
 
   // 8. Sanitize before jsonb write
   const sanitized = sanitizeJsonStrings({ title, bodyMarkdown }) as Prisma.InputJsonValue;
