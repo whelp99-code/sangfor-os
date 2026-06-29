@@ -108,6 +108,7 @@ function isBlockedBySet(domain: string, set: Set<string>): boolean {
  */
 export function isBusinessEntityDomain(domain: string): boolean {
   if (!domain) return false;
+  if (!domain.includes('.')) return false;
 
   if (isBlockedBySet(domain, SELF_DOMAINS)) return false;
   if (isBlockedBySet(domain, MICROSOFT_DOMAINS)) return false;
@@ -176,13 +177,15 @@ const JUNK_SUBSTRINGS = [
   '확인',
   '재요청',
   '메일',
-  'mails',
   '공지',
   '첨부',
   '발송',
   '수신',
   '접수',
 ];
+
+// Exact-match junk names (not substrings — to avoid false-positives like 'Mailsoft')
+const JUNK_EXACT_NAMES = ['mails'];
 
 const JUNK_PREFIX_REGEX = /^(re|fw|fwd|re:|fw:)/i;
 
@@ -202,6 +205,9 @@ export function isJunkCompanyName(name: string): boolean {
   for (const sub of JUNK_SUBSTRINGS) {
     if (lower.includes(sub.toLowerCase())) return true;
   }
+
+  // Exact-match junk names (avoids false-positives from substring matching)
+  if (JUNK_EXACT_NAMES.includes(lower)) return true;
 
   // Purely non-alphanumeric (no a-z, 0-9, or Korean syllables)
   if (!/[a-z0-9가-힣]/i.test(name)) return true;

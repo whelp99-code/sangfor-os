@@ -57,6 +57,10 @@ describe('isBusinessEntityDomain', () => {
   it('rejects empty string', () => {
     expect(isBusinessEntityDomain('')).toBe(false);
   });
+
+  it('rejects dotless string (no dot guard)', () => {
+    expect(isBusinessEntityDomain('random_string')).toBe(false);
+  });
 });
 
 describe('companyNameFromDomain', () => {
@@ -82,8 +86,12 @@ describe('isJunkCompanyName', () => {
     expect(isJunkCompanyName('FW')).toBe(true);
   });
 
-  it('flags "Mails" (contains "mails" substring)', () => {
+  it('flags "Mails" exact match (Microsoft relay domain false company name)', () => {
     expect(isJunkCompanyName('Mails')).toBe(true);
+  });
+
+  it('accepts "Mailsoft" — not an exact junk match (regression for mails substring removal)', () => {
+    expect(isJunkCompanyName('Mailsoft')).toBe(false);
   });
 
   it('flags "업체등록완료" (contains 등록, 완료)', () => {
