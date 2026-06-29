@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   scoreDomainMemory,
   recallDomainMemories,
+  buildMemoryTags,
   type DomainMemoryRecord,
   type RecallQuery,
 } from "./domain-memory";
@@ -59,6 +60,82 @@ describe("scoreDomainMemory (격리 + 가중)", () => {
 
   it("scores 0 for an empty query", () => {
     expect(scoreDomainMemory({ domain: "sales", tags: [] }, rec({ tags: ["firewall"] }))).toBe(0);
+  });
+});
+
+describe("scoreDomainMemory — negative learning (rejected must NOT be recommended)", () => {
+  const query: RecallQuery = { domain: "sales", tags: ["domain:sales", "intent:approved"] };
+
+  it("approved outcome with overlapping tags scores > 0", () => {
+    expect(
+      scoreDomainMemory(query, rec({ tags: ["domain:sales", "intent:approved"], outcome: "approved" })),
+    ).toBeGreaterThan(0);
+  });
+
+  it("rejected outcome with overlapping tags scores <= 0 (NOT recommended)", () => {
+    expect(
+      scoreDomainMemory(query, rec({ tags: ["domain:sales", "intent:approved"], outcome: "rejected" })),
+    ).toBeLessThanOrEqual(0);
+  });
+
+  it("source=human approved scores >= non-human approved with same tags", () => {
+    const humanScore = scoreDomainMemory(
+      query,
+      rec({ tags: ["domain:sales", "intent:approved"], outcome: "approved", source: "human" }),
+    );
+    const agentScore = scoreDomainMemory(
+      query,
+      rec({ tags: ["domain:sales", "intent:approved"], outcome: "approved", source: "agent" }),
+    );
+    expect(humanScore).toBeGreaterThanOrEqual(agentScore);
+  });
+
+  it("empty query tags returns 0 (unchanged behavior)", () => {
+    expect(
+      scoreDomainMemory(
+        { domain: "sales", tags: [] },
+        rec({ tags: ["domain:sales"], outcome: "approved" }),
+      ),
+    ).toBe(0);
+  });
+});
+
+describe("buildMemoryTags", () => {
+  it("returns domain tag for domain-only call", () => {
+    expect(buildMemoryTags({ domain: "cfo" })).toEqual(["domain:cfo"]);
+  });
+
+  it("includes intentTag when provided", () => {
+    expect(buildMemoryTags({ domain: "cfo", intentTag: "approved" })).toEqual([
+      "domain:cfo",
+      "intent:approved",
+    ]);
+  });
+
+  it("includes entityType when provided", () => {
+    expect(buildMemoryTags({ domain: "sales", entityType: "proposal" })).toEqual([
+      "domain:sales",
+      "entity:proposal",
+    ]);
+  });
+
+  it("includes all three when all provided", () => {
+    expect(
+      buildMemoryTags({ domain: "sales", entityType: "proposal", intentTag: "corrected" }),
+    ).toEqual(["domain:sales", "entity:proposal", "intent:corrected"]);
+  });
+
+  it("is lowercased and deterministic", () => {
+    const a = buildMemoryTags({ domain: "cfo", intentTag: "approved" });
+    const b = buildMemoryTags({ domain: "cfo", intentTag: "approved" });
+    expect(a).toEqual(b);
+    expect(a.every((t) => t === t.toLowerCase())).toBe(true);
+  });
+
+  it("drops falsy parts (no entityType, no intentTag)", () => {
+    const result = buildMemoryTags({ domain: "marketing" });
+    expect(result).toEqual(["domain:marketing"]);
+    expect(result.every(Boolean)).toBe(true);
   });
 });
 

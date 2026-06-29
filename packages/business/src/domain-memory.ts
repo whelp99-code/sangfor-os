@@ -17,6 +17,29 @@ import type { GtmDomain } from "@sangfor/shared/modes";
 export type DomainMemoryType = "case" | "rule" | "exception";
 export type DomainOutcome = "approved" | "rejected" | "corrected";
 
+// ─── Tag vocabulary ────────────────────────────────────────────────────────────
+
+/**
+ * Build a normalized, lowercased tag set for BOTH write and recall.
+ * Guarantees write/recall symmetry so stored memories are actually found.
+ *
+ * Tags emitted: `domain:<domain>` always; `entity:<entityType>` and
+ * `intent:<intentTag>` when provided.  Falsy parts are dropped.
+ */
+export function buildMemoryTags(input: {
+  domain: string;
+  entityType?: string;
+  intentTag?: string;
+}): string[] {
+  return [
+    `domain:${input.domain}`,
+    input.entityType ? `entity:${input.entityType}` : undefined,
+    input.intentTag ? `intent:${input.intentTag}` : undefined,
+  ]
+    .filter((t): t is string => Boolean(t))
+    .map((t) => t.toLowerCase());
+}
+
 export interface DomainMemoryRecord {
   domain: GtmDomain;
   memoryType: DomainMemoryType;
@@ -26,6 +49,8 @@ export interface DomainMemoryRecord {
   outcome: DomainOutcome | null;
   confidence: number;
   status: string;
+  /** 'human' | 'agent' — human-confirmed memories get a recall bonus. */
+  source?: string;
   createdAt?: Date;
   embedding?: number[];
 }
@@ -35,16 +60,25 @@ export interface RecallQuery {
   tags: string[];
 }
 
-/** outcome 별 학습 가중치 — 수정된 케이스도 학습 가치가 있다. */
+/**
+ * outcome 별 학습 가중치.
+ * - approved/corrected: 양수(추천 대상)
+ * - rejected / human-reverted: 음수 → score <= 0 → recall 대상 제외됨 (negative learning)
+ */
 const OUTCOME_WEIGHT: Record<string, number> = {
   approved: 1.0,
   corrected: 0.6,
-  rejected: 0.3,
+  rejected: -0.3,
+  "human-reverted": -0.3,
 };
+
+/** source='human' 에 추가되는 recall 보너스. */
+const HUMAN_SOURCE_BONUS = 0.15;
 
 /**
  * 순수 함수 recall 스코어: 같은 도메인 후보를 tag 겹침 × outcome 가중 × confidence 로 점수화.
  * 도메인 불일치 / 비활성 / tag 무겹침이면 0 (= recall 대상 아님). DB 불필요 → 테스트 가능.
+ * rejected 는 음수 가중치 → score <= 0 → recallDomainMemories 에서 자동 필터됨 (negative learning).
  */
 export function scoreDomainMemory(query: RecallQuery, record: DomainMemoryRecord): number {
   if (record.domain !== query.domain) return 0;
@@ -56,9 +90,10 @@ export function scoreDomainMemory(query: RecallQuery, record: DomainMemoryRecord
   if (overlap === 0) return 0;
 
   const tagScore = overlap / query.tags.length;
-  const outcomeWeight = record.outcome ? OUTCOME_WEIGHT[record.outcome] ?? 0.5 : 0.5;
+  const outcomeWeight = record.outcome ? (OUTCOME_WEIGHT[record.outcome] ?? 0.5) : 0.5;
   const confidenceWeight = record.confidence / 100;
-  return tagScore * outcomeWeight * confidenceWeight;
+  const humanBonus = record.source === "human" ? HUMAN_SOURCE_BONUS : 0;
+  return tagScore * outcomeWeight * confidenceWeight + humanBonus;
 }
 
 /** top-K 유사 케이스. 동점은 최신(createdAt) 우선. */
@@ -177,6 +212,7 @@ export async function loadDomainMemories(
     outcome: (row.outcome as DomainOutcome | null) ?? null,
     confidence: row.confidence,
     status: row.status,
+    source: (row as { source?: string }).source ?? "agent",
     createdAt: row.createdAt,
     embedding: (row as { embedding?: number[] }).embedding ?? [],
   }));
