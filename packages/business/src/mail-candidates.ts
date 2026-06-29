@@ -1,4 +1,5 @@
 import { Prisma, prisma } from "@sangfor/db";
+import { GROUND_TRUTH_CALIBRATION } from "./ai-classify-batch";
 import { z } from "zod";
 
 import { createCustomer, createPartner } from "./customer-partner";
@@ -879,6 +880,9 @@ async function classifyWithAI(thread: ThreadLike): Promise<AiClassificationResul
 제목: ${thread.threadTitle}
 발신자: ${thread.participantDomains.join(', ')}
 본문: ${thread.summary}
+
+## 분류 기준(사용자 확정)
+${GROUND_TRUTH_CALIBRATION}
 `;
 
   const apiKey = getOpenAiApiKey();
