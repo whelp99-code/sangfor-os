@@ -1,5 +1,9 @@
 import { Router } from 'express';
 import { DashboardService, InvoicesService, ExpensesService, CashflowsService, SubscriptionsService, LedgerService, ProjectsService, MonthCloseService, VatService, PopbillService, CodefService, ChatbotService, NotionSyncService, HealthService } from '../services/finance';
+import { ingestSecureMailHtml } from '../services/finance/tax-invoice-inbound.service';
+import { issueSalesTaxInvoice, markTransmitted } from '../services/finance/tax-invoice-issue.service';
+import { setCompanySettings } from '../services/finance/company-settings.service';
+import { prisma } from '@sangfor/db';
 
 const router = Router();
 const healthRouter = Router();
@@ -140,6 +144,26 @@ router.post('/chatbot/sessions/:id/messages', ok((req: any) => chatbot.sendMessa
 // Notion Sync
 router.get('/notion-sync/status', ok(() => notion.status()));
 router.post('/notion-sync/csv-import', ok(() => notion.triggerCsvImport()));
+
+// Tax Invoices
+router.get('/tax-invoices', ok((req: any) => {
+  const direction = q(req, 'direction');
+  return prisma.taxInvoice.findMany({
+    where: direction ? { direction } : {},
+    orderBy: { issueDate: 'desc' },
+    take: num(q(req, 'limit')) ?? 200,
+  });
+}));
+router.post('/tax-invoices/upload-html', ok((req: any) => ingestSecureMailHtml(req.body.html, req.body.sourceMessageId)));
+router.post('/tax-invoices/issue', ok((req: any) => issueSalesTaxInvoice(req.body)));
+router.post('/tax-invoices/:id/transmitted', ok((req: any) => markTransmitted(req.params.id)));
+
+// Company Settings
+router.get('/company-settings', ok(async () => {
+  const s = await prisma.companySettings.findUnique({ where: { id: 'default' } });
+  return { businessNumber: s?.businessNumber ?? '', companyName: s?.companyName, ceoName: s?.ceoName };
+}));
+router.post('/company-settings', ok((req: any) => setCompanySettings(req.body)));
 
 // Health
 router.get('/health', ok(() => health.check()));
