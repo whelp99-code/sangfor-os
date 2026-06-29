@@ -2,6 +2,8 @@
 
 import CrudTable from "@/components/cfo/crud-table";
 import { useProjectOptions } from "@/components/cfo/use-project-options";
+import { CfoPageHeading } from "@/components/cfo/page-heading";
+import { CFO } from "@/lib/cfo-theme";
 
 const INVOICE_FIELDS = [
   { name: "issueDate", label: "발행일", type: "date" as const },
@@ -36,19 +38,17 @@ const INVOICE_COLUMNS = [
   {
     key: "depositStatus",
     label: "입금상태",
-    format: (v: string) => (
-      <span
-        className={`rounded px-2 py-0.5 text-xs font-medium ${
-          v === "완료"
-            ? "bg-green-100 text-green-700"
-            : v === "부분"
-            ? "bg-yellow-100 text-yellow-700"
-            : "bg-red-100 text-red-700"
-        }`}
-      >
-        {v}
-      </span>
-    ),
+    format: (v: string) => {
+      const tone = v === "완료" ? CFO.inflow : v === "부분" ? CFO.brass : CFO.outflow;
+      return (
+        <span
+          className="inline-block whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium"
+          style={{ color: tone, background: `${tone}1A` }}
+        >
+          {v}
+        </span>
+      );
+    },
   },
   {
     key: "depositDate",
@@ -67,7 +67,7 @@ export default function InvoicesPage() {
   ];
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">미수금 / 인보이스</h1>
+      <CfoPageHeading title="미수금 / 인보이스" />
       <CrudTable
         title=""
         endpoint="invoices"

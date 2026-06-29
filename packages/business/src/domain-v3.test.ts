@@ -100,6 +100,42 @@ describe("④ dashboard snapshot", () => {
     expect(snap.totals.memories).toBe(7); // 4×1 + 3
     expect(snap.rows.find((r) => r.domain === "cfo")?.lastOutcome).toBe("approved");
   });
+
+  it("defaults outcomeBreakdown/recentDecisions when the loader omits them (backward compat)", async () => {
+    const loader: DomainStatsLoader = async () => ({
+      memoryCount: 1,
+      decisionCount: 0,
+      lastDecisionAt: null,
+      lastOutcome: null,
+    });
+    const snap = await buildDomainDashboardSnapshot(loader);
+    const row = snap.rows[0];
+    expect(row.outcomeBreakdown).toEqual({ approved: 0, rejected: 0, corrected: 0 });
+    expect(row.recentDecisions).toEqual([]);
+  });
+
+  it("passes through outcomeBreakdown and serializes recentDecisions timestamps", async () => {
+    const loader: DomainStatsLoader = async () => ({
+      memoryCount: 2,
+      decisionCount: 5,
+      lastDecisionAt: new Date("2026-06-10T00:00:00.000Z"),
+      lastOutcome: "approved",
+      outcomeBreakdown: { approved: 3, rejected: 1, corrected: 1 },
+      recentDecisions: [
+        { outcome: "approved", at: new Date("2026-06-10T00:00:00.000Z") },
+        { outcome: "rejected", at: new Date("2026-06-09T00:00:00.000Z") },
+      ],
+    });
+    const snap = await buildDomainDashboardSnapshot(loader);
+    const row = snap.rows[0];
+    expect(row.outcomeBreakdown).toEqual({ approved: 3, rejected: 1, corrected: 1 });
+    expect(row.recentDecisions).toEqual([
+      { outcome: "approved", at: "2026-06-10T00:00:00.000Z" },
+      { outcome: "rejected", at: "2026-06-09T00:00:00.000Z" },
+    ]);
+    // totals aggregate the breakdown across domains
+    expect(snap.totals.approved).toBe(15); // 3 × 5 domains
+  });
 });
 
 // ── ③ Embedding backfill ─────────────────────────────────────────────

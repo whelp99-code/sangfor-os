@@ -1,4 +1,6 @@
 import { cfoFetch, formatKrw } from "@/lib/cfo-client";
+import { CfoPageHeading } from "@/components/cfo/page-heading";
+import { CFO } from "@/lib/cfo-theme";
 
 export const dynamic = "force-dynamic";
 
@@ -49,10 +51,10 @@ export default async function ProjectsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold">프로젝트</h1>
-        <span className="text-sm text-zinc-500">{rollup.length}개 프로젝트</span>
-      </div>
+      <CfoPageHeading
+        title="프로젝트"
+        right={<span className="text-sm" style={{ color: CFO.muted }}>{rollup.length}개 프로젝트</span>}
+      />
       <div className="overflow-x-auto rounded-xl border bg-white">
         <table className="w-full text-sm">
           <thead>

@@ -2,6 +2,7 @@
 
 import CrudTable from "@/components/cfo/crud-table";
 import { useProjectOptions } from "@/components/cfo/use-project-options";
+import { CfoPageHeading } from "@/components/cfo/page-heading";
 
 const EXPENSE_FIELDS = [
   { name: "expenseName", label: "지출명", type: "text" as const, required: true },
@@ -73,7 +74,7 @@ export default function ExpensesPage() {
   ];
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">매입 / 비용</h1>
+      <CfoPageHeading title="매입 / 비용" />
       <CrudTable
         title=""
         endpoint="expenses"

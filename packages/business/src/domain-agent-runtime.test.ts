@@ -65,6 +65,27 @@ describe("runDomainStage", () => {
     expect(result.handoffTo).toBeNull();
   });
 
+  it("invokes the injected persister on gate pass and attaches the result", async () => {
+    const persist = vi.fn(async () => ({ domain: "marketing" as const, persisted: [{ entity: "Opportunity", id: "x" }] }));
+    const result = await runDomainStage("marketing", sampleCase, { generate: createStubGenerator(), persist });
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(persist).toHaveBeenCalledWith(
+      expect.objectContaining({ domain: "marketing", case: sampleCase }),
+    );
+    expect(result.persisted?.persisted[0].entity).toBe("Opportunity");
+  });
+
+  it("does NOT persist when the gate fails", async () => {
+    const persist = vi.fn(async () => ({ domain: "sales" as const, persisted: [] }));
+    const result = await runDomainStage("sales", sampleCase, {
+      generate: createStubGenerator(),
+      persist,
+      evaluateGate: async ({ required }) => ({ reviewed: required, failed: [required[0]] }),
+    });
+    expect(persist).not.toHaveBeenCalled();
+    expect(result.persisted).toBeNull();
+  });
+
   it("passes recalled memories into the generator", async () => {
     const memory = await import("./domain-memory");
     (memory.recallFromDb as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
@@ -97,5 +118,37 @@ describe("runDomainPipeline", () => {
     const results = await runDomainPipeline(sampleCase, deps);
     expect(results.map((r) => r.domain)).toEqual(["marketing", "sales", "presales"]);
     expect(results[results.length - 1].gatePass).toBe(false);
+  });
+
+  it("defaults to createDefaultDomainGenerator when no generate is injected (opencode down → stub)", async () => {
+    // No generate injected → runtime builds the default generator; with opencode
+    // unreachable (fetch rejects) the resilient chain falls back to the stub.
+    const failFetch = vi.fn(async () => {
+      throw new Error("opencode unreachable");
+    }) as unknown as typeof fetch;
+    const results = await runDomainPipeline(sampleCase, {
+      defaultGeneratorOptions: { fetchImpl: failFetch },
+    });
+    expect(results.map((r) => r.domain)).toEqual([
+      "marketing",
+      "sales",
+      "presales",
+      "engineer",
+      "cfo",
+    ]);
+    expect(results.every((r) => r.gatePass)).toBe(true);
+    // stub artifact carries recalledCount in its payload
+    expect(results[0].artifact.payload).toHaveProperty("recalledCount");
+  });
+
+  it("runDomainStage also resolves the default generator when generate is omitted", async () => {
+    const failFetch = vi.fn(async () => {
+      throw new Error("opencode unreachable");
+    }) as unknown as typeof fetch;
+    const result = await runDomainStage("marketing", sampleCase, {
+      defaultGeneratorOptions: { fetchImpl: failFetch },
+    });
+    expect(result.artifact.produces).toBe("qualified-lead");
+    expect(result.gatePass).toBe(true);
   });
 });

@@ -26,6 +26,11 @@ export function RunwayGauge({ months, currentCash }: { months: number | null; cu
               개월
             </span>
           </p>
+          {months == null && (
+            <p className="mt-1.5 text-xs" style={{ color: "rgba(251,250,248,0.55)" }}>
+              산정 불가 — 이번 달 지출 기준
+            </p>
+          )}
         </div>
         <div className="text-right">
           <p className="text-xs" style={{ color: "rgba(251,250,248,0.55)" }}>현재 현금</p>
