@@ -8,6 +8,7 @@
  * when a user clicks "Connect Outlook".
  */
 import { prisma } from "@sangfor/db";
+import { cfoFetch } from "./cfo-client";
 
 const AUTH_HOST = "https://login.microsoftonline.com";
 const GRAPH = "https://graph.microsoft.com/v1.0";
@@ -201,6 +202,121 @@ async function fetchFolderMessages(
   return out.slice(0, maxMessages);
 }
 
+/** Returns true when the sender email belongs to the Korean NTS Hometax domain. */
+export function isHometaxSender(fromEmail: string): boolean {
+  return (fromEmail || "").toLowerCase().includes("hometax.go.kr");
+}
+
+/**
+ * Fetches attachments for a Graph message and returns the decoded UTF-8 content
+ * of the first HTML attachment (NTS_eTaxInvoice.html). Returns null and logs a
+ * warning (never throws) on any error or when no HTML attachment is found.
+ */
+export async function fetchMessageAttachmentHtml(
+  token: string,
+  graphMessageId: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${GRAPH}/me/messages/${graphMessageId}/attachments`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      console.warn(`[hometax] attachments fetch failed for ${graphMessageId}: ${res.status}`);
+      return null;
+    }
+    const data = (await res.json()) as {
+      value?: Array<{ name?: string; contentType?: string; contentBytes?: string }>;
+    };
+    const attachments = (data.value ?? []).filter((a) => a.contentBytes);
+    // Prefer the obvious HTML attachment by name/type...
+    let att = attachments.find(
+      (a) =>
+        a.name?.toLowerCase().endsWith(".html") ||
+        a.contentType?.toLowerCase() === "text/html",
+    );
+    // ...but fall back to ANY attachment whose decoded body carries the NTS
+    // secure-mail marker, so a renamed/retyped attachment is still ingested.
+    if (!att) {
+      att = attachments.find((a) =>
+        Buffer.from(a.contentBytes as string, "base64")
+          .toString("utf8")
+          .includes("idCriHeader"),
+      );
+    }
+    if (!att?.contentBytes) return null;
+    return Buffer.from(att.contentBytes, "base64").toString("utf8");
+  } catch (err) {
+    console.warn(`[hometax] error fetching attachment for ${graphMessageId}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Find NTS Hometax message ids across the ENTIRE mailbox (not just Inbox).
+ * Hometax e-tax-invoice mails are routinely auto-filed by a rule into a
+ * dedicated folder (e.g. "세금계산서"), so a folder-scoped sync misses them.
+ * `$search` queries all folders; it requires the `ConsistencyLevel: eventual`
+ * header and does not support `$orderby`.
+ */
+async function searchHometaxMessageIds(
+  token: string,
+  cap = 200,
+): Promise<Array<{ id: string }>> {
+  const out: Array<{ id: string }> = [];
+  let url: string | null =
+    `${GRAPH}/me/messages?$search=%22from:hometaxadmin@hometax.go.kr%22&$top=50&$select=id`;
+  while (url && out.length < cap) {
+    const res: Response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}`, ConsistencyLevel: "eventual" },
+    });
+    if (!res.ok) {
+      console.warn(`[hometax] message search failed: ${res.status}`);
+      break;
+    }
+    const data = (await res.json()) as {
+      value?: Array<{ id: string }>;
+      "@odata.nextLink"?: string;
+    };
+    out.push(...(data.value ?? []));
+    url = data["@odata.nextLink"] ?? null;
+  }
+  return out.slice(0, cap);
+}
+
+/**
+ * Scan the whole mailbox for Hometax e-tax-invoice mails, decrypt + ingest each
+ * via the CFO API (idempotent on the NTS approval number). Best-effort: a single
+ * mail's failure never aborts the batch. `skipped_not_ours` is not tallied (a
+ * not-ours invoice is a no-op, not a failure).
+ */
+export async function scanHometaxTaxInvoices(
+  token: string,
+): Promise<{ scanned: number; created: number; duplicate: number; failed: number }> {
+  const stats = { scanned: 0, created: 0, duplicate: 0, failed: 0 };
+  const messages = await searchHometaxMessageIds(token);
+  for (const m of messages) {
+    stats.scanned++;
+    try {
+      const html = await fetchMessageAttachmentHtml(token, m.id);
+      if (!html) {
+        stats.failed++;
+        continue;
+      }
+      const res = await cfoFetch<{ status: string; taxInvoiceId?: string }>(
+        "tax-invoices/upload-html",
+        { method: "POST", body: JSON.stringify({ html }) },
+      );
+      if (res.status === "created") stats.created++;
+      else if (res.status === "duplicate") stats.duplicate++;
+      else if (res.status === "failed") stats.failed++;
+    } catch (err) {
+      console.warn(`[hometax] ingest failed for message ${m.id}:`, err);
+      stats.failed++;
+    }
+  }
+  return stats;
+}
+
 /**
  * Pull the full mailbox — every Inbox (received) and Sent Items (sent) message —
  * and upsert by Graph message id. Sent + received are tagged with `direction`
@@ -208,7 +324,7 @@ async function fetchFolderMessages(
  */
 export async function syncDelegatedOutlook(
   opts: { maxMessages?: number } = {},
-): Promise<{ synced: number; inbox: number; sent: number; account?: string }> {
+): Promise<{ synced: number; inbox: number; sent: number; account?: string; taxInvoices?: { scanned: number; created: number; duplicate: number; failed: number } }> {
   const maxMessages = opts.maxMessages ?? DEFAULT_MAX_MESSAGES;
   const account = await prisma.mailAccount.findFirst({
     where: { provider: "outlook", refreshToken: { not: null } },
@@ -227,6 +343,7 @@ export async function syncDelegatedOutlook(
   ];
 
   let synced = 0;
+
   for (const { msg, direction } of items) {
     const fromEmail = sanitizeText(msg.from?.emailAddress?.address) || "unknown";
     const toEmail = sanitizeText(msg.toRecipients?.[0]?.emailAddress?.address) || null;
@@ -250,7 +367,22 @@ export async function syncDelegatedOutlook(
     synced++;
   }
   await prisma.mailAccount.update({ where: { id: account.id }, data: { lastSyncedAt: new Date() } });
-  return { synced, inbox: inbox.length, sent: sent.length, account: account.email };
+
+  // Best-effort tax-invoice ingestion across ALL folders (Hometax mails are
+  // auto-filed outside the Inbox, so the folder sync above doesn't see them).
+  // Never breaks mail sync.
+  const taxInvoices = await scanHometaxTaxInvoices(token).catch((err) => {
+    console.warn("[hometax] tax-invoice scan failed:", err);
+    return { scanned: 0, created: 0, duplicate: 0, failed: 0 };
+  });
+
+  return {
+    synced,
+    inbox: inbox.length,
+    sent: sent.length,
+    account: account.email,
+    taxInvoices,
+  };
 }
 
 export async function getDelegatedConnection(): Promise<{

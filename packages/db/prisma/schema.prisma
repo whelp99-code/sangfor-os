@@ -1582,6 +1582,13 @@ model TaxInvoice {
   vatAmount       Int      @default(0) @map("vat_amount")
   totalAmount     Int      @default(0) @map("total_amount")
   issueDate       DateTime @map("issue_date")
+  issueId         String?  @unique @map("issue_id")
+  supplierCeoName String?  @map("supplier_ceo_name")
+  buyerCeoName    String?  @map("buyer_ceo_name")
+  itemSummary     String?  @map("item_summary")
+  sourceMessageId String?  @map("source_message_id")
+  expenseId       String?  @map("expense_id")
+  rawXml          String?  @map("raw_xml")
   memo            String?
   rawResponse     String?  @map("raw_response")
   createdAt       DateTime @default(now())
@@ -1628,6 +1635,17 @@ model FinanceAccount {
   updatedAt    DateTime  @updatedAt
 
   @@map("finance_accounts")
+}
+
+model CompanySettings {
+  id             String   @id @default("default")
+  businessNumber String   @map("business_number")
+  companyName    String?  @map("company_name")
+  ceoName        String?  @map("ceo_name")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("finance_company_settings")
 }
 
 // --- Color Agent models ---
