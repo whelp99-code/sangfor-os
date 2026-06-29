@@ -152,6 +152,9 @@ router.get('/tax-invoices', ok((req: any) => {
     where: direction ? { direction } : {},
     orderBy: { issueDate: 'desc' },
     take: num(q(req, 'limit')) ?? 200,
+    // Keep the list payload lean — internal columns (decrypted XML, raw API
+    // response) are not needed by the table and shouldn't ship to the client.
+    omit: { rawXml: true, rawResponse: true },
   });
 }));
 router.post('/tax-invoices/upload-html', ok((req: any) => ingestSecureMailHtml(req.body.html, req.body.sourceMessageId)));
