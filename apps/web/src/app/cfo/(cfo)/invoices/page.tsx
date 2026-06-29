@@ -42,7 +42,7 @@ const INVOICE_COLUMNS = [
       const tone = v === "완료" ? CFO.inflow : v === "부분" ? CFO.brass : CFO.outflow;
       return (
         <span
-          className="rounded px-2 py-0.5 text-xs font-medium"
+          className="inline-block whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium"
           style={{ color: tone, background: `${tone}1A` }}
         >
           {v}
