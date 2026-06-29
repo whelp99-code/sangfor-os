@@ -2,6 +2,7 @@ import {
   addPocEvent,
   addPocIssue,
   addPocRequirement,
+  archivePocProject,
   generatePocResultReport,
   getPocDetail,
   togglePocChecklistItem,
@@ -77,6 +78,19 @@ export async function PATCH(request: Request, context: RouteContext) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "update_failed" },
+      { status: 400 },
+    );
+  }
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const { id } = await context.params;
+  try {
+    const project = await archivePocProject(id);
+    return NextResponse.json({ project });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "archive_failed" },
       { status: 400 },
     );
   }

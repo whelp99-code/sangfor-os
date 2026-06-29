@@ -178,6 +178,10 @@ export async function listTodayTasks(projectSlug = "demo-project") {
   });
 }
 
+export async function archiveWorkTask(id: string) {
+  return prisma.workTask.delete({ where: { id } });
+}
+
 export async function getWorkTaskDetail(taskId: string) {
   return prisma.workTask.findUnique({
     where: { id: taskId },

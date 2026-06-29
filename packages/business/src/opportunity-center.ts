@@ -223,6 +223,10 @@ export async function removeOpportunityLink(linkId: string) {
   return prisma.opportunityLink.delete({ where: { id: linkId } });
 }
 
+export async function archiveOpportunity(id: string) {
+  return prisma.opportunity.delete({ where: { id } });
+}
+
 export type EnrichedOpportunityLink = {
   id: string;
   entityType: string;
