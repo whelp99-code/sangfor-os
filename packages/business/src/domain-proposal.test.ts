@@ -1,6 +1,12 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { vi, describe, it, expect, afterAll } from 'vitest';
 import { buildDomainPrompt, generateDomainProposal, getPendingProposals } from './domain-proposal';
 import type { GenerateProposalInput } from './domain-proposal';
+
+vi.mock('./domain-memory', () => ({
+  loadDomainMemories: vi.fn().mockResolvedValue([]),
+  recallDomainMemories: vi.fn().mockReturnValue([]),
+  recordDomainDecision: vi.fn().mockResolvedValue({ id: 'mock-id' }),
+}));
 
 describe('buildDomainPrompt', () => {
   it('presales — returns system/user with json and 제안서', () => {
