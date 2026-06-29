@@ -1,5 +1,5 @@
 import { prisma } from "@sangfor/db";
-import { deriveEntityFromCandidate } from "@sangfor/business";
+import { deriveEntityFromCandidate, canonicalCompanyKey } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 // Resolve the active portal project (slug "demo-project"; fall back to the
@@ -34,13 +34,25 @@ export async function POST() {
       where: { candidateType: "customer", status: "approved" },
     });
 
+    // Pre-load existing customer canonical keys to prevent cross-domain duplicates
+    const existingCustomerRows = await prisma.customer.findMany({ where: { projectId: DEFAULT_PROJECT_ID }, select: { name: true } });
+    const seenCustomerKeys = new Set(existingCustomerRows.map(r => canonicalCompanyKey(r.name)));
+
     let customersCreated = 0;
     let customersSkipped = 0;
+    let customersMerged = 0;
     for (const candidate of approvedCustomers) {
       const e = deriveEntityFromCandidate(candidate);
       if (e.skip) {
         await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: 'rejected' } });
         customersSkipped++;
+        continue;
+      }
+      const key = canonicalCompanyKey(e.name);
+      if (seenCustomerKeys.has(key)) {
+        // Maps to an existing entity by canonical name — mark converted, don't duplicate
+        await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: 'converted' } });
+        customersMerged++;
         continue;
       }
       const existing = await prisma.customer.findFirst({ where: { domain: e.domain, projectId: DEFAULT_PROJECT_ID } });
@@ -57,6 +69,7 @@ export async function POST() {
         });
         customersCreated++;
       }
+      seenCustomerKeys.add(key);
       await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: 'converted' } });
     }
 
@@ -65,13 +78,25 @@ export async function POST() {
       where: { candidateType: "partner", status: "approved" },
     });
 
+    // Pre-load existing partner canonical keys to prevent cross-domain duplicates
+    const existingPartnerRows = await prisma.partner.findMany({ where: { projectId: DEFAULT_PROJECT_ID }, select: { name: true } });
+    const seenPartnerKeys = new Set(existingPartnerRows.map(r => canonicalCompanyKey(r.name)));
+
     let partnersCreated = 0;
     let partnersSkipped = 0;
+    let partnersMerged = 0;
     for (const candidate of approvedPartners) {
       const e = deriveEntityFromCandidate(candidate);
       if (e.skip) {
         await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: 'rejected' } });
         partnersSkipped++;
+        continue;
+      }
+      const key = canonicalCompanyKey(e.name);
+      if (seenPartnerKeys.has(key)) {
+        // Maps to an existing entity by canonical name — mark converted, don't duplicate
+        await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: 'converted' } });
+        partnersMerged++;
         continue;
       }
       const existing = await prisma.partner.findFirst({ where: { name: e.name, projectId: DEFAULT_PROJECT_ID } });
@@ -86,6 +111,7 @@ export async function POST() {
         });
         partnersCreated++;
       }
+      seenPartnerKeys.add(key);
       await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: 'converted' } });
     }
 
@@ -155,9 +181,11 @@ export async function POST() {
       partnersCreated,
       customersSkipped,
       partnersSkipped,
+      customersMerged,
+      partnersMerged,
       opportunitiesCreated,
       tasksCreated,
-      message: `고객: ${customersCreated}개 생성, ${customersSkipped}개 제외 | 파트너: ${partnersCreated}개 생성, ${partnersSkipped}개 제외 | 기회: ${opportunitiesCreated}개 | 작업: ${tasksCreated}개`,
+      message: `고객: ${customersCreated}개 생성, ${customersMerged}개 병합, ${customersSkipped}개 제외 | 파트너: ${partnersCreated}개 생성, ${partnersMerged}개 병합, ${partnersSkipped}개 제외 | 기회: ${opportunitiesCreated}개 | 작업: ${tasksCreated}개`,
     });
   } catch (error) {
     return NextResponse.json(
