@@ -19,7 +19,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight" style={{ color: CFO.ink }}>{engagement!.name}</h1>
-        <p className="text-muted-foreground">{(engagement as any).opportunity?.customer?.name ?? "고객 미연결"} · {engagement!.status}</p>
+        <p className="text-muted-foreground">{engagement!.opportunity?.customer?.name ?? "고객 미연결"} · {engagement!.status}</p>
         <div className="mt-1 h-0.5 w-12" style={{ background: CFO.brass }} />
       </div>
 

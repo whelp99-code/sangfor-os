@@ -15,6 +15,10 @@ export interface Pnl {
 const sum = (ns: number[]) => ns.reduce((s, n) => s + (n || 0), 0);
 
 export function computePnl(input: PnlInput): Pnl {
+  // NOTE (Phase 2): revenue counts both sales Invoices and sales TaxInvoices.
+  // A sales TaxInvoice can relate to an Invoice (TaxInvoice.invoiceId) — once
+  // sales tax invoices flow in, de-dup against the linked invoice to avoid
+  // double-counting revenue. Phase 1 links only purchase tax invoices.
   const salesTaxInvoiceTotal = sum(
     input.taxInvoices.filter((t) => t.direction === 'sales').map((t) => t.totalAmount),
   );
