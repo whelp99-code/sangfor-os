@@ -63,3 +63,4 @@ export * from "./mail-entity-quality";
 export * from "./domain-pnl";
 export * from "./artifact-domain-map";
 export * from "./project-hub";
+export * from "./ai-classify-batch";
