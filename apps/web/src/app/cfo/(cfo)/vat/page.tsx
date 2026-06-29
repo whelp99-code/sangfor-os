@@ -1,4 +1,6 @@
 import { cfoFetch, formatKrw } from "@/lib/cfo-client";
+import { CfoPageHeading } from "@/components/cfo/page-heading";
+import { CFO } from "@/lib/cfo-theme";
 
 type VatSummary = {
   year: number;
@@ -23,16 +25,16 @@ export default async function VatPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">부가세</h1>
-        <p className="text-sm text-zinc-500">{year}년 {half}기 예정</p>
-      </div>
+      <CfoPageHeading
+        title="부가세"
+        right={<span className="text-sm" style={{ color: CFO.muted }}>{year}년 {half}기 예정</span>}
+      />
       {error && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{error}</p>}
       {vat && (
         <>
           <div className="rounded-xl border bg-white p-5">
             <p className="text-xs font-medium text-zinc-500">{vat.year}년 {vat.half}기 납부 예상</p>
-            <p className="mt-1 text-3xl font-semibold" style={{ color: vat.payableVat >= 0 ? "#dc2626" : "#16a34a" }}>
+            <p className="mt-1 text-3xl font-semibold tabular-nums" style={{ color: vat.payableVat >= 0 ? CFO.outflow : CFO.inflow }}>
               {formatKrw(vat.payableVat)}
             </p>
             <p className="mt-1 text-xs text-zinc-400">

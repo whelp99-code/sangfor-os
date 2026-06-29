@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { CFO } from "@/lib/cfo-theme";
 
 type FieldConfig = {
   name: string;
@@ -103,62 +104,96 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <button
-          onClick={openCreate}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          + 추가
-        </button>
+    <div className="space-y-4" style={{ color: CFO.ink }}>
+      {/* Masthead — ledger title with a single brass rule */}
+      <div>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+          <button
+            onClick={openCreate}
+            className="rounded-md px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            style={{ background: CFO.ink }}
+          >
+            + 추가
+          </button>
+        </div>
+        <div className="mt-2 h-px w-full" style={{ background: CFO.hairline }} />
+        <div className="h-0.5 w-16" style={{ background: CFO.brass }} />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <p className="text-sm" style={{ color: CFO.outflow }}>
+          {error}
+        </p>
+      )}
 
-      <div className="overflow-x-auto rounded-lg border bg-white">
+      <div
+        className="overflow-x-auto rounded-xl border"
+        style={{ borderColor: CFO.hairline, background: "#fff" }}
+      >
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-zinc-50 text-left">
+            <tr style={{ borderBottom: `1px solid ${CFO.hairline}`, color: CFO.muted }}>
               {columns.map((col) => (
-                <th key={col.key} className="p-3">
+                <th
+                  key={col.key}
+                  className="p-3 text-left text-[11px] font-medium uppercase tracking-wide"
+                >
                   {col.label}
                 </th>
               ))}
-              <th className="p-3 text-right">관리</th>
+              <th className="p-3 text-right text-[11px] font-medium uppercase tracking-wide">
+                관리
+              </th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={columns.length + 1} className="p-4 text-center text-zinc-500">
+                <td
+                  colSpan={columns.length + 1}
+                  className="p-4 text-center"
+                  style={{ color: CFO.muted }}
+                >
                   로딩 중...
                 </td>
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + 1} className="p-4 text-center text-zinc-500">
+                <td
+                  colSpan={columns.length + 1}
+                  className="p-4 text-center"
+                  style={{ color: CFO.muted }}
+                >
                   데이터가 없습니다
                 </td>
               </tr>
             ) : (
               data.map((row) => (
-                <tr key={row.id} className="border-b hover:bg-zinc-50">
+                <tr
+                  key={row.id}
+                  className="transition-colors"
+                  style={{ borderBottom: `1px solid ${CFO.hairline}` }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = CFO.paper)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
                   {columns.map((col) => (
-                    <td key={col.key} className="p-3">
+                    <td key={col.key} className="p-3 tabular-nums">
                       {col.format ? col.format(row[col.key], row) : row[col.key] ?? "-"}
                     </td>
                   ))}
                   <td className="p-3 text-right">
                     <button
                       onClick={() => openEdit(row)}
-                      className="mr-2 text-blue-600 hover:underline"
+                      className="mr-3 hover:underline"
+                      style={{ color: CFO.ink }}
                     >
                       수정
                     </button>
                     <button
                       onClick={() => handleDelete(row.id)}
-                      className="text-red-600 hover:underline"
+                      className="hover:underline"
+                      style={{ color: CFO.outflow }}
                     >
                       삭제
                     </button>
@@ -173,14 +208,19 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
       {/* 모달 */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">
-              {editRow ? "수정" : "추가"}
-            </h3>
+          <div
+            className="w-full max-w-lg rounded-xl p-6 shadow-xl"
+            style={{ background: CFO.paper, color: CFO.ink, border: `1px solid ${CFO.hairline}` }}
+          >
+            <h3 className="text-lg font-semibold tracking-tight">{editRow ? "수정" : "추가"}</h3>
+            <div className="mt-1 mb-4 h-0.5 w-12" style={{ background: CFO.brass }} />
             <div className="space-y-3">
               {fields.map((field) => (
                 <div key={field.name}>
-                  <label className="mb-1 block text-sm font-medium text-zinc-700">
+                  <label
+                    className="mb-1 block text-[11px] font-medium uppercase tracking-wide"
+                    style={{ color: CFO.muted }}
+                  >
                     {field.label}
                   </label>
                   {field.type === "select" ? (
@@ -189,7 +229,8 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
                       onChange={(e) =>
                         setFormData({ ...formData, [field.name]: e.target.value })
                       }
-                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                      className="w-full rounded-md px-3 py-2 text-sm"
+                      style={{ border: `1px solid ${CFO.hairline}`, background: "#fff" }}
                     >
                       <option value="">선택</option>
                       {field.options?.map((opt) => (
@@ -207,6 +248,7 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
                           setFormData({ ...formData, [field.name]: e.target.checked })
                         }
                         className="h-4 w-4"
+                        style={{ accentColor: CFO.ink }}
                       />
                       <span className="text-sm">{field.label}</span>
                     </label>
@@ -223,7 +265,8 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
                             field.type === "number" ? parseFloat(e.target.value) || 0 : e.target.value,
                         })
                       }
-                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                      className="w-full rounded-md px-3 py-2 text-sm tabular-nums"
+                      style={{ border: `1px solid ${CFO.hairline}`, background: "#fff" }}
                     />
                   )}
                 </div>
@@ -232,14 +275,16 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
             <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setShowModal(false)}
-                className="rounded-lg border px-4 py-2 text-sm hover:bg-zinc-50"
+                className="rounded-md px-4 py-2 text-sm transition-colors hover:opacity-80"
+                style={{ border: `1px solid ${CFO.hairline}`, background: "#fff" }}
               >
                 취소
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-md px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ background: CFO.ink }}
               >
                 {saving ? "저장 중..." : "저장"}
               </button>

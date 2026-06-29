@@ -1,4 +1,6 @@
 import { cfoFetch, formatKrw } from "@/lib/cfo-client";
+import { CfoPageHeading } from "@/components/cfo/page-heading";
+import { CFO } from "@/lib/cfo-theme";
 
 type Subscription = {
   id: string;
@@ -27,12 +29,16 @@ export default async function SubscriptionsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">구독 / 정기비용</h1>
-        {monthly && (
-          <p className="text-sm text-zinc-500">활성 {monthly.count}건 · 월 환산 {formatKrw(monthly.monthlyTotal)}</p>
-        )}
-      </div>
+      <CfoPageHeading
+        title="구독 / 정기비용"
+        right={
+          monthly ? (
+            <span className="text-sm" style={{ color: CFO.muted }}>
+              활성 {monthly.count}건 · 월 환산 {formatKrw(monthly.monthlyTotal)}
+            </span>
+          ) : undefined
+        }
+      />
       {error && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{error}</p>}
       <div className="overflow-x-auto rounded-xl border bg-white">
         <table className="w-full text-sm">
