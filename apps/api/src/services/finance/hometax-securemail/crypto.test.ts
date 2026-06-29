@@ -9,6 +9,7 @@ describe('loadCryptoJS', () => {
     expect(typeof C.MD5).toBe('function');
     expect(C.enc?.Base64).toBeTruthy();
     expect(C.enc?.Hex).toBeTruthy();
+    expect(C.enc?.Utf8).toBeTruthy();
   });
 
   it('MD5 of business number is a 128-bit word array (4 words)', () => {
