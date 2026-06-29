@@ -8,6 +8,7 @@ export type NavItem = {
 
 export const PORTAL_NAV: NavItem[] = [
   // ═══ Business Core ═══
+  { title: "내 업무", href: "/my-work", icon: "layout-grid", group: "Business" },
   { title: "Executive Dashboard", href: "/dashboard", icon: "layout-dashboard", group: "Business" },
   { title: "Sales Manager", href: "/sales", icon: "trending-up", group: "Business" },
   { title: "Presales Engineer", href: "/presales", icon: "flask", group: "Business" },
