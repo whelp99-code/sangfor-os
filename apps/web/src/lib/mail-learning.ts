@@ -7,7 +7,12 @@
  * opportunity / poc / task) by the existing learning pipeline.
  */
 import { prisma } from "@sangfor/db";
-import { generateMailDerivedCandidates, upsertMailInsightThreads } from "@sangfor/business";
+import {
+  generateMailDerivedCandidates,
+  generateMailDerivedCandidatesHybrid,
+  upsertMailInsightThreads,
+} from "@sangfor/business";
+import { getOpenAiApiKey } from "@sangfor/business/openai-config";
 import { sanitizeText } from "./outlook-graph";
 
 const PROJECT_SLUG = "demo-project";
@@ -91,10 +96,10 @@ export async function learnFromMailbox(): Promise<{
     });
   }
 
-  const candidates = await generateMailDerivedCandidates({
-    projectSlug: PROJECT_SLUG,
-    limit: Math.min(2000, threads.length),
-  });
+  const limit = Math.min(2000, threads.length);
+  const candidates = getOpenAiApiKey()
+    ? await generateMailDerivedCandidatesHybrid({ projectSlug: PROJECT_SLUG, limit })
+    : await generateMailDerivedCandidates({ projectSlug: PROJECT_SLUG, limit });
 
   return { threads: threads.length, candidates };
 }

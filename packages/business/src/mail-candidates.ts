@@ -842,7 +842,7 @@ function buildMailIntelligenceMetadata(thread: ThreadLike) {
  * AI 기반 메일 분류 결과 타입
  */
 export type AiClassificationResult = {
-  category: "opportunity" | "poc" | "task" | "customer" | "partner" | "exclude";
+  category: "opportunity" | "poc" | "task" | "customer" | "partner" | "vendor" | "exclude";
   confidence: number;
   reasoning: string;
   urgency: "high" | "medium" | "low";
@@ -861,13 +861,14 @@ async function classifyWithAI(thread: ThreadLike): Promise<AiClassificationResul
 1. opportunity - 영업 기회 (견적 요청, 구매 의향, 계약 논의)
 2. poc - PoC/검증 (테스트 요청, 호환성 검증, 파일럿)
 3. task - 후속 작업 (답변 필요, 확인 요청, 긴급 대응)
-4. customer - 고객 관련 (고객 문의, 기술 지원)
-5. partner - 파트너 관련 (파트너십, 총판, 유통)
+4. customer - 우리가 제품/라이선스를 판매하는 최종 고객사 (구매·도입 주체)
+5. partner - 우리와 함께 파는 총판/리셀러/유통/MSP (end customer 아님)
 6. exclude - 제외 (프로모션, 뉴스레터, 내부 공지)
+7. vendor - 우리가 구독/사용하는 외부 서비스·툴 공급사 (예: Notion, Anthropic/OpenAI, Slack, AWS, Ecount, Wehago, 전자서명 등) — 우리가 파는 고객이 아니라 우리가 쓰는 공급사
 
 ## 응답 형식
 {
-  "category": "opportunity|poc|task|customer|partner|exclude",
+  "category": "opportunity|poc|task|customer|partner|vendor|exclude",
   "confidence": 0-100,
   "reasoning": "분류 근거",
   "urgency": "high|medium|low",
@@ -927,11 +928,90 @@ async function classifyWithAI(thread: ThreadLike): Promise<AiClassificationResul
   }
 }
 
+type PolicyClassifyResult = ReturnType<typeof classifyMailInsightThread>;
+
+/**
+ * Pure function: combine policy classification result with an AI result.
+ *
+ * Rules:
+ * - null aiResult → return policyResult unchanged (+ aiClassification: null)
+ * - category 'vendor' or 'exclude' → drop all candidates; move them to excluded
+ * - category 'customer' or 'partner' with confidence ≥ 70 → correct any policy
+ *   customer/partner candidate whose type differs, updating title prefix too
+ * - all other categories → blend confidence (30% policy, 70% AI)
+ */
+export function combineHybridClassification(
+  policyResult: PolicyClassifyResult,
+  aiResult: AiClassificationResult | null,
+) {
+  if (!aiResult) {
+    return { ...policyResult, aiClassification: null };
+  }
+
+  // vendor or exclude: this thread must NOT produce customer/partner candidates
+  if (aiResult.category === 'vendor' || aiResult.category === 'exclude') {
+    const movedToExcluded: PolicyDecision[] = policyResult.candidates.map(c => ({
+      decision: "exclude" as const,
+      entityRole: "unknown" as const,
+      reason: aiResult.category === 'vendor'
+        ? `AI classified as vendor (SaaS/tool we use): ${aiResult.reasoning}`
+        : `AI classified as exclude: ${aiResult.reasoning}`,
+      candidateName: c.title,
+      matchedPolicyMemories: [],
+      participantDomains: (c.policyDecision as PolicyDecision | undefined)?.participantDomains ?? [],
+    }));
+    return {
+      candidates: [],
+      excluded: [...policyResult.excluded, ...movedToExcluded],
+      aiClassification: aiResult,
+    };
+  }
+
+  // customer/partner correction: when AI is confident, correct mismatched types
+  const shouldCorrectType =
+    (aiResult.category === 'customer' || aiResult.category === 'partner') &&
+    aiResult.confidence >= 70;
+
+  const hybridCandidates = policyResult.candidates.map(c => {
+    let candidateType = c.candidateType;
+    let title = c.title;
+
+    if (
+      shouldCorrectType &&
+      (c.candidateType === 'customer' || c.candidateType === 'partner') &&
+      c.candidateType !== aiResult.category
+    ) {
+      candidateType = aiResult.category as 'customer' | 'partner';
+      // Replace "Customer: " / "Partner: " prefix
+      const nameWithoutPrefix = c.title.replace(/^(Customer|Partner):\s*/i, '');
+      title = `${candidateType === 'customer' ? 'Customer' : 'Partner'}: ${nameWithoutPrefix}`;
+    }
+
+    return {
+      ...c,
+      candidateType,
+      title,
+      confidence: Math.min(100, Math.round((c.confidence * 0.3) + (aiResult.confidence * 0.7))),
+      aiClassification: aiResult,
+      confidenceBreakdown: {
+        ...c.confidenceBreakdown,
+        aiClassification: aiResult.confidence,
+      },
+    };
+  });
+
+  return {
+    candidates: hybridCandidates,
+    excluded: policyResult.excluded,
+    aiClassification: aiResult,
+  };
+}
+
 /**
  * 하이브리드 분류: 정책 + AI 통합
  * 1단계: 정책 기반 필터링
  * 2단계: AI 분류 (비동기)
- * 3단계: 결과 결합 (AI 우선)
+ * 3단계: 결과 결합 (combineHybridClassification)
  */
 export async function classifyMailInsightThreadHybrid(
   thread: ThreadLike,
@@ -949,30 +1029,7 @@ export async function classifyMailInsightThreadHybrid(
   }
 
   // 3단계: 결과 결합
-  if (aiResult && aiResult.category !== 'exclude') {
-    // AI 결과가 있으면 우선 사용
-    const hybridCandidates = policyResult.candidates.map(c => ({
-      ...c,
-      confidence: Math.min(100, Math.round((c.confidence * 0.3) + (aiResult!.confidence * 0.7))),
-      aiClassification: aiResult,
-      confidenceBreakdown: {
-        ...c.confidenceBreakdown,
-        aiClassification: aiResult!.confidence,
-        hybridWeight: 'policy_30%_ai_70%',
-      },
-    }));
-
-    return {
-      candidates: hybridCandidates,
-      excluded: policyResult.excluded,
-      aiClassification: aiResult,
-    };
-  }
-
-  return {
-    ...policyResult,
-    aiClassification: aiResult,
-  };
+  return combineHybridClassification(policyResult, aiResult);
 }
 
 function sourceSenderFromThread(thread: ThreadLike) {
