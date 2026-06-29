@@ -227,11 +227,22 @@ export async function fetchMessageAttachmentHtml(
     const data = (await res.json()) as {
       value?: Array<{ name?: string; contentType?: string; contentBytes?: string }>;
     };
-    const att = (data.value ?? []).find(
+    const attachments = (data.value ?? []).filter((a) => a.contentBytes);
+    // Prefer the obvious HTML attachment by name/type...
+    let att = attachments.find(
       (a) =>
         a.name?.toLowerCase().endsWith(".html") ||
         a.contentType?.toLowerCase() === "text/html",
     );
+    // ...but fall back to ANY attachment whose decoded body carries the NTS
+    // secure-mail marker, so a renamed/retyped attachment is still ingested.
+    if (!att) {
+      att = attachments.find((a) =>
+        Buffer.from(a.contentBytes as string, "base64")
+          .toString("utf8")
+          .includes("idCriHeader"),
+      );
+    }
     if (!att?.contentBytes) return null;
     return Buffer.from(att.contentBytes, "base64").toString("utf8");
   } catch (err) {
@@ -241,13 +252,79 @@ export async function fetchMessageAttachmentHtml(
 }
 
 /**
+ * Find NTS Hometax message ids across the ENTIRE mailbox (not just Inbox).
+ * Hometax e-tax-invoice mails are routinely auto-filed by a rule into a
+ * dedicated folder (e.g. "세금계산서"), so a folder-scoped sync misses them.
+ * `$search` queries all folders; it requires the `ConsistencyLevel: eventual`
+ * header and does not support `$orderby`.
+ */
+async function searchHometaxMessageIds(
+  token: string,
+  cap = 200,
+): Promise<Array<{ id: string }>> {
+  const out: Array<{ id: string }> = [];
+  let url: string | null =
+    `${GRAPH}/me/messages?$search=%22from:hometaxadmin@hometax.go.kr%22&$top=50&$select=id`;
+  while (url && out.length < cap) {
+    const res: Response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}`, ConsistencyLevel: "eventual" },
+    });
+    if (!res.ok) {
+      console.warn(`[hometax] message search failed: ${res.status}`);
+      break;
+    }
+    const data = (await res.json()) as {
+      value?: Array<{ id: string }>;
+      "@odata.nextLink"?: string;
+    };
+    out.push(...(data.value ?? []));
+    url = data["@odata.nextLink"] ?? null;
+  }
+  return out.slice(0, cap);
+}
+
+/**
+ * Scan the whole mailbox for Hometax e-tax-invoice mails, decrypt + ingest each
+ * via the CFO API (idempotent on the NTS approval number). Best-effort: a single
+ * mail's failure never aborts the batch. `skipped_not_ours` is not tallied (a
+ * not-ours invoice is a no-op, not a failure).
+ */
+export async function scanHometaxTaxInvoices(
+  token: string,
+): Promise<{ scanned: number; created: number; duplicate: number; failed: number }> {
+  const stats = { scanned: 0, created: 0, duplicate: 0, failed: 0 };
+  const messages = await searchHometaxMessageIds(token);
+  for (const m of messages) {
+    stats.scanned++;
+    try {
+      const html = await fetchMessageAttachmentHtml(token, m.id);
+      if (!html) {
+        stats.failed++;
+        continue;
+      }
+      const res = await cfoFetch<{ status: string; taxInvoiceId?: string }>(
+        "tax-invoices/upload-html",
+        { method: "POST", body: JSON.stringify({ html }) },
+      );
+      if (res.status === "created") stats.created++;
+      else if (res.status === "duplicate") stats.duplicate++;
+      else if (res.status === "failed") stats.failed++;
+    } catch (err) {
+      console.warn(`[hometax] ingest failed for message ${m.id}:`, err);
+      stats.failed++;
+    }
+  }
+  return stats;
+}
+
+/**
  * Pull the full mailbox — every Inbox (received) and Sent Items (sent) message —
  * and upsert by Graph message id. Sent + received are tagged with `direction`
  * and share a `conversationId` so they can be learned as one thread.
  */
 export async function syncDelegatedOutlook(
   opts: { maxMessages?: number } = {},
-): Promise<{ synced: number; inbox: number; sent: number; account?: string; taxInvoices?: { scanned: number; created: number } }> {
+): Promise<{ synced: number; inbox: number; sent: number; account?: string; taxInvoices?: { scanned: number; created: number; duplicate: number; failed: number } }> {
   const maxMessages = opts.maxMessages ?? DEFAULT_MAX_MESSAGES;
   const account = await prisma.mailAccount.findFirst({
     where: { provider: "outlook", refreshToken: { not: null } },
@@ -266,8 +343,6 @@ export async function syncDelegatedOutlook(
   ];
 
   let synced = 0;
-  // Collect inbound hometax messages for post-loop tax-invoice ingestion.
-  const hometaxPending: Array<{ msg: GraphMessage; rowId: string }> = [];
 
   for (const { msg, direction } of items) {
     const fromEmail = sanitizeText(msg.from?.emailAddress?.address) || "unknown";
@@ -284,49 +359,29 @@ export async function syncDelegatedOutlook(
       receivedAt: msg.receivedDateTime ? new Date(msg.receivedDateTime) : null,
       groupKey: conversationId,
     };
-    const row = await prisma.mailMessage.upsert({
+    await prisma.mailMessage.upsert({
       where: { externalId: msg.id },
       create: { externalId: msg.id, ...base },
       update: base,
     });
     synced++;
-
-    if (direction === "inbound" && isHometaxSender(fromEmail)) {
-      hometaxPending.push({ msg, rowId: row.id });
-    }
   }
   await prisma.mailAccount.update({ where: { id: account.id }, data: { lastSyncedAt: new Date() } });
 
-  // Best-effort tax-invoice ingestion — never breaks mail sync.
-  let tiScanned = 0;
-  let tiCreated = 0;
-  if (hometaxPending.length > 0) {
-    try {
-      for (const { msg, rowId } of hometaxPending) {
-        tiScanned++;
-        const html = await fetchMessageAttachmentHtml(token, msg.id);
-        if (!html) continue;
-        try {
-          const res = await cfoFetch<{ status: string; taxInvoiceId?: string }>(
-            "tax-invoices/upload-html",
-            { method: "POST", body: JSON.stringify({ html, sourceMessageId: rowId }) },
-          );
-          if (res.status === "created") tiCreated++;
-        } catch (uploadErr) {
-          console.warn(`[hometax] upload-html failed for message ${msg.id}:`, uploadErr);
-        }
-      }
-    } catch (outerErr) {
-      console.warn("[hometax] tax-invoice ingestion loop failed:", outerErr);
-    }
-  }
+  // Best-effort tax-invoice ingestion across ALL folders (Hometax mails are
+  // auto-filed outside the Inbox, so the folder sync above doesn't see them).
+  // Never breaks mail sync.
+  const taxInvoices = await scanHometaxTaxInvoices(token).catch((err) => {
+    console.warn("[hometax] tax-invoice scan failed:", err);
+    return { scanned: 0, created: 0, duplicate: 0, failed: 0 };
+  });
 
   return {
     synced,
     inbox: inbox.length,
     sent: sent.length,
     account: account.email,
-    taxInvoices: { scanned: tiScanned, created: tiCreated },
+    taxInvoices,
   };
 }
 
