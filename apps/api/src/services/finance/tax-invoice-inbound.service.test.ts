@@ -1,10 +1,11 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { prisma } from '@sangfor/db';
 import {
   SAMPLE_TAXINVOICE_XML,
   buildSecureMailHtmlForTest,
 } from './hometax-securemail/__fixtures__/synthetic';
 import { ingestSecureMailHtml } from './tax-invoice-inbound.service';
+import { LedgerService } from './ledger.service';
 
 const integration = process.env.CI_INTEGRATION === '1';
 const BIZ = '4208702727';
@@ -78,5 +79,40 @@ describe.skipIf(!integration)('ingestSecureMailHtml (integration)', () => {
   it('isolates a corrupt mail as failed without throwing', async () => {
     const r = await ingestSecureMailHtml('<html>broken</html>', 'msg-3');
     expect(r.status).toBe('failed');
+  });
+
+  it('marks ledger_failed when postExpense throws, still returns created', async () => {
+    // Use a distinct issueId so this test is independent of the first test's row.
+    const LEDGER_FAIL_ISSUE_ID = '202605291026052950358926';
+    const ledgerFailXml = SAMPLE_TAXINVOICE_XML.replace(
+      `<IssueID>${ISSUE_ID}</IssueID>`,
+      `<IssueID>${LEDGER_FAIL_ISSUE_ID}</IssueID>`,
+    );
+    const ledgerFailHtml = buildSecureMailHtmlForTest(ledgerFailXml, BIZ);
+
+    // Clean up before and after.
+    async function cleanupLedgerFail() {
+      const ti = await prisma.taxInvoice.findUnique({ where: { issueId: LEDGER_FAIL_ISSUE_ID } });
+      if (ti?.expenseId) {
+        await prisma.ledgerEntry.deleteMany({ where: { reference: ti.expenseId } });
+        await prisma.expense.delete({ where: { id: ti.expenseId } }).catch(() => null);
+      }
+      await prisma.taxInvoice.deleteMany({ where: { issueId: LEDGER_FAIL_ISSUE_ID } });
+    }
+
+    await cleanupLedgerFail();
+
+    const spy = vi.spyOn(LedgerService.prototype, 'postExpense').mockRejectedValueOnce(new Error('boom'));
+    try {
+      const r = await ingestSecureMailHtml(ledgerFailHtml, 'msg-ledger-fail');
+      expect(r.status).toBe('created');
+      expect(r.taxInvoiceId).toBeTruthy();
+
+      const ti = await prisma.taxInvoice.findUnique({ where: { issueId: LEDGER_FAIL_ISSUE_ID } });
+      expect(ti?.status).toBe('ledger_failed');
+    } finally {
+      spy.mockRestore();
+      await cleanupLedgerFail();
+    }
   });
 });
