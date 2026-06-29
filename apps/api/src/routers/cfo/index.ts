@@ -13,6 +13,8 @@ import { codefRouter } from './codef.router';
 import { chatbotRouter } from './chatbot.router';
 import { notionSyncRouter } from './notion-sync.router';
 import { healthRouter } from './health.router';
+import { taxInvoicesRouter } from './tax-invoices.router';
+import { companySettingsRouter } from './company-settings.router';
 
 export const cfoRouter = router({
   projects: projectsRouter,
@@ -29,4 +31,6 @@ export const cfoRouter = router({
   chatbot: chatbotRouter,
   notionSync: notionSyncRouter,
   health: healthRouter,
+  taxInvoices: taxInvoicesRouter,
+  companySettings: companySettingsRouter,
 });
