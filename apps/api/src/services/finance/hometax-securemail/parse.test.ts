@@ -17,6 +17,6 @@ describe('parseTaxInvoiceXml', () => {
     expect(r.totalAmount).toBe(572000);
     expect(r.items[0].name).toBe('Sangfor Term License');
     expect(r.itemSummary).toBe('Sangfor Term License');
-    expect(r.issueDate.getFullYear()).toBe(2026);
+    expect(r.issueDate.toISOString()).toBe('2026-05-29T06:31:32.000Z');
   });
 });

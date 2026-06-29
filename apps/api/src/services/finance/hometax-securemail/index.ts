@@ -6,16 +6,23 @@ export * from './header';
 export * from './parse';
 
 const inputValue = (html: string, id: string): string => {
-  const m = html.match(new RegExp(`id="${id}"\\s+value="([^"]*)"`));
-  return m ? m[1] : '';
+  const tag = html.match(new RegExp(`<input[^>]*\\bid="${id}"[^>]*>`, 'i'));
+  if (!tag) return '';
+  const v = tag[0].match(/\bvalue="([^"]*)"/i);
+  return v ? v[1] : '';
 };
 
 export function extractSecureMailInputs(html: string): { header: string; attachments: Record<string, string> } {
   const header = inputValue(html, 'idCriHeader');
   const attachments: Record<string, string> = {};
-  const re = /id="(idCriAttachContents\d+)"\s+value="([^"]*)"/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html))) attachments[m[1]] = m[2];
+  const tagRe = /<input[^>]*>/gi;
+  let tagMatch: RegExpExecArray | null;
+  while ((tagMatch = tagRe.exec(html))) {
+    const tag = tagMatch[0];
+    const idMatch = tag.match(/\bid="(idCriAttachContents\d+)"/i);
+    const valMatch = tag.match(/\bvalue="([^"]*)"/i);
+    if (idMatch && valMatch) attachments[idMatch[1]] = valMatch[1];
+  }
   return { header, attachments };
 }
 

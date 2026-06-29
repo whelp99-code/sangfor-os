@@ -27,10 +27,10 @@ const block = (src: string, name: string): string => tag(src, name);
 const num = (s: string): number => parseInt(s.replace(/[^0-9-]/g, ''), 10) || 0;
 
 const parseIssueDate = (s: string): Date => {
-  // YYYYMMDDHHmmss 또는 YYYYMMDD
-  const y = +s.slice(0, 4), mo = +s.slice(4, 6) - 1, d = +s.slice(6, 8);
-  const h = +(s.slice(8, 10) || 0), mi = +(s.slice(10, 12) || 0), se = +(s.slice(12, 14) || 0);
-  return new Date(y, mo, d, h, mi, se);
+  // YYYYMMDDHHmmss 또는 YYYYMMDD — NTS timestamps are KST (+09:00)
+  const y = s.slice(0, 4), mo = s.slice(4, 6), d = s.slice(6, 8);
+  const h = s.slice(8, 10) || '00', mi = s.slice(10, 12) || '00', se = s.slice(12, 14) || '00';
+  return new Date(`${y}-${mo}-${d}T${h}:${mi}:${se}+09:00`);
 };
 
 export function parseTaxInvoiceXml(xml: string): NormalizedTaxInvoice {

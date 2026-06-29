@@ -32,6 +32,7 @@ export const SAMPLE_TAXINVOICE_XML = [
 const ALG_CIPHER = (C: any, algorithm: number) => (algorithm === 1 ? C.AES : C.SEED);
 
 export function encryptXmlForTest(xml: string, businessNumber: string, algorithm: number): string {
+  if (algorithm === 3) throw new Error('ARIA not supported in test fixture');
   const C = loadCryptoJS();
   const key = C.MD5(businessNumber);
   const iv = C.enc.Hex.parse('0'.repeat(32));

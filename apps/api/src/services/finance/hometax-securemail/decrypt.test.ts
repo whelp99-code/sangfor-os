@@ -11,6 +11,9 @@ describe('decryptAttachmentToXml', () => {
 
   it('fails with wrong business number', () => {
     const enc = encryptXmlForTest('<x/>', '4208702727', 2);
-    expect(decryptAttachmentToXml(enc, '0000000000', 'SEED')).not.toContain('<x/>');
+    const result = decryptAttachmentToXml(enc, '0000000000', 'SEED');
+    // wrong key → UTF-8 decode of garbage fails → empty/garbage, never the real XML
+    expect(result).not.toContain('<x/>');
+    expect(result).not.toContain('<');
   });
 });
