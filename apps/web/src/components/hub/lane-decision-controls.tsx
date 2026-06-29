@@ -1,17 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export function LaneDecisionControls({ projectId, domain }: { projectId: string; domain: string }) {
   const router = useRouter();
+  const mounted = useRef(true);
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCorrect, setShowCorrect] = useState(false);
   const [note, setNote] = useState("");
 
-  async function post(body: Record<string, unknown>) {
+  useEffect(() => {
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  async function post(body: Record<string, unknown>): Promise<boolean> {
     setSubmitting(true);
     setError(null);
     try {
@@ -26,9 +33,13 @@ export function LaneDecisionControls({ projectId, domain }: { projectId: string;
       }
       router.refresh();
       setStatus("기록됨");
-      setTimeout(() => setStatus(null), 3000);
+      setTimeout(() => {
+        if (mounted.current) setStatus(null);
+      }, 3000);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류 발생");
+      return false;
     } finally {
       setSubmitting(false);
     }
@@ -42,10 +53,12 @@ export function LaneDecisionControls({ projectId, domain }: { projectId: string;
     post({ domain, outcome: "rejected" });
   }
 
-  function handleCorrectSubmit() {
-    post({ domain, outcome: "corrected", note, humanEdit: { note } });
-    setShowCorrect(false);
-    setNote("");
+  async function handleCorrectSubmit() {
+    const success = await post({ domain, outcome: "corrected", note, humanEdit: { note } });
+    if (success) {
+      setShowCorrect(false);
+      setNote("");
+    }
   }
 
   function handleCorrectCancel() {
@@ -57,6 +70,7 @@ export function LaneDecisionControls({ projectId, domain }: { projectId: string;
     <div className="mt-3 space-y-2">
       <div className="flex items-center gap-2">
         <button
+          type="button"
           className="rounded border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
           disabled={submitting}
           onClick={handleApprove}
@@ -64,6 +78,7 @@ export function LaneDecisionControls({ projectId, domain }: { projectId: string;
           승인
         </button>
         <button
+          type="button"
           className="rounded border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
           disabled={submitting}
           onClick={() => setShowCorrect(true)}
@@ -71,6 +86,7 @@ export function LaneDecisionControls({ projectId, domain }: { projectId: string;
           수정
         </button>
         <button
+          type="button"
           className="rounded border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
           disabled={submitting}
           onClick={handleReject}
@@ -90,6 +106,7 @@ export function LaneDecisionControls({ projectId, domain }: { projectId: string;
             disabled={submitting}
           />
           <button
+            type="button"
             className="rounded border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
             disabled={submitting || !note.trim()}
             onClick={handleCorrectSubmit}
@@ -97,6 +114,7 @@ export function LaneDecisionControls({ projectId, domain }: { projectId: string;
             확인
           </button>
           <button
+            type="button"
             className="rounded border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
             disabled={submitting}
             onClick={handleCorrectCancel}
