@@ -45,6 +45,7 @@ export * from "./domain-dashboard";
 export * from "./domain-embedder";
 export * from "./domain-default-generator";
 export * from "./domain-embedder-openai";
+export * from "./domain-persistence";
 export * from "./quote-engine";
 export * from "./revenue-core";
 export * from "./commercial-approval";

@@ -19,6 +19,7 @@ import {
   createDefaultDomainGenerator,
   type DefaultGeneratorOptions,
 } from "./domain-default-generator";
+import type { DomainPersister, DomainPersistResult } from "./domain-persistence";
 
 /**
  * V2 — 도메인 AI 런타임.
@@ -71,6 +72,11 @@ export interface DomainRuntimeDeps {
   recallTopK?: number;
   /** 학습 저장 끄기 (드라이런). 기본 false. */
   skipLearning?: boolean;
+  /**
+   * 구조화 산출물 → 실 DB 레코드 영속화기(주입형). 게이트 통과 케이스만 영속화.
+   * 생략하면 영속화하지 않는다(데모/테스트 안전). createDomainPersister() 참고.
+   */
+  persist?: DomainPersister;
 }
 
 /** generate 가 주입되면 그대로, 아니면 권장 기본 생성기를 만든다. */
@@ -87,6 +93,8 @@ export interface DomainStageResult {
   gatePass: boolean;
   recalled: DomainMemoryRecord[];
   handoffTo: GtmDomain | null;
+  /** persist 주입 시 영속화 결과(게이트 통과 케이스만). 미주입이면 null. */
+  persisted: DomainPersistResult | null;
 }
 
 const defaultGate: ColorGateEvaluator = async ({ required }) => ({
@@ -173,6 +181,12 @@ export async function runDomainStage(
     });
   }
 
+  // 8) 영속화 (게이트 통과 + persist 주입 시): 구조화 산출물 → 실 DB 레코드
+  let persisted: DomainPersistResult | null = null;
+  if (gatePass && deps.persist) {
+    persisted = await deps.persist({ domain, case: c, artifact, projectSlug });
+  }
+
   return {
     domain,
     artifact,
@@ -182,6 +196,7 @@ export async function runDomainStage(
     gatePass,
     recalled,
     handoffTo: gatePass ? handoff.to : null,
+    persisted,
   };
 }
 
