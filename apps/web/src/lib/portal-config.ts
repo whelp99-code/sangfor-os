@@ -29,6 +29,7 @@ export const PORTAL_NAV: NavItem[] = [
   { title: "매출/미수금", href: "/cfo/invoices", icon: "file-text", group: "Finance" },
   { title: "비용", href: "/cfo/expenses", icon: "list-checks", group: "Finance" },
   { title: "현금흐름", href: "/cfo/cashflows", icon: "activity", group: "Finance" },
+  { title: "세금계산서", href: "/cfo/tax-invoices", icon: "file-text", group: "Finance" },
   { title: "부가세", href: "/cfo/vat", icon: "file-text", group: "Finance" },
   { title: "구독", href: "/cfo/subscriptions", icon: "blocks", group: "Finance" },
   { title: "월결산", href: "/cfo/month-close", icon: "list-checks", group: "Finance" },
