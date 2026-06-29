@@ -2,6 +2,7 @@ import { prisma } from '@sangfor/db';
 import { getEngagementDetail } from './engagement-center';
 import { computePnl, type Pnl } from './domain-pnl';
 import { buildLanes, type DomainLane, type LaneArtifact } from './artifact-domain-map';
+import { getDomainAutonomy } from './project-decision';
 
 export interface ProjectHub {
   engagement: Awaited<ReturnType<typeof getEngagementDetail>>;
@@ -31,5 +32,13 @@ export async function getProjectHub(engagementId: string): Promise<ProjectHub | 
     ...expenses.map((e) => ({ kind: 'expense' as const, id: e.id, label: e.expenseName, status: undefined })),
   ];
 
-  return { engagement, lanes: buildLanes(artifacts), pnl };
+  const rawLanes = buildLanes(artifacts);
+  const lanesWithAutonomy = await Promise.all(
+    rawLanes.map(async (lane) => {
+      const autonomy = await getDomainAutonomy(lane.domain);
+      return { ...lane, autonomy };
+    }),
+  );
+
+  return { engagement, lanes: lanesWithAutonomy, pnl };
 }

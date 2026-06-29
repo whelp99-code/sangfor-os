@@ -64,3 +64,4 @@ export * from "./domain-pnl";
 export * from "./artifact-domain-map";
 export * from "./project-hub";
 export * from "./ai-classify-batch";
+export * from "./project-decision";
