@@ -19,7 +19,7 @@ export function domainOfArtifact(kind: ArtifactKind): DomainKey | 'common' {
 }
 
 export interface LaneArtifact { kind: ArtifactKind; id: string; label: string; status?: string; }
-export interface DomainLane { domain: DomainKey; status: 'done' | 'active' | 'pending'; artifacts: LaneArtifact[]; autonomy?: import('./project-decision').Autonomy; }
+export interface DomainLane { domain: DomainKey; status: 'done' | 'active' | 'pending'; artifacts: LaneArtifact[]; autonomy?: import('./project-decision').Autonomy; proposals?: Array<{ id: string; domain: string; title: string; bodyMarkdown: string; createdAt: Date }>; }
 
 export function buildLanes(artifacts: LaneArtifact[]): DomainLane[] {
   // 'common'(meetingNote)은 가장 이른 가능한 도메인(sales)에 임시 귀속해 표시.
