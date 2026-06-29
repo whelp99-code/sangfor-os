@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CFO } from "@/lib/cfo-theme";
 import { LaneDecisionControls } from "@/components/hub/lane-decision-controls";
+import { LaneGenerateButton } from "@/components/hub/lane-generate-button";
 
 type PageProps = { params: Promise<{ id: string }> };
 const won = (n?: number) => `₩${(n ?? 0).toLocaleString()}`;
@@ -66,6 +67,20 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                     : `자율도 학습중 (표본 ${l.autonomy.sample})`}
                 </p>
               )}
+              {/* AI 제안 목록 */}
+              {l.proposals && l.proposals.length > 0 && (
+                <div className="mb-3 space-y-2">
+                  {l.proposals.map((p) => (
+                    <div key={p.id} className="rounded border p-2 text-xs">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium">{p.title}</span>
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800 text-[10px]">AI 제안 · 검토대기</span>
+                      </div>
+                      <p className="text-muted-foreground line-clamp-2">{p.bodyMarkdown}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
               {l.artifacts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">산출물 없음</p>
               ) : (
@@ -78,6 +93,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                   ))}
                 </ul>
               )}
+              <LaneGenerateButton projectId={id} domain={l.domain} />
               <LaneDecisionControls projectId={id} domain={l.domain} />
             </CardContent>
           </Card>
