@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CFO } from "@/lib/cfo-theme";
+import { LaneDecisionControls } from "@/components/hub/lane-decision-controls";
 
 type PageProps = { params: Promise<{ id: string }> };
 const won = (n?: number) => `₩${(n ?? 0).toLocaleString()}`;
@@ -46,6 +47,9 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         </CardContent>
       </Card>
 
+      {/* 도메인 학습 안내 */}
+      <p className="text-xs text-muted-foreground">AI 제안을 사람이 승인/수정/반려하면 그 결정이 도메인 학습으로 반영되어 자율도가 올라갑니다.</p>
+
       {/* 도메인 레인 */}
       <div className="grid gap-4 md:grid-cols-2">
         {lanes.map((l) => (
@@ -55,6 +59,13 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               <Badge variant="outline">{DOT[l.status]} {l.status}</Badge>
             </CardHeader>
             <CardContent>
+              {l.autonomy && (
+                <p className="text-xs mb-2" style={{ color: CFO.muted }}>
+                  {l.autonomy.pct !== null
+                    ? `자율도 ${l.autonomy.pct}% · ${l.autonomy.label} (표본 ${l.autonomy.sample})`
+                    : `자율도 학습중 (표본 ${l.autonomy.sample})`}
+                </p>
+              )}
               {l.artifacts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">산출물 없음</p>
               ) : (
@@ -67,6 +78,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                   ))}
                 </ul>
               )}
+              <LaneDecisionControls projectId={id} domain={l.domain} />
             </CardContent>
           </Card>
         ))}
