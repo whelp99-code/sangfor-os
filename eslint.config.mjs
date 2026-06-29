@@ -21,6 +21,7 @@ export default tseslint.config(
       "**/*.d.ts",
       "**/prisma/generated/**",
       "**/generated/**",
+      "**/hometax-securemail/vendor/**", // vendored minified CryptoJS (NTS hometax) — not our code
       ".worktrees/**",
       ".claude/**",
       ".serena/**",
