@@ -90,7 +90,7 @@ describe.skipIf(!integration)('integration: DomainDecisionLog persistence + getP
   const engId = CASE_REF.replace('eng:', '');
   // Use real recordDomainDecision (imported via actual module, bypassing the unit-test mock)
   let realRecordDomainDecision: typeof import('./domain-memory').recordDomainDecision;
-  let prismaClient: import('@sangfor/db').PrismaClient;
+  let prismaClient: typeof import('@sangfor/db').prisma;
 
   beforeAll(async () => {
     const domainMemoryActual = await vi.importActual<typeof import('./domain-memory')>('./domain-memory');
