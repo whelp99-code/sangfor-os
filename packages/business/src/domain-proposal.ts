@@ -13,7 +13,23 @@ import {
   loadDomainMemories,
   recallDomainMemories,
 } from './domain-memory';
-import { prisma } from '@sangfor/db';
+import { Prisma, prisma } from '@sangfor/db';
+
+function sanitizeJsonStrings(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return value
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '')
+      .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+  }
+  if (Array.isArray(value)) return value.map(sanitizeJsonStrings);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, sanitizeJsonStrings(v)]),
+    );
+  }
+  return value;
+}
 
 export interface GenerateProposalInput {
   engagementId: string;
@@ -118,18 +134,39 @@ export async function generateDomainProposal(
     rawText = text;
   }
 
-  // 6. Parse JSON response
-  const parsed = JSON.parse(rawText) as { title?: string; bodyMarkdown?: string };
+  // 6. Parse JSON response — strip markdown code fences if present
+  const stripped = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+  let parsed: { title?: string; bodyMarkdown?: string };
+  try {
+    parsed = JSON.parse(stripped) as { title?: string; bodyMarkdown?: string };
+  } catch {
+    throw new Error('llm_parse_error: ' + rawText.slice(0, 100));
+  }
   const title = parsed.title ?? '';
   const bodyMarkdown = parsed.bodyMarkdown ?? '';
 
-  // 7. Persist DomainDecisionLog
+  // 7. Look up projectSlug via engagement → opportunity → project chain
+  const { prisma: prismaClient } = await import('@sangfor/db');
+  const eng = await prismaClient.engagement.findUnique({
+    where: { id: input.engagementId },
+    select: { opportunity: { select: { projectId: true } } },
+  });
+  const projectId = eng?.opportunity?.projectId ?? null;
+  const projectRow = projectId
+    ? await prismaClient.project.findUnique({ where: { id: projectId }, select: { slug: true } })
+    : null;
+  const projectSlug = projectRow?.slug ?? undefined;
+
+  // 8. Sanitize before jsonb write
+  const sanitized = sanitizeJsonStrings({ title, bodyMarkdown }) as Prisma.InputJsonValue;
+
+  // 9. Persist DomainDecisionLog
   await recordDomainDecision({
+    projectSlug,
     domain: input.domain,
     caseRef: 'eng:' + input.engagementId,
     decisionType: 'ai_proposal',
-    outputJson: { title, bodyMarkdown },
-    outcome: undefined,
+    outputJson: sanitized,
   });
 
   // 8. Return proposal
@@ -143,6 +180,7 @@ export async function getPendingProposals(
     where: {
       caseRef: 'eng:' + engagementId,
       decisionType: 'ai_proposal',
+      outcome: null,  // only truly pending (no human decision yet)
     },
     orderBy: { createdAt: 'asc' },
   });

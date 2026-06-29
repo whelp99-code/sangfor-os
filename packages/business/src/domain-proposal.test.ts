@@ -8,6 +8,23 @@ vi.mock('./domain-memory', () => ({
   recordDomainDecision: vi.fn().mockResolvedValue({ id: 'mock-id' }),
 }));
 
+vi.mock('@sangfor/db', () => ({
+  Prisma: { JsonNull: null },
+  prisma: {
+    engagement: {
+      findUnique: vi.fn().mockResolvedValue({
+        opportunity: { projectId: 'proj-1' },
+      }),
+    },
+    project: {
+      findUnique: vi.fn().mockResolvedValue({ slug: 'test-project' }),
+    },
+    domainDecisionLog: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+  },
+}));
+
 describe('buildDomainPrompt', () => {
   it('presales — returns system/user with json and 제안서', () => {
     const input: GenerateProposalInput = {

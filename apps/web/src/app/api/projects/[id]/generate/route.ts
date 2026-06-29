@@ -1,4 +1,4 @@
-import { generateDomainProposal, getProjectHub } from '@sangfor/business';
+import { generateDomainProposal, getProjectHub, DOMAIN_ORDER } from '@sangfor/business';
 import { NextResponse } from 'next/server';
 
 export async function POST(
@@ -9,8 +9,8 @@ export async function POST(
     const { id } = await params;
     const body = await req.json().catch(() => ({})) as { domain?: string };
 
-    if (!body.domain) {
-      return NextResponse.json({ error: 'domain required' }, { status: 400 });
+    if (!body.domain || !DOMAIN_ORDER.includes(body.domain as (typeof DOMAIN_ORDER)[number])) {
+      return NextResponse.json({ error: 'invalid domain' }, { status: 400 });
     }
 
     // Load engagement info for the prompt

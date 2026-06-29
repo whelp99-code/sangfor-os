@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export function LaneGenerateButton({ projectId, domain }: { projectId: string; domain: string }) {
@@ -8,6 +8,10 @@ export function LaneGenerateButton({ projectId, domain }: { projectId: string; d
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    return () => { mounted.current = false; };
+  }, []);
 
   async function handleGenerate() {
     setLoading(true);
@@ -25,7 +29,7 @@ export function LaneGenerateButton({ projectId, domain }: { projectId: string; d
       } else {
         setSuccess(true);
         router.refresh();
-        setTimeout(() => setSuccess(false), 3000);
+        setTimeout(() => { if (mounted.current) setSuccess(false); }, 3000);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류");
