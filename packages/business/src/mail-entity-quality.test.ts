@@ -5,6 +5,9 @@ import {
   companyNameFromDomain,
   isJunkCompanyName,
   deriveEntityFromCandidate,
+  isVendorDomain,
+  canonicalCompanyKey,
+  dedupeByCompanyKey,
 } from './mail-entity-quality';
 
 describe('normalizeSenderDomain', () => {
@@ -142,5 +145,82 @@ describe('deriveEntityFromCandidate', () => {
     });
     expect(result.skip).toBe(false);
     expect(result.name).toBe('넥시아스');
+  });
+
+  it('skips vendor domain notion.so with reason non_business_domain', () => {
+    const result = deriveEntityFromCandidate({
+      title: 'Customer: Notion',
+      sourceSender: 'notion.so',
+    });
+    expect(result.skip).toBe(true);
+    expect(result.reason).toBe('non_business_domain');
+  });
+});
+
+describe('isVendorDomain', () => {
+  it('notion.so is a vendor domain', () => {
+    expect(isVendorDomain('notion.so')).toBe(true);
+  });
+
+  it('anthropic.com is a vendor domain', () => {
+    expect(isVendorDomain('anthropic.com')).toBe(true);
+  });
+
+  it('ecount.com is a vendor domain', () => {
+    expect(isVendorDomain('ecount.com')).toBe(true);
+  });
+
+  it('sub.notion.so is a vendor domain (subdomain match)', () => {
+    expect(isVendorDomain('sub.notion.so')).toBe(true);
+  });
+
+  it('gsitm.com is NOT a vendor domain', () => {
+    expect(isVendorDomain('gsitm.com')).toBe(false);
+  });
+});
+
+describe('isBusinessEntityDomain vendor exclusions', () => {
+  it('notion.so is not a business entity domain', () => {
+    expect(isBusinessEntityDomain('notion.so')).toBe(false);
+  });
+
+  it('anthropic.com is not a business entity domain', () => {
+    expect(isBusinessEntityDomain('anthropic.com')).toBe(false);
+  });
+
+  it('ecount.com is not a business entity domain', () => {
+    expect(isBusinessEntityDomain('ecount.com')).toBe(false);
+  });
+
+  it('gsitm.com remains a valid business entity domain', () => {
+    expect(isBusinessEntityDomain('gsitm.com')).toBe(true);
+  });
+
+  it('vclink.co.kr remains a valid business entity domain', () => {
+    expect(isBusinessEntityDomain('vclink.co.kr')).toBe(true);
+  });
+});
+
+describe('canonicalCompanyKey', () => {
+  it('"Modusign" and "modusign" collapse to the same key', () => {
+    expect(canonicalCompanyKey('Modusign')).toBe(canonicalCompanyKey('modusign'));
+  });
+
+  it('"(주)베를로" strips prefix to "베를로"', () => {
+    expect(canonicalCompanyKey('(주)베를로')).toBe('베를로');
+  });
+
+  it('"GS E&C" and "gs ec" collapse to the same key', () => {
+    expect(canonicalCompanyKey('GS E&C')).toBe(canonicalCompanyKey('gs ec'));
+  });
+});
+
+describe('dedupeByCompanyKey', () => {
+  it('deduplicates Modusign/modusign and keeps Notion', () => {
+    const input = [{ name: 'Modusign' }, { name: 'modusign' }, { name: 'Notion' }];
+    const result = dedupeByCompanyKey(input);
+    expect(result).toHaveLength(2);
+    expect(result[0].name).toBe('Modusign');
+    expect(result[1].name).toBe('Notion');
   });
 });

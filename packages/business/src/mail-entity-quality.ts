@@ -51,6 +51,65 @@ const KNOWN_DOMAIN_MAP: Record<string, string> = {
   'gsenc.com': 'GS E&C',
 };
 
+// ---------------------------------------------------------------------------
+// Vendor/SaaS deny-list
+// ---------------------------------------------------------------------------
+
+/**
+ * Domains for tools/services WE use, not customers we sell to.
+ * Exact + subdomain match (see isVendorDomain).
+ */
+export const VENDOR_SAAS_DOMAINS: Set<string> = new Set([
+  'notion.so',
+  'notion.com',
+  'anthropic.com',
+  'openai.com',
+  'ecount.com',
+  'wehago.com',
+  'flow.team',
+  'slack.com',
+  'atlassian.com',
+  'atlassian.net',
+  'github.com',
+  'gitlab.com',
+  'figma.com',
+  'zoom.us',
+  'google.com',
+  'googlemail.com',
+  'dropbox.com',
+  'aws.amazon.com',
+  'amazonaws.com',
+  'cloudflare.com',
+  'vercel.com',
+  'stripe.com',
+  'linear.app',
+  'asana.com',
+  'monday.com',
+  'jira.com',
+  'confluence.com',
+  'adobe.com',
+  'canva.com',
+  'zendesk.com',
+  'intercom.com',
+  'hubspot.com',
+  'salesforce.com',
+  'mailchimp.com',
+  'sendgrid.com',
+  'twilio.com',
+  'datadoghq.com',
+  'sentry.io',
+  'modusign.co.kr',
+  'modusign.com',
+]);
+
+/**
+ * Returns true if domain (normalized) is a known vendor/SaaS domain —
+ * exact match OR subdomain of an entry.
+ */
+export function isVendorDomain(domain: string): boolean {
+  return isBlockedBySet(domain, VENDOR_SAAS_DOMAINS);
+}
+
 // Two-part Korean ccTLD second-levels
 const KR_TWO_PART_TLDS = new Set([
   'co.kr',
@@ -115,6 +174,7 @@ export function isBusinessEntityDomain(domain: string): boolean {
   if (isBlockedBySet(domain, SYSTEM_DOMAINS)) return false;
   if (isBlockedBySet(domain, FREE_MAIL_DOMAINS)) return false;
   if (isBlockedBySet(domain, PLACEHOLDER_DOMAINS)) return false;
+  if (isBlockedBySet(domain, VENDOR_SAAS_DOMAINS)) return false;
 
   return true;
 }
@@ -251,4 +311,56 @@ export function deriveEntityFromCandidate(input: {
   }
 
   return { skip: false, name, domain };
+}
+
+// ---------------------------------------------------------------------------
+// canonicalCompanyKey + dedupeByCompanyKey
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalize a company display name to a merge key for deduplication.
+ * Lowercases, strips whitespace, removes corporate suffixes/punctuation so that
+ * variants like "Modusign" / "modusign", "(주)베를로" / "베를로",
+ * "GS E&C" / "gs ec" collapse to the same key.
+ */
+export function canonicalCompanyKey(name: string): string {
+  if (!name) return '';
+
+  let key = name.toLowerCase();
+
+  // Remove corporate suffixes (order matters — longer patterns first)
+  key = key
+    .replace(/주식회사/g, '')
+    .replace(/\(주\)/g, '')
+    .replace(/\(유\)/g, '')
+    .replace(/\binc\b\.?/g, '')
+    .replace(/\bco\b\.?/g, '')
+    .replace(/\bltd\b\.?/g, '')
+    .replace(/\bcorp\b\.?/g, '')
+    .replace(/\bllc\b\.?/g, '');
+
+  // Remove '&' and 'and'
+  key = key.replace(/&/g, '').replace(/\band\b/g, '');
+
+  // Remove all non-alphanumeric and non-Korean characters (including spaces)
+  key = key.replace(/[^a-z0-9가-힣]/g, '');
+
+  return key;
+}
+
+/**
+ * Deduplicate an array of objects with a `name` field by canonicalCompanyKey.
+ * Keeps the first occurrence of each canonical key.
+ */
+export function dedupeByCompanyKey<T extends { name: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const item of items) {
+    const key = canonicalCompanyKey(item.name);
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(item);
+    }
+  }
+  return result;
 }
