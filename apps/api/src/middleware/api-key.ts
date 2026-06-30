@@ -15,12 +15,11 @@ const API_KEY_ROLE_TO_BUSINESS_ROLE: Record<Role, BusinessRole> = {
   viewer: 'account_manager',
 }
 
-let hasConfiguredKeys = false
 for (const { env, name, role } of ENV_API_KEYS) {
+  // Treat empty/whitespace keys as absent (invalid), not configured.
   const key = process.env[env]?.trim()
   if (key) {
     keyManager.registerKey(key, name, role)
-    hasConfiguredKeys = true
   }
 }
 
@@ -43,12 +42,12 @@ function applyDevAuthContext(req: Request, name: string, role: Role) {
 }
 
 export function apiKeyMiddleware(req: Request, res: Response, next: NextFunction) {
-  const apiKey = req.headers['x-api-key'] as string
+  const apiKey = (req.headers['x-api-key'] as string | undefined)?.trim()
   if (!apiKey) {
-    // Dev bypass (consistent with auth.ts / context.ts): when not in production
-    // and no API keys are configured, allow local tooling/dashboards through
-    // with an admin dev context instead of forcing manual key setup.
-    if (process.env.NODE_ENV !== 'production' && !hasConfiguredKeys) {
+    // Secure by default: no implicit bypass. Dev/demo must opt in *explicitly*
+    // via AUTH_BYPASS_ENABLED=1 (consistent with auth.ts). Otherwise a missing
+    // or empty key is rejected — including when no keys are configured.
+    if (process.env.AUTH_BYPASS_ENABLED === '1') {
       applyDevAuthContext(req, 'dev', 'admin')
       return next()
     }

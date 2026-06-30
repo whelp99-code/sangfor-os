@@ -29,7 +29,15 @@ function ok(handler: (...args: any[]) => any) {
       const result = await handler(req);
       res.json(result);
     } catch (e: any) {
-      res.status(400).json({ error: e.message });
+      // Sanitize errors: only validated client-input errors (BadRequestError)
+      // expose their user-facing message. Everything else (Prisma stack, schema
+      // names, internal failures) is generalized to avoid leaking internals.
+      if (e instanceof BadRequestError) {
+        res.status(400).json({ error: e.message });
+        return;
+      }
+      console.error('[cfo] unhandled error:', e);
+      res.status(500).json({ error: '요청을 처리할 수 없습니다.' });
     }
   };
 }

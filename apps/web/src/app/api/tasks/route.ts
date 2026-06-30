@@ -1,5 +1,6 @@
 import { createWorkTask, createWorkTaskSchema, listTodayTasks, listWorkTasks } from "@sangfor/business";
 import { NextResponse } from "next/server";
+import { assertApiAccess } from "@/lib/api-auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -17,6 +18,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
+
   let body: unknown;
   try {
     body = await request.json();

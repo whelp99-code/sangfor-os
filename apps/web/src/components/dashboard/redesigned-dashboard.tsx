@@ -23,7 +23,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   KpiSparkline,
   PipelineChart,
-  ActivityChart,
   HealthDonut,
 } from "./charts";
 
@@ -59,20 +58,7 @@ interface DashboardData {
     overall: "ok" | "degraded";
     services: { name: string; status: "ok" | "error" | "degraded" }[];
   };
-  activity: {
-    dates: string[];
-    tasks: number[];
-    approvals: number[];
-    mails: number[];
-  };
 }
-
-// Mock sparkline data (in production, fetch from API)
-const generateSparklineData = (base: number, points = 7) =>
-  Array.from({ length: points }, (_, i) => ({
-    date: `${i + 1}일전`,
-    value: Math.max(0, base + Math.floor(Math.random() * 20 - 10)),
-  }));
 
 export function RedesignedDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -90,13 +76,6 @@ export function RedesignedDashboard() {
         const summary = summaryRes?.ok ? await summaryRes.json() : null;
         const report = reportRes?.ok ? await reportRes.json() : null;
         const health = healthRes?.ok ? await healthRes.json() : null;
-
-        // Generate mock activity data for demonstration
-        const dates = Array.from({ length: 7 }, (_, i) => {
-          const d = new Date();
-          d.setDate(d.getDate() - (6 - i));
-          return d.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
-        });
 
         setData({
           summary: summary || {
@@ -117,21 +96,10 @@ export function RedesignedDashboard() {
             entities: { customers: 0, partners: 0, tasks: 0, opportunities: 0 },
           },
           health: health || { overall: "ok", services: [] },
-          activity: {
-            dates,
-            tasks: dates.map(() => Math.floor(Math.random() * 10) + 1),
-            approvals: dates.map(() => Math.floor(Math.random() * 5)),
-            mails: dates.map(() => Math.floor(Math.random() * 15) + 5),
-          },
         });
       } catch (err) {
         console.error("Dashboard data fetch error:", err);
-        // Set default data even on error
-        const dates = Array.from({ length: 7 }, (_, i) => {
-          const d = new Date();
-          d.setDate(d.getDate() - (6 - i));
-          return d.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
-        });
+        // Set default empty data even on error (no fabricated figures).
         setData({
           summary: {
             customers: 0,
@@ -151,12 +119,6 @@ export function RedesignedDashboard() {
             entities: { customers: 0, partners: 0, tasks: 0, opportunities: 0 },
           },
           health: { overall: "ok", services: [] },
-          activity: {
-            dates,
-            tasks: dates.map(() => Math.floor(Math.random() * 10) + 1),
-            approvals: dates.map(() => Math.floor(Math.random() * 5)),
-            mails: dates.map(() => Math.floor(Math.random() * 15) + 5),
-          },
         });
       } finally {
         setLoading(false);
@@ -201,36 +163,35 @@ export function RedesignedDashboard() {
         </div>
       </div>
 
-      {/* KPI Cards with Sparklines */}
+      {/* KPI Cards — current real values only; no fabricated trend/baseline.
+          previousValue + sparkline series are intentionally omitted until a
+          historical metrics source exists. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiSparkline
           title="고객사"
           value={data.summary.customers}
-          previousValue={data.summary.customers - 2}
-          data={generateSparklineData(data.summary.customers)}
+          data={[]}
           color="blue"
           icon={Users}
         />
         <KpiSparkline
           title="미완료 작업"
           value={data.summary.openTasks}
-          previousValue={data.summary.openTasks + 3}
-          data={generateSparklineData(data.summary.openTasks)}
+          data={[]}
           color="amber"
           icon={ListChecks}
         />
         <KpiSparkline
           title="오늘 작업"
           value={data.summary.todayTasks}
-          previousValue={data.summary.todayTasks - 1}
-          data={generateSparklineData(data.summary.todayTasks)}
+          data={[]}
           color="emerald"
           icon={CalendarCheck}
         />
         <KpiSparkline
           title="활성 PoC"
           value={data.summary.activePocs}
-          data={generateSparklineData(data.summary.activePocs)}
+          data={[]}
           color="purple"
           icon={FlaskConical}
         />
@@ -369,24 +330,25 @@ export function RedesignedDashboard() {
           )}
         </TabsContent>
 
-        {/* Activity Tab */}
+        {/* Activity Tab — honest empty state. The weekly activity trend
+            requires a time-series metrics source that does not exist yet;
+            the previous chart was fabricated with Math.random() and has
+            been removed rather than show fake data. */}
         <TabsContent value="activity">
-          <ActivityChart
-            title="주간 활동 추이"
-            data={data.activity.dates.map((date, i) => ({
-              date,
-              tasks: data.activity.tasks[i],
-              approvals: data.activity.approvals[i],
-              mails: data.activity.mails[i],
-            }))}
-            series={[
-              { key: "tasks", label: "작업", color: "#3b82f6" },
-              { key: "approvals", label: "승인", color: "#10b981" },
-              { key: "mails", label: "메일", color: "#8b5cf6" },
-            ]}
-            xAxisKey="date"
-            icon={Activity}
-          />
+          <Card>
+            <CardHeader className="flex flex-row items-center gap-2 pb-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/50">
+                <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <CardTitle className="text-base">주간 활동 추이</CardTitle>
+            </CardHeader>
+            <CardContent className="flex h-40 flex-col items-center justify-center gap-1 text-center text-muted-foreground">
+              <p className="text-sm">활동 추이 데이터가 아직 수집되지 않았습니다</p>
+              <p className="text-xs">
+                일별 활동 지표가 적재되면 이 영역에 표시됩니다
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Pipeline Tab */}

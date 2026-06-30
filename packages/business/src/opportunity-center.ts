@@ -7,6 +7,7 @@ import {
   CANONICAL_STAGES,
   normalizeOpportunityStage,
   nextOpportunityStage,
+  validateOpportunityStageOrder,
 } from "./opportunity-stage";
 
 const stageInput = z
@@ -169,6 +170,14 @@ export async function updateOpportunity(
 
   if (parsed.stage !== undefined && parsed.stage !== existing.stage) {
     const newStage = parsed.stage;
+
+    // Enforce canonical stage ordering: reject illegal skips/regressions
+    // (e.g. WON → LEAD) before persisting. The route surfaces this as a 400.
+    const order = validateOpportunityStageOrder(existing.stage, newStage);
+    if (!order.allowed) {
+      throw new Error(`illegal_stage_transition:${order.reason}`);
+    }
+
     data.stage = newStage;
     const updated = await prisma.$transaction(async (tx) => {
       const result = await tx.opportunity.update({ where: { id }, data });
