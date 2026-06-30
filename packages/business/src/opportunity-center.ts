@@ -51,6 +51,10 @@ export const updateOpportunitySchema = z.object({
   nextAction: z.string().nullable().optional(),
   partnerId: z.string().nullable().optional(),
   customerId: z.string().nullable().optional(),
+  dealStatus: z.enum(["OPEN", "WON", "LOST", "ON_HOLD", "DISQUALIFIED"]).optional(),
+  dealType: z.string().optional(),
+  lostReason: z.string().nullable().optional(),
+  ownerId: z.string().nullable().optional(),
 });
 
 export const addOpportunityLinkSchema = z.object({
@@ -127,6 +131,7 @@ export async function getOpportunityDetail(id: string) {
       partner: true,
       links: { orderBy: { createdAt: "desc" } },
       stageEvents: { orderBy: { createdAt: "desc" } },
+      qualification: { include: { economicBuyer: true, champion: true } },
     },
   });
 }
@@ -148,6 +153,10 @@ export async function updateOpportunity(
   if (parsed.nextAction !== undefined) data.nextAction = parsed.nextAction;
   if (parsed.partnerId !== undefined) data.partnerId = parsed.partnerId;
   if (parsed.customerId !== undefined) data.customerId = parsed.customerId;
+  if (parsed.dealStatus !== undefined) data.dealStatus = parsed.dealStatus;
+  if (parsed.dealType !== undefined) data.dealType = parsed.dealType;
+  if (parsed.lostReason !== undefined) data.lostReason = parsed.lostReason;
+  if (parsed.ownerId !== undefined) data.ownerId = parsed.ownerId;
 
   if (parsed.stage !== undefined && parsed.stage !== existing.stage) {
     data.stage = parsed.stage;
