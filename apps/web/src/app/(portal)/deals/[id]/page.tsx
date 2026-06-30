@@ -66,6 +66,20 @@ export default async function DealDetailPage({ params }: PageProps) {
   const competitors: string[] = [];
 
   const existingEngagement = await getEngagementByOpportunity(id);
+
+  // Serialize Decimal fields and dates for the WinWorkPanel (crosses RSC boundary).
+  const winEngagement = existingEngagement
+    ? {
+        id: existingEngagement.id,
+        name: existingEngagement.name,
+        status: existingEngagement.status,
+        summaryMarkdown: existingEngagement.summaryMarkdown ?? null,
+        sowApprovedAt: existingEngagement.sowApprovedAt
+          ? existingEngagement.sowApprovedAt.toISOString()
+          : null,
+      }
+    : null;
+
   const stage = normalizeOpportunityStage(opportunity.stage);
   const enrichedLinks = await enrichOpportunityLinks(opportunity.links);
   const customerOptions = customers.map((c) => ({ id: c.id, label: c.name }));
@@ -192,6 +206,11 @@ export default async function DealDetailPage({ params }: PageProps) {
             pocProjects={pocProjectsForPanel}
             pocProjectsWithResults={pocProjectsWithResults}
             bid={{ quotes, sprStatus, distributorName, competitors }}
+            win={{
+              engagement: winEngagement,
+              amount: opportunity.amount?.toString() ?? null,
+              distributorName,
+            }}
           />
           <PortalOrchestratorRunPanel
             title="Phase 13 orchestrator"

@@ -17,6 +17,10 @@ import {
   BidWorkPanel,
   type QuoteSummary,
 } from "@/components/deals/work-panels/bid-work-panel";
+import {
+  WinWorkPanel,
+  type EngagementSummary,
+} from "@/components/deals/work-panels/win-work-panel";
 import { Card, CardContent } from "@/components/ui/card";
 
 // ---------------------------------------------------------------------------
@@ -41,6 +45,12 @@ type DealWorkTabProps = {
     sprStatus: string | null;
     distributorName: string | null;
     competitors: string[];
+  };
+  /** Stage ⑤ data: existing engagement, deal amount, distributor name. */
+  win: {
+    engagement: EngagementSummary | null;
+    amount: string | null;
+    distributorName: string | null;
   };
 };
 
@@ -78,7 +88,6 @@ const PLACEHOLDER_STAGES: Record<
   number,
   { label: string; icon: React.ReactNode }
 > = {
-  5: { label: "⑤ 수주", icon: <FileText className="size-5" aria-hidden="true" /> },
   6: { label: "⑥ 딜리버리", icon: <Package className="size-5" aria-hidden="true" /> },
 };
 
@@ -101,6 +110,7 @@ export function DealWorkTab({
   pocProjects,
   pocProjectsWithResults,
   bid,
+  win,
 }: DealWorkTabProps) {
   const { idx } = stageDisplay(opportunity.stage);
 
@@ -130,6 +140,17 @@ export function DealWorkTab({
         sprStatus={bid.sprStatus}
         distributorName={bid.distributorName}
         competitors={bid.competitors}
+      />
+    );
+  }
+
+  if (idx === 5) {
+    return (
+      <WinWorkPanel
+        opportunityId={opportunity.id}
+        engagement={win.engagement}
+        amount={win.amount}
+        distributorName={win.distributorName}
       />
     );
   }
