@@ -24,6 +24,7 @@ import { DealRecordHeader, DealStagePath } from "@/components/deals/deal-record-
 import { DealStageGuide } from "@/components/deals/deal-stage-guide";
 import { DealAiRail } from "@/components/deals/deal-ai-rail";
 import { DealDetail } from "@/components/deals/deal-detail";
+import { DealWorkTab } from "@/components/deals/deal-work-tab";
 import { RegistrationPanel } from "@/components/deals/registration-panel";
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -103,8 +104,27 @@ export default async function DealDetailPage({ params }: PageProps) {
           <TabsTrigger value="채널·등록">채널·등록</TabsTrigger>
         </TabsList>
 
-        {/* 작업 tab: orchestrator + stage history */}
+        {/* 작업 tab: stage work panel + orchestrator + stage history */}
         <TabsContent value="작업" className="space-y-4 pt-4">
+          <DealWorkTab
+            opportunity={{
+              id: opportunity.id,
+              title: opportunity.title,
+              stage: opportunity.stage,
+            }}
+            proposals={proposals.map((p) => ({
+              id: p.id,
+              title: p.title,
+              status: p.status,
+              createdAt: p.createdAt,
+              opportunityId: p.opportunityId ?? null,
+              bodyMarkdown: p.bodyMarkdown,
+              customer: p.customer ? { name: p.customer.name } : null,
+              template: p.template
+                ? { templateKey: p.template.templateKey, title: p.template.title }
+                : null,
+            }))}
+          />
           <PortalOrchestratorRunPanel
             title="Phase 13 orchestrator"
             buttonLabel="Run orchestrator"
