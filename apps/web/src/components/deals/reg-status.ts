@@ -72,12 +72,17 @@ function computeDday(value?: string | Date | null): string | undefined {
  * Maps a RegStatusTone to the shadcn/Tailwind classes used in the deals table Badge.
  * risk=destructive, ok=emerald, warn=amber, muted=secondary.
  */
+/**
+ * Returns the shadcn Badge variant for each reg-status tone.
+ * "ok" uses "outline" so that emerald className overrides can take effect
+ * at the call site (matching the emerald treatment in deal-record-header.tsx).
+ */
 export function regStatusBadgeVariant(
   tone: RegStatusTone,
 ): "default" | "secondary" | "destructive" | "outline" {
   switch (tone) {
     case "ok":
-      return "default";
+      return "outline";
     case "warn":
       return "outline";
     case "risk":
@@ -85,6 +90,24 @@ export function regStatusBadgeVariant(
     case "muted":
     default:
       return "secondary";
+  }
+}
+
+/**
+ * Returns extra Tailwind className overrides for the reg-status Badge.
+ * Call site should merge this with the Badge className prop.
+ */
+export function regStatusBadgeClassName(tone: RegStatusTone): string {
+  switch (tone) {
+    case "ok":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300";
+    case "warn":
+      return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200";
+    case "risk":
+      return "";
+    case "muted":
+    default:
+      return "";
   }
 }
 

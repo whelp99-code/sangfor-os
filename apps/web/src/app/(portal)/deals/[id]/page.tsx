@@ -155,7 +155,7 @@ export default async function DealDetailPage({ params }: PageProps) {
           null
         }
         nextAction={opportunity.nextAction}
-        closeDate={opportunity.closeDate}
+        closeDate={opportunity.closeDate ? new Date(opportunity.closeDate).toISOString() : null}
         regStatus={
           (opportunity.dealRegistration?.regStatus ?? null) as
             | "NOT_SUBMITTED"
@@ -184,7 +184,7 @@ export default async function DealDetailPage({ params }: PageProps) {
       <DealStageGuide stage={stage} />
 
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-      <Tabs defaultValue="상세" className="space-y-0">
+      <Tabs defaultValue="작업" className="space-y-0">
         <TabsList variant="line" className="w-full justify-start border-b rounded-none px-2 pb-0 h-auto">
           <TabsTrigger value="작업">작업</TabsTrigger>
           <TabsTrigger value="상세">상세</TabsTrigger>
@@ -193,7 +193,7 @@ export default async function DealDetailPage({ params }: PageProps) {
           <TabsTrigger value="채널·등록">채널·등록</TabsTrigger>
         </TabsList>
 
-        {/* 작업 tab: stage work panel + orchestrator + stage history */}
+        {/* 작업 tab: stage work panel + stage history */}
         <TabsContent value="작업" className="space-y-4 pt-4">
           <DealWorkTab
             opportunity={{
@@ -227,13 +227,6 @@ export default async function DealDetailPage({ params }: PageProps) {
               checklistItems: deliveryChecklistItems,
             }}
           />
-          <PortalOrchestratorRunPanel
-            title="Phase 13 orchestrator"
-            buttonLabel="Run orchestrator"
-            inputSummary={buildOpportunityOrchestratorSummary(opportunity)}
-            sourceEntityType="opportunity"
-            sourceEntityId={opportunity.id}
-          />
           <Card>
             <CardHeader><CardTitle>Stage history</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
@@ -256,9 +249,16 @@ export default async function DealDetailPage({ params }: PageProps) {
           <DealDetail
             opportunity={{
               ...opportunity,
+              closeDate: opportunity.closeDate
+                ? new Date(opportunity.closeDate).toISOString()
+                : null,
               dealRegistration: opportunity.dealRegistration
                 ? {
                     ...opportunity.dealRegistration,
+                    protectionExpiresAt:
+                      opportunity.dealRegistration.protectionExpiresAt
+                        ? new Date(opportunity.dealRegistration.protectionExpiresAt).toISOString()
+                        : null,
                     partnerTierMargin:
                       opportunity.dealRegistration.partnerTierMargin != null
                         ? Number(opportunity.dealRegistration.partnerTierMargin)
@@ -345,7 +345,9 @@ export default async function DealDetailPage({ params }: PageProps) {
                 ? {
                     regStatus: opportunity.dealRegistration.regStatus,
                     registrationNumber: opportunity.dealRegistration.registrationNumber,
-                    protectionExpiresAt: opportunity.dealRegistration.protectionExpiresAt,
+                    protectionExpiresAt: opportunity.dealRegistration.protectionExpiresAt
+                      ? new Date(opportunity.dealRegistration.protectionExpiresAt).toISOString()
+                      : null,
                     sprStatus: opportunity.dealRegistration.sprStatus,
                     partnerTierMargin:
                       opportunity.dealRegistration.partnerTierMargin != null
@@ -370,7 +372,16 @@ export default async function DealDetailPage({ params }: PageProps) {
         </TabsContent>
       </Tabs>
 
-      <DealAiRail stage={stage} />
+      <div className="space-y-4">
+        <DealAiRail stage={stage} />
+        <PortalOrchestratorRunPanel
+          title="Phase 13 orchestrator"
+          buttonLabel="Run orchestrator"
+          inputSummary={buildOpportunityOrchestratorSummary(opportunity)}
+          sourceEntityType="opportunity"
+          sourceEntityId={opportunity.id}
+        />
+      </div>
       </div>
     </div>
   );

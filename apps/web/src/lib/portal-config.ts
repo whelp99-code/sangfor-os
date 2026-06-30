@@ -14,10 +14,11 @@ export const PORTAL_NAV: NavItem[] = [
 
   // ═══ CRM ═══
   { title: "딜", href: "/deals", icon: "trending-up", group: "CRM", tier: "primary" },
+  { title: "파이프라인", href: "/opportunities", icon: "bar-chart-2", group: "CRM", tier: "primary" },
   { title: "회사", href: "/customers", icon: "building", group: "CRM", tier: "primary" },
   { title: "연락처", href: "/contacts", icon: "contact", group: "CRM", tier: "primary" },
-  { title: "딜 등록", href: "/deals/registrations", icon: "shield-check", group: "CRM", tier: "more" },
-  { title: "파트너", href: "/partners", icon: "handshake", group: "CRM", tier: "more" },
+  { title: "파트너", href: "/partners", icon: "handshake", group: "CRM", tier: "primary" },
+  { title: "딜 등록", href: "/deals/registrations", icon: "shield-check", group: "CRM", tier: "primary" },
   { title: "영업", href: "/sales", icon: "trending-up", group: "CRM", tier: "more" },
   { title: "프리세일즈", href: "/presales", icon: "flask", group: "CRM", tier: "more" },
   { title: "승인", href: "/approvals", icon: "shield-check", group: "CRM", roles: ["owner"], tier: "more" },
@@ -31,15 +32,9 @@ export const PORTAL_NAV: NavItem[] = [
   { title: "지원", href: "/support", icon: "headphones", group: "프로젝트", tier: "more" },
 
   // ═══ 재무 ═══
-  { title: "재무 대시보드", href: "/cfo/dashboard", icon: "dollar-sign", group: "재무", tier: "more" },
-  { title: "매출/미수금", href: "/cfo/invoices", icon: "file-text", group: "재무", tier: "more" },
-  { title: "비용", href: "/cfo/expenses", icon: "list-checks", group: "재무", tier: "more" },
-  { title: "현금흐름", href: "/cfo/cashflows", icon: "activity", group: "재무", tier: "more" },
-  { title: "세금계산서", href: "/cfo/tax-invoices", icon: "file-text", group: "재무", tier: "more" },
-  { title: "부가세", href: "/cfo/vat", icon: "file-text", group: "재무", tier: "more" },
-  { title: "구독", href: "/cfo/subscriptions", icon: "blocks", group: "재무", tier: "more" },
-  { title: "월결산", href: "/cfo/month-close", icon: "list-checks", group: "재무", tier: "more" },
-  { title: "재무 챗봇", href: "/cfo/chat", icon: "terminal", group: "재무", tier: "more" },
+  // Single sidebar entry; the nine finance sub-pages are surfaced as an
+  // in-page horizontal sub-nav (see CFO_NAV + <CfoSubnav />) instead.
+  { title: "재무", href: "/cfo/dashboard", icon: "dollar-sign", group: "재무", tier: "more" },
 
   // ═══ 지식 ═══
   { title: "지식베이스", href: "/knowledge", icon: "book-open", group: "지식", tier: "more" },
@@ -59,6 +54,22 @@ export const PORTAL_NAV: NavItem[] = [
   { title: "Operator Console", href: "/operator", icon: "activity", group: "시스템", tier: "system" },
   { title: "Security", href: "/security", icon: "shield-check", group: "시스템", tier: "system" },
   { title: "설정", href: "/settings", icon: "settings", group: "시스템", tier: "system" },
+];
+
+/**
+ * Finance sub-pages — rendered as the in-page horizontal sub-nav at the top of
+ * every /cfo page (the sidebar only shows the single "재무" entry above).
+ */
+export const CFO_NAV: { title: string; href: string }[] = [
+  { title: "재무 대시보드", href: "/cfo/dashboard" },
+  { title: "매출/미수금", href: "/cfo/invoices" },
+  { title: "비용", href: "/cfo/expenses" },
+  { title: "현금흐름", href: "/cfo/cashflows" },
+  { title: "세금계산서", href: "/cfo/tax-invoices" },
+  { title: "부가세", href: "/cfo/vat" },
+  { title: "구독", href: "/cfo/subscriptions" },
+  { title: "월결산", href: "/cfo/month-close" },
+  { title: "재무 챗봇", href: "/cfo/chat" },
 ];
 
 export type MockProject = {

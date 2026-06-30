@@ -10,9 +10,11 @@ export const STAGE_DISPLAY: Record<string, { idx: number; label: string }> = {
   QUALIFIED:   { idx: 1, label: "① 제안" },
   PROPOSAL:    { idx: 1, label: "① 제안" },
   POC:         { idx: 2, label: "② PoC" },
+  RESULT:      { idx: 3, label: "③ 결과제출" },
   NEGOTIATION: { idx: 4, label: "④ 선정·입찰" },
   WON:         { idx: 5, label: "⑤ 수주" },
   LOST:        { idx: 5, label: "⑤ 수주" }, // status=LOST shown via pill; stage is orthogonal
+  DELIVERY:    { idx: 6, label: "⑥ 딜리버리" },
 };
 
 export function stageDisplay(stage: string): { idx: number; label: string } {

@@ -12,12 +12,16 @@ export type SerializedOpportunityForDeal = {
   code?: string | null;
   title: string;
   stage: string;
+  dealStatus?: string | null;
   probability?: number | null;
   amount?: Decimal | number | null;
   customer?: { name?: string | null } | null;
   partner?: { name?: string | null } | null;
   distributor?: { name?: string | null } | null;
-  dealRegistration?: { regStatus?: string | null } | null;
+  dealRegistration?: {
+    regStatus?: string | null;
+    protectionExpiresAt?: Date | string | null;
+  } | null;
   closeDate?: Date | string | null;
   nextAction?: string | null;
   updatedAt: Date | string;
@@ -36,7 +40,7 @@ export function toDeal(opp: SerializedOpportunityForDeal): Deal {
     code: opp.code ?? null,
     title: opp.title,
     stage: opp.stage,
-    dealStatus: null,   // TODO(slice2): source from opportunity status field
+    dealStatus: opp.dealStatus ?? null,
     probability: opp.probability ?? 0,
     amount:
       typeof opp.amount === "number"
@@ -49,6 +53,9 @@ export function toDeal(opp: SerializedOpportunityForDeal): Deal {
     partner: opp.partner?.name ?? null,
     productLine: null,  // TODO(slice2/5): source from opportunity productLine field
     regStatus: opp.dealRegistration?.regStatus ?? null,
+    protectionExpiresAt: opp.dealRegistration?.protectionExpiresAt
+      ? new Date(opp.dealRegistration.protectionExpiresAt).toISOString()
+      : null,
     owner: null,        // TODO(slice2): source from opportunity ownerId
     closeDate: opp.closeDate ? new Date(opp.closeDate).toISOString() : null,
     nextAction: opp.nextAction ?? null,

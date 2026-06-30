@@ -6,7 +6,7 @@ import { DataView } from "@/components/views/data-view";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatKRW, stageDisplay } from "@/components/deals/stage-meta";
-import { regStatusMeta, regStatusBadgeVariant, regStatusInlineClasses } from "@/components/deals/reg-status";
+import { regStatusMeta, regStatusBadgeVariant, regStatusBadgeClassName, regStatusInlineClasses } from "@/components/deals/reg-status";
 import type { Deal } from "@/components/deals/types";
 
 // ---------------------------------------------------------------------------
@@ -130,12 +130,15 @@ const columns: ColumnDef<Deal, unknown>[] = [
     accessorKey: "regStatus",
     header: "딜등록",
     cell: ({ row }) => {
-      const meta = regStatusMeta(row.original.regStatus);
+      const meta = regStatusMeta(row.original.regStatus, row.original.protectionExpiresAt);
       if (meta.tone === "muted") {
         return <span className={cn("text-xs", regStatusInlineClasses("muted"))}>미등록</span>;
       }
       return (
-        <Badge variant={regStatusBadgeVariant(meta.tone)} className="text-xs">
+        <Badge
+          variant={regStatusBadgeVariant(meta.tone)}
+          className={cn("text-xs", regStatusBadgeClassName(meta.tone))}
+        >
           {meta.label}
         </Badge>
       );
