@@ -62,6 +62,7 @@ export const PORTAL_NAV: NavItem[] = [
  */
 export const CFO_NAV: { title: string; href: string }[] = [
   { title: "재무 대시보드", href: "/cfo/dashboard" },
+  { title: "딜별 손익", href: "/cfo/projects" },
   { title: "매출/미수금", href: "/cfo/invoices" },
   { title: "비용", href: "/cfo/expenses" },
   { title: "현금흐름", href: "/cfo/cashflows" },
