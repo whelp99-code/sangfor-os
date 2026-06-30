@@ -1541,7 +1541,9 @@ model Cashflow {
   date         DateTime       @default(now())
   balanceAfter Int?           @map("balance_after")
   memo         String?
+  engagementId String?        @map("engagement_id")
 
+  @@index([engagementId])
   @@map("finance_cashflows")
 }
 
