@@ -896,6 +896,7 @@ model Opportunity {
   customerId  String?   @map("customer_id")
   partnerId   String?   @map("partner_id")
   title       String
+  code        String?   @unique @map("code")
   stage       OpportunityStage @default(LEAD)
   amount      Decimal?  @db.Decimal(12, 2)
   probability Int       @default(20)
