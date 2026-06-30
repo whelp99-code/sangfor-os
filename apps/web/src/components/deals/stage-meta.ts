@@ -1,4 +1,24 @@
 /** Canonical opportunity-stage presentation (labels + board accents). */
+
+// ---------------------------------------------------------------------------
+// Display-stage mapping (6 presentation stages over 7 enum values).
+// Pre-proposal enum values (LEAD, QUALIFIED, PROPOSAL) fold into ① 제안.
+// ③ 결과제출 and ⑥ 딜리버리 have no enum source yet (added in later slices).
+// ---------------------------------------------------------------------------
+export const STAGE_DISPLAY: Record<string, { idx: number; label: string }> = {
+  LEAD:        { idx: 1, label: "① 제안" },
+  QUALIFIED:   { idx: 1, label: "① 제안" },
+  PROPOSAL:    { idx: 1, label: "① 제안" },
+  POC:         { idx: 2, label: "② PoC" },
+  NEGOTIATION: { idx: 4, label: "④ 선정·입찰" },
+  WON:         { idx: 5, label: "⑤ 수주" },
+  LOST:        { idx: 5, label: "⑤ 수주" }, // status=LOST shown via pill; stage is orthogonal
+};
+
+export function stageDisplay(stage: string): { idx: number; label: string } {
+  return STAGE_DISPLAY[stage.toUpperCase()] ?? { idx: 1, label: stage };
+}
+
 export const STAGE_LABELS: Record<string, string> = {
   LEAD: "리드",
   QUALIFIED: "검증",
