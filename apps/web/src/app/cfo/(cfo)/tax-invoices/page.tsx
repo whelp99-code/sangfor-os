@@ -668,7 +668,7 @@ function SalesSection() {
       {/* Sales table */}
       <SectionRule title="매출 내역" />
       <p className="text-xs" style={{ color: CFO.muted }}>
-        국세청 전송은 홈택스에서 수동 발급 후 아래 "전송완료 표시" 버튼으로 상태를 갱신하세요.
+        국세청 전송은 홈택스에서 수동 발급 후 아래 &quot;전송완료 표시&quot; 버튼으로 상태를 갱신하세요.
       </p>
       <TaxTable
         rows={rows}
