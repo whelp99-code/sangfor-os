@@ -22,10 +22,10 @@ import { AdvanceOpportunityButton } from "@/components/opportunities/advance-but
 import { ConvertToProjectButton } from "@/components/opportunities/convert-to-project-button";
 import { DealRecordHeader, DealStagePath } from "@/components/deals/deal-record-header";
 import { DealDetail } from "@/components/deals/deal-detail";
-import { EditOpportunityForm } from "@/components/opportunities/edit-opportunity-form";
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -48,7 +48,7 @@ export default async function DealDetailPage({ params }: PageProps) {
   const partnerOptions = partners.map((p) => ({ id: p.id, label: p.name }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <DealRecordHeader
         title={opportunity.title}
         stage={stage}
@@ -68,85 +68,120 @@ export default async function DealDetailPage({ params }: PageProps) {
         }
       />
       <DealStagePath stage={stage} />
-      <PortalOrchestratorRunPanel
-        title="Phase 13 orchestrator"
-        buttonLabel="Run orchestrator"
-        inputSummary={buildOpportunityOrchestratorSummary(opportunity)}
-        sourceEntityType="opportunity"
-        sourceEntityId={opportunity.id}
-      />
-      <MailEvidenceCard evidence={mailEvidence} />
-      <DealDetail opportunity={opportunity} />
-      <Card>
-        <CardHeader><CardTitle>Edit opportunity</CardTitle></CardHeader>
-        <CardContent>
-          <EditOpportunityForm
-            opportunityId={opportunity.id}
-            customers={customerOptions}
-            partners={partnerOptions}
-            initial={{
-              title: opportunity.title,
-              stage: opportunity.stage,
-              amount: opportunity.amount?.toString() ?? null,
-              probability: opportunity.probability,
-              closeDate: opportunity.closeDate,
-              nextAction: opportunity.nextAction,
-              customerId: opportunity.customerId,
-              partnerId: opportunity.partnerId,
-            }}
+
+      <Tabs defaultValue="상세" className="space-y-0">
+        <TabsList variant="line" className="w-full justify-start border-b rounded-none px-2 pb-0 h-auto">
+          <TabsTrigger value="작업">작업</TabsTrigger>
+          <TabsTrigger value="상세">상세</TabsTrigger>
+          <TabsTrigger value="문서">문서</TabsTrigger>
+          <TabsTrigger value="연락처">연락처</TabsTrigger>
+          <TabsTrigger value="채널·등록">채널·등록</TabsTrigger>
+        </TabsList>
+
+        {/* 작업 tab: orchestrator + stage history */}
+        <TabsContent value="작업" className="space-y-4 pt-4">
+          <div className="flex gap-2">
+            <AdvanceOpportunityButton id={opportunity.id} stage={opportunity.stage} />
+            <ConvertToProjectButton id={opportunity.id} engagementId={existingEngagement?.id} />
+          </div>
+          <PortalOrchestratorRunPanel
+            title="Phase 13 orchestrator"
+            buttonLabel="Run orchestrator"
+            inputSummary={buildOpportunityOrchestratorSummary(opportunity)}
+            sourceEntityType="opportunity"
+            sourceEntityId={opportunity.id}
           />
-        </CardContent>
-      </Card>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Stage history</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {opportunity.stageEvents.map((e) => (
-              <div key={e.id} className="flex justify-between">
-                <span>{e.fromStage ?? "—"} → {e.toStage}</span>
-                <Badge variant="outline">{e.note ?? ""}</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Linked entities</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <AddOpportunityLinkForm
-              opportunityId={opportunity.id}
-              linkOptions={{
-                poc: pocProjects.map((p) => ({ id: p.id, label: p.title })),
-                proposal: proposals.map((d) => ({ id: d.id, label: d.title })),
-                partner: partnerOptions,
-                customer: customerOptions,
-              }}
-            />
-            <div className="space-y-2 text-sm">
-              {enrichedLinks.length === 0 ? (
-                <p className="text-muted-foreground">No links yet.</p>
+          <Card>
+            <CardHeader><CardTitle>Stage history</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {opportunity.stageEvents.length === 0 ? (
+                <p className="text-muted-foreground">이력 없음</p>
               ) : (
-                enrichedLinks.map((link) => (
-                  <div key={link.id} className="flex items-center justify-between gap-2">
-                    <span>
-                      {link.href ? (
-                        <Link href={link.href} className="hover:underline">
-                          {link.entityType}: {link.label}
-                        </Link>
-                      ) : (
-                        `${link.entityType}: ${link.label}`
-                      )}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <Badge variant="secondary">{link.linkType}</Badge>
-                      <RemoveOpportunityLinkButton opportunityId={opportunity.id} linkId={link.id} />
-                    </div>
+                opportunity.stageEvents.map((e) => (
+                  <div key={e.id} className="flex justify-between">
+                    <span>{e.fromStage ?? "—"} → {e.toStage}</span>
+                    <Badge variant="outline">{e.note ?? ""}</Badge>
                   </div>
                 ))
               )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 상세 tab: DealDetail inline editor (default) */}
+        <TabsContent value="상세" className="pt-4">
+          <DealDetail opportunity={opportunity} />
+        </TabsContent>
+
+        {/* 문서 tab: generated documents / proposals */}
+        <TabsContent value="문서" className="pt-4">
+          <Card>
+            <CardHeader><CardTitle>생성 문서</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {proposals.length === 0 ? (
+                <p className="text-muted-foreground">문서 없음</p>
+              ) : (
+                proposals.map((doc) => (
+                  <div key={doc.id} className="flex items-center justify-between">
+                    <span className="font-medium">{doc.title}</span>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 연락처 tab: linked entities + mail evidence */}
+        <TabsContent value="연락처" className="space-y-4 pt-4">
+          <Card>
+            <CardHeader><CardTitle>Linked entities</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <AddOpportunityLinkForm
+                opportunityId={opportunity.id}
+                linkOptions={{
+                  poc: pocProjects.map((p) => ({ id: p.id, label: p.title })),
+                  proposal: proposals.map((d) => ({ id: d.id, label: d.title })),
+                  partner: partnerOptions,
+                  customer: customerOptions,
+                }}
+              />
+              <div className="space-y-2 text-sm">
+                {enrichedLinks.length === 0 ? (
+                  <p className="text-muted-foreground">No links yet.</p>
+                ) : (
+                  enrichedLinks.map((link) => (
+                    <div key={link.id} className="flex items-center justify-between gap-2">
+                      <span>
+                        {link.href ? (
+                          <Link href={link.href} className="hover:underline">
+                            {link.entityType}: {link.label}
+                          </Link>
+                        ) : (
+                          `${link.entityType}: ${link.label}`
+                        )}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Badge variant="secondary">{link.linkType}</Badge>
+                        <RemoveOpportunityLinkButton opportunityId={opportunity.id} linkId={link.id} />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          <MailEvidenceCard evidence={mailEvidence} />
+        </TabsContent>
+
+        {/* 채널·등록 tab: placeholder for Slice 4 */}
+        <TabsContent value="채널·등록" className="pt-4">
+          <Card>
+            <CardContent className="py-10 text-center text-muted-foreground text-sm">
+              채널·딜등록 (Slice 4) — 준비 중
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
