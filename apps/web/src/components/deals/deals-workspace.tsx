@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X } from "lucide-react";
+import { Briefcase, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ViewSwitcher } from "@/components/views/view-switcher";
@@ -27,6 +27,19 @@ const STAGE_CHIPS = [
 ] as const;
 
 type StageKey = (typeof STAGE_CHIPS)[number]["key"];
+
+// ---------------------------------------------------------------------------
+// Stage chip → deal.stage mapping (module scope — L-5)
+// ---------------------------------------------------------------------------
+const STAGE_MAP: Record<StageKey, string[]> = {
+  ALL:         [],
+  PROPOSAL:    ["LEAD", "QUALIFIED", "PROPOSAL"],
+  POC:         ["POC"],
+  RESULT:      ["RESULT"],
+  NEGOTIATION: ["NEGOTIATION"],
+  WON:         ["WON"],
+  DELIVERY:    ["DELIVERY"],
+};
 
 export function DealsWorkspace({
   deals,
@@ -53,17 +66,6 @@ export function DealsWorkspace({
         `${deal.title} ${deal.customer ?? ""}`.toLowerCase().includes(normalized)
       )
     : items;
-
-  // Stage chip filter (presentational — maps chip key to deal.stage values)
-  const STAGE_MAP: Record<StageKey, string[]> = {
-    ALL:         [],
-    PROPOSAL:    ["LEAD", "QUALIFIED", "PROPOSAL"],
-    POC:         ["POC"],
-    RESULT:      ["RESULT"],
-    NEGOTIATION: ["NEGOTIATION"],
-    WON:         ["WON"],
-    DELIVERY:    ["DELIVERY"],
-  };
 
   const filtered =
     activeStage === "ALL"
@@ -105,10 +107,10 @@ export function DealsWorkspace({
         {/* Top row: icon + title + count + actions */}
         <div className="flex items-center gap-2.5">
           <div
-            className="flex size-[34px] shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg"
+            className="flex size-[34px] shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"
             aria-hidden="true"
           >
-            📁
+            <Briefcase className="size-4.5" />
           </div>
           <div className="min-w-0">
             <p className="text-[11px] text-muted-foreground">프로젝트</p>
@@ -158,8 +160,12 @@ export function DealsWorkspace({
               {chip.label}
             </button>
           ))}
-          {/* Totals (right-aligned) */}
-          <span className="ml-auto flex shrink-0 gap-3 text-[12px] text-muted-foreground">
+          {/* Totals (right-aligned) — aria-live so screen readers announce filter changes (L-2) */}
+          <span
+            className="ml-auto flex shrink-0 gap-3 text-[12px] text-muted-foreground"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             <span>합계 {formatKRWCompact(totalValue)}</span>
             <span>예상마진 {formatKRWCompact(weightedMargin)}</span>
           </span>

@@ -86,18 +86,11 @@ export function DealAiRail({ stage, className }: DealAiRailProps) {
         </CardHeader>
 
         <CardContent>
-          <ul className="space-y-0 divide-y divide-border" aria-label="활동 목록">
-            <li className="flex gap-2.5 py-2">
-              <span
-                className="mt-1 size-2 shrink-0 rounded-full bg-primary"
-                aria-hidden="true"
-              />
-              <div>
-                <p className="text-xs font-semibold">단계 진행 중</p>
-                <p className="text-[11px] text-muted-foreground">현재 단계 작업 목록을 확인하세요</p>
-              </div>
-            </li>
-          </ul>
+          {/* Placeholder: activity timeline not yet connected to backend data */}
+          <p className="text-xs text-muted-foreground text-center py-2">
+            활동 기록 없음
+            <span className="block mt-0.5 text-[11px] opacity-60">준비</span>
+          </p>
         </CardContent>
       </Card>
     </aside>
