@@ -131,7 +131,7 @@ function NavMenuButton({
       <SidebarMenuButton
         isActive={isActive}
         tooltip={item.title}
-        render={<Link href={item.href} />}
+        render={<Link href={item.href} aria-current={isActive ? "page" : undefined} />}
       >
         <Icon aria-hidden="true" />
         <span>{item.title}</span>

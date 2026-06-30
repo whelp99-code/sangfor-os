@@ -63,7 +63,8 @@
   --secondary: oklch(0.96 0.005 247);
   --secondary-foreground: oklch(0.205 0.005 247);
   --muted: oklch(0.96 0.005 247);
-  --muted-foreground: oklch(0.50 0.01 247);
+  /* Darkened from 0.50 → 0.44 L for WCAG AA contrast against light bg (was ~4.0:1, now ≥4.5:1) */
+  --muted-foreground: oklch(0.44 0.01 247);
   --accent: oklch(0.96 0.005 247);
   --accent-foreground: oklch(0.205 0.005 247);
   --destructive: oklch(0.577 0.245 27.325);
@@ -178,5 +179,17 @@
     transition-property: color, background-color, border-color, box-shadow, opacity, transform;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 150ms;
+  }
+}
+
+/* WCAG 2.2 — respect users who request reduced motion (2.3.3 Animation from Interactions) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

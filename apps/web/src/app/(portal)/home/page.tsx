@@ -147,6 +147,9 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-4">
+      {/* Page title — primary landmark heading for screen readers */}
+      <h1 className="text-xl font-bold tracking-tight">홈 — 영업 대시보드</h1>
+
       {/* KPI row */}
       <MetricGrid>
         <MetricCard
@@ -194,12 +197,14 @@ export default async function HomePage() {
                 </div>
               ))}
             </div>
-            {/* Bars */}
+            {/* Bars — sr-only text alternative summarizes every stage count */}
             <div
               className="flex items-end gap-1.5"
               style={{ height: "96px" }}
               role="img"
-              aria-label="단계별 파이프라인 바 차트"
+              aria-label={`단계별 파이프라인: ${FUNNEL_STAGES.map(
+                (s) => `${s.label} ${stageCounts[s.idx] ?? 0}건`
+              ).join(", ")}`}
             >
               {FUNNEL_STAGES.map((s) => {
                 const count = stageCounts[s.idx] ?? 0;
@@ -323,9 +328,13 @@ export default async function HomePage() {
               위험 — 즉시 대응
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent
+            className="space-y-3"
+            role="list"
+            aria-label="즉시 대응이 필요한 위험 목록"
+          >
             {riskItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground" role="none">
                 현재 즉시 대응이 필요한 위험이 없습니다.
               </p>
             ) : (

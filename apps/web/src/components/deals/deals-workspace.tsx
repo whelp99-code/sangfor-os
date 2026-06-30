@@ -129,10 +129,10 @@ export function DealsWorkspace({
               onChange={setView}
               available={["table", "kanban"]}
             />
-            <Button variant="outline" size="sm" disabled title="준비 중">
+            <Button variant="outline" size="sm" disabled title="준비 중" aria-label="필터 (준비 중)">
               필터
             </Button>
-            <Button variant="outline" size="sm" disabled title="준비 중">
+            <Button variant="outline" size="sm" disabled title="준비 중" aria-label="열 설정 (준비 중)">
               열 설정
             </Button>
             <Button size="sm" className="gap-1.5" onClick={() => setShowCreate((open) => !open)}>
@@ -191,7 +191,7 @@ export function DealsWorkspace({
 
       {/* Project ID note */}
       <div
-        className="mt-3.5 rounded-lg border border-primary/20 bg-primary/5 px-3.5 py-2.5 text-xs text-primary/80"
+        className="mt-3.5 rounded-lg border border-primary/20 bg-primary/5 px-3.5 py-2.5 text-xs text-primary"
         role="note"
       >
         🔑{" "}
@@ -211,7 +211,7 @@ export function DealsWorkspace({
           ].map((tag) => (
             <span
               key={tag}
-              className="rounded-md border border-primary/20 bg-card px-2 py-0.5 text-[11px] font-bold text-primary/70"
+              className="rounded-md border border-primary/20 bg-card px-2 py-0.5 text-[11px] font-bold text-primary"
             >
               {tag}
             </span>
