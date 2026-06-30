@@ -2,6 +2,7 @@ import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { logStateTransition } from "./audit";
+import { formatDealCode } from "./deal-code";
 import {
   CANONICAL_STAGES,
   normalizeOpportunityStage,
@@ -67,6 +68,10 @@ export async function createOpportunity(input: z.input<typeof createOpportunityS
   const parsed = createOpportunitySchema.parse(input);
   const projectId = await resolveProjectId(parsed.projectSlug);
 
+  const rows = await prisma.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('opp_code_seq')`;
+  const seq = Number(rows[0].nextval);
+  const code = formatDealCode(new Date().getFullYear(), seq);
+
   const opp = await prisma.opportunity.create({
     data: {
       projectId,
@@ -78,6 +83,7 @@ export async function createOpportunity(input: z.input<typeof createOpportunityS
       probability: parsed.probability,
       closeDate: parsed.closeDate ? new Date(parsed.closeDate) : undefined,
       nextAction: parsed.nextAction,
+      code,
     },
   });
 
