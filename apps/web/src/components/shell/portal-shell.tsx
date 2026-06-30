@@ -221,7 +221,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
             <>
               {searchVisibleGroups.length === 0 ? (
                 <p className="px-4 py-6 text-center text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-                  "{query}"에 해당하는 메뉴가 없습니다.
+                  &quot;{query}&quot;에 해당하는 메뉴가 없습니다.
                 </p>
               ) : (
                 searchVisibleGroups.map((groupName) => (
