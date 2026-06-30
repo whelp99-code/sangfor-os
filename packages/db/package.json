@@ -18,7 +18,8 @@
     "import:finance-csv": "tsx scripts/import-finance-csv.ts",
     "cfo:snapshot": "tsx scripts/cfo-snapshot.ts",
     "cfo:restore": "tsx scripts/cfo-restore.ts",
-    "cfo:reconcile": "tsx scripts/cfo-deal-reconcile.ts"
+    "cfo:reconcile": "tsx scripts/cfo-deal-reconcile.ts",
+    "cfo:backfill": "tsx scripts/cfo-deal-backfill.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
