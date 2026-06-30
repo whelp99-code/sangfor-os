@@ -2,6 +2,7 @@ import {
   enrichOpportunityLinks,
   getEngagementByOpportunity,
   getOpportunityDetail,
+  getPocDetail,
   listCustomers,
   listGeneratedDocuments,
   listMailEvidenceForEntity,
@@ -50,6 +51,51 @@ export default async function DealDetailPage({ params }: PageProps) {
   const enrichedLinks = await enrichOpportunityLinks(opportunity.links);
   const customerOptions = customers.map((c) => ({ id: c.id, label: c.name }));
   const partnerOptions = partners.map((p) => ({ id: p.id, label: p.name }));
+
+  // Filter PoC projects linked to this opportunity, then fetch full detail for
+  // the work panels (checklist items, issues, result reports).
+  const linkedPocSlugs = pocProjects.filter((p) => p.opportunityId === id);
+  const linkedPocDetails = await Promise.all(
+    linkedPocSlugs.map((p) => getPocDetail(p.id))
+  );
+  const resolvedPocDetails = linkedPocDetails.filter(
+    (p): p is NonNullable<typeof p> => p !== null
+  );
+
+  const pocProjectsForPanel = resolvedPocDetails.map((poc) => ({
+    id: poc.id,
+    title: poc.title,
+    status: poc.status,
+    productName: poc.productName,
+    customer: poc.customer ? { name: poc.customer.name } : null,
+    checklistItems: poc.checklistItems.map((item) => ({
+      id: item.id,
+      label: item.label,
+      done: item.done,
+    })),
+    issues: poc.issues.map((issue) => ({
+      id: issue.id,
+      title: issue.title,
+      severity: issue.severity,
+      status: issue.status,
+    })),
+  }));
+
+  const pocProjectsWithResults = resolvedPocDetails.map((poc) => ({
+    id: poc.id,
+    title: poc.title,
+    status: poc.status,
+    customer: poc.customer ? { name: poc.customer.name } : null,
+    resultReports: poc.resultReports.map((r) => ({
+      id: r.id,
+      title: r.title,
+      bodyMarkdown: r.bodyMarkdown,
+      status: r.status,
+      createdAt: r.createdAt,
+    })),
+    checklistDone: poc.checklistItems.filter((item) => item.done).length,
+    checklistTotal: poc.checklistItems.length,
+  }));
 
   return (
     <div className="space-y-4">
@@ -124,6 +170,8 @@ export default async function DealDetailPage({ params }: PageProps) {
                 ? { templateKey: p.template.templateKey, title: p.template.title }
                 : null,
             }))}
+            pocProjects={pocProjectsForPanel}
+            pocProjectsWithResults={pocProjectsWithResults}
           />
           <PortalOrchestratorRunPanel
             title="Phase 13 orchestrator"

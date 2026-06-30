@@ -5,6 +5,14 @@ import {
   ProposalWorkPanel,
   type GeneratedDocumentSummary,
 } from "@/components/deals/work-panels/proposal-work-panel";
+import {
+  PocWorkPanel,
+  type PocProjectSummary,
+} from "@/components/deals/work-panels/poc-work-panel";
+import {
+  ResultsWorkPanel,
+  type PocProjectWithResults,
+} from "@/components/deals/work-panels/results-work-panel";
 import { Card, CardContent } from "@/components/ui/card";
 
 // ---------------------------------------------------------------------------
@@ -19,10 +27,14 @@ export type OpportunityForWorkTab = {
 type DealWorkTabProps = {
   opportunity: OpportunityForWorkTab;
   proposals: GeneratedDocumentSummary[];
+  /** PoC projects linked to this opportunity (filtered by opportunityId). */
+  pocProjects: PocProjectSummary[];
+  /** PoC projects with result reports, for stage ③. */
+  pocProjectsWithResults: PocProjectWithResults[];
 };
 
 // ---------------------------------------------------------------------------
-// Placeholder stage card (stages 2–6; filled in Tasks 5.2–5.5)
+// Placeholder stage card (stages 4–6; filled in Tasks 5.3–5.5)
 // ---------------------------------------------------------------------------
 type PlaceholderStageCardProps = {
   label: string;
@@ -49,14 +61,12 @@ function PlaceholderStageCard({ label, icon }: PlaceholderStageCardProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Per-stage panel map (stages 2–6 as labeled placeholders)
+// Per-stage panel map (stages 4–6 as labeled placeholders)
 // ---------------------------------------------------------------------------
 const PLACEHOLDER_STAGES: Record<
   number,
   { label: string; icon: React.ReactNode }
 > = {
-  2: { label: "② PoC", icon: <FlaskConical className="size-5" aria-hidden="true" /> },
-  3: { label: "③ 결과제출", icon: <ClipboardList className="size-5" aria-hidden="true" /> },
   4: { label: "④ 선정·입찰", icon: <Trophy className="size-5" aria-hidden="true" /> },
   5: { label: "⑤ 수주", icon: <FileText className="size-5" aria-hidden="true" /> },
   6: { label: "⑥ 딜리버리", icon: <Package className="size-5" aria-hidden="true" /> },
@@ -71,9 +81,16 @@ const PLACEHOLDER_STAGES: Record<
  * display stage index derived from `stageDisplay(opportunity.stage).idx`.
  *
  *  idx 1 → ProposalWorkPanel (stage ① 제안)
- *  idx 2–6 → labeled placeholder card (Tasks 5.2–5.5 will fill these in)
+ *  idx 2 → PocWorkPanel (stage ② PoC)
+ *  idx 3 → ResultsWorkPanel (stage ③ 결과제출)
+ *  idx 4–6 → labeled placeholder card (Tasks 5.3–5.5 will fill these in)
  */
-export function DealWorkTab({ opportunity, proposals }: DealWorkTabProps) {
+export function DealWorkTab({
+  opportunity,
+  proposals,
+  pocProjects,
+  pocProjectsWithResults,
+}: DealWorkTabProps) {
   const { idx } = stageDisplay(opportunity.stage);
 
   if (idx === 1) {
@@ -84,6 +101,14 @@ export function DealWorkTab({ opportunity, proposals }: DealWorkTabProps) {
         proposals={proposals}
       />
     );
+  }
+
+  if (idx === 2) {
+    return <PocWorkPanel pocProjects={pocProjects} />;
+  }
+
+  if (idx === 3) {
+    return <ResultsWorkPanel pocProjects={pocProjectsWithResults} />;
   }
 
   const placeholder = PLACEHOLDER_STAGES[idx];
