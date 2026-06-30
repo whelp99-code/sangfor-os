@@ -6,7 +6,7 @@ export { SubscriptionsService, type CreateSubscriptionDto } from './subscription
 export { LedgerService, type AccountCode } from './ledger.service';
 export { DashboardService } from './dashboard.service';
 export { MonthCloseService } from './month-close.service';
-export { VatService, type VatPeriodSummary } from './vat.service';
+export { VatService, type VatPeriodSummary, DEDUCTIBLE_PROOF_TYPES } from './vat.service';
 export { PopbillService, type IssueTaxInvoiceInput } from './popbill.service';
 export { CodefService } from './codef.service';
 export { ChatbotService, type ChatTool } from './chatbot.service';

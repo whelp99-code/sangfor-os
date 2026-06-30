@@ -1,7 +1,148 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 
+type DailyReport = {
+  date: string;
+  mail: {
+    todayCandidates: number;
+    pendingApproval: number;
+    todayApproved: number;
+    todayConverted: number;
+  };
+  entities: {
+    customers: number;
+    partners: number;
+    tasks: number;
+    opportunities: number;
+  };
+  candidatesByType: { candidateType: string; status: string; _count: number }[];
+};
+
+function ThreadIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      className="h-4 w-4 text-muted-foreground"
+    >
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+    </svg>
+  );
+}
+
+function ClassifyIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      className="h-4 w-4 text-muted-foreground"
+    >
+      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  );
+}
+
+function ApprovedIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      className="h-4 w-4 text-muted-foreground"
+    >
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  note,
+  icon,
+  loading,
+}: {
+  title: string;
+  value: number | null;
+  note: string;
+  icon: React.ReactNode;
+  loading: boolean;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        {icon}
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="h-8 w-16 animate-pulse rounded bg-muted" />
+        ) : (
+          <div className="text-2xl font-bold">{value === null ? "—" : value.toLocaleString()}</div>
+        )}
+        <p className="text-xs text-muted-foreground">{note}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function MailIntelligencePage() {
+  const [report, setReport] = useState<DailyReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch("/api/daily-report");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setReport(await res.json());
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  // Total candidates across all type/status buckets (real DB groupBy count).
+  const totalCandidates = report
+    ? report.candidatesByType.reduce((sum, c) => sum + c._count, 0)
+    : null;
+
+  // Converted entities = candidates whose lifecycle reached "converted".
+  const convertedTotal = report
+    ? report.candidatesByType
+        .filter((c) => c.status === "converted")
+        .reduce((sum, c) => sum + c._count, 0)
+    : null;
+
+  const entityBreakdown = report
+    ? `고객 ${report.entities.customers} · 파트너 ${report.entities.partners} · 기회 ${report.entities.opportunities} · 작업 ${report.entities.tasks}`
+    : "집계 예정";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -19,104 +160,41 @@ export default function MailIntelligencePage() {
         </Link>
       </div>
 
+      {error ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
+          통계를 불러오지 못했습니다: {error}
+        </div>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">총 메일 스레드</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">1,008</div>
-            <p className="text-xs text-muted-foreground">
-              +20% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">AI 분류 완료</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">162</div>
-            <p className="text-xs text-muted-foreground">
-              +15% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">승인된 후보</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">31</div>
-            <p className="text-xs text-muted-foreground">
-              +8% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">변환된 엔티티</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">31</div>
-            <p className="text-xs text-muted-foreground">
-              고객 4, 파트너 1, 기회 14, 작업 12
-            </p>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="총 메일 후보"
+          value={totalCandidates}
+          note="전체 후보 누적"
+          icon={<ThreadIcon />}
+          loading={loading}
+        />
+        <StatCard
+          title="승인 대기"
+          value={report ? report.mail.pendingApproval : null}
+          note="proposed 상태"
+          icon={<ClassifyIcon />}
+          loading={loading}
+        />
+        <StatCard
+          title="오늘 승인"
+          value={report ? report.mail.todayApproved : null}
+          note="오늘 승인된 후보"
+          icon={<ApprovedIcon />}
+          loading={loading}
+        />
+        <StatCard
+          title="변환된 엔티티"
+          value={convertedTotal}
+          note={entityBreakdown}
+          icon={<ThreadIcon />}
+          loading={loading}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -166,44 +244,46 @@ export default function MailIntelligencePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>최근 활동</CardTitle>
+            <CardTitle>오늘 처리 현황</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center">
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    새 메일 1,000건 가져오기 완료
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    2시간 전
-                  </p>
-                </div>
+            {loading ? (
+              <div className="space-y-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-8 animate-pulse rounded bg-muted" />
+                ))}
               </div>
-              <div className="flex items-center">
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    하이브리드 분류 완료 (162개 후보)
+            ) : report ? (
+              <div className="space-y-3">
+                <ActivityRow label="오늘 생성된 후보" value={report.mail.todayCandidates} unit="건" />
+                <ActivityRow label="오늘 승인 완료" value={report.mail.todayApproved} unit="건" />
+                <ActivityRow label="오늘 엔티티 변환" value={report.mail.todayConverted} unit="건" />
+                {report.mail.todayCandidates === 0 &&
+                report.mail.todayApproved === 0 &&
+                report.mail.todayConverted === 0 ? (
+                  <p className="pt-1 text-xs text-muted-foreground">
+                    오늘 처리된 메일 후보가 없습니다.
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    1시간 전
-                  </p>
-                </div>
+                ) : null}
               </div>
-              <div className="flex items-center">
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    31개 후보 승인 및 변환 완료
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    30분 전
-                  </p>
-                </div>
-              </div>
-            </div>
+            ) : (
+              <p className="py-4 text-center text-sm text-muted-foreground">데이터 없음</p>
+            )}
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function ActivityRow({ label, value, unit }: { label: string; value: number; unit: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm font-semibold tabular-nums">
+        {value.toLocaleString()}
+        {unit}
+      </span>
     </div>
   );
 }

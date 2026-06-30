@@ -89,13 +89,10 @@ export default function SupportDashboardPage() {
             <CardDescription>New support tickets today</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {data ? (
-              <>
-                <MetricRow label="열린 티켓" value={String(data.newTickets)} />
-                <MetricRow label="Critical" value="0" />
-              </>
+            {data && data.newTickets > 0 ? (
+              <MetricRow label="열린 티켓" value={String(data.newTickets)} />
             ) : null}
-            {!data?.newTickets && (
+            {data && !data.newTickets && (
               <p className="py-4 text-center text-sm text-muted-foreground">No open tickets</p>
             )}
           </CardContent>

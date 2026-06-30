@@ -118,11 +118,11 @@ export default function SalesDashboardPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
-                  <>
+                  data.followUp > 0 ? (
                     <MetricRow label="Discovery follow-up" value={String(data.followUp)} />
-                    <MetricRow label="미팅 예정" value="3" />
-                    <MetricRow label="이메일 작성" value="7" />
-                  </>
+                  ) : (
+                    <p className="py-4 text-center text-sm text-muted-foreground">오늘 예정된 follow-up 없음</p>
+                  )
                 ) : null}
               </CardContent>
             </Card>
