@@ -8,6 +8,7 @@ import {
   listMailEvidenceForEntity,
   listPartners,
   listPocProjects,
+  listQuotesByOpportunity,
   normalizeOpportunityStage,
 } from "@sangfor/business";
 import { buildOpportunityOrchestratorSummary } from "@sangfor/business/skills";
@@ -36,15 +37,33 @@ type PageProps = { params: Promise<{ id: string }> };
 
 export default async function DealDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const [opportunity, customers, partners, pocProjects, proposals, mailEvidence] = await Promise.all([
+  const [opportunity, customers, partners, pocProjects, proposals, mailEvidence, rawQuotes] = await Promise.all([
     getOpportunityDetail(id),
     listCustomers(),
     listPartners(),
     listPocProjects(),
     listGeneratedDocuments(),
     listMailEvidenceForEntity("opportunity", id),
+    listQuotesByOpportunity(id),
   ]);
   if (!opportunity) notFound();
+
+  // Serialize Decimal fields to string for the BidWorkPanel (crosses RSC boundary).
+  const quotes = rawQuotes.map((q) => ({
+    id: q.id,
+    status: q.status,
+    version: q.version,
+    totalRevenue: q.totalRevenue?.toString() ?? "0",
+    marginPct: q.marginPct?.toString() ?? "0",
+    createdAt: q.createdAt,
+  }));
+
+  const sprStatus = opportunity.dealRegistration?.sprStatus ?? null;
+  const distributorName =
+    opportunity.distributor?.name ??
+    opportunity.dealRegistration?.distributor?.name ??
+    null;
+  const competitors: string[] = [];
 
   const existingEngagement = await getEngagementByOpportunity(id);
   const stage = normalizeOpportunityStage(opportunity.stage);
@@ -172,6 +191,7 @@ export default async function DealDetailPage({ params }: PageProps) {
             }))}
             pocProjects={pocProjectsForPanel}
             pocProjectsWithResults={pocProjectsWithResults}
+            bid={{ quotes, sprStatus, distributorName, competitors }}
           />
           <PortalOrchestratorRunPanel
             title="Phase 13 orchestrator"

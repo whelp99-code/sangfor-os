@@ -1,4 +1,4 @@
-import { FileText, FlaskConical, ClipboardList, Trophy, Package } from "lucide-react";
+import { FileText, Package } from "lucide-react";
 
 import { stageDisplay } from "@/components/deals/stage-meta";
 import {
@@ -13,6 +13,10 @@ import {
   ResultsWorkPanel,
   type PocProjectWithResults,
 } from "@/components/deals/work-panels/results-work-panel";
+import {
+  BidWorkPanel,
+  type QuoteSummary,
+} from "@/components/deals/work-panels/bid-work-panel";
 import { Card, CardContent } from "@/components/ui/card";
 
 // ---------------------------------------------------------------------------
@@ -31,6 +35,13 @@ type DealWorkTabProps = {
   pocProjects: PocProjectSummary[];
   /** PoC projects with result reports, for stage ③. */
   pocProjectsWithResults: PocProjectWithResults[];
+  /** Stage ④ data: quotes, SPR status, distributor name, competitor names. */
+  bid: {
+    quotes: QuoteSummary[];
+    sprStatus: string | null;
+    distributorName: string | null;
+    competitors: string[];
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -67,7 +78,6 @@ const PLACEHOLDER_STAGES: Record<
   number,
   { label: string; icon: React.ReactNode }
 > = {
-  4: { label: "④ 선정·입찰", icon: <Trophy className="size-5" aria-hidden="true" /> },
   5: { label: "⑤ 수주", icon: <FileText className="size-5" aria-hidden="true" /> },
   6: { label: "⑥ 딜리버리", icon: <Package className="size-5" aria-hidden="true" /> },
 };
@@ -90,6 +100,7 @@ export function DealWorkTab({
   proposals,
   pocProjects,
   pocProjectsWithResults,
+  bid,
 }: DealWorkTabProps) {
   const { idx } = stageDisplay(opportunity.stage);
 
@@ -109,6 +120,18 @@ export function DealWorkTab({
 
   if (idx === 3) {
     return <ResultsWorkPanel pocProjects={pocProjectsWithResults} />;
+  }
+
+  if (idx === 4) {
+    return (
+      <BidWorkPanel
+        opportunityId={opportunity.id}
+        quotes={bid.quotes}
+        sprStatus={bid.sprStatus}
+        distributorName={bid.distributorName}
+        competitors={bid.competitors}
+      />
+    );
   }
 
   const placeholder = PLACEHOLDER_STAGES[idx];
