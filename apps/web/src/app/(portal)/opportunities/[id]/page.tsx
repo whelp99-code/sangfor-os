@@ -20,6 +20,7 @@ import {
 import { MailEvidenceCard } from "@/components/mail-candidates/mail-evidence-card";
 import { AdvanceOpportunityButton } from "@/components/opportunities/advance-button";
 import { ConvertToProjectButton } from "@/components/opportunities/convert-to-project-button";
+import { DealRecordHeader, DealStagePath } from "@/components/deals/deal-record-header";
 import { EditOpportunityForm } from "@/components/opportunities/edit-opportunity-form";
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,25 +48,25 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">{opportunity.title}</h1>
-          <p className="text-muted-foreground">
-            {opportunity.customer?.name ?? "No customer"}
-            {opportunity.partner ? ` · Partner: ${opportunity.partner.name}` : ""}
-            {opportunity.amount != null ? ` · ${opportunity.amount.toString()}` : ""}
-            {opportunity.closeDate
-              ? ` · Close ${opportunity.closeDate.toISOString().slice(0, 10)}`
-              : ""}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <Badge>{stage}</Badge>
-          <Badge variant="outline">{opportunity.probability}%</Badge>
-          <AdvanceOpportunityButton id={opportunity.id} stage={opportunity.stage} />
-          <ConvertToProjectButton id={opportunity.id} engagementId={existingEngagement?.id} />
-        </div>
-      </div>
+      <DealRecordHeader
+        title={opportunity.title}
+        stage={stage}
+        probability={opportunity.probability}
+        amount={opportunity.amount?.toString() ?? null}
+        customer={opportunity.customer?.name ?? null}
+        partner={opportunity.partner?.name ?? null}
+        nextAction={opportunity.nextAction}
+        closeDate={opportunity.closeDate}
+        actions={
+          <>
+            <Badge>{stage}</Badge>
+            <Badge variant="outline">{opportunity.probability}%</Badge>
+            <AdvanceOpportunityButton id={opportunity.id} stage={opportunity.stage} />
+            <ConvertToProjectButton id={opportunity.id} engagementId={existingEngagement?.id} />
+          </>
+        }
+      />
+      <DealStagePath stage={stage} />
       <PortalOrchestratorRunPanel
         title="Phase 13 orchestrator"
         buttonLabel="Run orchestrator"
