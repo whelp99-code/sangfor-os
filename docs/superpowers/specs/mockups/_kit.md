@@ -59,15 +59,7 @@ density of `02-deal-workspace.html`; (5) put the page body directly inside `.con
   .wrap{max-width:1280px;margin:0 auto;padding:14px 16px 40px}
   .wrap.wide{max-width:1320px}
 
-  /* topbar */
-  .topbar{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--sf-border);
-    border-radius:var(--sf-radius);padding:8px 14px;margin-bottom:12px}
-  .topbar .logo{width:26px;height:26px;border-radius:6px;background:var(--sf-blue);display:grid;place-items:center;color:#fff;font-weight:800}
-  .topbar nav{display:flex;gap:18px;font-weight:600}
-  .topbar nav a{color:var(--sf-text-weak);text-decoration:none;padding:4px 2px}
-  .topbar nav a.on{color:var(--sf-blue);border-bottom:2px solid var(--sf-blue)}
-  .topbar .search{margin-left:auto;background:var(--sf-bg);border:1px solid var(--sf-border);border-radius:20px;padding:6px 14px;color:#9a9a9a;width:230px}
-  .topbar .ava{width:28px;height:28px;border-radius:50%;background:#d8b4fe;display:grid;place-items:center;font-weight:700;color:#5b21b6}
+  /* (deprecated .topbar removed — every page uses the left-sidebar shell + .ctopbar) */
 
   /* buttons */
   .btn{border:1px solid #c9c9c9;background:#fff;color:#0b5cab;border-radius:6px;padding:6px 13px;font-weight:700;font-size:12px;cursor:pointer}
@@ -96,6 +88,8 @@ density of `02-deal-workspace.html`; (5) put the page body directly inside `.con
   .chain .node.cust{background:#eafaf0;border-color:#bfe6cd;color:#1d6b39}
   .chain .arr{color:#b0b0b0}
   .chain .reg{margin-left:auto;background:#fff4e6;border:1px solid #ffd8a8;color:#c4690a;border-radius:14px;padding:4px 11px;display:flex;align-items:center;gap:5px}
+  .chain .reg.ok{background:#eafaf0;border-color:#bfe6cd;color:#1d6b39}
+  .chain .reg.risk{background:#fdecec;border-color:#f3c0c0;color:#b42318}  /* REJECTED/EXPIRED/CONTESTED — design §3 gate */
 
   /* key fields row */
   .kf{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;margin-top:12px;border-top:1px solid #f0f0f0;padding-top:11px}
@@ -173,6 +167,12 @@ density of `02-deal-workspace.html`; (5) put the page body directly inside `.con
   .editrow .mini.y{background:var(--sf-blue);color:#fff;border:1px solid var(--sf-blue)}
   .editrow .mini.n{background:#fff;color:#555;border:1px solid #ccc}
   .add{color:var(--sf-blue);font-size:11px;font-weight:700;cursor:pointer;padding:8px 6px;display:inline-block}
+  /* derived / read-only field row (margin, probability, current-stage) — design §4: never free-typed */
+  .fl.readonly{background:#fafafa;cursor:default}
+  .fl.readonly:hover{background:#fafafa}
+  .fl.readonly .v{color:#6a6a6a}
+  .fl.readonly .pencil{display:none}
+  .fl.readonly .calc{position:absolute;right:7px;top:9px;color:#bbb;font-size:11px}
 
   /* form grid (create/edit screens) */
   .form{padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:14px 26px}
@@ -188,6 +188,12 @@ density of `02-deal-workspace.html`; (5) put the page body directly inside `.con
   .pill.risk{background:#fdecec;color:#b42318}
   .pill.todo{background:#f0f0f0;color:#777}
   .pill.info{background:#e8f3fc;color:var(--sf-blue-d)}
+  /* deal STATUS axis (orthogonal to stage) — design §2 */
+  .pill.s-open{background:#e8f3fc;color:#014486}
+  .pill.s-won{background:#eafaf0;color:#1d6b39}
+  .pill.s-lost{background:#fdecec;color:#b42318}
+  .pill.s-hold{background:#fff4e6;color:#c4690a}
+  .pill.s-disq{background:#f0f0f0;color:#777}
 
   /* checklist rows (PoC / delivery) */
   .clist{display:flex;flex-direction:column}
@@ -288,15 +294,16 @@ density of `02-deal-workspace.html`; (5) put the page body directly inside `.con
 
 ## Class index (use ONLY these)
 
-- Header/nav: `.topbar` `.shell/.sidebar/.navgrp/.navit/.more/.content`
-- Record header: `.hl/.hl-top/.hl-ico/.hl-name/.hl-actions` · `.chain` · `.kf`
+- Header/nav: `.shell/.sidebar/.navgrp/.navit/.more/.content` + `.ctopbar` (NO `.topbar` — removed)
+- Record header: `.hl/.hl-top/.hl-ico/.hl-name/.hl-actions` · `.chain/.chain .reg(.ok/.risk)` · `.kf`
 - Stage: `.pathwrap/.path li(.done/.cur/.todo/.lost)` · `.guide/.guide-head/.checks/.chk`
 - Tabs: `.tabsbar/.t` · grid `.grid` (1fr + 340px rail)
 - Work: `.work/.doc-title/.toolbar2` · `.field/.area(.tall)` · `.metricbar`
-- Detail: `.det-head` · `.sec/.sec-t` · `.fields(.two)/.fl(.editing)/.editrow` · `.add`
+- Detail: `.det-head` · `.sec/.sec-t` · `.fields(.two)/.fl(.editing/.readonly)/.editrow` · `.add`
 - Forms: `.form/.full` (label/input/select/textarea)
 - Lists: `.lh/.lh-top/.toolbar/.chip/.tablecard/table` · `.pid/.name/.sub` · `.stage/.pips/.pip`
-- Status: `.pill(.ok/.warn/.risk/.todo/.info)`
+- Status pills: `.pill(.ok/.warn/.risk/.todo/.info)` · deal STATUS axis `.pill(.s-open/.s-won/.s-lost/.s-hold/.s-disq)`
+- Stage labels: the 6 display stages (제안…딜리버리) are a presentation layer over the 7 `OpportunityStage` enum values — do NOT remap the enum (design §5)
 - Checklists: `.clist/.citem(.done)/.cb/.nm/.meta`
 - Rail: `.rail/.panel/.ai/.sugg/.ev`
 - Board: `.board/.col/.kcard`
