@@ -41,6 +41,82 @@ export function nextOpportunityStage(stage: string): OpportunityStage | null {
   return CANONICAL_STAGES[idx + 1]!;
 }
 
+// ---------------------------------------------------------------------------
+// Deal-registration advance gate
+// ---------------------------------------------------------------------------
+
+/**
+ * Deal types that require a distributor deal-registration before the
+ * opportunity can advance into the protection-sensitive late stages.
+ *
+ * These are net-new / channel sales that flow through a distributor's
+ * Deal Registration program. RENEWAL / UPSELL on an existing install base
+ * do not require a fresh registration, so they are intentionally excluded.
+ */
+const REGISTRATION_REQUIRED_DEAL_TYPES = new Set(["NEW_BUILD", "SIMPLE_RESELL"]);
+
+/**
+ * Pipeline stages whose entry requires a non-blocking deal registration when
+ * the deal type demands one. These are the late stages where price protection
+ * and channel conflict matter.
+ */
+const REGISTRATION_GATED_STAGES = new Set<OpportunityStage>(["NEGOTIATION", "WON"]);
+
+/** RegStatus values that are NOT acceptable for advancing past the gate. */
+const BLOCKING_REG_STATUSES = new Set(["NOT_SUBMITTED", "REJECTED"]);
+
+export type RegistrationGateReason =
+  | "registration_not_submitted"
+  | "registration_rejected";
+
+export type RegistrationGateDecision =
+  | { allowed: true }
+  | { allowed: false; reason: RegistrationGateReason };
+
+export type RegistrationGateInput = {
+  from: string;
+  to: string;
+  /** Opportunity dealType (e.g. "NEW_BUILD"). null/undefined → no gate. */
+  dealType: string | null | undefined;
+  /** Current DealRegistration.regStatus, or null when no registration exists. */
+  regStatus: string | null | undefined;
+};
+
+/**
+ * Enforces that registration-required deals carry a non-blocking deal
+ * registration before advancing into a gated late stage.
+ *
+ * Policy (display gate → behavioral enforcement, deliberately narrow):
+ *  - Only applies when `dealType` is in REGISTRATION_REQUIRED_DEAL_TYPES.
+ *  - Only gates a FORWARD advance INTO a gated stage (NEGOTIATION/WON) that
+ *    the deal is not already in. Backward moves and LOST are never gated.
+ *  - Blocks when regStatus is NOT_SUBMITTED (incl. no registration row) or
+ *    REJECTED. SUBMITTED / APPROVED / EXPIRED / CONTESTED pass this advance
+ *    gate (those states are handled by other surfaces).
+ */
+export function validateRegistrationGate(
+  input: RegistrationGateInput,
+): RegistrationGateDecision {
+  if (!input.dealType || !REGISTRATION_REQUIRED_DEAL_TYPES.has(input.dealType)) {
+    return { allowed: true };
+  }
+
+  const fromStage = normalizeOpportunityStage(input.from);
+  const toStage = normalizeOpportunityStage(input.to);
+
+  // Only forward entry into a gated stage is policed.
+  if (!REGISTRATION_GATED_STAGES.has(toStage)) return { allowed: true };
+  if (fromStage === toStage) return { allowed: true };
+
+  const status = input.regStatus ?? "NOT_SUBMITTED";
+  if (!BLOCKING_REG_STATUSES.has(status)) return { allowed: true };
+
+  return {
+    allowed: false,
+    reason: status === "REJECTED" ? "registration_rejected" : "registration_not_submitted",
+  };
+}
+
 export interface BantScores {
   budgetScore: number;
   authorityScore: number;

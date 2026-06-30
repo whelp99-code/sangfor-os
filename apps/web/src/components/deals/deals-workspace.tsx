@@ -8,37 +8,35 @@ import { Button } from "@/components/ui/button";
 import { ViewSwitcher } from "@/components/views/view-switcher";
 import { useCollectionView } from "@/lib/use-collection-view";
 import { CreateOpportunityForm } from "@/components/opportunities/create-opportunity-form";
+import { normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
+
 import { DealsBoard } from "@/components/deals/deals-board";
 import { DealsTable } from "@/components/deals/deals-table";
-import { formatKRWCompact } from "@/components/deals/stage-meta";
+import { STAGE_CHIP_GROUPS, formatKRWCompact } from "@/components/deals/stage-meta";
+import { stageTransitionMessage } from "@/components/deals/stage-error";
 import type { Deal } from "@/components/deals/types";
 import { cn } from "@/lib/utils";
 
 type Option = { id: string; label: string };
 
-const STAGE_CHIPS = [
-  { key: "ALL",          label: "전체" },
-  { key: "PROPOSAL",     label: "① 제안" },
-  { key: "POC",          label: "② PoC" },
-  { key: "RESULT",       label: "③ 결과제출" },
-  { key: "NEGOTIATION",  label: "④ 선정·입찰" },
-  { key: "WON",          label: "⑤ 수주" },
-  { key: "DELIVERY",     label: "⑥ 딜리버리" },
-] as const;
-
-type StageKey = (typeof STAGE_CHIPS)[number]["key"];
-
 // ---------------------------------------------------------------------------
-// Stage chip → deal.stage mapping (module scope — L-5)
+// Stage filter chips — sourced from STAGE_CHIP_GROUPS, which is derived ONLY
+// from the Prisma OpportunityStage enum. Each chip filters on the enum values
+// its group folds in. "전체" (ALL) clears the filter. This keeps the chips and
+// the kanban board (deals-board, same enum) in lockstep — no RESULT/DELIVERY
+// pseudo-stages that would always render empty.
 // ---------------------------------------------------------------------------
-const STAGE_MAP: Record<StageKey, string[]> = {
-  ALL:         [],
-  PROPOSAL:    ["LEAD", "QUALIFIED", "PROPOSAL"],
-  POC:         ["POC"],
-  RESULT:      ["RESULT"],
-  NEGOTIATION: ["NEGOTIATION"],
-  WON:         ["WON"],
-  DELIVERY:    ["DELIVERY"],
+type StageKey = string; // "ALL" or a chip-group label
+
+const STAGE_CHIPS: { key: StageKey; label: string }[] = [
+  { key: "ALL", label: "전체" },
+  ...STAGE_CHIP_GROUPS.map((group) => ({ key: group.label, label: group.label })),
+];
+
+// Chip key (group label) → enum stage values it filters for.
+const STAGE_MAP: Record<string, string[]> = {
+  ALL: [],
+  ...Object.fromEntries(STAGE_CHIP_GROUPS.map((group) => [group.label, group.enumValues])),
 };
 
 export function DealsWorkspace({
@@ -55,6 +53,7 @@ export function DealsWorkspace({
   const [items, setItems] = useState<Deal[]>(deals);
   const [showCreate, setShowCreate] = useState(false);
   const [activeStage, setActiveStage] = useState<StageKey>("ALL");
+  const [moveError, setMoveError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   // Re-sync optimistic state when the server re-renders with fresh data.
@@ -71,7 +70,7 @@ export function DealsWorkspace({
     activeStage === "ALL"
       ? queryFiltered
       : queryFiltered.filter((deal) =>
-          STAGE_MAP[activeStage].includes(deal.stage.toUpperCase())
+          (STAGE_MAP[activeStage] ?? []).includes(normalizeOpportunityStage(deal.stage))
         );
 
   const totalCount = filtered.length;
@@ -84,6 +83,7 @@ export function DealsWorkspace({
 
   async function moveDeal(id: string, toStage: string) {
     const previous = items;
+    setMoveError(null);
     setItems((current) =>
       current.map((deal) => (deal.id === id ? { ...deal, stage: toStage } : deal))
     );
@@ -93,10 +93,24 @@ export function DealsWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stage: toStage }),
       });
-      if (!res.ok) throw new Error("update_failed");
+      if (!res.ok) {
+        // Surface the server's rejection reason (e.g. registration gate,
+        // illegal stage skip) instead of silently reverting.
+        let reason = "update_failed";
+        try {
+          const payload = (await res.json()) as { error?: string };
+          if (payload?.error) reason = payload.error;
+        } catch {
+          /* non-JSON error body — fall back to generic message */
+        }
+        setItems(previous);
+        setMoveError(stageTransitionMessage(reason));
+        return;
+      }
       startTransition(() => router.refresh());
     } catch {
       setItems(previous);
+      setMoveError(stageTransitionMessage("update_failed"));
     }
   }
 
@@ -171,6 +185,28 @@ export function DealsWorkspace({
           </span>
         </div>
       </div>
+
+      {/* Stage-move failure banner — surfaces the server's block reason
+          (registration gate / illegal transition) instead of a silent revert. */}
+      {moveError ? (
+        <div
+          className="border border-t-0 border-destructive/30 bg-destructive/10 px-4 py-2.5"
+          role="alert"
+          aria-live="assertive"
+        >
+          <div className="flex items-start gap-2">
+            <p className="text-xs font-medium text-destructive">{moveError}</p>
+            <button
+              type="button"
+              onClick={() => setMoveError(null)}
+              className="ml-auto shrink-0 text-destructive/70 hover:text-destructive"
+              aria-label="알림 닫기"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* Create form (inline, shown when toggled) */}
       {showCreate ? (
