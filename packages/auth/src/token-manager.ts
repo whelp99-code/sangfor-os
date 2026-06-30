@@ -28,11 +28,6 @@ export const PRODUCT_SCOPES = {
   ] as const,
 
   sangfor: [] as const,
-
-  'vibe-coding-os': [
-    'repo',
-    'read:org',
-  ] as const,
 } as const;
 
 export type ProductName = keyof typeof PRODUCT_SCOPES;

@@ -7,9 +7,8 @@
 export type UpstreamName = 
   | 'aios-v1' 
   | 'f-aios-v3' 
-  | 'sangfor' 
-  | 'vibe-coding-os' 
-  | 'mail-intelligence' 
+  | 'sangfor'
+  | 'mail-intelligence'
   | 'whelp99-mcp'
   | 'github'
   | 'slack';

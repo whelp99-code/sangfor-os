@@ -1,8 +1,9 @@
 /**
  * @sangfor/infra - MCP HTTP bridge client
  *
- * Thin client over the whelp99 MCP HTTP bridge (services/sangfor-engineer-mcp,
- * apps/http-bridge). The bridge wraps a stdio JSON-RPC MCP server with REST:
+ * Thin client over the whelp99 MCP HTTP bridge (standalone repo
+ * whelp99-code-sangfor-engineer-mcp, apps/http-bridge). The bridge wraps a
+ * stdio JSON-RPC MCP server with REST:
  *   GET  /tools           → { tools: [...] }
  *   POST /tools/call      { name, arguments? } → { result } | { error }
  *

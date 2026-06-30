@@ -126,7 +126,7 @@ const results = await runDomainPipeline({ id, subject, tags }, { generate });
 - **단일 진입점**: `Makefile` → `make up`(전체 올그린), `make status`(심층 헬스), `make down`, `make provision`, `make logs`, `make app`, `make integration`, `make help`.
 - **오케스트레이션**: `scripts/stack.sh`(컨테이너 기동 → 호스트 의존성 provision → workflow console 기동 → 60초 헬스 대기). `scripts/README.md`가 5개 스크립트를 계층별로 매핑(중복 아님: MCP런타임 / 앱스택 / 통합 / AIOS v1 / 셋업).
 - **컨테이너 수정**: engineer-mcp Dockerfile 멀티스테이지에서 `COPY . .` 후 `pnpm install` 재실행으로 pnpm 심볼릭링크 복구(= `pptxgenjs` 모듈 못 찾는 버그 픽스), `.dockerignore`로 호스트 node_modules 덮어쓰기 방지, `docker-entrypoint.sh`로 브리지(3600)+console(3502) 한 컨테이너 동시 기동.
-- **소스 단일화**: `mcp-bootstrap.ts`가 `~/Documents` 하드코딩 제거 → 기본 in-repo `services/sangfor-engineer-mcp`(env `SANGFOR_MCP_CWD`로 override). 미발견 시 stub로 폴백하되 **큰 경고**.
+- **소스 단일화**: `mcp-bootstrap.ts`가 `~/Documents` 하드코딩 제거 → 기본 형제 repo `../whelp99-code-sangfor-engineer-mcp`(env `SANGFOR_MCP_CWD`로 override). 미발견 시 stub로 폴백하되 **큰 경고**. *(2026-07-01 추출 후 이 로직은 sangfor-mcp-workflow repo에 존재)*
 - **정직한 헬스**: `/api/system/health`가 HTTP 200 유지하되 `{status, checks:{mcp:connected|stub, auth:configured|missing}}` 반환 → stub를 green으로 착각 방지. 정적 stub는 `mock` compose 프로파일 뒤로 격리.
 - **CI 스모크**: `.github/workflows/stack-smoke.yml` — 컨테이너 스택 빌드·기동 후 3600/3502/3400이 60초 내 200인지 단언(경로 필터). 첫 실행에서 실제 Dockerfile 버그 포착.
 - **Node 핀**: `.nvmrc`=20.
@@ -333,9 +333,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 | `Makefile` | MCP/스택 단일 진입점 |
 | `scripts/stack.sh`, `scripts/README.md` | 오케스트레이션 + 스크립트 맵 |
 | `docker-compose.yml` | 전체 서비스 정의(포트 §2) |
-| `services/sangfor-engineer-mcp/` | MCP 브리지+console(Dockerfile, entrypoint, .dockerignore) |
-| `services/sangfor-mcp-workflow/` | workflow console(start-console.sh, mcp-bootstrap.ts) |
-| `.github/workflows/stack-smoke.yml` | MCP 스택 CI 스모크 |
+| ~~`services/sangfor-*-mcp/`~~ | **추출됨(2026-07-01)** → 독립 repo `~/Playground/whelp99-code-sangfor-engineer-mcp`, `~/Playground/sangfor-mcp-workflow`. sangfor-os는 `@sangfor/infra`로 HTTP 호출. CI 스모크도 해당 repo로 이전. |
 | `.nvmrc` | Node 20 |
 
 ### `packages/shared` / `packages/db`

@@ -1,9 +1,0 @@
-{
-  "name": "@sangfor/chrome",
-  "version": "0.1.0",
-  "type": "module",
-  "main": "src/index.ts",
-  "dependencies": {
-    "playwright": "^1.60.0"
-  }
-}

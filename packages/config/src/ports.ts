@@ -20,12 +20,9 @@ export const PORT_REGISTRY = {
   // F-aios-v3 (별도 프로세스, 3200 공유 불가 - Codex AC-003)
   F_AIOS_V3: 3201,        // 3200 → 3201 변경 (AIOSv2 API와 분리)
 
-  // Sangfor MCP
+  // Sangfor MCP (extracted to standalone repos — sangfor-os reaches over HTTP)
   SANGFOR_MCP: 3500,
   SANGFOR_MOCK_CONSOLE: 3400,
-
-  // Vibe Coding OS
-  VIBE_CODING_OS: 4000,
 
   // Mail Intelligence
   MAIL_INTELLIGENCE: 3010,  // 10200 → 3010 표준 포트대 (Codex AC-004: Azure AD redirect_uri 갱신 필요)
@@ -70,10 +67,11 @@ export function getEnvDefaults(): Record<string, string> {
     AIOS_V1_URL: getUrl('AIOS_V1'),
     F_AIOS_V3_URL: getUrl('F_AIOS_V3'),
     SANGFOR_MCP_URL: getUrl('SANGFOR_MCP'),
-    VIBE_CODING_OS_URL: getUrl('VIBE_CODING_OS'),
     MAIL_INTELLIGENCE_URL: getUrl('MAIL_INTELLIGENCE'),
     LM_STUDIO_URL: getUrl('LM_STUDIO'),
-    WHELP99_MCP_PATH: './services/sangfor-engineer-mcp',
+    // MCP services live in standalone sibling repos (~/Playground/*); override per env.
+    WHELP99_MCP_PATH: '../whelp99-code-sangfor-engineer-mcp',
     WHELP99_MCP_HTTP_URL: getUrl('WHELP99_MCP_BRIDGE'),
+    WHELP99_OPERATOR_CONSOLE_URL: getUrl('WHELP99_OPERATOR_CONSOLE'),
   };
 }

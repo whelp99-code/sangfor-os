@@ -27,15 +27,7 @@ services:
   #   service: sangfor-finance
   #   description: [DEPRECATED] Merged into sangfor-api:3200
 
-  # External Services (docker-compose managed)
-  sangfor-mcp:
-    port: 3501
-    service: sangfor-mcp
-    description: Sangfor MCP mock upstream
-  vibe-coding:
-    port: 4000
-    service: vibe-coding-os
-    description: Vibe Coding OS
+  # External Services
   mail-intelligence:
     port: 3010
     service: mail-intelligence
@@ -65,7 +57,7 @@ services:
     port: 443
     service: sangfor-caddy-admin
 
-  # Sangfor MCP Services
+  # Sangfor MCP Services (extracted to standalone repos ~/Playground/* — reached over HTTP)
   sangfor-mcp-workflow:
     port: 3500
     service: sangfor-mcp-workflow

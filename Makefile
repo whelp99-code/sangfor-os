@@ -20,8 +20,8 @@ status: ## Deep health check (real deps, not bare 200)
 provision: ## Install host deps for the engineer-mcp workspace
 	@bash scripts/stack.sh provision
 
-logs: ## Tail engineer-mcp container logs
-	@docker compose logs -f sangfor-engineer-mcp
+logs: ## Tail engineer-mcp logs (now a standalone repo; run from there)
+	@echo "engineer-mcp was extracted — tail logs from ~/Playground/whelp99-code-sangfor-engineer-mcp"
 
 app: ## Start the app stack: api/web/postgres/redis (scripts/start-system.sh)
 	@bash scripts/start-system.sh

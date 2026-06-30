@@ -35,10 +35,10 @@ TypeScript/Turborepo stack.
 | AIOS v1 | Existing runtime, portal behavior, registry, local automation, upstream APIs | `packages/proxy-core`, `apps/web`, `scripts/start-integration-stack.mjs`, bridge/API adapters | Partial, must preserve and verify |
 | AIOSv2_integration | Workflow, approval, evidence, collaboration runtime, operating model | `packages/business`, `packages/application`, `packages/infrastructure`, `docs/reports` | Partial |
 | F-aios-v3-core | Workflow execution core, agent/runtime patterns, package boundaries | `packages/application`, `packages/business`, bridge adapters | Partial |
-| sangfor-mcp-workflow | SANGFOR device workflows, HCI/IAG/EPP knowledge, MCP workflow automation, RAG sources | `services/sangfor-mcp-workflow`, `packages/infrastructure`, RAG adapters | Wrapped service, partially absorbed |
-| sangfor-engineer-mcp | Engineer automation, product adapters, RAG, screenshots, operator tooling | `services/sangfor-engineer-mcp`, infrastructure adapters | Wrapped service |
+| sangfor-mcp-workflow | SANGFOR device workflows, HCI/IAG/EPP knowledge, MCP workflow automation, RAG sources | **Extracted** to standalone repo `~/Playground/sangfor-mcp-workflow`; reached via `@sangfor/infra` over HTTP | Extracted (2026-07-01) |
+| sangfor-engineer-mcp | Engineer automation, product adapters, RAG, screenshots, operator tooling | **Extracted** to standalone repo `~/Playground/whelp99-code-sangfor-engineer-mcp`; reached via `@sangfor/infra` over HTTP | Extracted (2026-07-01) |
 | AIOS-JARVIS | Voice/assistant surface and local operator interaction | `apps/voice` or assistant adapter layer | Planned |
-| vibe-coding-os | Agent orchestration and development automation patterns | `tools`, `plugins`, workflow dispatch scripts | Planned/partial |
+| vibe-coding-os | Agent orchestration and development automation patterns | **Extracted** to standalone repo `~/Playground/sangfor-vibe-coding` (skeleton only) | Extracted (2026-07-01) |
 | CFO/finance apps | Finance, invoice, expense, VAT, cashflow, subscriptions | `packages/finance`, finance API/UI routes | Partial |
 | agentic_company_os_sangfor_final_package_v3_2 | Product blueprint, DB/API skeleton, UX, security, operations, acceptance tests | `docs`, `packages/db`, `packages/business`, `apps/api`, `apps/web` | Imported as docs, implementation gap remains |
 
@@ -63,9 +63,11 @@ sangfor-os/
     proxy-core       # AIOS v1/F-aios-v3/service bridges
     shared
     ui
-  services/
-    sangfor-mcp-workflow
-    sangfor-engineer-mcp
+  # services/ — MCP services EXTRACTED to standalone sibling repos (2026-07-01):
+  #   ~/Playground/whelp99-code-sangfor-engineer-mcp
+  #   ~/Playground/sangfor-mcp-workflow
+  #   ~/Playground/sangfor-vibe-coding   (skeleton)
+  # sangfor-os reaches them via @sangfor/infra (HTTP); no in-repo services/ tree.
   plugins/
   tools/
   tests/

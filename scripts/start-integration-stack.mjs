@@ -48,7 +48,7 @@ const SERVICES = [
   },
   {
     name: "sangfor",
-    cwd: process.env.SANGFOR_PATH || join(ROOT, "services/sangfor-mcp-workflow"),
+    cwd: process.env.SANGFOR_PATH || join(PLAYGROUND, "sangfor-mcp-workflow"),
     cmd: "pnpm",
     args: ["dev:web"],
     env: { SANGFOR_API_KEY: process.env.SANGFOR_API_KEY || "integration-dev-key" },
@@ -56,7 +56,7 @@ const SERVICES = [
   },
   {
     name: "vibe",
-    cwd: process.env.VIBE_PATH || join(PLAYGROUND, "vibe-coding-os"),
+    cwd: process.env.VIBE_PATH || join(PLAYGROUND, "sangfor-vibe-coding"),
     cmd: "pnpm",
     args: ["dev"],
     env: { FEATURE_RBAC: "0" },
@@ -65,7 +65,7 @@ const SERVICES = [
   },
   {
     name: "whelp99-bridge",
-    cwd: process.env.WHELP99_PATH || join(ROOT, "services/sangfor-engineer-mcp"),
+    cwd: process.env.WHELP99_PATH || join(PLAYGROUND, "whelp99-code-sangfor-engineer-mcp"),
     cmd: "pnpm",
     args: ["dev:http-bridge"],
     env: { PORT: "3600" },
@@ -120,7 +120,7 @@ function freePort(port) {
 function startDockerDeps() {
   const pairs = [
     { cwd: process.env.AIOS_V1_PATH || join(PLAYGROUND, "AIOS v1"), services: "redis postgres" },
-    { cwd: process.env.VIBE_PATH || join(PLAYGROUND, "vibe-coding-os"), services: "db" },
+    { cwd: process.env.VIBE_PATH || join(PLAYGROUND, "sangfor-vibe-coding"), services: "db" },
   ];
   for (const { cwd, services } of pairs) {
     try {

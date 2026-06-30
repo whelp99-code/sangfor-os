@@ -1,8 +1,9 @@
 /**
  * @sangfor/infra — Engineer operator-console client
  *
- * Typed client over the engineer-mcp operator console (services/sangfor-engineer-mcp,
- * apps/operator-console, port WHELP99_OPERATOR_CONSOLE=3502). Surfaces the
+ * Typed client over the engineer-mcp operator console (standalone repo
+ * whelp99-code-sangfor-engineer-mcp, apps/operator-console, port
+ * WHELP99_OPERATOR_CONSOLE=3502). Surfaces the
  * higher-level capabilities (analyze/plan, RAG search, products, knowledge) used
  * by cross-service workflows and the portal Knowledge Search screen.
  */

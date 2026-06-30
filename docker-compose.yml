@@ -92,20 +92,6 @@ services:
   # `mock` profile so a plain `docker compose up` never starts them (a green
   # stub would otherwise read as "working"). Start explicitly with:
   #   docker compose --profile mock up -d
-  sangfor-mcp:
-    image: node:20-alpine
-    profiles: ["mock"]
-    command: node -e "const http=require('http');http.createServer((q,r)=>{r.writeHead(200,{'Content-Type':'application/json'});r.end(JSON.stringify({status:'ok',service:'sangfor-mcp'}))}).listen(3500)"
-    ports:
-      - "3501:3500"
-
-  vibe-coding:
-    image: node:20-alpine
-    profiles: ["mock"]
-    command: node -e "const http=require('http');http.createServer((q,r)=>{r.writeHead(200,{'Content-Type':'application/json'});r.end(JSON.stringify({status:'ok',service:'vibe-coding'}))}).listen(4000)"
-    ports:
-      - "4000:4000"
-
   mail-intelligence:
     image: node:20-alpine
     profiles: ["mock"]
@@ -113,46 +99,14 @@ services:
     ports:
       - "3010:3010"
 
-  # ═══ Sangfor MCP Services ═══
-  sangfor-engineer-mcp:
-    build:
-      context: ./services/sangfor-engineer-mcp
-      dockerfile: Dockerfile
-    # Run BOTH the HTTP bridge (3600) and the operator console (3502).
-    # Belt-and-suspenders with the image CMD (docker-entrypoint.sh) so the
-    # console comes up even if the image is rebuilt from an older Dockerfile.
-    command: ["sh", "./docker-entrypoint.sh"]
-    ports:
-      - "3600:3600"
-      - "3502:3502"
-    environment:
-      PORT: 3600
-      OPERATOR_CONSOLE_PORT: 3502
-    volumes:
-      - ./services/sangfor-engineer-mcp/data:/app/data
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  sangfor-mcp-workflow:
-    build:
-      context: ./services/sangfor-mcp-workflow
-      dockerfile: apps/operator-console/Dockerfile
-    ports:
-      - "3500:3500"
-    environment:
-      PORT: 3500
-    depends_on:
-      - sangfor-engineer-mcp
-
-  sangfor-mcp-mock-console:
-    build:
-      context: ./services/sangfor-engineer-mcp
-      dockerfile: Dockerfile.mock
-    ports:
-      - "3400:3400"
-    environment:
-      PORT: 3400
+  # ═══ Sangfor MCP Services (extracted) ═══
+  # The MCP services were split into standalone repos (2026-07-01):
+  #   ~/Playground/whelp99-code-sangfor-engineer-mcp  (HTTP bridge 3600, console 3502, mock 3400)
+  #   ~/Playground/sangfor-mcp-workflow               (console 3500)
+  # Run them from their own repos (each has its own docker-compose / dev scripts).
+  # sangfor-os reaches them over HTTP via these env vars (see .env example):
+  #   WHELP99_MCP_HTTP_URL, WHELP99_OPERATOR_CONSOLE_URL, SANGFOR_MCP_URL
+  # See docs/superpowers/specs/2026-07-01-separate-mcp-and-vibecoding-design.md
 
   # ═══ Monitoring ═══
   prometheus:
