@@ -699,8 +699,10 @@ model Contact {
   role       String?
   createdAt  DateTime @default(now()) @map("created_at")
 
-  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  partner  Partner?  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  customer        Customer?          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  partner         Partner?           @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  econBuyerForDeals DealQualification[] @relation("DealEconomicBuyer")
+  championForDeals  DealQualification[] @relation("DealChampion")
 
   @@index([customerId])
   @@index([partnerId])
@@ -938,8 +940,12 @@ model DealQualification {
   qualifiedAt      DateTime          @default(now()) @map("qualified_at")
   qualifiedBy      String?           @map("qualified_by")
   notes            String?
+  economicBuyerId  String?           @map("economic_buyer_id")
+  championId       String?           @map("champion_id")
 
-  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  economicBuyer Contact?    @relation("DealEconomicBuyer", fields: [economicBuyerId], references: [id])
+  champion      Contact?    @relation("DealChampion", fields: [championId], references: [id])
 
   @@map("deal_qualifications")
 }
