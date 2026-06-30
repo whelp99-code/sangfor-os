@@ -230,246 +230,258 @@
   .navit.on{background:#e8f3fc;color:var(--sf-blue-d)}
   .navit .ico{width:15px;color:#8a8a8a}
   .more{color:#8a8a8a;font-weight:700;font-size:12px;padding:9px;cursor:pointer}
-  .content{padding:14px 16px;background:var(--sf-bg)}
+  .content{padding:14px 16px;background:var(--sf-bg);overflow:auto}
+  .sidebar .brand .logo2{width:24px;height:24px;border-radius:6px;background:var(--sf-blue);display:inline-grid;place-items:center;color:#fff;font-weight:800;font-size:12px}
+  /* slim top bar INSIDE content (search + user only — NO primary nav; nav lives in sidebar) */
+  .ctopbar{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--sf-border);border-radius:var(--sf-radius);padding:8px 14px;margin-bottom:12px}
+  .ctopbar .ttl{font-weight:800;font-size:15px}
+  .ctopbar .crumb{color:#9a9a9a;font-size:12px;font-weight:600}
+  .ctopbar .search{margin-left:auto;background:var(--sf-bg);border:1px solid var(--sf-border);border-radius:20px;padding:6px 14px;color:#9a9a9a;width:230px}
+  .ctopbar .ava{width:28px;height:28px;border-radius:50%;background:#d8b4fe;display:grid;place-items:center;font-weight:700;color:#5b21b6}
+  .shell .content > .inner{max-width:none}
 
   .legend{text-align:center;color:#9a9a9a;font-size:11px;margin-top:14px}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="shell">
+  <!-- SHARED SIDEBAR (verbatim; .on on deals) -->
+  <aside class="sidebar">
+    <div class="brand"><span class="logo2">P</span> Sangfor 파트너 허브</div>
+    <div class="navgrp">핵심</div>
+    <div class="navit" data-k="home"><span class="ico">⌂</span> 홈</div>
+    <div class="navit on" data-k="deals"><span class="ico">▤</span> 딜</div>
+    <div class="navit" data-k="companies"><span class="ico">▣</span> 회사</div>
+    <div class="navit" data-k="contacts"><span class="ico">☻</span> 연락처</div>
+    <div class="navit" data-k="pipeline"><span class="ico">▦</span> 파이프라인</div>
+    <div class="navgrp">채널</div>
+    <div class="navit" data-k="partners"><span class="ico">⇄</span> 총판·파트너</div>
+    <div class="navit" data-k="dealreg"><span class="ico">🛡</span> 딜 등록</div>
+    <div class="more">▸ 더보기 (35)<span style="display:block;font-weight:500;color:#aaa;font-size:10px;margin-top:2px">재무·지식·AI·시스템 — 동결</span></div>
+  </aside>
+  <main class="content">
+    <!-- SLIM TOP BAR (no nav) -->
+    <div class="ctopbar"><div class="ttl">딜 · ⑤ 수주</div><div class="search">🔍 검색…</div><div class="ava">박</div></div>
 
-  <!-- topbar -->
-  <div class="topbar">
-    <div class="logo">P</div>
-    <nav>
-      <a href="#">홈</a>
-      <a href="#" class="on">딜</a>
-      <a href="#">회사</a>
-      <a href="#">파이프라인</a>
-      <a href="#">더보기 ▾</a>
-    </nav>
-    <div class="search">🔍  검색…</div>
-    <div class="ava">박</div>
-  </div>
-
-  <!-- highlights -->
-  <div class="hl">
-    <div class="hl-top">
-      <div class="hl-ico">🏛️</div>
-      <div class="hl-name">
-        <div class="hl-kind">딜 · Opportunity</div>
-        <h1>○○은행 차세대 방화벽 도입</h1>
+    <!-- highlights -->
+    <div class="hl">
+      <div class="hl-top">
+        <div class="hl-ico">🏛️</div>
+        <div class="hl-name">
+          <div class="hl-kind">딜 · Opportunity</div>
+          <h1>○○은행 차세대 방화벽 도입</h1>
+        </div>
+        <div class="hl-actions">
+          <button class="btn">편집</button>
+          <button class="btn">활동 기록</button>
+          <button class="btn pri">✓ 수주 확정</button>
+        </div>
       </div>
-      <div class="hl-actions">
-        <button class="btn">편집</button>
-        <button class="btn">활동 기록</button>
-        <button class="btn pri">✓ 수주 확정</button>
+
+      <div class="chain">
+        <span class="node cust">○○은행</span><span class="arr">▸</span>
+        <span class="node me">나 · Platinum</span><span class="arr">▸</span>
+        <span class="node">○○총판</span><span class="arr">▸</span>
+        <span class="node">Sangfor</span>
+        <span class="reg">🛡️ 수주확정</span>
+      </div>
+
+      <div class="kf">
+        <div class="c"><div class="l">고객사</div><div class="v">○○은행</div></div>
+        <div class="c"><div class="l">금액</div><div class="v">4.2억</div></div>
+        <div class="c"><div class="l">담당</div><div class="v">박정민</div></div>
+        <div class="c"><div class="l">마감 예정</div><div class="v">2026-08-20</div></div>
+        <div class="c"><div class="l">현재 단계</div><div class="v" style="color:#0176d3">⑤ 수주</div></div>
+        <div class="c"><div class="l">수주 확률</div><div class="v">100%</div></div>
       </div>
     </div>
 
-    <div class="chain">
-      <span class="node cust">○○은행</span><span class="arr">▸</span>
-      <span class="node me">나 · Platinum</span><span class="arr">▸</span>
-      <span class="node">○○총판</span><span class="arr">▸</span>
-      <span class="node">Sangfor</span>
-      <span class="reg">🛡️ 수주확정</span>
+    <!-- stage path -->
+    <div class="pathwrap">
+      <ul class="path">
+        <li class="done">① 제안</li>
+        <li class="done">② PoC</li>
+        <li class="done">③ 결과제출</li>
+        <li class="done">④ 선정·입찰</li>
+        <li class="cur">⑤ 수주</li>
+        <li>⑥ 딜리버리</li>
+      </ul>
     </div>
 
-    <div class="kf">
-      <div class="c"><div class="l">고객사</div><div class="v">○○은행</div></div>
-      <div class="c"><div class="l">금액</div><div class="v">4.2억</div></div>
-      <div class="c"><div class="l">담당</div><div class="v">박정민</div></div>
-      <div class="c"><div class="l">마감 예정</div><div class="v">2026-08-20</div></div>
-      <div class="c"><div class="l">현재 단계</div><div class="v" style="color:#0176d3">⑤ 수주</div></div>
-      <div class="c"><div class="l">수주 확률</div><div class="v">100%</div></div>
+    <!-- tabs -->
+    <div class="tabsbar">
+      <div class="t on">작업</div>
+      <div class="t">상세</div>
+      <div class="t">문서</div>
+      <div class="t">연락처</div>
+      <div class="t">채널·등록</div>
     </div>
-  </div>
 
-  <!-- stage path -->
-  <div class="pathwrap">
-    <ul class="path">
-      <li class="done">① 제안</li>
-      <li class="done">② PoC</li>
-      <li class="done">③ 결과제출</li>
-      <li class="done">④ 선정·입찰</li>
-      <li class="cur">⑤ 수주</li>
-      <li>⑥ 딜리버리</li>
-    </ul>
-  </div>
+    <!-- body grid -->
+    <div class="grid">
 
-  <!-- tabs -->
-  <div class="tabsbar">
-    <div class="t on">작업</div>
-    <div class="t">상세</div>
-    <div class="t">문서</div>
-    <div class="t">연락처</div>
-    <div class="t">채널·등록</div>
-  </div>
+      <!-- LEFT: work panel -->
+      <div class="panel undertabs">
+        <div class="work">
 
-  <!-- body grid -->
-  <div class="grid">
-
-    <!-- LEFT: work panel -->
-    <div class="panel undertabs">
-      <div class="work">
-
-        <!-- SOW / 계약 -->
-        <div class="sec-t"><span class="ic">📄</span> SOW / 계약</div>
-        <div class="field">
-          <div class="l">범위·산출물·일정 본문</div>
-          <div class="area tall">
-            <strong>1. 프로젝트 범위</strong><br>
-            ○○은행 DMZ·내부망 방화벽 전구간 교체. 대상 장비: SF-7000H × 4식 (HA 클러스터 2세트).<br>
-            <br>
-            <strong>2. 산출물</strong><br>
-            · HLD / LLD 설계 문서<br>
-            · 장비 납품 및 랙 마운트<br>
-            · 운영 정책 마이그레이션 보고서<br>
-            · 사용자 교육 자료 및 운영 가이드<br>
-            · Go-Live 후 30일 안정화 지원<br>
-            <br>
-            <strong>3. 일정</strong><br>
-            설계 착수 2026-09-01 → 통합 완료 2026-10-15 → UAT 2026-10-31 → Go-Live 2026-11-14<br>
-            <span class="ph">│ 편집 가능 영역</span>
-          </div>
-        </div>
-        <div class="field" style="margin-bottom:18px">
-          <div class="l">계약 상태</div>
-          <span class="pill ok">서명 완료</span>
-          <span style="color:var(--sf-text-weak);font-size:11px;margin-left:8px">2026-08-12 고객·파트너 양측 날인</span>
-        </div>
-
-        <!-- PO 체인 -->
-        <div class="sec-t"><span class="ic">🔗</span> PO 체인</div>
-        <div class="chain" style="margin:10px 0 18px">
-          <span class="node cust">○○은행<br><span style="font-weight:400;color:var(--sf-text-weak)">발주</span> <span class="pill ok" style="font-size:10px;padding:1px 7px">접수</span></span>
-          <span class="arr">▸</span>
-          <span class="node me">나 (파트너)<br><span style="font-weight:400;color:var(--sf-text-weak)">발주</span> <span class="pill info" style="font-size:10px;padding:1px 7px">발행</span></span>
-          <span class="arr">▸</span>
-          <span class="node">○○총판<br><span style="font-weight:400;color:var(--sf-text-weak)">발주</span> <span class="pill ok" style="font-size:10px;padding:1px 7px">접수</span></span>
-          <span class="arr">▸</span>
-          <span class="node">Sangfor<br><span style="font-weight:400;color:var(--sf-text-weak)">발주</span> <span class="pill warn" style="font-size:10px;padding:1px 7px">처리중</span></span>
-        </div>
-
-        <!-- 마일스톤 결제 -->
-        <div class="sec-t"><span class="ic">💰</span> 마일스톤 결제</div>
-        <div style="overflow-x:auto;margin-top:4px">
-          <table>
-            <thead>
-              <tr>
-                <th>마일스톤</th>
-                <th class="num">비율</th>
-                <th class="num">금액</th>
-                <th>예정일</th>
-                <th>상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="name">설계 완료</td>
-                <td class="num">30%</td>
-                <td class="num">1.26억</td>
-                <td>2026-09-30</td>
-                <td><span class="pill info">예정</span></td>
-              </tr>
-              <tr>
-                <td class="name">통합 완료</td>
-                <td class="num">30%</td>
-                <td class="num">1.26억</td>
-                <td>2026-10-15</td>
-                <td><span class="pill todo">미정</span></td>
-              </tr>
-              <tr>
-                <td class="name">UAT 통과</td>
-                <td class="num">20%</td>
-                <td class="num">0.84억</td>
-                <td>2026-10-31</td>
-                <td><span class="pill todo">미정</span></td>
-              </tr>
-              <tr>
-                <td class="name">Go-Live</td>
-                <td class="num">20%</td>
-                <td class="num">0.84억</td>
-                <td>2026-11-14</td>
-                <td><span class="pill todo">미정</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-      </div><!-- /.work -->
-    </div><!-- /.panel -->
-
-    <!-- RIGHT: rail -->
-    <div class="rail">
-
-      <!-- AI 거들기 -->
-      <div class="panel ai">
-        <div class="h">✦ AI 거들기 <span style="color:#9a9a9a;font-weight:500;font-size:11px">— 제안만, 결정은 내가</span></div>
-        <div class="body">
-          <div class="sugg">
-            <p>SOW 초안을 점검하고 누락 항목을 알려드릴까요?</p>
-            <div class="row"><span class="s y">점검</span><span class="s n">나중에</span></div>
-          </div>
-          <div class="sugg">
-            <p>마일스톤·결제 일정을 캘린더 초안으로 생성할까요?</p>
-            <div class="row"><span class="s y">생성</span><span class="s n">무시</span></div>
-          </div>
-          <div class="sugg">
-            <p>영업→딜리버리 핸드오프 체크리스트를 열어드릴까요?</p>
-            <div class="row"><span class="s y">열기</span><span class="s n">무시</span></div>
-          </div>
-          <div class="note">AI는 초안·자료만 제시합니다. 결정은 당신이 합니다.</div>
-        </div>
-      </div>
-
-      <!-- 활동 타임라인 -->
-      <div class="panel">
-        <div class="h">🕑 활동 타임라인</div>
-        <div class="body">
-          <div class="ev">
-            <span class="dot"></span>
-            <div class="tx">
-              <div class="t1">계약 서명 완료</div>
-              <div class="t2">8/12 · 고객·파트너 양측 날인</div>
+          <!-- SOW / 계약 -->
+          <div class="sec-t"><span class="ic">📄</span> SOW / 계약</div>
+          <div class="field">
+            <div class="l">범위·산출물·일정 본문</div>
+            <div class="area tall">
+              <strong>1. 프로젝트 범위</strong><br>
+              ○○은행 DMZ·내부망 방화벽 전구간 교체. 대상 장비: SF-7000H × 4식 (HA 클러스터 2세트).<br>
+              <br>
+              <strong>2. 산출물</strong><br>
+              · HLD / LLD 설계 문서<br>
+              · 장비 납품 및 랙 마운트<br>
+              · 운영 정책 마이그레이션 보고서<br>
+              · 사용자 교육 자료 및 운영 가이드<br>
+              · Go-Live 후 30일 안정화 지원<br>
+              <br>
+              <strong>3. 일정</strong><br>
+              설계 착수 2026-09-01 → 통합 완료 2026-10-15 → UAT 2026-10-31 → Go-Live 2026-11-14<br>
+              <span class="ph">│ 편집 가능 영역</span>
             </div>
           </div>
-          <div class="ev">
-            <span class="dot"></span>
-            <div class="tx">
-              <div class="t1">PO 수신 — ○○은행</div>
-              <div class="t2">8/10 · PO-2026-0812 접수</div>
-            </div>
+          <div class="field" style="margin-bottom:18px">
+            <div class="l">계약 상태</div>
+            <span class="pill ok">서명 완료</span>
+            <span style="color:var(--sf-text-weak);font-size:11px;margin-left:8px">2026-08-12 고객·파트너 양측 날인</span>
           </div>
-          <div class="ev">
-            <span class="dot"></span>
-            <div class="tx">
-              <div class="t1">최종 입찰 낙찰 통보</div>
-              <div class="t2">8/5 · 구매팀 공문 수령</div>
-            </div>
+
+          <!-- PO 체인 -->
+          <div class="sec-t"><span class="ic">🔗</span> PO 체인</div>
+          <div class="chain" style="margin:10px 0 18px">
+            <span class="node cust">○○은행<br><span style="font-weight:400;color:var(--sf-text-weak)">발주</span> <span class="pill ok" style="font-size:10px;padding:1px 7px">접수</span></span>
+            <span class="arr">▸</span>
+            <span class="node me">나 (파트너)<br><span style="font-weight:400;color:var(--sf-text-weak)">발주</span> <span class="pill info" style="font-size:10px;padding:1px 7px">발행</span></span>
+            <span class="arr">▸</span>
+            <span class="node">○○총판<br><span style="font-weight:400;color:var(--sf-text-weak)">발주</span> <span class="pill ok" style="font-size:10px;padding:1px 7px">접수</span></span>
+            <span class="arr">▸</span>
+            <span class="node">Sangfor<br><span style="font-weight:400;color:var(--sf-text-weak)">발주</span> <span class="pill warn" style="font-size:10px;padding:1px 7px">처리중</span></span>
           </div>
-          <div class="ev">
-            <span class="dot g"></span>
-            <div class="tx">
-              <div class="t1">SPR 승인</div>
-              <div class="t2">7/28 · 총판 특가 승인 완료</div>
-            </div>
+
+          <!-- 마일스톤 결제 -->
+          <div class="sec-t"><span class="ic">💰</span> 마일스톤 결제</div>
+          <div style="overflow-x:auto;margin-top:4px">
+            <table>
+              <thead>
+                <tr>
+                  <th>마일스톤</th>
+                  <th class="num">비율</th>
+                  <th class="num">금액</th>
+                  <th>예정일</th>
+                  <th>상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="name">설계 완료</td>
+                  <td class="num">30%</td>
+                  <td class="num">1.26억</td>
+                  <td>2026-09-30</td>
+                  <td><span class="pill info">예정</span></td>
+                </tr>
+                <tr>
+                  <td class="name">통합 완료</td>
+                  <td class="num">30%</td>
+                  <td class="num">1.26억</td>
+                  <td>2026-10-15</td>
+                  <td><span class="pill todo">미정</span></td>
+                </tr>
+                <tr>
+                  <td class="name">UAT 통과</td>
+                  <td class="num">20%</td>
+                  <td class="num">0.84억</td>
+                  <td>2026-10-31</td>
+                  <td><span class="pill todo">미정</span></td>
+                </tr>
+                <tr>
+                  <td class="name">Go-Live</td>
+                  <td class="num">20%</td>
+                  <td class="num">0.84억</td>
+                  <td>2026-11-14</td>
+                  <td><span class="pill todo">미정</span></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <div class="ev">
-            <span class="dot g"></span>
-            <div class="tx">
-              <div class="t1">PoC 결과 경영진 보고</div>
-              <div class="t2">7/10 · 기술·비즈니스 검증 완료</div>
+
+        </div><!-- /.work -->
+      </div><!-- /.panel -->
+
+      <!-- RIGHT: rail -->
+      <div class="rail">
+
+        <!-- AI 거들기 -->
+        <div class="panel ai">
+          <div class="h">✦ AI 거들기 <span style="color:#9a9a9a;font-weight:500;font-size:11px">— 제안만, 결정은 내가</span></div>
+          <div class="body">
+            <div class="sugg">
+              <p>SOW 초안을 점검하고 누락 항목을 알려드릴까요?</p>
+              <div class="row"><span class="s y">점검</span><span class="s n">나중에</span></div>
+            </div>
+            <div class="sugg">
+              <p>마일스톤·결제 일정을 캘린더 초안으로 생성할까요?</p>
+              <div class="row"><span class="s y">생성</span><span class="s n">무시</span></div>
+            </div>
+            <div class="sugg">
+              <p>영업→딜리버리 핸드오프 체크리스트를 열어드릴까요?</p>
+              <div class="row"><span class="s y">열기</span><span class="s n">무시</span></div>
+            </div>
+            <div class="note">AI는 초안·자료만 제시합니다. 결정은 당신이 합니다.</div>
+          </div>
+        </div>
+
+        <!-- 활동 타임라인 -->
+        <div class="panel">
+          <div class="h">🕑 활동 타임라인</div>
+          <div class="body">
+            <div class="ev">
+              <span class="dot"></span>
+              <div class="tx">
+                <div class="t1">계약 서명 완료</div>
+                <div class="t2">8/12 · 고객·파트너 양측 날인</div>
+              </div>
+            </div>
+            <div class="ev">
+              <span class="dot"></span>
+              <div class="tx">
+                <div class="t1">PO 수신 — ○○은행</div>
+                <div class="t2">8/10 · PO-2026-0812 접수</div>
+              </div>
+            </div>
+            <div class="ev">
+              <span class="dot"></span>
+              <div class="tx">
+                <div class="t1">최종 입찰 낙찰 통보</div>
+                <div class="t2">8/5 · 구매팀 공문 수령</div>
+              </div>
+            </div>
+            <div class="ev">
+              <span class="dot g"></span>
+              <div class="tx">
+                <div class="t1">SPR 승인</div>
+                <div class="t2">7/28 · 총판 특가 승인 완료</div>
+              </div>
+            </div>
+            <div class="ev">
+              <span class="dot g"></span>
+              <div class="tx">
+                <div class="t1">PoC 결과 경영진 보고</div>
+                <div class="t2">7/10 · 기술·비즈니스 검증 완료</div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-    </div><!-- /.rail -->
-  </div><!-- /.grid -->
+      </div><!-- /.rail -->
+    </div><!-- /.grid -->
 
-  <div class="legend">시안 · ⑤수주 작업화면</div>
+    <div class="legend">시안 · ⑤수주 작업화면</div>
 
-</div><!-- /.wrap -->
+  </main>
+</div>
 </body>
 </html>

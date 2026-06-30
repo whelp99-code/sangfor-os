@@ -257,21 +257,24 @@
 </style>
 </head>
 <body>
-<div class="wrap wide">
-
-  <!-- topbar -->
-  <div class="topbar">
-    <div class="logo">S</div>
-    <nav>
-      <a href="#">홈</a>
-      <a href="#">딜</a>
-      <a href="#" class="on">회사</a>
-      <a href="#">연락처</a>
-      <a href="#">더보기 ▾</a>
-    </nav>
-    <div class="search">🔍  회사 검색…</div>
-    <div class="ava">박</div>
-  </div>
+<div class="shell">
+  <!-- SHARED SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand"><span class="logo2">P</span> Sangfor 파트너 허브</div>
+    <div class="navgrp">핵심</div>
+    <div class="navit" data-k="home"><span class="ico">⌂</span> 홈</div>
+    <div class="navit" data-k="deals"><span class="ico">▤</span> 딜</div>
+    <div class="navit on" data-k="companies"><span class="ico">▣</span> 회사</div>
+    <div class="navit" data-k="contacts"><span class="ico">☻</span> 연락처</div>
+    <div class="navit" data-k="pipeline"><span class="ico">▦</span> 파이프라인</div>
+    <div class="navgrp">채널</div>
+    <div class="navit" data-k="partners"><span class="ico">⇄</span> 총판·파트너</div>
+    <div class="navit" data-k="dealreg"><span class="ico">🛡</span> 딜 등록</div>
+    <div class="more">▸ 더보기 (35)<span style="display:block;font-weight:500;color:#aaa;font-size:10px;margin-top:2px">재무·지식·AI·시스템 — 동결</span></div>
+  </aside>
+  <main class="content">
+    <!-- SLIM TOP BAR (no nav) -->
+    <div class="ctopbar"><div class="ttl">회사</div><div class="search">🔍  검색…</div><div class="ava">박</div></div>
 
   <!-- master-detail two-column split -->
   <div class="md-split">
@@ -474,6 +477,7 @@
 
   <div class="legend">시안 · 회사 목록+상세 — 좌: 24곳 목록 테이블 (○○은행 선택) · 우: 기본 정보 + 연결된 딜</div>
 
+  </main>
 </div>
 </body>
 </html>

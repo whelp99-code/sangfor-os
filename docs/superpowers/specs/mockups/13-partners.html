@@ -230,228 +230,240 @@
   .navit.on{background:#e8f3fc;color:var(--sf-blue-d)}
   .navit .ico{width:15px;color:#8a8a8a}
   .more{color:#8a8a8a;font-weight:700;font-size:12px;padding:9px;cursor:pointer}
-  .content{padding:14px 16px;background:var(--sf-bg)}
+  .content{padding:14px 16px;background:var(--sf-bg);overflow:auto}
+  .sidebar .brand .logo2{width:24px;height:24px;border-radius:6px;background:var(--sf-blue);display:inline-grid;place-items:center;color:#fff;font-weight:800;font-size:12px}
+  /* slim top bar INSIDE content (search + user only — NO primary nav; nav lives in sidebar) */
+  .ctopbar{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--sf-border);border-radius:var(--sf-radius);padding:8px 14px;margin-bottom:12px}
+  .ctopbar .ttl{font-weight:800;font-size:15px}
+  .ctopbar .crumb{color:#9a9a9a;font-size:12px;font-weight:600}
+  .ctopbar .search{margin-left:auto;background:var(--sf-bg);border:1px solid var(--sf-border);border-radius:20px;padding:6px 14px;color:#9a9a9a;width:230px}
+  .ctopbar .ava{width:28px;height:28px;border-radius:50%;background:#d8b4fe;display:grid;place-items:center;font-weight:700;color:#5b21b6}
+  .shell .content > .inner{max-width:none}
 
   .legend{text-align:center;color:#9a9a9a;font-size:11px;margin-top:14px}
 </style>
 </head>
 <body>
-<div class="wrap wide">
+<div class="shell">
+  <!-- SHARED SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand"><span class="logo2">P</span> Sangfor 파트너 허브</div>
+    <div class="navgrp">핵심</div>
+    <div class="navit" data-k="home"><span class="ico">⌂</span> 홈</div>
+    <div class="navit" data-k="deals"><span class="ico">▤</span> 딜</div>
+    <div class="navit" data-k="companies"><span class="ico">▣</span> 회사</div>
+    <div class="navit" data-k="contacts"><span class="ico">☻</span> 연락처</div>
+    <div class="navit" data-k="pipeline"><span class="ico">▦</span> 파이프라인</div>
+    <div class="navgrp">채널</div>
+    <div class="navit on" data-k="partners"><span class="ico">⇄</span> 총판·파트너</div>
+    <div class="navit" data-k="dealreg"><span class="ico">🛡</span> 딜 등록</div>
+    <div class="more">▸ 더보기 (35)<span style="display:block;font-weight:500;color:#aaa;font-size:10px;margin-top:2px">재무·지식·AI·시스템 — 동결</span></div>
+  </aside>
+  <main class="content">
+    <!-- SLIM TOP BAR (no nav) -->
+    <div class="ctopbar"><div class="ttl">총판·파트너</div><div class="search">🔍  검색…</div><div class="ava">박</div></div>
 
-  <!-- 상단 탑바 -->
-  <div class="topbar">
-    <div class="logo">S</div>
-    <nav>
-      <a href="#">홈</a>
-      <a href="#">딜</a>
-      <a href="#">회사</a>
-      <a href="#">연락처</a>
-      <a href="#" class="on">더보기 ▾</a>
-    </nav>
-    <div class="search">🔍  검색…</div>
-    <div class="ava">박</div>
-  </div>
-
-  <!-- 리스트 헤더 -->
-  <div class="lh">
-    <div class="lh-top">
-      <div class="lh-ico">🤝</div>
-      <div>
-        <h1>총판 · 파트너 <span class="cnt">· 9곳</span></h1>
+    <!-- 리스트 헤더 -->
+    <div class="lh">
+      <div class="lh-top">
+        <div class="lh-ico">🤝</div>
+        <div>
+          <h1>총판 · 파트너 <span class="cnt">· 9곳</span></h1>
+        </div>
+        <div class="sp">
+          <button class="btn pri">+ 새 파트너</button>
+        </div>
       </div>
-      <div class="sp">
-        <button class="btn pri">+ 새 파트너</button>
+      <div class="toolbar">
+        <span class="chip on">전체</span>
+        <span class="chip">총판</span>
+        <span class="chip">파트너</span>
+        <span class="chip">벤더</span>
+        <span class="right"><span>총 9개 채널사</span></span>
       </div>
     </div>
-    <div class="toolbar">
-      <span class="chip on">전체</span>
-      <span class="chip">총판</span>
-      <span class="chip">파트너</span>
-      <span class="chip">벤더</span>
-      <span class="right"><span>총 9개 채널사</span></span>
+
+    <!-- 테이블 -->
+    <div class="tablecard">
+      <table>
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>구분</th>
+            <th class="num">진행 딜</th>
+            <th class="num">누적 매출</th>
+            <th>주 연락처</th>
+            <th>비고</th>
+            <th style="width:30px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- 벤더 -->
+          <tr>
+            <td>
+              <div class="name">Sangfor Technologies</div>
+              <div class="sub">본사 · 중국 심천</div>
+            </td>
+            <td><span class="pill info">벤더</span></td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td>
+              <div class="name">담당 AM</div>
+              <div class="sub">vendor-kr@sangfor.com</div>
+            </td>
+            <td style="color:var(--sf-text-weak);font-size:12px">제품 공급 · SPR 승인 주체</td>
+            <td><span class="rowact">⋯</span></td>
+          </tr>
+
+          <!-- 총판 1 -->
+          <tr>
+            <td>
+              <div class="name">○○테크</div>
+              <div class="sub">서울 강남 · 법인</div>
+            </td>
+            <td><span class="pill warn">총판</span></td>
+            <td class="num" style="font-weight:700">5</td>
+            <td class="num" style="font-weight:700">38.4억</td>
+            <td>
+              <div class="name">김철수 이사</div>
+              <div class="sub">010-1234-5678</div>
+            </td>
+            <td style="color:var(--sf-text-weak);font-size:12px">딜등록 대행 · SPR 제출 담당</td>
+            <td><span class="rowact">⋯</span></td>
+          </tr>
+
+          <!-- 총판 2 -->
+          <tr>
+            <td>
+              <div class="name">◇◇디스트리</div>
+              <div class="sub">경기 성남 · 법인</div>
+            </td>
+            <td><span class="pill warn">총판</span></td>
+            <td class="num" style="font-weight:700">3</td>
+            <td class="num" style="font-weight:700">21.1억</td>
+            <td>
+              <div class="name">이영희 팀장</div>
+              <div class="sub">02-9876-5432</div>
+            </td>
+            <td style="color:var(--sf-text-weak);font-size:12px">의료·제조 특화 총판</td>
+            <td><span class="rowact">⋯</span></td>
+          </tr>
+
+          <!-- 총판 3 -->
+          <tr>
+            <td>
+              <div class="name">▲▲시스템즈</div>
+              <div class="sub">부산 해운대 · 법인</div>
+            </td>
+            <td><span class="pill warn">총판</span></td>
+            <td class="num" style="font-weight:700">2</td>
+            <td class="num" style="font-weight:700">9.7억</td>
+            <td>
+              <div class="name">박민준 대표</div>
+              <div class="sub">051-7777-0000</div>
+            </td>
+            <td style="color:var(--sf-text-weak);font-size:12px">공공·교육 영남권 총판</td>
+            <td><span class="rowact">⋯</span></td>
+          </tr>
+
+          <!-- 파트너 1 -->
+          <tr>
+            <td>
+              <div class="name">□□네트웍스</div>
+              <div class="sub">서울 마포 · 법인</div>
+            </td>
+            <td><span class="pill todo">파트너</span></td>
+            <td class="num">1</td>
+            <td class="num">4.2억</td>
+            <td>
+              <div class="name">정수진 이사</div>
+              <div class="sub">010-3344-5566</div>
+            </td>
+            <td style="color:var(--sf-text-weak);font-size:12px">레퍼럴 파트너 · 금융권 소개</td>
+            <td><span class="rowact">⋯</span></td>
+          </tr>
+
+          <!-- 파트너 2 -->
+          <tr>
+            <td>
+              <div class="name">◎◎컨설팅</div>
+              <div class="sub">서울 종로 · 개인사업자</div>
+            </td>
+            <td><span class="pill todo">파트너</span></td>
+            <td class="num">2</td>
+            <td class="num">6.8억</td>
+            <td>
+              <div class="name">최현우 대표</div>
+              <div class="sub">010-9988-7766</div>
+            </td>
+            <td style="color:var(--sf-text-weak);font-size:12px">공공 SI 컨설팅 파트너</td>
+            <td><span class="rowact">⋯</span></td>
+          </tr>
+
+          <!-- 파트너 3 -->
+          <tr>
+            <td>
+              <div class="name">●●솔루션</div>
+              <div class="sub">대전 유성 · 법인</div>
+            </td>
+            <td><span class="pill todo">파트너</span></td>
+            <td class="num">0</td>
+            <td class="num">—</td>
+            <td>
+              <div class="name">윤지혜 실장</div>
+              <div class="sub">042-1234-5678</div>
+            </td>
+            <td style="color:var(--sf-text-weak);font-size:12px">충청권 스마트공장 파트너</td>
+            <td><span class="rowact">⋯</span></td>
+          </tr>
+
+          <!-- 파트너 4 -->
+          <tr>
+            <td>
+              <div class="name">★★아이티</div>
+              <div class="sub">광주 북구 · 법인</div>
+            </td>
+            <td><span class="pill todo">파트너</span></td>
+            <td class="num">1</td>
+            <td class="num">2.3억</td>
+            <td>
+              <div class="name">강동현 이사</div>
+              <div class="sub">062-8888-1234</div>
+            </td>
+            <td style="color:var(--sf-text-weak);font-size:12px">호남권 파트너 · 의료 레퍼럴</td>
+            <td><span class="rowact">⋯</span></td>
+          </tr>
+
+          <!-- 파트너 5 -->
+          <tr>
+            <td>
+              <div class="name">◆◆데이터</div>
+              <div class="sub">인천 연수 · 법인</div>
+            </td>
+            <td><span class="pill todo">파트너</span></td>
+            <td class="num">0</td>
+            <td class="num">—</td>
+            <td>
+              <div class="name">오세훈 팀장</div>
+              <div class="sub">032-5555-9900</div>
+            </td>
+            <td style="color:var(--sf-text-weak);font-size:12px">신규 파트너 · 온보딩 중</td>
+            <td><span class="rowact">⋯</span></td>
+          </tr>
+
+          <!-- 안내 행 -->
+          <tr>
+            <td colspan="7" style="background:#f4f9ff;border-top:1px solid #d6eafc;padding:11px 14px;color:#274b6b;font-size:12px">
+              딜 등록은 총판이 대행 — 총판별 진행 딜·딜등록 상태를 여기서 추적. 파트너는 레퍼럴·컨설팅 역할로 직접 딜등록 불가.
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-  </div>
 
-  <!-- 테이블 -->
-  <div class="tablecard">
-    <table>
-      <thead>
-        <tr>
-          <th>이름</th>
-          <th>구분</th>
-          <th class="num">진행 딜</th>
-          <th class="num">누적 매출</th>
-          <th>주 연락처</th>
-          <th>비고</th>
-          <th style="width:30px"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- 벤더 -->
-        <tr>
-          <td>
-            <div class="name">Sangfor Technologies</div>
-            <div class="sub">본사 · 중국 심천</div>
-          </td>
-          <td><span class="pill info">벤더</span></td>
-          <td class="num">—</td>
-          <td class="num">—</td>
-          <td>
-            <div class="name">담당 AM</div>
-            <div class="sub">vendor-kr@sangfor.com</div>
-          </td>
-          <td style="color:var(--sf-text-weak);font-size:12px">제품 공급 · SPR 승인 주체</td>
-          <td><span class="rowact">⋯</span></td>
-        </tr>
+    <div class="legend">시안 · 총판·파트너 — 구분(벤더/총판/파트너) 필터 · 총판별 진행 딜·누적 매출 추적 · 행 클릭 → 채널사 상세</div>
 
-        <!-- 총판 1 -->
-        <tr>
-          <td>
-            <div class="name">○○테크</div>
-            <div class="sub">서울 강남 · 법인</div>
-          </td>
-          <td><span class="pill warn">총판</span></td>
-          <td class="num" style="font-weight:700">5</td>
-          <td class="num" style="font-weight:700">38.4억</td>
-          <td>
-            <div class="name">김철수 이사</div>
-            <div class="sub">010-1234-5678</div>
-          </td>
-          <td style="color:var(--sf-text-weak);font-size:12px">딜등록 대행 · SPR 제출 담당</td>
-          <td><span class="rowact">⋯</span></td>
-        </tr>
-
-        <!-- 총판 2 -->
-        <tr>
-          <td>
-            <div class="name">◇◇디스트리</div>
-            <div class="sub">경기 성남 · 법인</div>
-          </td>
-          <td><span class="pill warn">총판</span></td>
-          <td class="num" style="font-weight:700">3</td>
-          <td class="num" style="font-weight:700">21.1억</td>
-          <td>
-            <div class="name">이영희 팀장</div>
-            <div class="sub">02-9876-5432</div>
-          </td>
-          <td style="color:var(--sf-text-weak);font-size:12px">의료·제조 특화 총판</td>
-          <td><span class="rowact">⋯</span></td>
-        </tr>
-
-        <!-- 총판 3 -->
-        <tr>
-          <td>
-            <div class="name">▲▲시스템즈</div>
-            <div class="sub">부산 해운대 · 법인</div>
-          </td>
-          <td><span class="pill warn">총판</span></td>
-          <td class="num" style="font-weight:700">2</td>
-          <td class="num" style="font-weight:700">9.7억</td>
-          <td>
-            <div class="name">박민준 대표</div>
-            <div class="sub">051-7777-0000</div>
-          </td>
-          <td style="color:var(--sf-text-weak);font-size:12px">공공·교육 영남권 총판</td>
-          <td><span class="rowact">⋯</span></td>
-        </tr>
-
-        <!-- 파트너 1 -->
-        <tr>
-          <td>
-            <div class="name">□□네트웍스</div>
-            <div class="sub">서울 마포 · 법인</div>
-          </td>
-          <td><span class="pill todo">파트너</span></td>
-          <td class="num">1</td>
-          <td class="num">4.2억</td>
-          <td>
-            <div class="name">정수진 이사</div>
-            <div class="sub">010-3344-5566</div>
-          </td>
-          <td style="color:var(--sf-text-weak);font-size:12px">레퍼럴 파트너 · 금융권 소개</td>
-          <td><span class="rowact">⋯</span></td>
-        </tr>
-
-        <!-- 파트너 2 -->
-        <tr>
-          <td>
-            <div class="name">◎◎컨설팅</div>
-            <div class="sub">서울 종로 · 개인사업자</div>
-          </td>
-          <td><span class="pill todo">파트너</span></td>
-          <td class="num">2</td>
-          <td class="num">6.8억</td>
-          <td>
-            <div class="name">최현우 대표</div>
-            <div class="sub">010-9988-7766</div>
-          </td>
-          <td style="color:var(--sf-text-weak);font-size:12px">공공 SI 컨설팅 파트너</td>
-          <td><span class="rowact">⋯</span></td>
-        </tr>
-
-        <!-- 파트너 3 -->
-        <tr>
-          <td>
-            <div class="name">●●솔루션</div>
-            <div class="sub">대전 유성 · 법인</div>
-          </td>
-          <td><span class="pill todo">파트너</span></td>
-          <td class="num">0</td>
-          <td class="num">—</td>
-          <td>
-            <div class="name">윤지혜 실장</div>
-            <div class="sub">042-1234-5678</div>
-          </td>
-          <td style="color:var(--sf-text-weak);font-size:12px">충청권 스마트공장 파트너</td>
-          <td><span class="rowact">⋯</span></td>
-        </tr>
-
-        <!-- 파트너 4 -->
-        <tr>
-          <td>
-            <div class="name">★★아이티</div>
-            <div class="sub">광주 북구 · 법인</div>
-          </td>
-          <td><span class="pill todo">파트너</span></td>
-          <td class="num">1</td>
-          <td class="num">2.3억</td>
-          <td>
-            <div class="name">강동현 이사</div>
-            <div class="sub">062-8888-1234</div>
-          </td>
-          <td style="color:var(--sf-text-weak);font-size:12px">호남권 파트너 · 의료 레퍼럴</td>
-          <td><span class="rowact">⋯</span></td>
-        </tr>
-
-        <!-- 파트너 5 -->
-        <tr>
-          <td>
-            <div class="name">◆◆데이터</div>
-            <div class="sub">인천 연수 · 법인</div>
-          </td>
-          <td><span class="pill todo">파트너</span></td>
-          <td class="num">0</td>
-          <td class="num">—</td>
-          <td>
-            <div class="name">오세훈 팀장</div>
-            <div class="sub">032-5555-9900</div>
-          </td>
-          <td style="color:var(--sf-text-weak);font-size:12px">신규 파트너 · 온보딩 중</td>
-          <td><span class="rowact">⋯</span></td>
-        </tr>
-
-        <!-- 안내 행 -->
-        <tr>
-          <td colspan="7" style="background:#f4f9ff;border-top:1px solid #d6eafc;padding:11px 14px;color:#274b6b;font-size:12px">
-            딜 등록은 총판이 대행 — 총판별 진행 딜·딜등록 상태를 여기서 추적. 파트너는 레퍼럴·컨설팅 역할로 직접 딜등록 불가.
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="legend">시안 · 총판·파트너 — 구분(벤더/총판/파트너) 필터 · 총판별 진행 딜·누적 매출 추적 · 행 클릭 → 채널사 상세</div>
-
+  </main>
 </div>
 </body>
 </html>
