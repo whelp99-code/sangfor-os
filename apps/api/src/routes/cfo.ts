@@ -66,7 +66,7 @@ router.delete('/invoices/:id', ok((req: any) => invoices.delete(req.params.id)))
 
 // Expenses
 router.get('/expenses', ok((req: any) => expenses.list({
-  category: q(req, 'category'), isPaid: q(req, 'isPaid') === 'true', projectId: q(req, 'projectId'), limit: num(q(req, 'limit')) ?? 100,
+  category: q(req, 'category'), isPaid: q(req, 'isPaid') === undefined ? undefined : q(req, 'isPaid') === 'true', projectId: q(req, 'projectId'), limit: num(q(req, 'limit')) ?? 100,
 })));
 router.get('/expenses/:id', ok((req: any) => expenses.get(req.params.id)));
 router.post('/expenses', ok((req: any) => expenses.create(req.body)));
