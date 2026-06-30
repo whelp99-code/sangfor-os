@@ -20,7 +20,7 @@ const dealRegistrationInputSchema = z.object({
   regStatus: regStatusSchema.optional(),
   protectionExpiresAt: z.string().nullable().optional(),
   sprStatus: z.string().nullable().optional(),
-  partnerTierMargin: z.number().nullable().optional(),
+  partnerTierMargin: z.number().min(0).max(100).nullable().optional(),
   conflictNote: z.string().nullable().optional(),
 });
 

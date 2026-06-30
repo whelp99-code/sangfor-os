@@ -931,6 +931,8 @@ model Opportunity {
   dealRegistration DealRegistration?
 
   @@index([projectId, stage])
+  @@index([ownerId])
+  @@index([dealStatus])
   @@map("opportunities")
 }
 
@@ -953,6 +955,8 @@ model DealQualification {
   economicBuyer Contact?    @relation("DealEconomicBuyer", fields: [economicBuyerId], references: [id])
   champion      Contact?    @relation("DealChampion", fields: [championId], references: [id])
 
+  @@index([economicBuyerId])
+  @@index([championId])
   @@map("deal_qualifications")
 }
 

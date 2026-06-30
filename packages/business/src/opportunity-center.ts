@@ -46,6 +46,7 @@ export const updateOpportunitySchema = z.object({
   title: z.string().min(2).optional(),
   stage: stageInput.optional(),
   amount: z.number().optional(),
+  // probability: manual forecast field — intentionally writable by the user (not auto-computed).
   probability: z.number().min(0).max(100).optional(),
   closeDate: z.string().datetime().nullable().optional(),
   nextAction: z.string().nullable().optional(),
@@ -72,33 +73,38 @@ export async function createOpportunity(input: z.input<typeof createOpportunityS
   const parsed = createOpportunitySchema.parse(input);
   const projectId = await resolveProjectId(parsed.projectSlug);
 
-  const rows = await prisma.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('opp_code_seq')`;
-  const seq = Number(rows[0].nextval);
-  const code = formatDealCode(new Date().getFullYear(), seq);
+  const opp = await prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('opp_code_seq')`;
+    const seq = Number(rows[0].nextval);
+    const code = formatDealCode(new Date().getFullYear(), seq);
 
-  const opp = await prisma.opportunity.create({
-    data: {
-      projectId,
-      title: parsed.title,
-      customerId: parsed.customerId,
-      partnerId: parsed.partnerId,
-      stage: parsed.stage,
-      amount: parsed.amount,
-      probability: parsed.probability,
-      closeDate: parsed.closeDate ? new Date(parsed.closeDate) : undefined,
-      nextAction: parsed.nextAction,
-      code,
-    },
+    const created = await tx.opportunity.create({
+      data: {
+        projectId,
+        title: parsed.title,
+        customerId: parsed.customerId,
+        partnerId: parsed.partnerId,
+        stage: parsed.stage,
+        amount: parsed.amount,
+        probability: parsed.probability,
+        closeDate: parsed.closeDate ? new Date(parsed.closeDate) : undefined,
+        nextAction: parsed.nextAction,
+        code,
+      },
+    });
+
+    await tx.opportunityStageEvent.create({
+      data: {
+        opportunityId: created.id,
+        toStage: parsed.stage,
+        note: "Opportunity created",
+      },
+    });
+
+    return created;
   });
 
-  await prisma.opportunityStageEvent.create({
-    data: {
-      opportunityId: opp.id,
-      toStage: parsed.stage,
-      note: "Opportunity created",
-    },
-  });
-
+  // Best-effort audit log — intentionally outside the transaction.
   await logStateTransition({
     entityType: "opportunity",
     entityId: opp.id,
@@ -162,22 +168,31 @@ export async function updateOpportunity(
   if (parsed.ownerId !== undefined) data.ownerId = parsed.ownerId;
 
   if (parsed.stage !== undefined && parsed.stage !== existing.stage) {
-    data.stage = parsed.stage;
-    await prisma.opportunityStageEvent.create({
-      data: {
-        opportunityId: id,
-        fromStage: normalizeOpportunityStage(existing.stage),
-        toStage: parsed.stage,
-        note: "Stage updated",
-      },
+    const newStage = parsed.stage;
+    data.stage = newStage;
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.opportunity.update({ where: { id }, data });
+      await tx.opportunityStageEvent.create({
+        data: {
+          opportunityId: id,
+          fromStage: normalizeOpportunityStage(existing.stage),
+          toStage: newStage,
+          note: "Stage updated",
+        },
+      });
+      return result;
     });
+
+    // Best-effort audit log — intentionally outside the transaction.
     await logStateTransition({
       entityType: "opportunity",
       entityId: id,
       fromStatus: existing.stage,
-      toStatus: parsed.stage,
+      toStatus: newStage,
       actorType: "user",
     });
+
+    return updated;
   }
 
   return prisma.opportunity.update({ where: { id }, data });

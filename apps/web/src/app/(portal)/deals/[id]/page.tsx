@@ -360,7 +360,12 @@ export default async function DealDetailPage({ params }: PageProps) {
                   }
                 : null
             }
-            distributorOptions={partners.map((p) => ({ id: p.id, label: p.name }))}
+            distributorOptions={
+              // Only DISTRIBUTOR partners (or unclassified) are valid distributor choices.
+              partners
+                .filter((p) => p.kind === "DISTRIBUTOR" || p.kind == null)
+                .map((p) => ({ id: p.id, label: p.name }))
+            }
           />
         </TabsContent>
       </Tabs>

@@ -21,6 +21,13 @@ export async function upsertDealRegistration(
   opportunityId: string,
   input: DealRegistrationInput,
 ) {
+  if (
+    input.partnerTierMargin != null &&
+    (input.partnerTierMargin < 0 || input.partnerTierMargin > 100)
+  ) {
+    throw new Error("partnerTierMargin must be between 0 and 100");
+  }
+
   const data: {
     distributorId?: string | null;
     registrationNumber?: string | null;
