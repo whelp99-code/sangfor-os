@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { CFO } from "@/lib/cfo-theme";
 
 type FieldConfig = {
@@ -12,14 +12,65 @@ type FieldConfig = {
   step?: number;
 };
 
+type ColumnConfig = {
+  key: string;
+  label: string;
+  format?: (val: any, row: any) => React.ReactNode;
+  /** Disable header-click sorting for this column (default: sortable). */
+  sortable?: boolean;
+  /** Custom value used for sorting; defaults to row[key] (objects fall back to .name/.id). */
+  sortAccessor?: (row: any) => unknown;
+};
+
+/** A client-side filter rendered as a <select> above the table. */
+type FilterConfig = {
+  key: string;
+  label: string;
+  options: { value: string; label: string; test: (row: any) => boolean }[];
+};
+
 type CrudTableProps = {
   title: string;
   endpoint: string;
   fields: FieldConfig[];
-  columns: { key: string; label: string; format?: (val: any, row: any) => React.ReactNode }[];
+  columns: ColumnConfig[];
+  filters?: FilterConfig[];
 };
 
-export default function CrudTable({ title, endpoint, fields, columns }: CrudTableProps) {
+type SortDir = "asc" | "desc";
+
+function sortValue(row: any, col: ColumnConfig): unknown {
+  if (col.sortAccessor) return col.sortAccessor(row);
+  const v = row[col.key];
+  if (v && typeof v === "object") return v.name ?? v.id ?? "";
+  return v;
+}
+
+function compareRows(a: any, b: any, col: ColumnConfig, dir: SortDir): number {
+  const av = sortValue(a, col);
+  const bv = sortValue(b, col);
+  // Nulls/empties always sort last regardless of direction.
+  const aEmpty = av === null || av === undefined || av === "";
+  const bEmpty = bv === null || bv === undefined || bv === "";
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+
+  let r: number;
+  if (typeof av === "number" && typeof bv === "number") {
+    r = av - bv;
+  } else if (typeof av === "boolean" || typeof bv === "boolean") {
+    r = (av ? 1 : 0) - (bv ? 1 : 0);
+  } else {
+    const ad = Date.parse(av as string);
+    const bd = Date.parse(bv as string);
+    if (!Number.isNaN(ad) && !Number.isNaN(bd)) r = ad - bd;
+    else r = String(av).localeCompare(String(bv), "ko");
+  }
+  return dir === "asc" ? r : -r;
+}
+
+export default function CrudTable({ title, endpoint, fields, columns, filters }: CrudTableProps) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +78,39 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
   const [editRow, setEditRow] = useState<any | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
+
+  // Header-click sorting (client-side; third click clears).
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const toggleSort = (col: ColumnConfig) => {
+    if (col.sortable === false) return;
+    if (sortKey !== col.key) {
+      setSortKey(col.key);
+      setSortDir("asc");
+    } else if (sortDir === "asc") {
+      setSortDir("desc");
+    } else {
+      setSortKey(null);
+    }
+  };
+
+  // Client-side filters (e.g. 비용 납입여부: 전체/미납/완료).
+  const [filterValues, setFilterValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries((filters ?? []).map((f) => [f.key, f.options[0]?.value ?? ""])),
+  );
+
+  const viewData = useMemo(() => {
+    let rows = data;
+    for (const f of filters ?? []) {
+      const opt = f.options.find((o) => o.value === filterValues[f.key]);
+      if (opt) rows = rows.filter(opt.test);
+    }
+    if (sortKey) {
+      const col = columns.find((c) => c.key === sortKey);
+      if (col) rows = [...rows].sort((a, b) => compareRows(a, b, col, sortDir));
+    }
+    return rows;
+  }, [data, columns, filters, filterValues, sortKey, sortDir]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -121,6 +205,32 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
         <div className="h-0.5 w-16" style={{ background: CFO.brass }} />
       </div>
 
+      {/* Filter bar — client-side selects (e.g. 납입여부) */}
+      {filters && filters.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          {filters.map((f) => (
+            <label key={f.key} className="flex items-center gap-1.5 text-sm" style={{ color: CFO.muted }}>
+              <span className="text-[11px] font-medium uppercase tracking-wide">{f.label}</span>
+              <select
+                value={filterValues[f.key] ?? ""}
+                onChange={(e) => setFilterValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                className="rounded-md px-2 py-1 text-sm"
+                style={{ border: `1px solid ${CFO.hairline}`, background: "#fff", color: CFO.ink }}
+              >
+                {f.options.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+          <span className="text-xs tabular-nums" style={{ color: CFO.muted }}>
+            {viewData.length}건
+          </span>
+        </div>
+      )}
+
       {error && (
         <p className="text-sm" style={{ color: CFO.outflow }}>
           {error}
@@ -134,14 +244,33 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: `1px solid ${CFO.hairline}`, color: CFO.muted }}>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className="p-3 text-left text-[11px] font-medium uppercase tracking-wide"
-                >
-                  {col.label}
-                </th>
-              ))}
+              {columns.map((col) => {
+                const sortable = col.sortable !== false;
+                const active = sortKey === col.key;
+                return (
+                  <th
+                    key={col.key}
+                    className="p-3 text-left text-[11px] font-medium uppercase tracking-wide"
+                  >
+                    {sortable ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(col)}
+                        className="flex items-center gap-1 uppercase tracking-wide hover:opacity-70"
+                        style={{ color: active ? CFO.ink : "inherit" }}
+                        aria-label={`${col.label} 정렬`}
+                      >
+                        {col.label}
+                        <span aria-hidden="true" className="text-[9px]">
+                          {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+                        </span>
+                      </button>
+                    ) : (
+                      col.label
+                    )}
+                  </th>
+                );
+              })}
               <th className="p-3 text-right text-[11px] font-medium uppercase tracking-wide">
                 관리
               </th>
@@ -158,7 +287,7 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
                   로딩 중...
                 </td>
               </tr>
-            ) : data.length === 0 ? (
+            ) : viewData.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length + 1}
@@ -169,7 +298,7 @@ export default function CrudTable({ title, endpoint, fields, columns }: CrudTabl
                 </td>
               </tr>
             ) : (
-              data.map((row) => (
+              viewData.map((row) => (
                 <tr
                   key={row.id}
                   className="transition-colors"

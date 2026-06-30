@@ -80,6 +80,17 @@ export default function ExpensesPage() {
         endpoint="expenses"
         fields={fields}
         columns={EXPENSE_COLUMNS}
+        filters={[
+          {
+            key: "isPaid",
+            label: "납입여부",
+            options: [
+              { value: "all", label: "전체", test: () => true },
+              { value: "unpaid", label: "미납", test: (row) => !row.isPaid },
+              { value: "paid", label: "납입완료", test: (row) => !!row.isPaid },
+            ],
+          },
+        ]}
       />
     </div>
   );
