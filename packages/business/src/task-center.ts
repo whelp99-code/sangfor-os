@@ -3,24 +3,51 @@ import { z } from "zod";
 
 import { logStateTransition } from "./audit";
 
+export const TASK_STATUSES = ["todo", "doing", "waiting", "done"] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+
+export const TASK_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+/**
+ * Single source of truth for the task state machine.
+ * Forward flow: todo -> doing -> done. `waiting` rejoins the flow at `doing`.
+ * Both the kanban board and the today board derive their "advance" action
+ * from this map so the two views can never diverge again.
+ */
+export const TASK_NEXT_STATUS: Record<TaskStatus, TaskStatus | null> = {
+  todo: "doing",
+  doing: "done",
+  waiting: "doing",
+  done: null,
+};
+
+export function nextTaskStatus(status: string): TaskStatus | null {
+  return TASK_NEXT_STATUS[status as TaskStatus] ?? null;
+}
+
 export const createWorkTaskSchema = z.object({
   projectSlug: z.string().default("demo-project"),
   title: z.string().min(2),
-  status: z.enum(["todo", "doing", "waiting", "done"]).default("todo"),
-  priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
+  status: z.enum(TASK_STATUSES).default("todo"),
+  priority: z.enum(TASK_PRIORITIES).default("normal"),
   dueAt: z.string().datetime().optional(),
   customerId: z.string().optional(),
   partnerId: z.string().optional(),
+  assigneeName: z.string().optional(),
+  engagementId: z.string().optional(),
   source: z.string().default("manual"),
 });
 
 export const updateWorkTaskSchema = z.object({
   title: z.string().min(2).optional(),
-  status: z.enum(["todo", "doing", "waiting", "done"]).optional(),
-  priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+  status: z.enum(TASK_STATUSES).optional(),
+  priority: z.enum(TASK_PRIORITIES).optional(),
   dueAt: z.string().datetime().nullable().optional(),
   customerId: z.string().nullable().optional(),
   partnerId: z.string().nullable().optional(),
+  assigneeName: z.string().nullable().optional(),
+  engagementId: z.string().nullable().optional(),
 });
 
 export const linkTaskSchema = z.object({
@@ -58,6 +85,8 @@ export async function createWorkTask(input: z.infer<typeof createWorkTaskSchema>
       dueAt: parsed.dueAt ? new Date(parsed.dueAt) : undefined,
       customerId: parsed.customerId,
       partnerId: parsed.partnerId,
+      assigneeName: parsed.assigneeName,
+      engagementId: parsed.engagementId,
       source: parsed.source,
     },
   });
@@ -106,7 +135,15 @@ export async function updateWorkTask(taskId: string, input: z.infer<typeof updat
 }
 
 export async function updateWorkTaskStatus(taskId: string, status: string) {
-  return updateWorkTask(taskId, { status: status as "todo" | "doing" | "waiting" | "done" });
+  return updateWorkTask(taskId, { status: status as TaskStatus });
+}
+
+export async function listTasksByEngagement(engagementId: string) {
+  return prisma.workTask.findMany({
+    where: { engagementId },
+    orderBy: [{ priority: "desc" }, { dueAt: "asc" }],
+    include: { customer: true, partner: true, links: true },
+  });
 }
 
 export async function linkTaskToEntity(

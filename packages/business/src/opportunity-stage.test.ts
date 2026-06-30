@@ -4,6 +4,7 @@ import {
   canTransitionOpportunityStage,
   evaluateOpportunityQualification,
   validateOpportunityStageOrder,
+  validateRegistrationGate,
 } from "./opportunity-stage";
 
 describe("opportunity qualification completion", () => {
@@ -129,5 +130,119 @@ describe("validateOpportunityStageOrder", () => {
     expect(validateOpportunityStageOrder("discovery", "qualified")).toEqual({
       allowed: true,
     });
+  });
+});
+
+describe("validateRegistrationGate", () => {
+  it("blocks WON advance when a registration-required deal is REJECTED", () => {
+    expect(
+      validateRegistrationGate({
+        from: "NEGOTIATION",
+        to: "WON",
+        dealType: "NEW_BUILD",
+        regStatus: "REJECTED",
+      }),
+    ).toEqual({ allowed: false, reason: "registration_rejected" });
+  });
+
+  it("blocks NEGOTIATION advance when registration is NOT_SUBMITTED", () => {
+    expect(
+      validateRegistrationGate({
+        from: "POC",
+        to: "NEGOTIATION",
+        dealType: "SIMPLE_RESELL",
+        regStatus: "NOT_SUBMITTED",
+      }),
+    ).toEqual({ allowed: false, reason: "registration_not_submitted" });
+  });
+
+  it("treats a missing registration row as NOT_SUBMITTED (blocks advance)", () => {
+    expect(
+      validateRegistrationGate({
+        from: "POC",
+        to: "NEGOTIATION",
+        dealType: "NEW_BUILD",
+        regStatus: null,
+      }),
+    ).toEqual({ allowed: false, reason: "registration_not_submitted" });
+  });
+
+  it("allows advance when registration is SUBMITTED or APPROVED", () => {
+    expect(
+      validateRegistrationGate({
+        from: "NEGOTIATION",
+        to: "WON",
+        dealType: "NEW_BUILD",
+        regStatus: "SUBMITTED",
+      }),
+    ).toEqual({ allowed: true });
+    expect(
+      validateRegistrationGate({
+        from: "NEGOTIATION",
+        to: "WON",
+        dealType: "NEW_BUILD",
+        regStatus: "APPROVED",
+      }),
+    ).toEqual({ allowed: true });
+  });
+
+  it("does not gate deal types that do not require registration (RENEWAL/UPSELL)", () => {
+    expect(
+      validateRegistrationGate({
+        from: "NEGOTIATION",
+        to: "WON",
+        dealType: "RENEWAL",
+        regStatus: "REJECTED",
+      }),
+    ).toEqual({ allowed: true });
+    expect(
+      validateRegistrationGate({
+        from: "POC",
+        to: "NEGOTIATION",
+        dealType: "UPSELL",
+        regStatus: null,
+      }),
+    ).toEqual({ allowed: true });
+  });
+
+  it("does not gate when dealType is null/undefined", () => {
+    expect(
+      validateRegistrationGate({
+        from: "NEGOTIATION",
+        to: "WON",
+        dealType: null,
+        regStatus: "REJECTED",
+      }),
+    ).toEqual({ allowed: true });
+  });
+
+  it("does not gate moves into non-gated stages (advance to POC)", () => {
+    expect(
+      validateRegistrationGate({
+        from: "PROPOSAL",
+        to: "POC",
+        dealType: "NEW_BUILD",
+        regStatus: "REJECTED",
+      }),
+    ).toEqual({ allowed: true });
+  });
+
+  it("does not gate backward moves or LOST out of a gated stage", () => {
+    expect(
+      validateRegistrationGate({
+        from: "NEGOTIATION",
+        to: "PROPOSAL",
+        dealType: "NEW_BUILD",
+        regStatus: "REJECTED",
+      }),
+    ).toEqual({ allowed: true });
+    expect(
+      validateRegistrationGate({
+        from: "POC",
+        to: "LOST",
+        dealType: "NEW_BUILD",
+        regStatus: "REJECTED",
+      }),
+    ).toEqual({ allowed: true });
   });
 });

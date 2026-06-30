@@ -1,10 +1,12 @@
-import { getProjectHub } from "@sangfor/business";
+import { getProjectHub, listTasksByEngagement } from "@sangfor/business";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CFO } from "@/lib/cfo-theme";
 import { LaneDecisionControls } from "@/components/hub/lane-decision-controls";
 import { LaneGenerateButton } from "@/components/hub/lane-generate-button";
+import { CreateTaskForm } from "@/components/tasks/create-task-form";
+import { TaskBoard } from "@/components/tasks/task-board";
 
 type PageProps = { params: Promise<{ id: string }> };
 const won = (n?: number) => `₩${(n ?? 0).toLocaleString()}`;
@@ -13,7 +15,7 @@ const DOT: Record<string, string> = { done: "●", active: "◐", pending: "○"
 
 export default async function ProjectDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const hub = await getProjectHub(id);
+  const [hub, tasks] = await Promise.all([getProjectHub(id), listTasksByEngagement(id)]);
   if (!hub) notFound();
   const { engagement, lanes, pnl } = hub;
 
@@ -99,6 +101,15 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           </Card>
         ))}
       </div>
+
+      {/* 프로젝트 작업 */}
+      <Card>
+        <CardHeader><CardTitle>작업 ({tasks.length})</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <CreateTaskForm engagementId={id} />
+          <TaskBoard tasks={tasks} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -750,6 +750,8 @@ model WorkTask {
   dueAt        DateTime? @map("due_at")
   customerId   String?   @map("customer_id")
   partnerId    String?   @map("partner_id")
+  assigneeName String?   @map("assignee_name")
+  engagementId String?   @map("engagement_id")
   source       String    @default("manual")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
@@ -761,6 +763,7 @@ model WorkTask {
 
   @@index([projectId, status])
   @@index([projectId, dueAt])
+  @@index([engagementId])
   @@map("work_tasks")
 }
 

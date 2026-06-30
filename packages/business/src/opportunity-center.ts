@@ -8,6 +8,7 @@ import {
   normalizeOpportunityStage,
   nextOpportunityStage,
   validateOpportunityStageOrder,
+  validateRegistrationGate,
 } from "./opportunity-stage";
 
 const stageInput = z
@@ -151,7 +152,10 @@ export async function updateOpportunity(
   input: z.input<typeof updateOpportunitySchema>,
 ) {
   const parsed = updateOpportunitySchema.parse(input);
-  const existing = await prisma.opportunity.findUniqueOrThrow({ where: { id } });
+  const existing = await prisma.opportunity.findUniqueOrThrow({
+    where: { id },
+    include: { dealRegistration: { select: { regStatus: true } } },
+  });
 
   const data: Record<string, unknown> = {};
   if (parsed.title !== undefined) data.title = parsed.title;
@@ -176,6 +180,21 @@ export async function updateOpportunity(
     const order = validateOpportunityStageOrder(existing.stage, newStage);
     if (!order.allowed) {
       throw new Error(`illegal_stage_transition:${order.reason}`);
+    }
+
+    // Deal-registration advance gate: for registration-required deal types,
+    // block forward entry into the late stages (NEGOTIATION/WON) while the
+    // registration is NOT_SUBMITTED or REJECTED. The dealType being set in
+    // this same PATCH takes precedence over the stored value.
+    const effectiveDealType = parsed.dealType ?? existing.dealType;
+    const gate = validateRegistrationGate({
+      from: existing.stage,
+      to: newStage,
+      dealType: effectiveDealType,
+      regStatus: existing.dealRegistration?.regStatus ?? null,
+    });
+    if (!gate.allowed) {
+      throw new Error(`registration_gate:${gate.reason}`);
     }
 
     data.stage = newStage;
@@ -208,10 +227,24 @@ export async function updateOpportunity(
 }
 
 export async function advanceOpportunityStage(id: string) {
-  const opp = await prisma.opportunity.findUniqueOrThrow({ where: { id } });
+  const opp = await prisma.opportunity.findUniqueOrThrow({
+    where: { id },
+    include: { dealRegistration: { select: { regStatus: true } } },
+  });
   const fromStage = normalizeOpportunityStage(opp.stage);
   const next = nextOpportunityStage(opp.stage);
   if (!next) throw new Error("cannot_advance_stage");
+
+  // Same registration advance gate as updateOpportunity.
+  const gate = validateRegistrationGate({
+    from: opp.stage,
+    to: next,
+    dealType: opp.dealType,
+    regStatus: opp.dealRegistration?.regStatus ?? null,
+  });
+  if (!gate.allowed) {
+    throw new Error(`registration_gate:${gate.reason}`);
+  }
 
   const updated = await prisma.opportunity.update({
     where: { id },
