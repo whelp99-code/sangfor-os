@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>딜 등록 관리 보드</title>
+<style>
+  :root{
+    --sf-blue:#0176d3;--sf-blue-d:#014486;--sf-bg:#f3f2f2;--sf-border:#e5e5e5;
+    --sf-text:#181818;--sf-text-weak:#5c5c5c;--sf-green:#2e844a;--sf-amber:#fe9339;
+    --sf-card:#fff;--sf-radius:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",
+    system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--sf-bg);color:var(--sf-text);
+    font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1280px;margin:0 auto;padding:14px 16px 40px}
+  .wrap.wide{max-width:1320px}
+
+  /* topbar */
+  .topbar{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--sf-border);
+    border-radius:var(--sf-radius);padding:8px 14px;margin-bottom:12px}
+  .topbar .logo{width:26px;height:26px;border-radius:6px;background:var(--sf-blue);display:grid;place-items:center;color:#fff;font-weight:800}
+  .topbar nav{display:flex;gap:18px;font-weight:600}
+  .topbar nav a{color:var(--sf-text-weak);text-decoration:none;padding:4px 2px}
+  .topbar nav a.on{color:var(--sf-blue);border-bottom:2px solid var(--sf-blue)}
+  .topbar .search{margin-left:auto;background:var(--sf-bg);border:1px solid var(--sf-border);border-radius:20px;padding:6px 14px;color:#9a9a9a;width:230px}
+  .topbar .ava{width:28px;height:28px;border-radius:50%;background:#d8b4fe;display:grid;place-items:center;font-weight:700;color:#5b21b6}
+
+  /* buttons */
+  .btn{border:1px solid #c9c9c9;background:#fff;color:#0b5cab;border-radius:6px;padding:6px 13px;font-weight:700;font-size:12px;cursor:pointer}
+  .btn.pri{background:var(--sf-blue);border-color:var(--sf-blue);color:#fff}
+  .btn.sm{padding:4px 10px;font-size:11px}
+
+  /* panel / card */
+  .panel{background:var(--sf-card);border:1px solid var(--sf-border);border-radius:var(--sf-radius)}
+  .panel .h{padding:12px 14px;border-bottom:1px solid var(--sf-border);font-weight:800;font-size:13px;display:flex;align-items:center;gap:7px}
+  .panel .body{padding:12px 14px}
+  .section-pad{padding:14px 18px}
+
+  /* highlights (record header) */
+  .hl{background:var(--sf-card);border:1px solid var(--sf-border);border-radius:var(--sf-radius);padding:14px 18px;margin-bottom:12px}
+  .hl-top{display:flex;align-items:flex-start;gap:12px}
+  .hl-ico{width:40px;height:40px;border-radius:8px;background:#d4a017;display:grid;place-items:center;color:#fff;font-size:20px;flex:none}
+  .hl-name{flex:1;min-width:0}
+  .hl-kind{font-size:11px;color:var(--sf-text-weak);text-transform:uppercase;letter-spacing:.04em}
+  .hl-name h1{font-size:20px;font-weight:800;letter-spacing:-.01em;margin-top:1px}
+  .hl-actions{display:flex;gap:8px;flex:none}
+
+  /* channel chain + deal-reg badge */
+  .chain{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 4px;font-weight:700;font-size:12px}
+  .chain .node{background:var(--sf-bg);border:1px solid var(--sf-border);border-radius:14px;padding:4px 11px}
+  .chain .node.me{background:#e8f3fc;border-color:#b6dbf6;color:var(--sf-blue-d)}
+  .chain .node.cust{background:#eafaf0;border-color:#bfe6cd;color:#1d6b39}
+  .chain .arr{color:#b0b0b0}
+  .chain .reg{margin-left:auto;background:#fff4e6;border:1px solid #ffd8a8;color:#c4690a;border-radius:14px;padding:4px 11px;display:flex;align-items:center;gap:5px}
+
+  /* key fields row */
+  .kf{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;margin-top:12px;border-top:1px solid #f0f0f0;padding-top:11px}
+  .kf .c .l{font-size:11px;color:var(--sf-text-weak)}
+  .kf .c .v{font-weight:700;margin-top:2px}
+
+  /* stage path (chevrons) */
+  .pathwrap{background:var(--sf-card);border:1px solid var(--sf-border);border-radius:var(--sf-radius);margin-bottom:12px;overflow:hidden}
+  .path{display:flex;list-style:none}
+  .path li{position:relative;flex:1;height:42px;display:grid;place-items:center;font-weight:700;font-size:12px;background:#e9eaec;color:#7a7a7a;
+    clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%,16px 50%);margin-right:-10px}
+  .path li:first-child{clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%)}
+  .path li.done{background:#cfe8d6;color:#1d6b39}
+  .path li.cur{background:var(--sf-blue);color:#fff}
+  .path li.lost{background:#fdecec;color:#b42318}
+
+  /* stage guide */
+  .guide{padding:14px 18px 0}
+  .guide-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .guide-head .tag{background:#e8f3fc;color:var(--sf-blue-d);border-radius:5px;padding:2px 9px;font-weight:800;font-size:11px}
+  .guide-head .crit{color:var(--sf-text-weak);font-size:12px}
+  .guide-head .crit b{color:#1d6b39}
+  .guide-head .mark{margin-left:auto}
+  .checks{display:grid;grid-template-columns:1fr 1fr;gap:8px 26px}
+  .chk{display:flex;align-items:center;gap:9px;color:#2a2a2a}
+  .chk .box{width:15px;height:15px;border:1.5px solid #b9b9b9;border-radius:3px;flex:none}
+  .chk.ok .box{background:var(--sf-green);border-color:var(--sf-green);position:relative}
+  .chk.ok .box::after{content:"✓";color:#fff;font-size:11px;position:absolute;left:2px;top:-2px}
+  .chk.ok{color:#7a7a7a;text-decoration:line-through;text-decoration-color:#cfcfcf}
+
+  /* tabs */
+  .tabsbar{background:var(--sf-card);border:1px solid var(--sf-border);border-bottom:0;border-radius:var(--sf-radius) var(--sf-radius) 0 0;display:flex;gap:2px;padding:0 8px}
+  .tabsbar .t{padding:12px 15px;font-weight:700;color:var(--sf-text-weak);cursor:pointer;border-bottom:2px solid transparent}
+  .tabsbar .t.on{color:var(--sf-blue);border-bottom-color:var(--sf-blue)}
+  .undertabs{background:var(--sf-card);border:1px solid var(--sf-border);border-radius:0 0 var(--sf-radius) var(--sf-radius)}
+
+  /* body grid w/ right rail */
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:12px;align-items:start}
+
+  /* work area / document */
+  .work{padding:16px 18px}
+  .work .doc-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .work .doc-title h3{font-size:15px;font-weight:800}
+  .toolbar2{display:flex;gap:6px;border:1px solid var(--sf-border);border-radius:6px;padding:6px;margin-bottom:10px;flex-wrap:wrap}
+  .toolbar2 .ti{padding:4px 9px;border-radius:5px;font-weight:700;font-size:12px;color:#444;cursor:pointer}
+  .field{margin-bottom:14px}
+  .field .l{font-size:11px;color:var(--sf-text-weak);margin-bottom:4px}
+  .field .area{border:1px solid var(--sf-border);border-radius:6px;padding:11px 13px;background:#fcfcfc;min-height:78px;color:#2a2a2a}
+  .field .area.tall{min-height:200px}
+  .field .area .ph{color:#b3b3b3}
+  .metricbar{display:flex;gap:10px}
+  .metricbar .m{flex:1;background:#f7fbff;border:1px solid #d6eafc;border-radius:6px;padding:10px 12px}
+  .metricbar .m .n{font-size:18px;font-weight:800;color:var(--sf-blue-d)}
+  .metricbar .m .k{font-size:11px;color:var(--sf-text-weak)}
+
+  /* detail sections (label/value/edit rows) */
+  .det-head{display:flex;align-items:center;justify-content:space-between;padding:12px 18px 6px}
+  .det-head .hint{font-size:11px;color:#9a9a9a}
+  .sec{padding:8px 18px 4px}
+  .sec-t{font-weight:800;color:#3a3a3a;font-size:12px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #eee;padding-bottom:7px;margin:10px 0 4px;display:flex;align-items:center;gap:7px}
+  .sec-t .ic{color:var(--sf-blue)}
+  .fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 28px}
+  .fields.two{grid-template-columns:1fr 1fr}
+  .fl{padding:9px 6px;border-bottom:1px solid #f4f4f4;position:relative;cursor:text}
+  .fl .l{font-size:11px;color:var(--sf-text-weak);margin-bottom:3px}
+  .fl .v{font-weight:700;color:#1a1a1a;min-height:18px}
+  .fl .v.link{color:var(--sf-blue)}
+  .fl .pencil{position:absolute;right:6px;top:9px;color:#c4c4c4;font-size:12px;opacity:0}
+  .fl:hover{background:#fafcff}
+  .fl:hover .pencil{opacity:1}
+  .fl.editing{background:#f4f9ff;outline:1px solid #b6dbf6;border-radius:6px}
+  .fl.editing input,.fl.editing select{width:100%;border:1px solid var(--sf-blue);border-radius:5px;padding:6px 8px;font:inherit;font-weight:700}
+  .editrow{display:flex;gap:6px;margin-top:6px}
+  .editrow .mini{font-size:11px;font-weight:700;border-radius:5px;padding:4px 10px;cursor:pointer}
+  .editrow .mini.y{background:var(--sf-blue);color:#fff;border:1px solid var(--sf-blue)}
+  .editrow .mini.n{background:#fff;color:#555;border:1px solid #ccc}
+  .add{color:var(--sf-blue);font-size:11px;font-weight:700;cursor:pointer;padding:8px 6px;display:inline-block}
+
+  /* form grid (create/edit screens) */
+  .form{padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:14px 26px}
+  .form .full{grid-column:1 / -1}
+  .form label{display:block;font-size:11px;color:var(--sf-text-weak);margin-bottom:4px;font-weight:600}
+  .form input,.form select,.form textarea{width:100%;border:1px solid var(--sf-border);border-radius:6px;padding:8px 10px;font:inherit}
+  .form input:focus,.form select:focus{outline:2px solid #b6dbf6;border-color:var(--sf-blue)}
+
+  /* pills / badges */
+  .pill{display:inline-block;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700}
+  .pill.ok{background:#eafaf0;color:#1d6b39}
+  .pill.warn{background:#fff4e6;color:#c4690a}
+  .pill.risk{background:#fdecec;color:#b42318}
+  .pill.todo{background:#f0f0f0;color:#777}
+  .pill.info{background:#e8f3fc;color:var(--sf-blue-d)}
+
+  /* checklist rows (PoC / delivery) */
+  .clist{display:flex;flex-direction:column}
+  .citem{display:flex;align-items:center;gap:11px;padding:11px 4px;border-bottom:1px solid #f2f2f2}
+  .citem .cb{width:16px;height:16px;border:1.5px solid #b9b9b9;border-radius:4px;flex:none}
+  .citem.done .cb{background:var(--sf-green);border-color:var(--sf-green)}
+  .citem.done .nm{color:#8a8a8a;text-decoration:line-through;text-decoration-color:#d3d3d3}
+  .citem .nm{flex:1;font-weight:600}
+  .citem .meta{font-size:11px;color:var(--sf-text-weak)}
+
+  /* list-view table */
+  .lh{background:var(--sf-card);border:1px solid var(--sf-border);border-radius:var(--sf-radius) var(--sf-radius) 0 0;border-bottom:0;padding:12px 16px}
+  .lh-top{display:flex;align-items:center;gap:10px}
+  .lh-ico{width:34px;height:34px;border-radius:8px;background:#5a3ec8;display:grid;place-items:center;color:#fff;font-size:17px}
+  .lh-top h1{font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .lh-top .cnt{color:var(--sf-text-weak);font-weight:500;font-size:12px}
+  .lh-top .sp{margin-left:auto;display:flex;gap:8px}
+  .toolbar{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .chip{background:var(--sf-bg);border:1px solid var(--sf-border);border-radius:16px;padding:5px 12px;font-weight:700;font-size:12px;color:#444;cursor:pointer}
+  .chip.on{background:#e8f3fc;border-color:#b6dbf6;color:var(--sf-blue-d)}
+  .toolbar .right{margin-left:auto;color:#9a9a9a;font-size:12px;display:flex;gap:12px}
+  .tablecard{background:var(--sf-card);border:1px solid var(--sf-border);border-radius:0 0 var(--sf-radius) var(--sf-radius);overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  thead th{position:sticky;top:0;background:#fafafa;border-bottom:1px solid var(--sf-border);text-align:left;padding:10px 12px;font-weight:700;color:#5c5c5c;white-space:nowrap;font-size:11.5px}
+  thead th.num{text-align:right}
+  tbody td{padding:10px 12px;border-bottom:1px solid #f1f1f1;white-space:nowrap;vertical-align:middle}
+  tbody tr:hover{background:#f7fbff}
+  tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .pid{color:var(--sf-blue);font-weight:800;font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:12px}
+  .name{font-weight:700;color:#1a1a1a}
+  .sub{color:#8a8a8a;font-size:11px;margin-top:1px}
+  .cust{color:var(--sf-blue)}
+  .chk-cell{width:14px;height:14px;border:1.5px solid #c4c4c4;border-radius:3px;display:inline-block}
+  .rowact{color:#b9b9b9;cursor:pointer;font-weight:800}
+  td.editing{background:#f4f9ff;outline:1px solid #b6dbf6}
+  td.editing input{width:84px;border:1px solid var(--sf-blue);border-radius:4px;padding:3px 5px;font:inherit;font-weight:700}
+  /* mini stage pips */
+  .stage{display:flex;align-items:center;gap:7px}
+  .pips{display:flex;gap:3px}
+  .pip{width:7px;height:7px;border-radius:50%;background:#e0e0e0}
+  .pip.done{background:#9fd3ad}.pip.cur{background:var(--sf-blue);box-shadow:0 0 0 2px #cfe6fb}
+  .stage .lbl{font-weight:700;font-size:11.5px}.stage .lbl.cur{color:var(--sf-blue-d)}
+
+  /* right rail: AI + timeline */
+  .rail{display:flex;flex-direction:column;gap:12px}
+  .ai .h{color:var(--sf-blue-d)}
+  .sugg{background:#f4f9ff;border:1px solid #d6eafc;border-radius:8px;padding:11px 12px}
+  .sugg p{color:#274b6b;font-weight:600;margin-bottom:8px}
+  .sugg .row{display:flex;gap:7px}
+  .sugg .s{font-size:11px;font-weight:700;border-radius:5px;padding:4px 10px;cursor:pointer}
+  .sugg .s.y{background:var(--sf-blue);color:#fff;border:1px solid var(--sf-blue)}
+  .sugg .s.n{background:#fff;color:var(--sf-blue-d);border:1px solid #b6dbf6}
+  .ai .note{font-size:11px;color:#9a9a9a;text-align:center}
+  .ev{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #f2f2f2}
+  .ev:last-child{border-bottom:0}
+  .ev .dot{width:9px;height:9px;border-radius:50%;background:var(--sf-blue);margin-top:4px;flex:none}
+  .ev .dot.g{background:#cfcfcf}
+  .ev .tx .t1{font-weight:700}.ev .tx .t2{font-size:11px;color:var(--sf-text-weak)}
+
+  /* kanban board (deal-reg / pipeline) */
+  .board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(190px,1fr);gap:10px;overflow-x:auto}
+  .col{background:#f7f7f8;border:1px solid var(--sf-border);border-radius:8px;padding:8px}
+  .col .ch{font-weight:800;font-size:12px;padding:4px 6px 8px;display:flex;justify-content:space-between;color:#444}
+  .kcard{background:#fff;border:1px solid var(--sf-border);border-radius:7px;padding:9px 10px;margin-bottom:8px}
+  .kcard .knm{font-weight:700}.kcard .ksub{font-size:11px;color:var(--sf-text-weak);margin-top:2px}
+
+  /* dashboard KPI cards */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+  .kpi{background:var(--sf-card);border:1px solid var(--sf-border);border-radius:var(--sf-radius);padding:14px 16px}
+  .kpi .k{font-size:11px;color:var(--sf-text-weak)}
+  .kpi .n{font-size:24px;font-weight:800;margin-top:4px}
+  .kpi .d{font-size:11px;margin-top:3px}
+  .funnel{display:flex;gap:6px;align-items:flex-end;height:120px}
+  .funnel .bar{flex:1;background:#e8f3fc;border:1px solid #b6dbf6;border-radius:6px 6px 0 0;display:flex;align-items:flex-end;justify-content:center;color:var(--sf-blue-d);font-weight:800;font-size:12px;padding-bottom:4px}
+
+  /* app shell (sidebar mock) */
+  .shell{display:grid;grid-template-columns:236px 1fr;gap:0;min-height:90vh;border:1px solid var(--sf-border);border-radius:var(--sf-radius);overflow:hidden;background:#fff}
+  .sidebar{background:#fafafa;border-right:1px solid var(--sf-border);padding:12px 10px}
+  .sidebar .brand{display:flex;align-items:center;gap:9px;font-weight:800;padding:6px 8px 14px}
+  .navgrp{font-size:10.5px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.04em;padding:12px 8px 4px}
+  .navit{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;color:#3a3a3a;font-weight:600;font-size:12.5px}
+  .navit.on{background:#e8f3fc;color:var(--sf-blue-d)}
+  .navit .ico{width:15px;color:#8a8a8a}
+  .more{color:#8a8a8a;font-weight:700;font-size:12px;padding:9px;cursor:pointer}
+  .content{padding:14px 16px;background:var(--sf-bg)}
+
+  .legend{text-align:center;color:#9a9a9a;font-size:11px;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap wide">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="logo">S</div>
+    <nav>
+      <a href="#">홈</a>
+      <a href="#">딜</a>
+      <a href="#">회사</a>
+      <a href="#">연락처</a>
+      <a href="#" class="on">더보기</a>
+    </nav>
+    <div class="search">검색…</div>
+    <div class="ava">박</div>
+  </div>
+
+  <!-- List header -->
+  <div class="lh">
+    <div class="lh-top">
+      <div class="lh-ico">📋</div>
+      <h1>
+        딜 등록 관리
+        <span class="cnt">· 보호 만료 임박 3건</span>
+      </h1>
+      <div class="sp">
+        <button class="btn pri">+ 등록 요청(총판)</button>
+        <button class="btn">내보내기</button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <span class="chip on">딜등록</span>
+      <span class="chip">보호중</span>
+      <span class="chip">만료임박</span>
+      <span class="chip">전체 보기</span>
+      <div class="right">
+        <span style="color:#b42318;font-weight:700;">딜 등록은 총판이 대행. 거절·만료·충돌은 즉시 대응 필요 (빨강).</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kanban Board -->
+  <div style="background:var(--sf-card);border:1px solid var(--sf-border);border-top:0;border-radius:0 0 var(--sf-radius) var(--sf-radius);padding:14px;">
+    <div class="board">
+
+      <!-- 미제출 -->
+      <div class="col">
+        <div class="ch">
+          <span>미제출</span>
+          <span>1</span>
+        </div>
+        <div class="kcard">
+          <div class="knm">●●물류 IAG</div>
+          <div class="ksub">
+            ●●물류 · ○○테크<br>
+            <span class="pill risk" style="margin-top:4px;display:inline-block;">미등록</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 제출 -->
+      <div class="col">
+        <div class="ch">
+          <span>제출</span>
+          <span>1</span>
+        </div>
+        <div class="kcard">
+          <div class="knm">△△대학 HCI</div>
+          <div class="ksub">
+            △△대학 · ○○테크<br>
+            <span class="pill warn" style="margin-top:4px;display:inline-block;">검토중</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 승인(보호중) -->
+      <div class="col">
+        <div class="ch">
+          <span>승인(보호중)</span>
+          <span>2</span>
+        </div>
+        <div class="kcard">
+          <div class="knm">○○은행 차세대 방화벽</div>
+          <div class="ksub">
+            ○○은행 · ○○테크<br>
+            <span class="pill ok" style="margin-top:4px;display:inline-block;">D-45</span>
+          </div>
+        </div>
+        <div class="kcard">
+          <div class="knm">◎◎공사 엔드포인트</div>
+          <div class="ksub">
+            ◎◎공사 · ○○테크<br>
+            <span class="pill ok" style="margin-top:4px;display:inline-block;">D-20</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 거절 -->
+      <div class="col">
+        <div class="ch">
+          <span>거절</span>
+          <span>1</span>
+        </div>
+        <div class="kcard">
+          <div class="knm">××반도체 NGAF</div>
+          <div class="ksub">
+            ××반도체 · ○○테크<br>
+            <span class="pill risk" style="margin-top:4px;display:inline-block;">이미 등록된 계정</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 만료 -->
+      <div class="col">
+        <div class="ch">
+          <span>만료</span>
+          <span>1</span>
+        </div>
+        <div class="kcard">
+          <div class="knm">☆☆카드 IAG</div>
+          <div class="ksub">
+            ☆☆카드 · ○○테크<br>
+            <span class="pill risk" style="margin-top:4px;display:inline-block;">D-0 만료, 갱신 필요</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 충돌 -->
+      <div class="col">
+        <div class="ch">
+          <span>충돌</span>
+          <span>1</span>
+        </div>
+        <div class="kcard">
+          <div class="knm">◇◇그룹 HCI</div>
+          <div class="ksub">
+            ◇◇그룹 · ○○테크<br>
+            <span class="pill risk" style="margin-top:4px;display:inline-block;">타 파트너 선등록</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="legend">시안 · 딜등록 보드</div>
+
+</div>
+</body>
+</html>
