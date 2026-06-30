@@ -80,6 +80,16 @@ export default async function DealDetailPage({ params }: PageProps) {
       }
     : null;
 
+  // Serialize checklist items for the DeliveryWorkPanel (crosses RSC boundary).
+  const deliveryChecklistItems = existingEngagement
+    ? existingEngagement.checklistItems.map((item) => ({
+        id: item.id,
+        itemKey: item.itemKey,
+        status: item.status,
+        completedAt: item.completedAt ? item.completedAt.toISOString() : null,
+      }))
+    : [];
+
   const stage = normalizeOpportunityStage(opportunity.stage);
   const enrichedLinks = await enrichOpportunityLinks(opportunity.links);
   const customerOptions = customers.map((c) => ({ id: c.id, label: c.name }));
@@ -210,6 +220,11 @@ export default async function DealDetailPage({ params }: PageProps) {
               engagement: winEngagement,
               amount: opportunity.amount?.toString() ?? null,
               distributorName,
+            }}
+            delivery={{
+              engagementId: existingEngagement?.id ?? null,
+              opportunityId: opportunity.id,
+              checklistItems: deliveryChecklistItems,
             }}
           />
           <PortalOrchestratorRunPanel

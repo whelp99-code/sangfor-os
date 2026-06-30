@@ -1,4 +1,4 @@
-import { FileText, Package } from "lucide-react";
+import { FileText } from "lucide-react";
 
 import { stageDisplay } from "@/components/deals/stage-meta";
 import {
@@ -21,6 +21,10 @@ import {
   WinWorkPanel,
   type EngagementSummary,
 } from "@/components/deals/work-panels/win-work-panel";
+import {
+  DeliveryWorkPanel,
+  type DeliveryData,
+} from "@/components/deals/work-panels/delivery-work-panel";
 import { Card, CardContent } from "@/components/ui/card";
 
 // ---------------------------------------------------------------------------
@@ -52,10 +56,12 @@ type DealWorkTabProps = {
     amount: string | null;
     distributorName: string | null;
   };
+  /** Stage ⑥ data: delivery checklist + engagement reference. */
+  delivery: DeliveryData;
 };
 
 // ---------------------------------------------------------------------------
-// Placeholder stage card (stages 4–6; filled in Tasks 5.3–5.5)
+// Placeholder stage card (fallback for unmapped stages)
 // ---------------------------------------------------------------------------
 type PlaceholderStageCardProps = {
   label: string;
@@ -82,14 +88,12 @@ function PlaceholderStageCard({ label, icon }: PlaceholderStageCardProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Per-stage panel map (stages 4–6 as labeled placeholders)
+// Per-stage panel map (all stages 1–6 are now implemented; no placeholders remain)
 // ---------------------------------------------------------------------------
 const PLACEHOLDER_STAGES: Record<
   number,
   { label: string; icon: React.ReactNode }
-> = {
-  6: { label: "⑥ 딜리버리", icon: <Package className="size-5" aria-hidden="true" /> },
-};
+> = {};
 
 // ---------------------------------------------------------------------------
 // DealWorkTab — per-stage work-surface router
@@ -111,6 +115,7 @@ export function DealWorkTab({
   pocProjectsWithResults,
   bid,
   win,
+  delivery,
 }: DealWorkTabProps) {
   const { idx } = stageDisplay(opportunity.stage);
 
@@ -151,6 +156,16 @@ export function DealWorkTab({
         engagement={win.engagement}
         amount={win.amount}
         distributorName={win.distributorName}
+      />
+    );
+  }
+
+  if (idx === 6) {
+    return (
+      <DeliveryWorkPanel
+        engagementId={delivery.engagementId}
+        opportunityId={delivery.opportunityId}
+        checklistItems={delivery.checklistItems}
       />
     );
   }
