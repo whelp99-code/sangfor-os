@@ -43,7 +43,14 @@ export const DEDUCTIBLE_PROOF_TYPES = [
 export class VatService {
   getPeriodBounds(year: number, half: 1 | 2): { start: Date; end: Date; deadline: Date } {
     const start = new Date(year, half === 1 ? 0 : 6, 1);
-    const end = new Date(year, half === 1 ? 5 : 11, 31, 23, 59, 59);
+    // 반기 종료일은 "다음 달의 0일" = 직전 달 말일로 잡는다. H1은 (year,6,0)=6/30,
+    // H2는 (year+1,0,0)=12/31. 과거에 (year,5,31)로 잡았는데 6월은 30일까지뿐이라
+    // JS가 7/1로 롤오버되어(라이브 endDate:2026-07-01) 6/30 매출이 H2로 새던 버그가
+    // 있었다. "다음 달 0일" 방식은 월별 말일 차이에 안전하다.
+    const end =
+      half === 1
+        ? new Date(year, 6, 0, 23, 59, 59)
+        : new Date(year + 1, 0, 0, 23, 59, 59);
     const deadlineYear = half === 1 ? year : year + 1;
     const deadlineMonth = half === 1 ? 6 : 0;
     const deadline = new Date(deadlineYear, deadlineMonth, 25, 23, 59, 59);
@@ -99,6 +106,10 @@ export class VatService {
       salesCount: salesTaxInvoices.length + additionalInvoices.length,
       purchaseSupply: totalPurchaseSupply, purchaseVat: totalPurchaseVat,
       purchaseCount: purchaseTaxInvoices.length + additionalExpenses.length,
+      // 카드매출 미지원: finance_invoices에 결제수단(payment_method) 컬럼이 없어
+      // 카드 분 매출을 식별할 데이터가 없다. 거짓 0(실제 카드매출이 0이라는 의미)이
+      // 아니라 "집계 불가"라는 뜻이므로, 스키마에 결제수단이 추가되면 실집계로 교체할 것.
+      // TODO(oma-deferred): finance_invoices.payment_method 추가 시 카드매출 실집계.
       cardSalesSupply: 0, cardSalesCount: 0,
       cardPurchaseSupply: additionalPurchaseSupply, cardPurchaseCount: additionalExpenses.length,
       payableVat, refundableVat, filingDeadline: deadline, matched, unmatched: Math.max(0, unmatched),

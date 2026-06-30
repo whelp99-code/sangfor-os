@@ -1,5 +1,7 @@
 import { prisma } from '@sangfor/db';
 
+import { outstandingAmount as computeOutstanding } from './finance-amounts';
+
 export class MonthCloseService {
   async runChecklist(year: number, month: number) {
     const start = new Date(year, month - 1, 1);
@@ -13,23 +15,26 @@ export class MonthCloseService {
       where: { depositStatus: { notIn: ['완료', '취소'] } },
     });
 
-    const outstanding = await prisma.invoice.aggregate({
+    // 미수금 SSOT: Σ(total - depositAmount) for 미완료. dashboard와 동일 값.
+    const outstandingInvoices = await prisma.invoice.findMany({
       where: { depositStatus: { not: '완료' } },
-      _sum: { amount: true, vat: true },
+      select: { total: true, depositAmount: true, depositStatus: true },
     });
+    const outstanding = computeOutstanding(outstandingInvoices);
 
     const totalRevenue = await prisma.invoice.aggregate({
       where: { depositDate: { gte: start, lte: end }, depositStatus: '완료' },
-      _sum: { amount: true, vat: true },
+      _sum: { amount: true },
     });
 
     const totalExpense = await prisma.expense.aggregate({
       where: { date: { gte: start, lte: end }, isPaid: true },
-      _sum: { amount: true, vat: true },
+      _sum: { amount: true },
     });
 
-    const revenue = (totalRevenue._sum.amount ?? 0) + (totalRevenue._sum.vat ?? 0);
-    const expense = (totalExpense._sum.amount ?? 0) + (totalExpense._sum.vat ?? 0);
+    // 매출·비용 모두 공급가(amount) 기준으로 통일 (dashboard KPI와 일치).
+    const revenue = totalRevenue._sum.amount ?? 0;
+    const expense = totalExpense._sum.amount ?? 0;
     const netIncome = revenue - expense;
 
     const items = [
@@ -47,7 +52,7 @@ export class MonthCloseService {
         totalExpense: Math.round(expense),
         netIncome: Math.round(netIncome),
         uncategorizedCount: uncategorizedExpenses,
-        outstandingAmount: Math.round((outstanding._sum.amount ?? 0) + (outstanding._sum.vat ?? 0)),
+        outstandingAmount: outstanding,
       },
     };
   }

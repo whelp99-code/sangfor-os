@@ -47,6 +47,28 @@ function date(q: any) {
   return q ? new Date(q) : undefined;
 }
 
+// 400을 일반 메시지로 던지는 클라이언트 입력 오류. ok()가 그대로 4xx body로 노출하므로
+// Prisma/스택 누출 없이 사용자향 메시지만 전달된다.
+export class BadRequestError extends Error {}
+
+/** VAT 등에서 year를 정수로 강제. NaN이면 400 (예: year=abc가 Prisma 스택을 노출하던 문제 차단). */
+export function requireYear(raw: any): number {
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1900 || n > 9999) {
+    throw new BadRequestError('year는 유효한 연도여야 합니다');
+  }
+  return n;
+}
+
+/** 부가세 반기(half)는 1 또는 2만 허용. 그 외(half=3 등)는 400. */
+export function requireHalf(raw: any): 1 | 2 {
+  const n = Number(raw);
+  if (n !== 1 && n !== 2) {
+    throw new BadRequestError('half는 1 또는 2여야 합니다');
+  }
+  return n as 1 | 2;
+}
+
 // Dashboard
 router.get('/dashboard/kpi', ok((req: any) => {
   const now = new Date();
@@ -116,9 +138,9 @@ router.post('/month-close/:year/:month/start', ok((req: any) => monthClose.start
 router.post('/month-close/:year/:month/complete', ok((req: any) => monthClose.complete(Number(req.params.year), Number(req.params.month))));
 
 // VAT
-router.get('/vat/calculate', ok((req: any) => vat.calculateVat(Number(q(req, 'year')), Number(q(req, 'half')) as 1 | 2)));
+router.get('/vat/calculate', ok((req: any) => vat.calculateVat(requireYear(q(req, 'year')), requireHalf(q(req, 'half')))));
 router.post('/vat/income-tax', ok((req: any) => vat.calculateIncomeTax(req.body?.taxableBase ?? 0)));
-router.get('/vat/periods', ok((req: any) => vat.getPeriodBounds(Number(q(req, 'year')), Number(q(req, 'half')) as 1 | 2)));
+router.get('/vat/periods', ok((req: any) => vat.getPeriodBounds(requireYear(q(req, 'year')), requireHalf(q(req, 'half')))));
 
 // Popbill
 router.get('/popbill/status', ok(() => popbill.checkStatus()));
