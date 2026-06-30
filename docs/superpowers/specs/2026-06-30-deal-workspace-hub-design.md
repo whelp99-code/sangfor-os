@@ -78,10 +78,12 @@ There are **four** things called/used as "project": `Project` (AI tenant), `Oppo
 - **The deal aggregate = `Opportunity`** (its `id` is the technical spine everything hangs off).
   Add `code` (PRJ-YYYY-NNNN, the user-facing "Project ID"), `ownerId`, `dealStatus`,
   `lostReason`, `dealType`, `distributorId`.
-- **Route + label**: the new deal list ships at **`/deals`**; the existing **`/projects`
-  stays the Engagement delivery hub** (just shipped in `feat(hub)` — do not break it). UI label
-  for the deal entity = **"딜"**. The word/route "Project" is reserved for the tenant.
-  *(User decision pending — see §9 D5. Default = this.)*
+- **Route + label (DECIDED = option C, sequenced convergence):** the new deal list ships at
+  **`/deals`** (label "딜") in Slice 1 so nothing breaks; `/projects` stays the Engagement
+  delivery hub for now. **Later (Slice 5)** the Engagement hub is absorbed into the deal's
+  ⑥딜리버리 tab, freeing `/projects` — at which point the deal home **reclaims `/projects` and
+  the label "프로젝트"** (the user's mental model: 프로젝트 = the whole deal lifecycle = Opportunity).
+  This gets safety now + the user's language at convergence, without an either/or.
 - **`Opportunity.projectId` is a non-nullable FK to the AI tenant `Project`.** New-deal
   creation MUST resolve a tenant id — transitionally `MOCK_PROJECTS[0].id` / session context.
   Documented as a named assumption, not discovered at runtime.
@@ -129,12 +131,15 @@ v1's "MVP" was 4 features bundled = the exact drift pattern. Re-cut:
 - **Slice 3:** Path + 단계 가이드 (advisory) on the workspace; StageEvent writes.
 - **Slice 4:** `DealRegistration` model + channel badges + SPR. Distributor enum.
 - **Slice 5+:** wire each stage tab to existing PocProject/Engagement/Quote screens, one at a
-  time. Reintegrate the Phase-3 AI domain hub as the ⑥딜리버리 tab (red-team: avoid orphaning).
+  time. **Absorb** the Phase-3 AI domain hub (today's `/projects` Engagement hub) into the
+  ⑥딜리버리 tab (red-team: avoid orphaning). Once `/projects` is free, **reclaim it as the deal
+  home and relabel "프로젝트"**, merging `/deals` into it (convergence per §5 decision C).
 
 ## 9. Open decisions (resolve at the stated slice)
 
-- **D-route/label (blocking Slice 1):** new deal list at `/deals`, `/projects` stays Engagement
-  hub, entity label "딜". **Needs user OK.** (Default = yes.)
+- **D-route/label — RESOLVED (option C):** Slice 1 deal list at `/deals` (label "딜");
+  Slice 5 absorbs the Engagement hub into ⑥딜리버리 and reclaims `/projects` as the deal home
+  relabeled "프로젝트". Safe start, converges to the user's language. No longer open.
 - **D-enum (blocking Slice 3):** keep 7-value enum + label map; defer any real remap. Mapping
   for a future remap: LEAD/QUALIFIED/PROPOSAL→①, POC→②, NEGOTIATION→④, WON→⑤, LOST→status.
 - **D-tenant (blocking Slice 1):** `Opportunity.projectId` filled from `MOCK_PROJECTS[0]`/session.
