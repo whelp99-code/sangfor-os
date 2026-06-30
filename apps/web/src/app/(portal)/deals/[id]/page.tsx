@@ -21,6 +21,7 @@ import { MailEvidenceCard } from "@/components/mail-candidates/mail-evidence-car
 import { AdvanceOpportunityButton } from "@/components/opportunities/advance-button";
 import { ConvertToProjectButton } from "@/components/opportunities/convert-to-project-button";
 import { DealRecordHeader, DealStagePath } from "@/components/deals/deal-record-header";
+import { DealDetail } from "@/components/deals/deal-detail";
 import { EditOpportunityForm } from "@/components/opportunities/edit-opportunity-form";
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,6 +76,7 @@ export default async function DealDetailPage({ params }: PageProps) {
         sourceEntityId={opportunity.id}
       />
       <MailEvidenceCard evidence={mailEvidence} />
+      <DealDetail opportunity={opportunity} />
       <Card>
         <CardHeader><CardTitle>Edit opportunity</CardTitle></CardHeader>
         <CardContent>
