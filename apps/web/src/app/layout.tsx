@@ -17,9 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Automation Work Portal",
-  description:
-    "AI업무포탈 with an embedded development automation kernel.",
+  title: "AI 업무 포털",
+  description: "내장형 자동화 커널을 갖춘 AI 업무 포털",
 };
 
 export default function RootLayout({

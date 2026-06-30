@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { proposalTemplateLabel } from "@/lib/proposal-template-labels";
 
 type Option = { id: string; label: string };
 
@@ -54,47 +55,71 @@ export function GenerateProposalForm({
       router.push(`/proposals/${data.document.id}`);
       router.refresh();
     } else {
-      setMessage(data.error ?? "Generation failed");
+      setMessage(data.error ?? "제안서 생성에 실패했습니다.");
     }
   }
 
   return (
     <form className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" onSubmit={onSubmit}>
-      <Input placeholder="Document title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+      <Input
+        aria-label="문서 제목"
+        placeholder="문서 제목"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        required
+      />
       <select
+        aria-label="템플릿"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={templateKey}
         onChange={(e) => setTemplateKey(e.target.value)}
       >
         {PROPOSAL_TEMPLATE_KEYS.map((k) => (
-          <option key={k} value={k}>{k}</option>
+          <option key={k} value={k}>{proposalTemplateLabel(k)}</option>
         ))}
       </select>
       <select
+        aria-label="고객사 (선택)"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={customerId}
         onChange={(e) => setCustomerId(e.target.value)}
       >
-        <option value="">Customer (optional)</option>
+        <option value="">고객사 (선택)</option>
         {customers.map((c) => (
           <option key={c.id} value={c.id}>{c.label}</option>
         ))}
       </select>
       <select
+        aria-label="PoC (선택)"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={pocProjectId}
         onChange={(e) => setPocProjectId(e.target.value)}
       >
-        <option value="">PoC (optional)</option>
+        <option value="">PoC (선택)</option>
         {pocProjects.map((p) => (
           <option key={p.id} value={p.id}>{p.label}</option>
         ))}
       </select>
-      <Input placeholder="Scope override (optional)" value={scope} onChange={(e) => setScope(e.target.value)} />
-      <Input placeholder="Timeline override (optional)" value={timeline} onChange={(e) => setTimeline(e.target.value)} />
-      <Input placeholder="Amount override (optional)" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      <Input
+        aria-label="범위 재정의 (선택)"
+        placeholder="범위 재정의 (선택)"
+        value={scope}
+        onChange={(e) => setScope(e.target.value)}
+      />
+      <Input
+        aria-label="일정 재정의 (선택)"
+        placeholder="일정 재정의 (선택)"
+        value={timeline}
+        onChange={(e) => setTimeline(e.target.value)}
+      />
+      <Input
+        aria-label="금액 재정의 (선택)"
+        placeholder="금액 재정의 (선택)"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+      />
       <Button type="submit" disabled={loading} className="sm:col-span-2 lg:col-span-1">
-        {loading ? "Generating..." : "Generate"}
+        {loading ? "생성 중..." : "생성"}
       </Button>
       {message ? <p className="text-sm text-destructive sm:col-span-2 lg:col-span-3">{message}</p> : null}
     </form>

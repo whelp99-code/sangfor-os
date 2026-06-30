@@ -10,9 +10,12 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         본문으로 건너뛰기
       </a>
       <PortalShell>
-        <main id="main-content" className="flex-1 outline-none">
+        {/* Skip-link target only — the page landmark <main> is rendered by
+            SidebarInset inside PortalShell, so this wrapper must NOT be a
+            second <main> (avoids nested-landmark a11y violation). */}
+        <div id="main-content" tabIndex={-1} className="flex-1 outline-none">
           {children}
-        </main>
+        </div>
       </PortalShell>
     </>
   )
