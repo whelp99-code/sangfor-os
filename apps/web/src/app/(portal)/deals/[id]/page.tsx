@@ -24,6 +24,7 @@ import { DealRecordHeader, DealStagePath } from "@/components/deals/deal-record-
 import { DealStageGuide } from "@/components/deals/deal-stage-guide";
 import { DealAiRail } from "@/components/deals/deal-ai-rail";
 import { DealDetail } from "@/components/deals/deal-detail";
+import { RegistrationPanel } from "@/components/deals/registration-panel";
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -57,9 +58,29 @@ export default async function DealDetailPage({ params }: PageProps) {
         probability={opportunity.probability}
         amount={opportunity.amount?.toString() ?? null}
         customer={opportunity.customer?.name ?? null}
-        partner={opportunity.partner?.name ?? null}
+        partner={
+          opportunity.dealRegistration?.distributor?.name ??
+          opportunity.distributor?.name ??
+          opportunity.partner?.name ??
+          null
+        }
         nextAction={opportunity.nextAction}
         closeDate={opportunity.closeDate}
+        regStatus={
+          (opportunity.dealRegistration?.regStatus ?? null) as
+            | "NOT_SUBMITTED"
+            | "SUBMITTED"
+            | "APPROVED"
+            | "REJECTED"
+            | "EXPIRED"
+            | "CONTESTED"
+            | null
+        }
+        protectionExpiresAt={
+          opportunity.dealRegistration?.protectionExpiresAt
+            ? new Date(opportunity.dealRegistration.protectionExpiresAt).toISOString()
+            : null
+        }
         actions={
           <>
             <Badge>{stage}</Badge>
@@ -110,7 +131,20 @@ export default async function DealDetailPage({ params }: PageProps) {
 
         {/* 상세 tab: DealDetail inline editor (default) */}
         <TabsContent value="상세" className="pt-4">
-          <DealDetail opportunity={opportunity} />
+          <DealDetail
+            opportunity={{
+              ...opportunity,
+              dealRegistration: opportunity.dealRegistration
+                ? {
+                    ...opportunity.dealRegistration,
+                    partnerTierMargin:
+                      opportunity.dealRegistration.partnerTierMargin != null
+                        ? Number(opportunity.dealRegistration.partnerTierMargin)
+                        : null,
+                  }
+                : null,
+            }}
+          />
         </TabsContent>
 
         {/* 문서 tab: generated documents / proposals */}
@@ -173,13 +207,39 @@ export default async function DealDetailPage({ params }: PageProps) {
           <MailEvidenceCard evidence={mailEvidence} />
         </TabsContent>
 
-        {/* 채널·등록 tab: placeholder for Slice 4 */}
+        {/* 채널·등록 tab: deal registration panel */}
         <TabsContent value="채널·등록" className="pt-4">
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground text-sm">
-              채널·딜등록 (Slice 4) — 준비 중
-            </CardContent>
-          </Card>
+          <RegistrationPanel
+            opportunityId={opportunity.id}
+            customerName={opportunity.customer?.name ?? null}
+            partnerName={
+              opportunity.dealRegistration?.distributor?.name ??
+              opportunity.distributor?.name ??
+              opportunity.partner?.name ??
+              null
+            }
+            dealRegistration={
+              opportunity.dealRegistration
+                ? {
+                    regStatus: opportunity.dealRegistration.regStatus,
+                    registrationNumber: opportunity.dealRegistration.registrationNumber,
+                    protectionExpiresAt: opportunity.dealRegistration.protectionExpiresAt,
+                    sprStatus: opportunity.dealRegistration.sprStatus,
+                    partnerTierMargin:
+                      opportunity.dealRegistration.partnerTierMargin != null
+                        ? Number(opportunity.dealRegistration.partnerTierMargin)
+                        : null,
+                    distributor: opportunity.dealRegistration.distributor
+                      ? {
+                          id: opportunity.dealRegistration.distributor.id,
+                          name: opportunity.dealRegistration.distributor.name,
+                        }
+                      : null,
+                  }
+                : null
+            }
+            distributorOptions={partners.map((p) => ({ id: p.id, label: p.name }))}
+          />
         </TabsContent>
       </Tabs>
 

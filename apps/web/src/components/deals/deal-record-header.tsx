@@ -2,14 +2,25 @@ import type { ReactNode } from "react";
 import { ArrowRight, CalendarDays, CircleDollarSign, Handshake, ShieldCheck, Target, User } from "lucide-react";
 
 import { formatKRWCompact, stageDisplay } from "@/components/deals/stage-meta";
+import { regStatusMeta } from "@/components/deals/reg-status";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-/** Gate states for the deal-registration badge (mockup 02/03 § .chain .reg). */
-type RegStatus = "보호중" | "검토중" | "거절" | "만료" | "충돌" | null;
+/**
+ * Raw DealRegistration.regStatus enum values from the backend model.
+ * null means no registration record exists.
+ */
+type RegStatus =
+  | "NOT_SUBMITTED"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "EXPIRED"
+  | "CONTESTED"
+  | null;
 
 type DealRecordHeaderProps = {
   title: string;
@@ -23,8 +34,10 @@ type DealRecordHeaderProps = {
   owner?: string | null;
   nextAction?: string | null;
   closeDate?: string | Date | null;
-  /** Deal-registration gate state. Controls badge color. Null → default "딜 등록" amber. */
+  /** Deal-registration gate state (raw enum). Controls badge color. Null → default "미등록" amber. */
   regStatus?: RegStatus;
+  /** ISO date string for APPROVED protection expiry. Used to render D-day in the badge. */
+  protectionExpiresAt?: string | null;
   actions?: ReactNode;
   className?: string;
 };
@@ -47,29 +60,28 @@ function formatDate(value: string | Date | null | undefined) {
 }
 
 /**
- * Resolve semantic Tailwind token classes for each deal-reg gate state.
- * Colors follow mockup 02/03: ok→emerald, warn→amber, risk→destructive.
+ * Resolve semantic Tailwind token classes for each deal-reg gate tone.
+ * Colors follow mockup 02/03: ok→emerald, warn→amber, risk→destructive, muted→amber.
  * No hardcoded hex — only semantic/utility tokens supported by shadcn.
  */
 function regBadgeClasses(status: RegStatus): string {
-  switch (status) {
-    case "보호중":
+  const { tone } = regStatusMeta(status);
+  switch (tone) {
+    case "ok":
       return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300";
-    case "검토중":
+    case "warn":
       return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200";
-    case "거절":
-    case "만료":
-    case "충돌":
+    case "risk":
       return "border-destructive/30 bg-destructive/10 text-destructive";
+    case "muted":
     default:
-      // null → default amber "딜 등록" (matches original)
       return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200";
   }
 }
 
-function regBadgeLabel(status: RegStatus): string {
-  if (!status) return "딜 등록";
-  return `딜 등록 ${status}`;
+function regBadgeLabel(status: RegStatus, protectionExpiresAt?: string | null): string {
+  const { label } = regStatusMeta(status, protectionExpiresAt);
+  return `딜 등록 · ${label}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -88,6 +100,7 @@ export function DealRecordHeader({
   nextAction: _nextAction,
   closeDate,
   regStatus = null,
+  protectionExpiresAt,
   actions,
   className,
 }: DealRecordHeaderProps) {
@@ -147,10 +160,10 @@ export function DealRecordHeader({
                 "ml-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1",
                 regBadgeClasses(regStatus)
               )}
-              aria-label={`딜 등록 상태: ${regBadgeLabel(regStatus)}`}
+              aria-label={`딜 등록 상태: ${regBadgeLabel(regStatus, protectionExpiresAt)}`}
             >
               <ShieldCheck className="size-3" aria-hidden="true" />
-              {regBadgeLabel(regStatus)}
+              {regBadgeLabel(regStatus, protectionExpiresAt)}
             </span>
           </div>
         </div>

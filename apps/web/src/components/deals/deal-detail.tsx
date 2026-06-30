@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { stageLabel } from "@/components/deals/stage-meta";
 import { DealDetailSection } from "@/components/deals/deal-detail-section";
 import { InlineField } from "@/components/deals/inline-field";
+import { regStatusMeta, regStatusInlineClasses } from "@/components/deals/reg-status";
 
 // ---------------------------------------------------------------------------
 // Explicit type matching the shape returned by getOpportunityDetail.
@@ -24,6 +25,15 @@ export type OpportunityForDetail = {
   nextAction: string | null;
   customer: { name: string } | null;
   partner: { name: string } | null;
+  distributor?: { name: string } | null;
+  dealRegistration?: {
+    regStatus: string | null;
+    registrationNumber: string | null;
+    protectionExpiresAt: Date | string | null;
+    sprStatus: string | null;
+    partnerTierMargin: number | null;
+    distributor?: { name: string } | null;
+  } | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -191,38 +201,61 @@ export function DealDetail({ opportunity }: DealDetailProps) {
         </DealDetailSection>
 
         {/* ② 채널·딜등록 ------------------------------------------------ */}
-        <DealDetailSection title="채널·딜등록" columns={2}>
-          <InlineField
-            label="총판"
-            value={opp.partner?.name ?? "—"}
-            editable={false}
-            opportunityId={id}
-          />
-          <InlineField
-            label="딜 등록 번호"
-            value="—"
-            editable={false}
-            opportunityId={id}
-          />
-          <InlineField
-            label="보호 상태"
-            value="—"
-            editable={false}
-            opportunityId={id}
-          />
-          <InlineField
-            label="SPR"
-            value="—"
-            editable={false}
-            opportunityId={id}
-          />
-          <InlineField
-            label="Platinum 마진"
-            value="—"
-            editable={false}
-            opportunityId={id}
-          />
-        </DealDetailSection>
+        {(() => {
+          const reg = opp.dealRegistration;
+          // Resolve distributor name: prefer dealRegistration.distributor, then opp.distributor, then partner
+          const distributorName =
+            reg?.distributor?.name ?? opp.distributor?.name ?? opp.partner?.name ?? "—";
+
+          const regStatusRaw = reg?.regStatus ?? null;
+          const protectionExpiresAt = reg?.protectionExpiresAt
+            ? new Date(reg.protectionExpiresAt).toISOString()
+            : null;
+          const regMeta = regStatusMeta(regStatusRaw, protectionExpiresAt);
+
+          return (
+            <DealDetailSection title="채널·딜등록" columns={2}>
+              <InlineField
+                label="총판"
+                value={distributorName}
+                editable={false}
+                opportunityId={id}
+              />
+              <InlineField
+                label="딜 등록 번호"
+                value={reg?.registrationNumber ?? "—"}
+                editable={false}
+                opportunityId={id}
+              />
+              <InlineField
+                label="보호 상태"
+                value={
+                  <span className={regStatusInlineClasses(regMeta.tone)}>
+                    {regMeta.label}
+                  </span>
+                }
+                editable={false}
+                opportunityId={id}
+              />
+              <InlineField
+                label="SPR"
+                value={reg?.sprStatus ?? "—"}
+                editable={false}
+                opportunityId={id}
+              />
+              <InlineField
+                label="Platinum 마진"
+                value={
+                  reg?.partnerTierMargin != null
+                    ? `${reg.partnerTierMargin}%`
+                    : "—"
+                }
+                editable={false}
+                opportunityId={id}
+              />
+            </DealDetailSection>
+          );
+        })()}
 
         {/* ③ 고객·의사결정 --------------------------------------------- */}
         <DealDetailSection title="고객·의사결정" columns={2}>
