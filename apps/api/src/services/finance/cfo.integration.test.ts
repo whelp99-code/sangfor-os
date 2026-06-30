@@ -74,7 +74,9 @@ describe.skipIf(!integration)("CFO import + matching (integration)", () => {
       data: { projectId, expenseName: "테스트비용", amount: 500_000, vat: 50_000, total: 550_000, date: new Date("2026-09-10T00:00:00.000Z"), isPaid: true, memo: TAG },
     });
     const after = await dash.getKpi(2026, 9);
+    // Round 2 SSOT: both revenue and expense are supply-basis (pre-VAT `amount`),
+    // so VAT is excluded from the P&L (it's a separate payable/recoverable item).
     expect(after.totalRevenue - base.totalRevenue).toBe(2_000_000);
-    expect(after.totalExpense - base.totalExpense).toBe(550_000);
+    expect(after.totalExpense - base.totalExpense).toBe(500_000);
   });
 });
