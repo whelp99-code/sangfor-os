@@ -4,13 +4,44 @@ All mockup pages embed the **canonical `<style>` block below** and use **only** 
 documented classes, so every screen looks like one product. Colors here are illustrative
 hex; real code maps them to the app's shadcn tokens (see `…-layout-contract.md §2`).
 
-## How to author a page
+## How to author a page — ALWAYS the left-sidebar shell (matches the real app: shadcn `Sidebar` + `AppTopbar`)
 
-1. Start with `<!DOCTYPE html>` (so the companion serves it as-is).
-2. Paste the **canonical `<style>`** verbatim into `<head>`.
-3. Build `<body><div class="wrap"> … </div></body>` using kit classes only.
-4. Match the density of `01-deal-list.html` / `02-deal-workspace.html` / `03-deal-detail.html`.
-5. Every page starts with the shared **topbar** (or **shell** for the sidebar mock).
+Navigation is the **left sidebar** on EVERY page. The top bar inside content carries
+**NO primary nav** — only a page title/breadcrumb + search + avatar. (The old nav-in-topbar
+pattern is deprecated.) Skeleton:
+
+```html
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><title>…</title>
+<style> /* paste canonical <style> verbatim */ </style>
+</head><body>
+<div class="shell">
+  <!-- SHARED SIDEBAR (paste verbatim; set .on on this page's item) -->
+  <aside class="sidebar">
+    <div class="brand"><span class="logo2">P</span> Sangfor 파트너 허브</div>
+    <div class="navgrp">핵심</div>
+    <div class="navit" data-k="home"><span class="ico">⌂</span> 홈</div>
+    <div class="navit" data-k="deals"><span class="ico">▤</span> 딜</div>
+    <div class="navit" data-k="companies"><span class="ico">▣</span> 회사</div>
+    <div class="navit" data-k="contacts"><span class="ico">☻</span> 연락처</div>
+    <div class="navit" data-k="pipeline"><span class="ico">▦</span> 파이프라인</div>
+    <div class="navgrp">채널</div>
+    <div class="navit" data-k="partners"><span class="ico">⇄</span> 총판·파트너</div>
+    <div class="navit" data-k="dealreg"><span class="ico">🛡</span> 딜 등록</div>
+    <div class="more">▸ 더보기 (35)<span style="display:block;font-weight:500;color:#aaa;font-size:10px;margin-top:2px">재무·지식·AI·시스템 — 동결</span></div>
+  </aside>
+  <main class="content">
+    <!-- SLIM TOP BAR (no nav) -->
+    <div class="ctopbar"><div class="ttl">페이지 제목</div><div class="search">🔍  검색…</div><div class="ava">박</div></div>
+    <!-- PAGE BODY: kit classes only -->
+  </main>
+</div>
+</body></html>
+```
+
+Rules: (1) paste canonical `<style>` verbatim; (2) ALWAYS use the shell + sidebar + `.ctopbar`
+above — never a nav-bearing `.topbar`; (3) set `.navit.on` for the current page; (4) match the
+density of `02-deal-workspace.html`; (5) put the page body directly inside `.content` (no `.wrap`).
 
 ## Canonical `<style>` (paste verbatim)
 
@@ -241,7 +272,15 @@ hex; real code maps them to the app's shadcn tokens (see `…-layout-contract.md
   .navit.on{background:#e8f3fc;color:var(--sf-blue-d)}
   .navit .ico{width:15px;color:#8a8a8a}
   .more{color:#8a8a8a;font-weight:700;font-size:12px;padding:9px;cursor:pointer}
-  .content{padding:14px 16px;background:var(--sf-bg)}
+  .content{padding:14px 16px;background:var(--sf-bg);overflow:auto}
+  .sidebar .brand .logo2{width:24px;height:24px;border-radius:6px;background:var(--sf-blue);display:inline-grid;place-items:center;color:#fff;font-weight:800;font-size:12px}
+  /* slim top bar INSIDE content (search + user only — NO primary nav; nav lives in sidebar) */
+  .ctopbar{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--sf-border);border-radius:var(--sf-radius);padding:8px 14px;margin-bottom:12px}
+  .ctopbar .ttl{font-weight:800;font-size:15px}
+  .ctopbar .crumb{color:#9a9a9a;font-size:12px;font-weight:600}
+  .ctopbar .search{margin-left:auto;background:var(--sf-bg);border:1px solid var(--sf-border);border-radius:20px;padding:6px 14px;color:#9a9a9a;width:230px}
+  .ctopbar .ava{width:28px;height:28px;border-radius:50%;background:#d8b4fe;display:grid;place-items:center;font-weight:700;color:#5b21b6}
+  .shell .content > .inner{max-width:none}
 
   .legend{text-align:center;color:#9a9a9a;font-size:11px;margin-top:14px}
 </style>
