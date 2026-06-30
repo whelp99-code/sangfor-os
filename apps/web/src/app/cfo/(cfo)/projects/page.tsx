@@ -1,26 +1,33 @@
+import Link from "next/link";
+
 import { cfoFetch, formatKrw } from "@/lib/cfo-client";
 import { CfoPageHeading } from "@/components/cfo/page-heading";
 import { CFO } from "@/lib/cfo-theme";
 
 export const dynamic = "force-dynamic";
 
-type Project = { id: string; name: string; status: string | null; client: string | null; startDate: string | null; endDate: string | null };
-type Ref = { id: string } | null;
-type Invoice = { amount: number; depositAmount: number | null; project: { id: string } | null };
-type Expense = { amount: number; project: { id: string } | null };
+// ADR-001 Phase 2b — finance is rolled up by deal (Engagement), not the legacy
+// FinanceProject. Rows carry the linked opportunity so each deal's P&L deep-links
+// back into the CRM. Un-backfilled finance collapses into the "미배정" bucket.
+type DealPnl = {
+  engagementId: string | null;
+  opportunityId: string | null;
+  dealTitle: string;
+  customer: string | null;
+  revenue: number;
+  cost: number;
+  deposited: number;
+  profit: number;
+  invoiceCount: number;
+  expenseCount: number;
+};
 
 export default async function ProjectsPage() {
-  let projects: Project[] = [];
-  let invoices: Invoice[] = [];
-  let expenses: Expense[] = [];
+  let rows: DealPnl[] = [];
   let error: string | null = null;
 
   try {
-    [projects, invoices, expenses] = await Promise.all([
-      cfoFetch<Project[]>("projects?limit=500"),
-      cfoFetch<Invoice[]>("invoices?limit=500"),
-      cfoFetch<Expense[]>("expenses?limit=500"),
-    ]);
+    rows = await cfoFetch<DealPnl[]>("deals-pnl");
   } catch (e: unknown) {
     error = e instanceof Error ? e.message : "API 연결 실패";
   }
@@ -34,35 +41,30 @@ export default async function ProjectsPage() {
     );
   }
 
-  const byId = (r: Ref) => r?.id ?? "";
-  const rollup = projects.map((p) => {
-    const revenue = invoices.filter((i) => byId(i.project) === p.id).reduce((s, i) => s + i.amount, 0);
-    const cost = expenses.filter((e) => byId(e.project) === p.id).reduce((s, e) => s + e.amount, 0);
-    const deposited = invoices.filter((i) => byId(i.project) === p.id).reduce((s, i) => s + (i.depositAmount ?? 0), 0);
-    const profit = revenue - cost;
-    const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
-    return { ...p, revenue, cost, profit, deposited, margin };
-  });
-
-  const totals = rollup.reduce(
-    (a, p) => ({ revenue: a.revenue + p.revenue, cost: a.cost + p.cost, profit: a.profit + p.profit, deposited: a.deposited + p.deposited }),
+  const assigned = rows.filter((r) => r.engagementId !== null);
+  const unassigned = rows.find((r) => r.engagementId === null);
+  const totals = rows.reduce(
+    (a, r) => ({ revenue: a.revenue + r.revenue, cost: a.cost + r.cost, profit: a.profit + r.profit, deposited: a.deposited + r.deposited }),
     { revenue: 0, cost: 0, profit: 0, deposited: 0 },
   );
 
   return (
     <div className="space-y-4">
       <CfoPageHeading
-        title="프로젝트"
-        right={<span className="text-sm" style={{ color: CFO.muted }}>{rollup.length}개 프로젝트</span>}
+        title="딜별 손익"
+        right={
+          <span className="text-sm" style={{ color: CFO.muted }}>
+            {assigned.length}개 딜{unassigned ? " · 미배정 1" : ""}
+          </span>
+        }
       />
       <div className="overflow-x-auto rounded-xl border bg-white">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-zinc-50 text-left text-xs text-zinc-500">
-              <th className="px-3 py-2 font-medium">프로젝트명</th>
-              <th className="px-3 py-2 font-medium">거래처</th>
-              <th className="px-3 py-2 font-medium">상태</th>
-              <th className="px-3 py-2 font-medium">기간</th>
+              <th className="px-3 py-2 font-medium">딜</th>
+              <th className="px-3 py-2 font-medium">고객</th>
+              <th className="px-3 py-2 text-right font-medium">건수(청구/비용)</th>
               <th className="px-3 py-2 text-right font-medium">총매출</th>
               <th className="px-3 py-2 text-right font-medium">총원가/비용</th>
               <th className="px-3 py-2 text-right font-medium">영업이익</th>
@@ -71,23 +73,39 @@ export default async function ProjectsPage() {
             </tr>
           </thead>
           <tbody>
-            {rollup.map((p) => (
-              <tr key={p.id} className="border-b last:border-0 hover:bg-zinc-50">
-                <td className="px-3 py-2 font-medium text-zinc-700">{p.name}</td>
-                <td className="px-3 py-2 text-zinc-600">{p.client ?? "-"}</td>
-                <td className="px-3 py-2"><StatusBadge status={p.status} /></td>
-                <td className="px-3 py-2 text-xs text-zinc-500">{fmtRange(p.startDate, p.endDate)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatKrw(p.revenue)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatKrw(p.cost)}</td>
-                <td className={`px-3 py-2 text-right tabular-nums ${p.profit >= 0 ? "text-green-600" : "text-red-600"}`}>{formatKrw(p.profit)}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-zinc-500">{p.revenue > 0 ? `${p.margin}%` : "-"}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatKrw(p.deposited)}</td>
+            {rows.map((r) => {
+              const margin = r.revenue > 0 ? Math.round((r.profit / r.revenue) * 100) : 0;
+              const isUnassigned = r.engagementId === null;
+              return (
+                <tr key={r.engagementId ?? "__unassigned"} className="border-b last:border-0 hover:bg-zinc-50">
+                  <td className="px-3 py-2 font-medium text-zinc-700">
+                    {r.opportunityId ? (
+                      <Link href={`/deals/${r.opportunityId}`} className="hover:underline" style={{ color: CFO.ink }}>
+                        {r.dealTitle}
+                      </Link>
+                    ) : (
+                      <span className={isUnassigned ? "text-zinc-400" : undefined}>{r.dealTitle}</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-zinc-600">{r.customer ?? "-"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-zinc-500">{r.invoiceCount}/{r.expenseCount}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatKrw(r.revenue)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatKrw(r.cost)}</td>
+                  <td className={`px-3 py-2 text-right tabular-nums ${r.profit >= 0 ? "text-green-600" : "text-red-600"}`}>{formatKrw(r.profit)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-zinc-500">{r.revenue > 0 ? `${margin}%` : "-"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatKrw(r.deposited)}</td>
+                </tr>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-3 py-6 text-center text-zinc-400">데이터가 없습니다</td>
               </tr>
-            ))}
+            )}
           </tbody>
           <tfoot>
             <tr className="border-t-2 bg-zinc-50 font-semibold">
-              <td className="px-3 py-2" colSpan={4}>합계</td>
+              <td className="px-3 py-2" colSpan={3}>합계</td>
               <td className="px-3 py-2 text-right tabular-nums">{formatKrw(totals.revenue)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{formatKrw(totals.cost)}</td>
               <td className={`px-3 py-2 text-right tabular-nums ${totals.profit >= 0 ? "text-green-600" : "text-red-600"}`}>{formatKrw(totals.profit)}</td>
@@ -99,16 +117,4 @@ export default async function ProjectsPage() {
       </div>
     </div>
   );
-}
-
-function fmtRange(start: string | null, end: string | null) {
-  const d = (s: string | null) => (s ? s.slice(0, 10) : "");
-  if (!start && !end) return "-";
-  return `${d(start) || "?"} ~ ${d(end) || "?"}`;
-}
-
-function StatusBadge({ status }: { status: string | null }) {
-  if (!status) return <span className="text-zinc-400">-</span>;
-  const color = status === "완료" ? "#16a34a" : status === "진행" ? "#2563eb" : status === "보류" ? "#a1a1aa" : "#52525b";
-  return <span className="rounded-full px-2 py-0.5 text-xs" style={{ border: `1px solid ${color}33`, color }}>{status}</span>;
 }

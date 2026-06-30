@@ -104,6 +104,7 @@ router.get('/ledger/pnl', ok((req: any) => ledger.getProfitAndLoss({ from: date(
 
 // Projects
 router.get('/projects', ok((req: any) => projects.list({ status: q(req, 'status'), limit: num(q(req, 'limit')) ?? 100 })));
+router.get('/deals-pnl', ok(() => projects.listDealPnl())); // ADR-001 Phase 2b: deal-level P&L
 router.post('/projects', ok((req: any) => projects.create(req.body)));
 router.get('/projects/:id', ok((req: any) => projects.get(req.params.id)));
 
