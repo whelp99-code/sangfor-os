@@ -60,7 +60,12 @@ export class ProjectsService {
       const exp = expByEng.get(key);
       const revenue = inv?._sum.amount ?? 0;
       const cost = exp?._sum.amount ?? 0;
-      const deposited = inv?._sum.depositAmount ?? 0;
+      // revenue(=amount)는 공급가, depositAmount는 VAT 포함 입금액이라 그대로 한 표에
+      // 나란히 두면 "총입금 > 총매출" 착시가 난다(실데이터 6개 프로젝트). 입금액을
+      // 공급가 기준으로 환산(÷1.1)해 revenue와 동일 기준으로 통일한다. 표준세율 10%
+      // 가정이며, 영세/면세 혼재 시 근사값임.
+      const depositedGross = inv?._sum.depositAmount ?? 0;
+      const deposited = Math.round(depositedGross / 1.1);
       const eng = key ? engById.get(key) : null;
       return {
         engagementId: key,

@@ -69,7 +69,7 @@ export default async function ProjectsPage() {
               <th className="px-3 py-2 text-right font-medium">총원가/비용</th>
               <th className="px-3 py-2 text-right font-medium">영업이익</th>
               <th className="px-3 py-2 text-right font-medium">이익률</th>
-              <th className="px-3 py-2 text-right font-medium">총입금</th>
+              <th className="px-3 py-2 text-right font-medium">총입금(공급가환산)</th>
             </tr>
           </thead>
           <tbody>
