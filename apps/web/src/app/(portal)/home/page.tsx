@@ -107,6 +107,7 @@ export default async function HomePage() {
   );
 
   // Protection expiring within 7 days
+  // eslint-disable-next-line react-hooks/purity -- server component renders once per request; request-time read is intentional
   const now = Date.now();
   const sevenDays = 7 * 24 * 60 * 60 * 1000;
   const expiringProtection = opportunities.filter((opp) => {
