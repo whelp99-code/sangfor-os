@@ -1,9 +1,16 @@
 "use client";
 
+import { MoreHorizontal } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { DataView } from "@/components/views/data-view";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatKRW, stageDisplay } from "@/components/deals/stage-meta";
 import { regStatusMeta, regStatusBadgeVariant, regStatusBadgeClassName, regStatusInlineClasses } from "@/components/deals/reg-status";
@@ -52,9 +59,33 @@ function StageCell({ deal }: { deal: Deal }) {
 }
 
 // ---------------------------------------------------------------------------
-// Binding columns — layout contract §3 order
+// Binding columns — mockup order: select · PID · 딜/고객사 · 총판 · 제품군 ·
+//   단계 · 공급가 · 마진% · 딜등록 · 다음액션 · 담당 · 마감 · ⋯
 // ---------------------------------------------------------------------------
 const columns: ColumnDef<Deal, unknown>[] = [
+  // 0. Row-select checkbox (H-6) — visual placeholder; full selection state lives in DataView
+  {
+    id: "select",
+    enableSorting: false,
+    size: 40,
+    header: () => (
+      <input
+        type="checkbox"
+        aria-label="전체 선택"
+        className="size-3.5 cursor-pointer accent-primary"
+        readOnly
+      />
+    ),
+    cell: ({ row }) => (
+      <input
+        type="checkbox"
+        aria-label={`${row.original.title} 선택`}
+        className="size-3.5 cursor-pointer accent-primary"
+        readOnly
+        onClick={(e) => e.stopPropagation()}
+      />
+    ),
+  },
   // 1. Project ID
   {
     accessorKey: "code",
@@ -144,13 +175,23 @@ const columns: ColumnDef<Deal, unknown>[] = [
       );
     },
   },
-  // 9. 담당
+  // 9. 다음 액션 — BEFORE 담당·마감 (H-5)
+  {
+    accessorKey: "nextAction",
+    header: "다음 액션",
+    cell: ({ row }) => (
+      <span className="line-clamp-1 text-sm text-muted-foreground">
+        {row.original.nextAction ?? "미정"}
+      </span>
+    ),
+  },
+  // 10. 담당
   {
     accessorKey: "owner",
     header: "담당",
     cell: ({ row }) => row.original.owner ?? "—",
   },
-  // 10. 마감
+  // 11. 마감
   {
     accessorKey: "closeDate",
     header: "마감",
@@ -159,14 +200,26 @@ const columns: ColumnDef<Deal, unknown>[] = [
         ? new Date(row.original.closeDate).toLocaleDateString("ko-KR")
         : "—",
   },
-  // 11. 다음 액션
+  // 12. Row actions ⋯ (H-6)
   {
-    accessorKey: "nextAction",
-    header: "다음 액션",
+    id: "actions",
+    enableSorting: false,
+    header: () => null,
     cell: ({ row }) => (
-      <span className="line-clamp-1 text-sm text-muted-foreground">
-        {row.original.nextAction ?? "미정"}
-      </span>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="flex size-7 items-center justify-center rounded-md p-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`${row.original.title} 더보기`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoreHorizontal className="size-3.5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem>편집</DropdownMenuItem>
+          <DropdownMenuItem>복사</DropdownMenuItem>
+          <DropdownMenuItem variant="destructive">삭제</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     ),
   },
 ];
