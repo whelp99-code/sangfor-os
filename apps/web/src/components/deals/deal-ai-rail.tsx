@@ -51,7 +51,6 @@ export function DealAiRail({ stage, className }: DealAiRailProps) {
                     size="sm"
                     className="h-7 px-2.5 text-[11px]"
                     aria-label={`수락: ${text}`}
-                    tabIndex={-1}
                     type="button"
                   >
                     수락
@@ -61,7 +60,6 @@ export function DealAiRail({ stage, className }: DealAiRailProps) {
                     variant="outline"
                     className="h-7 px-2.5 text-[11px]"
                     aria-label={`나중에: ${text}`}
-                    tabIndex={-1}
                     type="button"
                   >
                     나중에

@@ -170,7 +170,7 @@ function PocProjectCard({ poc }: { poc: PocProjectSummary }) {
               className={cn(
                 "ml-auto font-bold tabular-nums",
                 doneCount === totalCount && totalCount > 0
-                  ? "text-green-700"
+                  ? "text-success"
                   : "text-foreground"
               )}
             >
@@ -190,7 +190,7 @@ function PocProjectCard({ poc }: { poc: PocProjectSummary }) {
                     className={cn(
                       "flex size-4 shrink-0 items-center justify-center rounded border",
                       item.done
-                        ? "border-green-600 bg-green-600 text-white"
+                        ? "border-success bg-success text-success-foreground"
                         : "border-border"
                     )}
                     aria-label={item.done ? "완료" : "미완료"}

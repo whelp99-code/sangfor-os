@@ -208,7 +208,7 @@ function MetricCell({
       <span
         className={cn(
           "text-lg font-bold tabular-nums",
-          highlight ? "text-green-700" : "text-foreground"
+          highlight ? "text-success" : "text-foreground"
         )}
       >
         {value}

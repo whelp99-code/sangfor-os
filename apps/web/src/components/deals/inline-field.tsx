@@ -92,7 +92,7 @@ export function InlineField({
     <div
       className={cn(
         "group relative border-b border-border/40 px-1.5 py-2.5",
-        canEdit && !editing && "cursor-text hover:bg-primary/5",
+        canEdit && !editing && "cursor-text hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         editing && "rounded-md bg-primary/5 outline outline-1 outline-primary/30",
       )}
       onClick={!editing ? startEdit : undefined}

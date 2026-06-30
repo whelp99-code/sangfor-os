@@ -41,7 +41,7 @@ export function DealStageGuide({ stage, className }: DealStageGuideProps) {
         {/* Exit criterion — muted text, bolded portion highlighted in emerald */}
         <p className="flex-1 text-xs text-muted-foreground">
           통과 기준 —{" "}
-          <strong className="font-semibold text-emerald-700 dark:text-emerald-400">
+          <strong className="font-semibold text-success">
             {guide.exit}
           </strong>
         </p>
@@ -51,7 +51,6 @@ export function DealStageGuide({ stage, className }: DealStageGuideProps) {
           size="sm"
           className="shrink-0 text-xs"
           aria-label="단계 완료 표시 (참고용)"
-          tabIndex={-1}
           type="button"
         >
           단계 완료 ✓

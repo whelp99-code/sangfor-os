@@ -118,7 +118,7 @@ function SowSection({
               <span className="text-xs text-muted-foreground">계약 상태</span>
               {signed ? (
                 <>
-                  <Badge variant="default" className="bg-emerald-600 text-xs hover:bg-emerald-600">
+                  <Badge variant="default" className="bg-success text-xs hover:bg-success text-success-foreground">
                     서명 완료
                   </Badge>
                   <span className="text-xs text-muted-foreground">
@@ -184,15 +184,15 @@ type PoNodeProps = {
 function PoNode({ label, sublabel, statusLabel, variant, statusVariant }: PoNodeProps) {
   const nodeClass = cn(
     "rounded-2xl border px-3 py-1.5 text-xs font-bold leading-tight",
-    variant === "customer" && "border-emerald-300 bg-emerald-50 text-emerald-800",
-    variant === "me" && "border-blue-300 bg-blue-50 text-blue-800",
+    variant === "customer" && "border-success/30 bg-success-subtle text-success",
+    variant === "me" && "border-primary/20 bg-primary/10 text-primary",
     variant === "default" && "border bg-muted"
   );
 
   const pillClass = cn(
     "inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-    statusVariant === "ok" && "bg-emerald-50 text-emerald-700",
-    statusVariant === "info" && "bg-blue-50 text-blue-700",
+    statusVariant === "ok" && "bg-success-subtle text-success",
+    statusVariant === "info" && "bg-primary/10 text-primary",
     statusVariant === "warn" && "bg-amber-50 text-amber-700"
   );
 
@@ -306,7 +306,7 @@ function MilestoneSection({ amount }: { amount: string | null }) {
                     variant={m.status === "info" ? "default" : "outline"}
                     className={cn(
                       "text-xs",
-                      m.status === "info" && "bg-blue-600 hover:bg-blue-600"
+                      m.status === "info" && "bg-primary hover:bg-primary"
                     )}
                   >
                     {MILESTONE_STATUS_LABEL[m.status]}

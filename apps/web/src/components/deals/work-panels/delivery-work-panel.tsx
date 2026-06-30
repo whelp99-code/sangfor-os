@@ -100,7 +100,7 @@ function GateSection({ checklistItems, hasEngagement }: GateSectionProps) {
                         className={cn(
                           "inline-flex size-4 shrink-0 items-center justify-center rounded border",
                           done
-                            ? "border-emerald-600 bg-emerald-600 text-white text-[10px]"
+                            ? "border-success bg-success text-success-foreground text-[10px]"
                             : "border-muted-foreground/40"
                         )}
                       >
@@ -129,7 +129,7 @@ function GateSection({ checklistItems, hasEngagement }: GateSectionProps) {
                         variant={done ? "default" : "outline"}
                         className={cn(
                           "text-[11px]",
-                          done && "bg-emerald-600 hover:bg-emerald-600"
+                          done && "bg-success hover:bg-success text-success-foreground"
                         )}
                       >
                         {done ? "완료" : "대기"}
@@ -224,7 +224,7 @@ function LicenseSection() {
                   className={cn(
                     "inline-flex size-4 shrink-0 items-center justify-center rounded border text-[10px]",
                     row.variant === "ok"
-                      ? "border-emerald-600 bg-emerald-600 text-white"
+                      ? "border-success bg-success text-success-foreground"
                       : "border-muted-foreground/40"
                   )}
                 >
@@ -250,8 +250,8 @@ function LicenseSection() {
                   variant={row.variant === "todo" ? "outline" : "default"}
                   className={cn(
                     "text-[11px]",
-                    row.variant === "ok" && "bg-emerald-600 hover:bg-emerald-600",
-                    row.variant === "info" && "bg-blue-600 hover:bg-blue-600"
+                    row.variant === "ok" && "bg-success hover:bg-success text-success-foreground",
+                    row.variant === "info" && "bg-primary hover:bg-primary"
                   )}
                 >
                   {row.badgeLabel}

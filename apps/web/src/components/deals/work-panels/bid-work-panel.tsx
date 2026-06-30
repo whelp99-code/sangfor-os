@@ -231,7 +231,7 @@ function SprSection({
             className="flex flex-wrap items-center gap-2 text-xs font-bold"
             aria-label="채널 체인: 나에서 총판을 거쳐 Sangfor로"
           >
-            <span className="rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-blue-800">
+            <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-primary">
               나
             </span>
             <span className="text-muted-foreground" aria-hidden="true">
