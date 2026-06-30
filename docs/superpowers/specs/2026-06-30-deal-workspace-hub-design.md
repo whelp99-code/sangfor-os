@@ -159,6 +159,14 @@ v1's "MVP" was 4 features bundled = the exact drift pattern. Re-cut:
 Rebuilding finance/knowledge/agent-orchestration here. AI autonomously owning deals.
 Non-Sangfor vendors. Reseller (3rd tier). True parallel stages (model doesn't preclude, doesn't build).
 
+**CFO/finance — fully deferred (user decision).** The CFO board (9 finance pages) stays frozen
+under 더보기. No finance tab is added to the deal workspace in this scope. It is resurfaced as
+its own `/cfo/*` persona area only AFTER the 16-page deal core ships. **Preserve the seam:** the
+deal↔finance data linkage already exists (`Quote` → `Invoice(engagementId)` / `Expense`,
+milestone payments on `Engagement`) and must NOT be broken — so finance can be surfaced later by
+keys (Project ID / opportunityId / engagementId) without a rewrite. The milestone-payment table
+shown in stage ⑤수주 is deal-native (the contract's payment schedule), not the CFO board.
+
 ## 11. Anti-drift guardrails (red-team F4, F11 — the part v1 missed)
 
 1. **`NavItem.tier` (`primary | more | system`)** added to `portal-config.ts`; all 33 items
