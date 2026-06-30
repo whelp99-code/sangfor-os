@@ -19,9 +19,11 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  projectMembers    ProjectMember[]
-  commandRuns       CommandRun[]    @relation("CommandRunRequestedBy")
-  userCompanyRoles  UserCompanyRole[]
+  projectMembers     ProjectMember[]
+  commandRuns        CommandRun[]    @relation("CommandRunRequestedBy")
+  userCompanyRoles   UserCompanyRole[]
+  // TODO(oma-deferred): owner will expand to Actor union (User | TeamAgent) in a future migration
+  ownedOpportunities Opportunity[]
 
   @@map("users")
 }
@@ -898,6 +900,10 @@ model Opportunity {
   title       String
   code        String?   @unique @map("code")
   stage       OpportunityStage @default(LEAD)
+  dealStatus  DealStatus @default(OPEN) @map("deal_status")
+  lostReason  String?    @map("lost_reason")
+  dealType    String?    @default("NEW_BUILD") @map("deal_type")
+  ownerId     String?    @map("owner_id")
   amount      Decimal?  @db.Decimal(12, 2)
   probability Int       @default(20)
   closeDate   DateTime? @map("close_date")
@@ -908,6 +914,7 @@ model Opportunity {
   qualification DealQualification?
   customer       Customer? @relation(fields: [customerId], references: [id])
   partner        Partner?  @relation(fields: [partnerId], references: [id])
+  owner          User?     @relation(fields: [ownerId], references: [id])
   stageEvents    OpportunityStageEvent[]
   links          OpportunityLink[]
   quoteServiceLineItems QuoteServiceLineItem[]
@@ -2002,6 +2009,16 @@ model CompatibilityRule {
 }
 
 // --- Enums ---
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+  ON_HOLD
+  DISQUALIFIED
+
+  @@map("deal_status")
+}
 
 enum QuoteStatus {
   DRAFT
