@@ -72,6 +72,60 @@ export class DashboardService {
     };
   }
 
+  /**
+   * 미수금 현황 패널 SSOT (서버 집계).
+   *
+   * 대시보드가 invoices?limit=500을 받아 클라에서 돌리던 집계를 그대로 서버로 옮긴 것.
+   * 모든 인보이스를 대상으로 status≠완료 && 잔액>0 인 건만 잔액 내림차순 정렬한다.
+   * remaining = total - COALESCE(depositAmount, 0). 패널은 상위 N건만 쓰므로 limit로 자른다.
+   */
+  async getReceivables(limit = 8) {
+    const invoices = await prisma.invoice.findMany({
+      select: { buyer: true, total: true, depositAmount: true, depositStatus: true, project: { select: { name: true } } },
+    });
+    const rows = invoices
+      .map((i) => ({
+        buyer: i.buyer ?? i.project?.name ?? '—',
+        status: i.depositStatus ?? '미수',
+        remaining: (i.total ?? 0) - (i.depositAmount ?? 0),
+      }))
+      .filter((r) => r.status !== '완료' && r.remaining > 0)
+      .sort((a, b) => b.remaining - a.remaining);
+    const total = rows.reduce((s, r) => s + r.remaining, 0);
+    return { total: Math.round(total), count: rows.length, rows: rows.slice(0, limit) };
+  }
+
+  /**
+   * 프로젝트 손익 패널 SSOT (서버 집계).
+   *
+   * 대시보드가 invoices+expenses 500건씩 받아 클라에서 그룹핑하던 집계를 서버로 이전.
+   * 프로젝트명(없으면 '미배정')으로 묶어 매출=Σ(invoice.amount), 원가=Σ(expense.amount).
+   * 매출 내림차순 정렬 후 상위 N개. (납입/입금 상태와 무관하게 전체 합산 — 기존 동작 유지.)
+   */
+  async getProjectPnl(limit = 8) {
+    const [invoices, expenses] = await Promise.all([
+      prisma.invoice.findMany({ select: { amount: true, project: { select: { name: true } } } }),
+      prisma.expense.findMany({ select: { amount: true, project: { select: { name: true } } } }),
+    ]);
+    const pnl = new Map<string, { name: string; revenue: number; cost: number }>();
+    for (const i of invoices) {
+      const name = i.project?.name ?? '미배정';
+      const e = pnl.get(name) ?? { name, revenue: 0, cost: 0 };
+      e.revenue += i.amount ?? 0;
+      pnl.set(name, e);
+    }
+    for (const x of expenses) {
+      const name = x.project?.name ?? '미배정';
+      const e = pnl.get(name) ?? { name, revenue: 0, cost: 0 };
+      e.cost += x.amount ?? 0;
+      pnl.set(name, e);
+    }
+    return [...pnl.values()]
+      .map((p) => ({ name: p.name, revenue: Math.round(p.revenue), cost: Math.round(p.cost), profit: Math.round(p.revenue - p.cost) }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, limit);
+  }
+
   async getCashflowForecast(days = 90) {
     const today = new Date();
     const start30 = new Date();

@@ -1,17 +1,17 @@
 import { convertImprovementToPhase13Run } from "@sangfor/business/improvement-loop";
 import { NextResponse } from "next/server";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(_request: Request, context: RouteContext) {
+export async function POST(request: Request, context: RouteContext) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   const { id } = await context.params;
   try {
     const result = await convertImprovementToPhase13Run(id);
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "convert_failed" },
-      { status: 400 },
-    );
+    return apiError("convert_failed", error, { status: 400 });
   }
 }

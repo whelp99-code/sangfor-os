@@ -84,6 +84,8 @@ router.get('/dashboard/kpi', ok((req: any) => {
 }));
 router.get('/dashboard/cashflow-forecast', ok((req: any) => dashboard.getCashflowForecast(num(q(req, 'days')) ?? 90)));
 router.get('/dashboard/monthly-trend', ok((req: any) => dashboard.getMonthlyTrend(num(q(req, 'months')) ?? 6)));
+router.get('/dashboard/receivables', ok((req: any) => dashboard.getReceivables(num(q(req, 'limit')) ?? 8)));
+router.get('/dashboard/project-pnl', ok((req: any) => dashboard.getProjectPnl(num(q(req, 'limit')) ?? 8)));
 
 // Invoices
 router.get('/invoices', ok((req: any) => invoices.list({

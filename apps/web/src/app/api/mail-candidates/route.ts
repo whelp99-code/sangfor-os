@@ -4,6 +4,7 @@ import {
   listMailDerivedCandidates,
 } from "@sangfor/business/mail-candidates";
 import { NextResponse } from "next/server";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -34,6 +35,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   try {
     const body = await request.json().catch(() => ({}));
 
@@ -53,9 +56,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "generate_failed" },
-      { status: 400 },
-    );
+    return apiError("generate_failed", error, { status: 400 });
   }
 }

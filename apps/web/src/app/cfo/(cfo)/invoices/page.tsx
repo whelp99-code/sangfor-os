@@ -5,6 +5,16 @@ import { useProjectOptions } from "@/components/cfo/use-project-options";
 import { CfoPageHeading } from "@/components/cfo/page-heading";
 import { CFO } from "@/lib/cfo-theme";
 
+// Single source of truth for deposit-status display labels so the edit form,
+// table cell, and filter all read identically (previously the cell showed the
+// short stored value "부분"/"완료" while the form/filter showed "부분입금"/"입금완료").
+const DEPOSIT_STATUS_LABELS: Record<string, string> = {
+  미수: "미수",
+  부분: "부분입금",
+  완료: "입금완료",
+};
+const depositStatusLabel = (v: string) => DEPOSIT_STATUS_LABELS[v] ?? v;
+
 const INVOICE_FIELDS = [
   { name: "issueDate", label: "발행일", type: "date" as const },
   { name: "buyer", label: "거래처", type: "text" as const, required: true },
@@ -15,9 +25,9 @@ const INVOICE_FIELDS = [
     label: "입금상태",
     type: "select" as const,
     options: [
-      { value: "미수", label: "미수" },
-      { value: "부분", label: "부분입금" },
-      { value: "완료", label: "입금완료" },
+      { value: "미수", label: depositStatusLabel("미수") },
+      { value: "부분", label: depositStatusLabel("부분") },
+      { value: "완료", label: depositStatusLabel("완료") },
     ],
   },
   { name: "depositDate", label: "입금일", type: "date" as const },
@@ -45,7 +55,7 @@ const INVOICE_COLUMNS = [
           className="inline-block whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium"
           style={{ color: tone, background: `${tone}1A` }}
         >
-          {v}
+          {depositStatusLabel(v)}
         </span>
       );
     },
@@ -79,9 +89,9 @@ export default function InvoicesPage() {
             label: "입금상태",
             options: [
               { value: "all", label: "전체", test: () => true },
-              { value: "미수", label: "미수", test: (row) => (row.depositStatus ?? "미수") === "미수" },
-              { value: "부분", label: "부분입금", test: (row) => row.depositStatus === "부분" },
-              { value: "완료", label: "입금완료", test: (row) => row.depositStatus === "완료" },
+              { value: "미수", label: depositStatusLabel("미수"), test: (row) => (row.depositStatus ?? "미수") === "미수" },
+              { value: "부분", label: depositStatusLabel("부분"), test: (row) => row.depositStatus === "부분" },
+              { value: "완료", label: depositStatusLabel("완료"), test: (row) => row.depositStatus === "완료" },
             ],
           },
         ]}

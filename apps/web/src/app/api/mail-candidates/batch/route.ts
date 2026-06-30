@@ -1,7 +1,10 @@
 import { prisma } from "@sangfor/db";
 import { NextResponse } from "next/server";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   try {
     const body = await request.json();
     const { action, minConfidence = 85 } = body;
@@ -50,9 +53,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: "invalid_action" }, { status: 400 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "batch_failed" },
-      { status: 400 }
-    );
+    return apiError("batch_failed", error, { status: 400 });
   }
 }

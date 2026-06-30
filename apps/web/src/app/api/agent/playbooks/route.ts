@@ -1,4 +1,5 @@
 import { playbookStore } from "@/lib/agent/playbook-store";
+import { assertApiAccess } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,8 @@ export async function GET() {
 
 /** POST /api/agent/playbooks — create a playbook. Body: { name, goal, allowUnsafe?, maxSteps? } */
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   let body: { name?: unknown; goal?: unknown; allowUnsafe?: unknown; maxSteps?: unknown };
   try {
     body = await request.json();

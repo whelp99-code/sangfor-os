@@ -6,6 +6,7 @@ import {
 import { NextResponse } from "next/server";
 
 import { buildProposalActionGuards } from "@/lib/proposal-action-guards";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -19,14 +20,13 @@ export async function GET(_request: Request, context: RouteContext) {
       actionGuards: buildProposalActionGuards(document.status),
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "fetch_failed" },
-      { status: 500 },
-    );
+    return apiError("fetch_failed", error, { status: 500 });
   }
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   const { id } = await context.params;
   try {
     const body = await request.json();
@@ -36,22 +36,18 @@ export async function PATCH(request: Request, context: RouteContext) {
     const document = await saveDocumentVersion(id, body.bodyMarkdown);
     return NextResponse.json({ document });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "update_failed" },
-      { status: 400 },
-    );
+    return apiError("update_failed", error, { status: 400 });
   }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   const { id } = await context.params;
   try {
     const document = await archiveProposal(id);
     return NextResponse.json({ document });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "archive_failed" },
-      { status: 400 },
-    );
+    return apiError("archive_failed", error, { status: 400 });
   }
 }

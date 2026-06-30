@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, beforeEach, vi } from "vitest";
 
 const { mockRun } = vi.hoisted(() => ({ mockRun: vi.fn() }));
 vi.mock("@sangfor/agent", () => ({ runConfigAutomation: mockRun }));
@@ -15,6 +15,16 @@ function req(body: unknown, raw = false) {
 }
 
 beforeEach(() => mockRun.mockReset());
+
+// The workflow/run route is now guarded by assertApiAccess; enable the dev/demo
+// bypass so these behavioral tests exercise the handler rather than the 401 path.
+const prevBypass = process.env.AUTH_BYPASS_ENABLED;
+beforeAll(() => {
+  process.env.AUTH_BYPASS_ENABLED = "1";
+});
+afterAll(() => {
+  process.env.AUTH_BYPASS_ENABLED = prevBypass;
+});
 
 describe("POST /api/agent/workflow/run", () => {
   it("rejects missing requirements", async () => {

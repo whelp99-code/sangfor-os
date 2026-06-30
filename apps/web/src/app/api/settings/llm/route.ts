@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getLlmSettingsStatus, saveLlmSettings } from "@sangfor/business";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 // Web-managed OpenAI-compatible LLM credentials (no OAuth for OpenAI APIs).
 // GET returns a masked status; the full key is never returned.
@@ -7,14 +8,13 @@ export async function GET() {
   try {
     return NextResponse.json(await getLlmSettingsStatus());
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "status_failed" },
-      { status: 500 },
-    );
+    return apiError("status_failed", error, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   try {
     const body = await request.json().catch(() => ({}));
     await saveLlmSettings({
@@ -24,9 +24,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ success: true, ...(await getLlmSettingsStatus()) });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "save_failed" },
-      { status: 400 },
-    );
+    return apiError("save_failed", error, { status: 400, extra: { success: false } });
   }
 }

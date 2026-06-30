@@ -1,9 +1,12 @@
 import { approveAndConnectMailCandidate } from "@sangfor/business/mail-candidate-connections";
 import { NextResponse } from "next/server";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: Params) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   const { id } = await params;
   try {
     const body = await request.json();
@@ -18,9 +21,6 @@ export async function POST(request: Request, { params }: Params) {
         : `/opportunities/${result.opportunity.id}`,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "connect_failed" },
-      { status: 400 },
-    );
+    return apiError("connect_failed", error, { status: 400 });
   }
 }

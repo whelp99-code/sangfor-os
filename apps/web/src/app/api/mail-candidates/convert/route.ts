@@ -1,6 +1,7 @@
 import { prisma } from "@sangfor/db";
 import { deriveEntityFromCandidate, canonicalCompanyKey } from "@sangfor/business";
 import { NextResponse } from "next/server";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 // Resolve the active portal project (slug "demo-project"; fall back to the
 // first project). The previous hardcoded id was stale, so converted records
@@ -25,7 +26,9 @@ function inferIndustry(summary?: string | null): string {
   return 'IT';
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   try {
     const DEFAULT_PROJECT_ID = await resolveProjectId();
 
@@ -188,9 +191,6 @@ export async function POST() {
       message: `고객: ${customersCreated}개 생성, ${customersMerged}개 병합, ${customersSkipped}개 제외 | 파트너: ${partnersCreated}개 생성, ${partnersMerged}개 병합, ${partnersSkipped}개 제외 | 기회: ${opportunitiesCreated}개 | 작업: ${tasksCreated}개`,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "convert_failed" },
-      { status: 400 }
-    );
+    return apiError("convert_failed", error, { status: 400 });
   }
 }

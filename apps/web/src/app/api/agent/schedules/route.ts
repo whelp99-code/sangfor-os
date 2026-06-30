@@ -1,5 +1,6 @@
 import { playbookStore } from "@/lib/agent/playbook-store";
 import { scheduleStore } from "@/lib/agent/schedule-store";
+import { assertApiAccess } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ export async function GET() {
 
 /** POST /api/agent/schedules — Body: { playbookId, intervalMinutes, enabled? } */
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   let body: { playbookId?: unknown; intervalMinutes?: unknown; enabled?: unknown };
   try {
     body = await request.json();

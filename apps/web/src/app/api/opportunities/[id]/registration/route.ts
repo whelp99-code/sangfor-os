@@ -2,6 +2,7 @@ import { getDealRegistration, upsertDealRegistration } from "@sangfor/business/d
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -31,14 +32,13 @@ export async function GET(_request: Request, context: RouteContext) {
     if (!registration) return NextResponse.json({ error: "not_found" }, { status: 404 });
     return NextResponse.json({ registration: serializeDecimalAtBoundary(registration) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "fetch_failed" },
-      { status: 500 },
-    );
+    return apiError("fetch_failed", error, { status: 500 });
   }
 }
 
 export async function PUT(request: Request, context: RouteContext) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   const { id } = await context.params;
   try {
     const body = await request.json();
@@ -46,9 +46,6 @@ export async function PUT(request: Request, context: RouteContext) {
     const registration = await upsertDealRegistration(id, parsed);
     return NextResponse.json({ registration: serializeDecimalAtBoundary(registration) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "update_failed" },
-      { status: 400 },
-    );
+    return apiError("update_failed", error, { status: 400 });
   }
 }
