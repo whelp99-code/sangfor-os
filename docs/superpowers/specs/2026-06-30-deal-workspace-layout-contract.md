@@ -62,6 +62,11 @@ stage filter chips (①–⑥) + totals(labeled "진행중 N건 · 가중 예상
 **Components / reuse:** `deals-table.tsx` on `DataView` + `@tanstack/react-table` `ColumnDef`;
 `Badge` for 단계·상태·딜등록 pills; `Input` for inline cell edit; lucide icons. Row click → `/deals/[id]`.
 
+**View switcher (DECIDED):** default view = **table** (`01-deal-list.html`); a **칸반 토글**
+offers a stage-Kanban (`01b-deal-board.html`, columns = the 6 stages). Reuse the existing
+`ViewSwitcher` + `KanbanBoard`. This stage-Kanban is DISTINCT from screen 14 (딜등록 보드,
+columns = registration status) — do not conflate them.
+
 ## 4. Screen 2 — 딜 작업화면 (`mockups/02-deal-workspace.html`)
 
 **Regions (binding, top→bottom):**
