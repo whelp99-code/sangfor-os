@@ -3,6 +3,7 @@ import { getEngagementDetail } from './engagement-center';
 import { computePnl, type Pnl } from './domain-pnl';
 import { buildLanes, type DomainLane, type LaneArtifact } from './artifact-domain-map';
 import { getDomainAutonomy } from './project-decision';
+import { getPendingProposals } from './domain-proposal';
 
 export interface ProjectHub {
   engagement: Awaited<ReturnType<typeof getEngagementDetail>>;
@@ -40,5 +41,12 @@ export async function getProjectHub(engagementId: string): Promise<ProjectHub | 
     }),
   );
 
-  return { engagement, lanes: lanesWithAutonomy, pnl };
+  const pendingProposals = await getPendingProposals(engagementId);
+
+  const lanesWithProposals = lanesWithAutonomy.map((lane) => ({
+    ...lane,
+    proposals: pendingProposals.filter((p) => p.domain === lane.domain),
+  }));
+
+  return { engagement, lanes: lanesWithProposals, pnl };
 }

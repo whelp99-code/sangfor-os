@@ -159,7 +159,8 @@ export async function listPartners(projectSlug = "demo-project") {
     orderBy: { name: "asc" },
     include: {
       customerLinks: { include: { customer: true } },
-      _count: { select: { contacts: true } },
+      contacts: { orderBy: { createdAt: "asc" }, take: 1 },
+      _count: { select: { contacts: true, opportunities: true } },
     },
   });
 }

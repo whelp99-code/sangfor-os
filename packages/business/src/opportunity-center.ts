@@ -2,6 +2,7 @@ import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { logStateTransition } from "./audit";
+import { formatDealCode } from "./deal-code";
 import {
   CANONICAL_STAGES,
   normalizeOpportunityStage,
@@ -45,11 +46,16 @@ export const updateOpportunitySchema = z.object({
   title: z.string().min(2).optional(),
   stage: stageInput.optional(),
   amount: z.number().optional(),
+  // probability: manual forecast field — intentionally writable by the user (not auto-computed).
   probability: z.number().min(0).max(100).optional(),
   closeDate: z.string().datetime().nullable().optional(),
   nextAction: z.string().nullable().optional(),
   partnerId: z.string().nullable().optional(),
   customerId: z.string().nullable().optional(),
+  dealStatus: z.enum(["OPEN", "WON", "LOST", "ON_HOLD", "DISQUALIFIED"]).optional(),
+  dealType: z.string().optional(),
+  lostReason: z.string().nullable().optional(),
+  ownerId: z.string().nullable().optional(),
 });
 
 export const addOpportunityLinkSchema = z.object({
@@ -67,28 +73,38 @@ export async function createOpportunity(input: z.input<typeof createOpportunityS
   const parsed = createOpportunitySchema.parse(input);
   const projectId = await resolveProjectId(parsed.projectSlug);
 
-  const opp = await prisma.opportunity.create({
-    data: {
-      projectId,
-      title: parsed.title,
-      customerId: parsed.customerId,
-      partnerId: parsed.partnerId,
-      stage: parsed.stage,
-      amount: parsed.amount,
-      probability: parsed.probability,
-      closeDate: parsed.closeDate ? new Date(parsed.closeDate) : undefined,
-      nextAction: parsed.nextAction,
-    },
+  const opp = await prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('opp_code_seq')`;
+    const seq = Number(rows[0].nextval);
+    const code = formatDealCode(new Date().getFullYear(), seq);
+
+    const created = await tx.opportunity.create({
+      data: {
+        projectId,
+        title: parsed.title,
+        customerId: parsed.customerId,
+        partnerId: parsed.partnerId,
+        stage: parsed.stage,
+        amount: parsed.amount,
+        probability: parsed.probability,
+        closeDate: parsed.closeDate ? new Date(parsed.closeDate) : undefined,
+        nextAction: parsed.nextAction,
+        code,
+      },
+    });
+
+    await tx.opportunityStageEvent.create({
+      data: {
+        opportunityId: created.id,
+        toStage: parsed.stage,
+        note: "Opportunity created",
+      },
+    });
+
+    return created;
   });
 
-  await prisma.opportunityStageEvent.create({
-    data: {
-      opportunityId: opp.id,
-      toStage: parsed.stage,
-      note: "Opportunity created",
-    },
-  });
-
+  // Best-effort audit log — intentionally outside the transaction.
   await logStateTransition({
     entityType: "opportunity",
     entityId: opp.id,
@@ -109,6 +125,7 @@ export async function listOpportunities(projectSlug = "demo-project") {
       customer: true,
       partner: true,
       links: true,
+      dealRegistration: true,
     },
   });
 }
@@ -119,8 +136,11 @@ export async function getOpportunityDetail(id: string) {
     include: {
       customer: true,
       partner: true,
+      distributor: true,
       links: { orderBy: { createdAt: "desc" } },
       stageEvents: { orderBy: { createdAt: "desc" } },
+      qualification: { include: { economicBuyer: true, champion: true } },
+      dealRegistration: { include: { distributor: true } },
     },
   });
 }
@@ -142,24 +162,37 @@ export async function updateOpportunity(
   if (parsed.nextAction !== undefined) data.nextAction = parsed.nextAction;
   if (parsed.partnerId !== undefined) data.partnerId = parsed.partnerId;
   if (parsed.customerId !== undefined) data.customerId = parsed.customerId;
+  if (parsed.dealStatus !== undefined) data.dealStatus = parsed.dealStatus;
+  if (parsed.dealType !== undefined) data.dealType = parsed.dealType;
+  if (parsed.lostReason !== undefined) data.lostReason = parsed.lostReason;
+  if (parsed.ownerId !== undefined) data.ownerId = parsed.ownerId;
 
   if (parsed.stage !== undefined && parsed.stage !== existing.stage) {
-    data.stage = parsed.stage;
-    await prisma.opportunityStageEvent.create({
-      data: {
-        opportunityId: id,
-        fromStage: normalizeOpportunityStage(existing.stage),
-        toStage: parsed.stage,
-        note: "Stage updated",
-      },
+    const newStage = parsed.stage;
+    data.stage = newStage;
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.opportunity.update({ where: { id }, data });
+      await tx.opportunityStageEvent.create({
+        data: {
+          opportunityId: id,
+          fromStage: normalizeOpportunityStage(existing.stage),
+          toStage: newStage,
+          note: "Stage updated",
+        },
+      });
+      return result;
     });
+
+    // Best-effort audit log — intentionally outside the transaction.
     await logStateTransition({
       entityType: "opportunity",
       entityId: id,
       fromStatus: existing.stage,
-      toStatus: parsed.stage,
+      toStatus: newStage,
       actorType: "user",
     });
+
+    return updated;
   }
 
   return prisma.opportunity.update({ where: { id }, data });
@@ -221,6 +254,10 @@ export async function addOpportunityLink(
 
 export async function removeOpportunityLink(linkId: string) {
   return prisma.opportunityLink.delete({ where: { id: linkId } });
+}
+
+export async function archiveOpportunity(id: string) {
+  return prisma.opportunity.delete({ where: { id } });
 }
 
 export type EnrichedOpportunityLink = {
@@ -292,4 +329,15 @@ export async function getOpportunityPipelineSummary(projectSlug = "demo-project"
     byStage[canonical] = (byStage[canonical] ?? 0) + 1;
   }
   return { total: rows.length, byStage };
+}
+
+/**
+ * List quotes for one opportunity (newest first). Used by the deal workspace
+ * ④ 선정·입찰 work panel.
+ */
+export async function listQuotesByOpportunity(opportunityId: string) {
+  return prisma.quote.findMany({
+    where: { opportunityId },
+    orderBy: { createdAt: "desc" },
+  });
 }

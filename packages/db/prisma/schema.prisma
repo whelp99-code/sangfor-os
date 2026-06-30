@@ -19,9 +19,11 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  projectMembers    ProjectMember[]
-  commandRuns       CommandRun[]    @relation("CommandRunRequestedBy")
-  userCompanyRoles  UserCompanyRole[]
+  projectMembers     ProjectMember[]
+  commandRuns        CommandRun[]    @relation("CommandRunRequestedBy")
+  userCompanyRoles   UserCompanyRole[]
+  // TODO(oma-deferred): owner will expand to Actor union (User | TeamAgent) in a future migration
+  ownedOpportunities Opportunity[]
 
   @@map("users")
 }
@@ -669,19 +671,22 @@ model Customer {
 }
 
 model Partner {
-  id          String   @id @default(cuid())
-  projectId   String   @map("project_id")
+  id          String      @id @default(cuid())
+  projectId   String      @map("project_id")
   name        String
-  partnerType String?  @map("partner_type")
-  status      String   @default("active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  partnerType String?     @map("partner_type")
+  kind        PartnerKind? @map("kind")
+  status      String      @default("active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
 
-  customerLinks CustomerPartnerLink[]
-  contacts      Contact[]
-  workTasks     WorkTask[]
-  pocProjects   PocProject[]
-  opportunities Opportunity[]
+  customerLinks            CustomerPartnerLink[]
+  contacts                 Contact[]
+  workTasks                WorkTask[]
+  pocProjects              PocProject[]
+  opportunities            Opportunity[]
+  distributedOpportunities Opportunity[]         @relation("OpportunityDistributor")
+  registrations            DealRegistration[]    @relation("RegistrationDistributor")
 
   @@index([projectId, name])
   @@map("partners")
@@ -697,8 +702,10 @@ model Contact {
   role       String?
   createdAt  DateTime @default(now()) @map("created_at")
 
-  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  partner  Partner?  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  customer        Customer?          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  partner         Partner?           @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  econBuyerForDeals DealQualification[] @relation("DealEconomicBuyer")
+  championForDeals  DealQualification[] @relation("DealChampion")
 
   @@index([customerId])
   @@index([partnerId])
@@ -891,12 +898,18 @@ model PocResultReport {
 }
 
 model Opportunity {
-  id          String    @id @default(cuid())
-  projectId   String    @map("project_id")
-  customerId  String?   @map("customer_id")
-  partnerId   String?   @map("partner_id")
-  title       String
-  stage       OpportunityStage @default(LEAD)
+  id            String    @id @default(cuid())
+  projectId     String    @map("project_id")
+  customerId    String?   @map("customer_id")
+  partnerId     String?   @map("partner_id")
+  distributorId String?   @map("distributor_id")
+  title         String
+  code          String?   @unique @map("code")
+  stage         OpportunityStage @default(LEAD)
+  dealStatus    DealStatus @default(OPEN) @map("deal_status")
+  lostReason    String?    @map("lost_reason")
+  dealType      String?    @default("NEW_BUILD") @map("deal_type")
+  ownerId       String?    @map("owner_id")
   amount      Decimal?  @db.Decimal(12, 2)
   probability Int       @default(20)
   closeDate   DateTime? @map("close_date")
@@ -907,14 +920,19 @@ model Opportunity {
   qualification DealQualification?
   customer       Customer? @relation(fields: [customerId], references: [id])
   partner        Partner?  @relation(fields: [partnerId], references: [id])
+  owner          User?     @relation(fields: [ownerId], references: [id])
+  distributor    Partner?  @relation("OpportunityDistributor", fields: [distributorId], references: [id])
   stageEvents    OpportunityStageEvent[]
   links          OpportunityLink[]
   quoteServiceLineItems QuoteServiceLineItem[]
   quotes         Quote[]
   vendorRequests  VendorRequest[]
   engagement      Engagement?
+  dealRegistration DealRegistration?
 
   @@index([projectId, stage])
+  @@index([ownerId])
+  @@index([dealStatus])
   @@map("opportunities")
 }
 
@@ -930,9 +948,15 @@ model DealQualification {
   qualifiedAt      DateTime          @default(now()) @map("qualified_at")
   qualifiedBy      String?           @map("qualified_by")
   notes            String?
+  economicBuyerId  String?           @map("economic_buyer_id")
+  championId       String?           @map("champion_id")
 
-  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  economicBuyer Contact?    @relation("DealEconomicBuyer", fields: [economicBuyerId], references: [id])
+  champion      Contact?    @relation("DealChampion", fields: [championId], references: [id])
 
+  @@index([economicBuyerId])
+  @@index([championId])
   @@map("deal_qualifications")
 }
 
@@ -2000,7 +2024,40 @@ model CompatibilityRule {
   @@map("compatibility_rules")
 }
 
+// --- Channel ---
+
+model DealRegistration {
+  id                  String    @id @default(cuid())
+  opportunityId       String    @unique @map("opportunity_id")
+  distributorId       String?   @map("distributor_id")
+  registrationNumber  String?   @map("registration_number")
+  regStatus           RegStatus @default(NOT_SUBMITTED) @map("reg_status")
+  protectionExpiresAt DateTime? @map("protection_expires_at")
+  sprStatus           String?   @map("spr_status")
+  partnerTierMargin   Decimal?  @db.Decimal(5, 2) @map("partner_tier_margin")
+  conflictNote        String?   @map("conflict_note")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  distributor Partner?    @relation("RegistrationDistributor", fields: [distributorId], references: [id])
+
+  @@index([opportunityId])
+  @@index([protectionExpiresAt, regStatus])
+  @@map("deal_registrations")
+}
+
 // --- Enums ---
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+  ON_HOLD
+  DISQUALIFIED
+
+  @@map("deal_status")
+}
 
 enum QuoteStatus {
   DRAFT
@@ -2023,6 +2080,25 @@ enum OpportunityStage {
   LOST
 
   @@map("opportunity_stage")
+}
+
+enum PartnerKind {
+  VENDOR
+  DISTRIBUTOR
+  RESELLER
+
+  @@map("partner_kind")
+}
+
+enum RegStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  APPROVED
+  REJECTED
+  EXPIRED
+  CONTESTED
+
+  @@map("reg_status")
 }
 
 // --- Quotes & Commerce ---

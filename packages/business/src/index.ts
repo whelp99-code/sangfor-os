@@ -32,7 +32,18 @@ export * from "./mail-candidate-connections";
 export * from "./color-agent";
 export * from "./domain-pipeline";
 export * from "./domain-memory";
-export * from "./domain-agent-runtime";
+export {
+  type DomainCase,
+  type DomainArtifact,
+  type DomainGenerator,
+  type ColorGateEvaluator,
+  type DomainRuntimeDeps,
+  type DomainStageResult,
+  resolveDomainGenerator,
+  runDomainStage,
+  runDomainPipeline,
+  createStubGenerator,
+} from "./domain-agent-runtime";
 export * from "./domain-embedding";
 export * from "./opencode-client";
 export * from "./domain-llm";
@@ -65,3 +76,5 @@ export * from "./artifact-domain-map";
 export * from "./project-hub";
 export * from "./ai-classify-batch";
 export * from "./project-decision";
+export * from "./domain-proposal";
+export * from "./deal-registration";
