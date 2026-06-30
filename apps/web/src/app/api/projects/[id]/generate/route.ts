@@ -1,10 +1,13 @@
 import { generateDomainProposal, getProjectHub, DOMAIN_ORDER } from '@sangfor/business';
 import { NextResponse } from 'next/server';
+import { assertApiAccess } from '@/lib/api-auth';
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const denied = assertApiAccess(req);
+  if (denied) return denied;
   try {
     const { id } = await params;
     const body = await req.json().catch(() => ({})) as { domain?: string };
@@ -30,8 +33,9 @@ export async function POST(
 
     return NextResponse.json(proposal);
   } catch (err) {
-    // Graceful: never 500 the UI — return 200 with {error}
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return NextResponse.json({ error: message });
+    // Graceful: never 500 the UI — return 200 with a generic {error}.
+    // Log the real cause server-side to avoid leaking internals to clients.
+    console.error('[api] generate_failed:', err instanceof Error ? err.stack ?? err.message : err);
+    return NextResponse.json({ error: 'generate_failed' });
   }
 }

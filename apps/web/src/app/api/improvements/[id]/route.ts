@@ -4,6 +4,7 @@ import {
   rejectImprovementCandidate,
 } from "@sangfor/business/improvement-loop";
 import { NextResponse } from "next/server";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -17,6 +18,8 @@ export async function GET(_request: Request, context: RouteContext) {
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   const { id } = await context.params;
   try {
     const body = await request.json();
@@ -31,9 +34,6 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
     return NextResponse.json({ error: "invalid_status" }, { status: 400 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "patch_failed" },
-      { status: 400 },
-    );
+    return apiError("patch_failed", error, { status: 400 });
   }
 }

@@ -4,6 +4,7 @@ import { agentRunStore } from "@/lib/agent/run-store";
 import { playbookStore } from "@/lib/agent/playbook-store";
 import { scheduleStore } from "@/lib/agent/schedule-store";
 import { dueSchedules } from "@/lib/agent/schedule-logic";
+import { assertApiAccess } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,9 @@ export const dynamic = "force-dynamic";
  * computed from each schedule's nextRunAt, the matching playbook is executed,
  * the run is recorded, and nextRunAt is advanced.
  */
-export async function POST() {
+export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   const now = Date.now();
   const due = dueSchedules(scheduleStore.list(), now);
   const triggered: Array<{ scheduleId: string; playbookId: string; runId?: string; status: string }> = [];

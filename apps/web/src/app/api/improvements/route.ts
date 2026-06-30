@@ -3,6 +3,7 @@ import {
   listImprovementCandidates,
 } from "@sangfor/business/improvement-loop";
 import { NextResponse } from "next/server";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -17,14 +18,13 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   try {
     const body = await request.json();
     const candidate = await createImprovementCandidateFromError(body);
     return NextResponse.json({ candidate }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "create_failed" },
-      { status: 400 },
-    );
+    return apiError("create_failed", error, { status: 400 });
   }
 }

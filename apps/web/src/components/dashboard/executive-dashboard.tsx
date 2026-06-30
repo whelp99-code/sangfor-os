@@ -184,8 +184,26 @@ export function ExecutiveDashboard() {
   const totalForecast = data.productForecast.reduce((s, r) => s + r.forecast, 0);
   const totalWeighted = data.productForecast.reduce((s, r) => s + r.weighted, 0);
 
+  // Distinguish "no data collected yet" from genuine zero values: when every
+  // data source is empty and the pipeline totals are zero, the 0s and empty
+  // tables below reflect an unpopulated dataset, not real measured zeros.
+  const noDataCollected =
+    data.revenuePipeline.total === 0 &&
+    data.revenuePipeline.deals === 0 &&
+    data.productForecast.length === 0 &&
+    data.approvalBottleneck.length === 0 &&
+    data.pocSuccessRate.length === 0 &&
+    data.deliveryDelay.length === 0 &&
+    data.supportHotspots.length === 0 &&
+    data.systemHealth.length === 0;
+
   return (
     <div className="space-y-6">
+      {noDataCollected && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-300">
+          아직 집계된 데이터가 없습니다. 아래 0과 빈 표는 실제 측정값이 아니라 수집된 데이터가 없음을 의미합니다.
+        </div>
+      )}
       <Card>
         <CardHeader className="flex flex-row items-center gap-2 pb-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/50">

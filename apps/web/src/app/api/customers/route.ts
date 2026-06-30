@@ -1,5 +1,6 @@
 import { createCustomer, createCustomerSchema, listCustomers } from "@sangfor/business";
 import { NextResponse } from "next/server";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -8,14 +9,13 @@ export async function GET(request: Request) {
     const customers = await listCustomers("demo-project", search);
     return NextResponse.json({ customers });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "list_failed" },
-      { status: 500 },
-    );
+    return apiError("list_failed", error, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   let body: unknown;
   try {
     body = await request.json();
@@ -45,9 +45,6 @@ export async function POST(request: Request) {
     const customer = await createCustomer(result.data);
     return NextResponse.json({ customer }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "create_failed" },
-      { status: 400 },
-    );
+    return apiError("create_failed", error, { status: 400 });
   }
 }

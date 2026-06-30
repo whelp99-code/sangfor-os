@@ -1,6 +1,7 @@
 import { runConfigAutomation } from "@sangfor/agent";
 
 import { workflowRunStore } from "@/lib/agent/workflow-run-store";
+import { assertApiAccess } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
  * Events: `run`, `stage` (each StageResult), `done`, `error`.
  */
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   let body: { requirements?: unknown; approvals?: unknown };
   try {
     body = await request.json();

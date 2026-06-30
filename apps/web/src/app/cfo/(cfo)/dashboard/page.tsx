@@ -19,16 +19,14 @@ type Kpi = {
 };
 type TrendPoint = { year: number; month: number; revenue: number; expense: number };
 type Forecast = { currentCash: number; forecast: { date: string; balance: number }[] };
-type ProjectRef = { id: string; name: string } | null;
-type Invoice = {
-  buyer: string | null;
+// 미수금·프로젝트손익은 서버에서 집계해 결과만 받는다(과거엔 invoices/expenses 500건씩
+// 받아 클라에서 돌렸음 — over-fetch 제거).
+type Receivables = {
   total: number;
-  depositAmount: number | null;
-  depositStatus: string | null;
-  amount: number;
-  project: ProjectRef;
+  count: number;
+  rows: { buyer: string; status: string; remaining: number }[];
 };
-type Expense = { total: number; amount: number; project: ProjectRef };
+type ProjectPnl = { name: string; revenue: number; cost: number; profit: number };
 
 export default async function DashboardPage() {
   const now = new Date();
@@ -38,17 +36,17 @@ export default async function DashboardPage() {
   let kpi: Kpi | null = null;
   let trend: TrendPoint[] = [];
   let forecast: Forecast | null = null;
-  let invoices: Invoice[] = [];
-  let expenses: Expense[] = [];
+  let receivablesData: Receivables = { total: 0, count: 0, rows: [] };
+  let projectPnl: ProjectPnl[] = [];
   let error: string | null = null;
 
   try {
-    [kpi, trend, forecast, invoices, expenses] = await Promise.all([
+    [kpi, trend, forecast, receivablesData, projectPnl] = await Promise.all([
       cfoFetch<Kpi>(`dashboard/kpi?year=${year}&month=${month}`),
       cfoFetch<TrendPoint[]>("dashboard/monthly-trend?months=12"),
       cfoFetch<Forecast>("dashboard/cashflow-forecast?days=90"),
-      cfoFetch<Invoice[]>("invoices?limit=500"),
-      cfoFetch<Expense[]>("expenses?limit=500"),
+      cfoFetch<Receivables>("dashboard/receivables?limit=8"),
+      cfoFetch<ProjectPnl[]>("dashboard/project-pnl?limit=8"),
     ]);
   } catch (e: unknown) {
     error = e instanceof Error ? e.message : "API 연결 실패";
@@ -67,38 +65,13 @@ export default async function DashboardPage() {
   const ytdExpense = trend.reduce((s, t) => s + t.expense, 0);
   const ytdNet = ytdRevenue - ytdExpense;
 
-  const receivables = invoices
-    .map((i) => ({
-      buyer: i.buyer ?? i.project?.name ?? "—",
-      status: i.depositStatus ?? "미수",
-      remaining: i.total - (i.depositAmount ?? 0),
-    }))
-    .filter((r) => r.status !== "완료" && r.remaining > 0)
-    .sort((a, b) => b.remaining - a.remaining);
-  const receivablesTotal = receivables.reduce((s, r) => s + r.remaining, 0);
-
-  const pnl = new Map<string, { name: string; revenue: number; cost: number }>();
-  for (const i of invoices) {
-    const name = i.project?.name ?? "미배정";
-    const e = pnl.get(name) ?? { name, revenue: 0, cost: 0 };
-    e.revenue += i.amount;
-    pnl.set(name, e);
-  }
-  for (const x of expenses) {
-    const name = x.project?.name ?? "미배정";
-    const e = pnl.get(name) ?? { name, revenue: 0, cost: 0 };
-    e.cost += x.amount;
-    pnl.set(name, e);
-  }
-  const projectPnl = [...pnl.values()]
-    .map((p) => ({ ...p, profit: p.revenue - p.cost }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 8);
+  const receivables = receivablesData.rows;
+  const receivablesTotal = receivablesData.total;
 
   // Distinguish "no data yet" from a genuine zero month: if there are no
-  // invoices and no expenses at all, the zeros below reflect an empty ledger
-  // rather than a real ₩0 result.
-  const ledgerEmpty = invoices.length === 0 && expenses.length === 0;
+  // receivables and no project P&L rows at all, the zeros below reflect an
+  // empty ledger rather than a real ₩0 result.
+  const ledgerEmpty = receivablesData.count === 0 && projectPnl.length === 0;
   const monthAllZero =
     kpi.totalRevenue === 0 &&
     kpi.totalExpense === 0 &&

@@ -1,5 +1,6 @@
 import { prisma } from "@sangfor/db";
 import { NextResponse } from "next/server";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 /**
  * 주제별/대화별 스레드 그룹핑
@@ -41,6 +42,8 @@ function groupMessagesIntoThreads(messages: Array<{
 }
 
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   try {
     const body = await request.json().catch(() => ({}));
     const limit = Math.min(Number(body.limit ?? 100), 2000);
@@ -111,9 +114,6 @@ export async function POST(request: Request) {
       groupingMethod: 'subject+participants+timeWindow',
     }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "generate_failed" },
-      { status: 400 }
-    );
+    return apiError("generate_failed", error, { status: 400 });
   }
 }

@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { OutlookSyncService } from '@sangfor/business'
 import { getDelegatedConnection, syncDelegatedOutlook } from '@/lib/outlook-graph'
+import { assertApiAccess } from '@/lib/api-auth'
 
-export async function POST() {
+export async function POST(request: Request) {
+  const denied = assertApiAccess(request)
+  if (denied) return denied
   // Prefer the delegated (user-connected) mailbox when available.
   const connection = await getDelegatedConnection()
   if (connection.connected) {
@@ -10,8 +13,9 @@ export async function POST() {
       const result = await syncDelegatedOutlook()
       return NextResponse.json({ success: true, mode: 'delegated', ...result })
     } catch (error) {
+      console.error('[api] sync_failed:', error instanceof Error ? error.stack ?? error.message : error)
       return NextResponse.json(
-        { success: false, error: error instanceof Error ? error.message : 'sync_failed' },
+        { success: false, error: 'sync_failed' },
         { status: 200 },
       )
     }

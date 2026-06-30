@@ -1,7 +1,10 @@
 import { prisma } from "@sangfor/db";
 import { NextResponse } from "next/server";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   try {
     // 1. 같은 발신자의 고객 후보 중복 제거
     const customers = await prisma.mailDerivedCandidate.findMany({
@@ -54,9 +57,6 @@ export async function POST() {
       message: `중복 제거: ${duplicatesRemoved}개, Nexias 수정: ${nexiasFixed}개`,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "cleanup_failed" },
-      { status: 400 }
-    );
+    return apiError("cleanup_failed", error, { status: 400 });
   }
 }

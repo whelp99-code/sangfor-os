@@ -2,6 +2,7 @@ import { runMcpAgent } from "@sangfor/agent";
 
 import { agentRunStore } from "@/lib/agent/run-store";
 import type { RunSource } from "@/lib/agent/types";
+import { assertApiAccess } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ export const dynamic = "force-dynamic";
  * Events: `run` (start), `step` (each AgentStep), `done` (terminal), `error`.
  */
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
+
   let body: {
     goal?: unknown;
     maxSteps?: unknown;

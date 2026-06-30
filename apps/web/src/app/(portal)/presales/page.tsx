@@ -106,10 +106,7 @@ export default function PresalesDashboardPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
-                  <>
-                    <MetricRow label="신규 요청" value={String(data.pendingDiscovery)} />
-                    <MetricRow label="미배정" value="0" />
-                  </>
+                  <MetricRow label="신규 요청" value={String(data.pendingDiscovery)} />
                 ) : null}
                 {!data?.pendingDiscovery && !data?.solutionFitReview && (
                   <p className="py-4 text-center text-sm text-muted-foreground">No discovery requests pending</p>
@@ -127,10 +124,7 @@ export default function PresalesDashboardPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
-                  <>
-                    <MetricRow label="검토 대기" value={String(data.solutionFitReview)} />
-                    <MetricRow label="확정" value="0" />
-                  </>
+                  <MetricRow label="검토 대기" value={String(data.solutionFitReview)} />
                 ) : null}
               </CardContent>
             </Card>
@@ -160,10 +154,7 @@ export default function PresalesDashboardPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
-                  <>
-                    <MetricRow label="환경 구성" value={String(data.pocPrep)} />
-                    <MetricRow label="Planning" value={String(data.pocPrep)} />
-                  </>
+                  <MetricRow label="Planning" value={String(data.pocPrep)} />
                 ) : null}
                 {!data?.pocPrep && (
                   <p className="py-4 text-center text-sm text-muted-foreground">No active PoC preps</p>

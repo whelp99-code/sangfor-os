@@ -41,3 +41,27 @@ export function assertApiAccess(_request: Request): NextResponse | null {
     { status: 401 },
   );
 }
+
+/**
+ * Builds a sanitized error response for a mutating route.
+ *
+ * Why: raw `error.message` often carries internal detail (stack hints, DB
+ * driver text, file paths, upstream API payloads). Surfacing it to clients is
+ * an information-leak. This logs the real error server-side and returns a
+ * stable, generic `error` code plus a fixed user-facing `message`.
+ *
+ * Usage:
+ *   } catch (error) {
+ *     return apiError("create_failed", error, { status: 400 });
+ *   }
+ */
+export function apiError(
+  code: string,
+  error: unknown,
+  options: { status?: number; message?: string; extra?: Record<string, unknown> } = {},
+): NextResponse {
+  const { status = 500, message = "Request could not be completed", extra } = options;
+  // Server-side observability: keep the real cause out of the HTTP response.
+  console.error(`[api] ${code}:`, error instanceof Error ? error.stack ?? error.message : error);
+  return NextResponse.json({ error: code, message, ...extra }, { status });
+}

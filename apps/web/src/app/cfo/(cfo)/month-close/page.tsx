@@ -40,9 +40,17 @@ export default async function MonthClosePage() {
       {error && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{error}</p>}
       {data && (
         <>
+          {/* Cash-basis advisory: the 매출 figure aggregates only deposited
+              (입금완료) invoices, so an as-yet-uncollected month can read ₩0.
+              This is a labelling clarification only — the calculation is
+              unchanged — to avoid confusion with accrual-basis revenue. */}
+          <p className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
+            현금주의(입금 기준) 집계입니다. 매출은 <strong>입금완료</strong>된 금액만 반영하므로,
+            아직 미수금이 회수되지 않은 달은 ₩0으로 보일 수 있습니다(발생주의 매출과 다름).
+          </p>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-xl border bg-white p-4">
-              <p className="text-xs font-medium text-zinc-500">매출</p>
+              <p className="text-xs font-medium text-zinc-500">매출 <span className="font-normal text-zinc-400">(입금 기준)</span></p>
               <p className="mt-1 text-xl font-semibold text-blue-600">{formatKrw(data.summary.totalRevenue)}</p>
             </div>
             <div className="rounded-xl border bg-white p-4">

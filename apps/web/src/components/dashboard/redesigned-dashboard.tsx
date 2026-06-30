@@ -146,8 +146,23 @@ export function RedesignedDashboard() {
     ([stage, count]) => ({ stage, count }),
   );
 
+  // Distinguish "no data collected yet" from genuine zeros: when all summary
+  // KPIs are zero and there is no pipeline at all, the KPI 0s below reflect an
+  // empty dataset rather than real measured zeros.
+  const noDataCollected =
+    data.summary.customers === 0 &&
+    data.summary.openTasks === 0 &&
+    data.summary.todayTasks === 0 &&
+    data.summary.activePocs === 0 &&
+    pipelineData.length === 0;
+
   return (
     <div className="space-y-8">
+      {noDataCollected && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-300">
+          아직 집계된 데이터가 없습니다. 아래 0은 실제 측정값이 아니라 수집된 데이터가 없음을 의미합니다.
+        </div>
+      )}
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6 text-white shadow-xl sm:p-8">
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
