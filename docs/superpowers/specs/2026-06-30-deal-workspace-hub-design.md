@@ -69,6 +69,12 @@ Chain: `Sangfor ─▸ 총판(Distributor) ─▸ 나(Platinum) ─▸ 고객`.
 ①제안서 초안 · ②PoC 계획 초안 · ③ROI표(측정값→표) · ④SPR 요청 초안 · ⑤SOW 뼈대 · ⑥핸드오버 문서.
 "유사 사례" only if grounded in the partner's own history; otherwise cut.
 
+**Layout is the SSOT.** The exact structure, regions, field inventory, density, and token
+mapping for all three screens are governed by the **binding layout contract**
+(`2026-06-30-deal-workspace-layout-contract.md`) and the canonical mockups under
+`./mockups/` (`01-deal-list.html`, `02-deal-workspace.html`, `03-deal-detail.html`).
+All code and the slice workflow derive from those mockups; UI changes update the mockup first.
+
 ## 5. Data model — REUSE existing, resolve the FOUR-way collision (red-team CRITICAL 1, 2)
 
 There are **four** things called/used as "project": `Project` (AI tenant), `Opportunity`

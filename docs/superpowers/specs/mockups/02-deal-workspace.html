@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>딜 작업화면 — 시안</title>
+<style>
+  :root{
+    --sf-blue:#0176d3; --sf-blue-d:#014486; --sf-bg:#f3f2f2; --sf-border:#e5e5e5;
+    --sf-text:#181818; --sf-text-weak:#5c5c5c; --sf-green:#2e844a; --sf-amber:#fe9339;
+    --sf-card:#ffffff; --sf-radius:8px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{
+    font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",
+      system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:var(--sf-bg); color:var(--sf-text); font-size:13px; line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1280px; margin:0 auto; padding:14px 16px 40px}
+
+  /* ── global top bar ── */
+  .topbar{display:flex; align-items:center; gap:14px; background:#fff; border:1px solid var(--sf-border);
+    border-radius:var(--sf-radius); padding:8px 14px; margin-bottom:12px}
+  .topbar .logo{width:26px;height:26px;border-radius:6px;background:var(--sf-blue);
+    display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px}
+  .topbar nav{display:flex;gap:18px;color:var(--sf-text-weak);font-weight:600}
+  .topbar nav a{color:var(--sf-text-weak);text-decoration:none;padding:4px 2px}
+  .topbar nav a.on{color:var(--sf-blue);border-bottom:2px solid var(--sf-blue)}
+  .topbar .search{margin-left:auto;background:var(--sf-bg);border:1px solid var(--sf-border);
+    border-radius:20px;padding:6px 14px;color:#9a9a9a;width:230px}
+  .topbar .ava{width:28px;height:28px;border-radius:50%;background:#d8b4fe;display:grid;place-items:center;font-weight:700;color:#5b21b6}
+
+  /* ── highlights panel ── */
+  .hl{background:var(--sf-card);border:1px solid var(--sf-border);border-radius:var(--sf-radius);
+    padding:14px 18px;margin-bottom:12px}
+  .hl-top{display:flex;align-items:flex-start;gap:12px}
+  .hl-ico{width:40px;height:40px;border-radius:8px;background:#d4a017;display:grid;place-items:center;
+    color:#fff;font-size:20px;flex:none}
+  .hl-name{flex:1;min-width:0}
+  .hl-kind{font-size:11px;color:var(--sf-text-weak);text-transform:uppercase;letter-spacing:.04em}
+  .hl-name h1{font-size:20px;font-weight:800;letter-spacing:-.01em;margin-top:1px}
+  .hl-actions{display:flex;gap:8px;flex:none}
+  .btn{border:1px solid #c9c9c9;background:#fff;color:#0b5cab;border-radius:6px;padding:6px 14px;
+    font-weight:700;font-size:12px;cursor:pointer}
+  .btn.pri{background:var(--sf-blue);border-color:var(--sf-blue);color:#fff}
+  /* channel chain */
+  .chain{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 4px;
+    font-weight:700;font-size:12px}
+  .chain .node{background:var(--sf-bg);border:1px solid var(--sf-border);border-radius:14px;padding:4px 11px}
+  .chain .node.me{background:#e8f3fc;border-color:#b6dbf6;color:var(--sf-blue-d)}
+  .chain .node.cust{background:#eafaf0;border-color:#bfe6cd;color:#1d6b39}
+  .chain .arr{color:#b0b0b0}
+  .chain .reg{margin-left:auto;background:#fff4e6;border:1px solid #ffd8a8;color:#c4690a;
+    border-radius:14px;padding:4px 11px;display:flex;align-items:center;gap:5px}
+  /* key fields */
+  .kf{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;margin-top:12px;
+    border-top:1px solid #f0f0f0;padding-top:11px}
+  .kf .c .l{font-size:11px;color:var(--sf-text-weak)}
+  .kf .c .v{font-weight:700;margin-top:2px}
+
+  /* ── path ── */
+  .pathwrap{background:var(--sf-card);border:1px solid var(--sf-border);border-radius:var(--sf-radius);
+    padding:0 0 16px;margin-bottom:12px;overflow:hidden}
+  .path{display:flex;list-style:none}
+  .path li{position:relative;flex:1;height:42px;display:grid;place-items:center;
+    font-weight:700;font-size:12px;color:#3a3a3a;background:#e9eaec;
+    clip-path:polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 16px 50%);
+    margin-right:-10px}
+  .path li:first-child{clip-path:polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%)}
+  .path li.done{background:#cfe8d6;color:#1d6b39}
+  .path li.cur{background:var(--sf-blue);color:#fff}
+  .path li.todo{background:#e9eaec;color:#7a7a7a}
+  /* stage guide */
+  .guide{padding:14px 18px 0}
+  .guide-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .guide-head .tag{background:#e8f3fc;color:var(--sf-blue-d);border-radius:5px;padding:2px 9px;font-weight:800;font-size:11px}
+  .guide-head .crit{color:var(--sf-text-weak);font-size:12px}
+  .guide-head .crit b{color:#1d6b39}
+  .guide-head .mark{margin-left:auto}
+  .checks{display:grid;grid-template-columns:1fr 1fr;gap:8px 26px}
+  .chk{display:flex;align-items:center;gap:9px;color:#2a2a2a}
+  .chk .box{width:15px;height:15px;border:1.5px solid #b9b9b9;border-radius:3px;flex:none}
+  .chk.ok .box{background:var(--sf-green);border-color:var(--sf-green);position:relative}
+  .chk.ok .box::after{content:"✓";color:#fff;font-size:11px;position:absolute;left:2px;top:-2px}
+  .chk.ok{color:#7a7a7a;text-decoration:line-through;text-decoration-color:#cfcfcf}
+
+  /* ── body grid ── */
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:12px;align-items:start}
+  .panel{background:var(--sf-card);border:1px solid var(--sf-border);border-radius:var(--sf-radius)}
+  /* tabs */
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--sf-border);padding:0 8px}
+  .tabs .t{padding:11px 14px;font-weight:700;color:var(--sf-text-weak);cursor:pointer;border-bottom:2px solid transparent}
+  .tabs .t.on{color:var(--sf-blue);border-bottom-color:var(--sf-blue)}
+  .work{padding:16px 18px}
+  .work .doc-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .work .doc-title h3{font-size:15px;font-weight:800}
+  .field{margin-bottom:14px}
+  .field .l{font-size:11px;color:var(--sf-text-weak);margin-bottom:4px}
+  .field .area{border:1px solid var(--sf-border);border-radius:6px;padding:11px 13px;background:#fcfcfc;min-height:78px;color:#2a2a2a}
+  .field .area .ph{color:#b3b3b3}
+  .metricbar{display:flex;gap:10px}
+  .metricbar .m{flex:1;background:#f7fbff;border:1px solid #d6eafc;border-radius:6px;padding:10px 12px}
+  .metricbar .m .n{font-size:18px;font-weight:800;color:var(--sf-blue-d)}
+  .metricbar .m .k{font-size:11px;color:var(--sf-text-weak)}
+
+  /* right rail */
+  .rail{display:flex;flex-direction:column;gap:12px}
+  .rail .h{padding:12px 14px;border-bottom:1px solid var(--sf-border);font-weight:800;font-size:13px;display:flex;align-items:center;gap:7px}
+  .ai .h{color:var(--sf-blue-d)}
+  .ai .body{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+  .sugg{background:#f4f9ff;border:1px solid #d6eafc;border-radius:8px;padding:11px 12px}
+  .sugg p{color:#274b6b;font-weight:600;margin-bottom:8px}
+  .sugg .row{display:flex;gap:7px}
+  .sugg .s{font-size:11px;font-weight:700;border-radius:5px;padding:4px 10px;cursor:pointer}
+  .sugg .s.y{background:var(--sf-blue);color:#fff;border:1px solid var(--sf-blue)}
+  .sugg .s.n{background:#fff;color:var(--sf-blue-d);border:1px solid #b6dbf6}
+  .ai .note{font-size:11px;color:#9a9a9a;text-align:center}
+  /* timeline */
+  .tl .body{padding:6px 14px 12px}
+  .ev{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #f2f2f2}
+  .ev:last-child{border-bottom:0}
+  .ev .dot{width:9px;height:9px;border-radius:50%;background:var(--sf-blue);margin-top:4px;flex:none}
+  .ev .dot.g{background:#cfcfcf}
+  .ev .tx{flex:1}
+  .ev .tx .t1{font-weight:700}
+  .ev .tx .t2{font-size:11px;color:var(--sf-text-weak)}
+  .legend{margin-top:14px;text-align:center;color:#9a9a9a;font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- top bar -->
+  <div class="topbar">
+    <div class="logo">P</div>
+    <nav>
+      <a href="#">홈</a>
+      <a href="#" class="on">딜</a>
+      <a href="#">회사</a>
+      <a href="#">파이프라인</a>
+      <a href="#">더보기 ▾</a>
+    </nav>
+    <div class="search">🔍  검색…</div>
+    <div class="ava">박</div>
+  </div>
+
+  <!-- highlights -->
+  <div class="hl">
+    <div class="hl-top">
+      <div class="hl-ico">🏛️</div>
+      <div class="hl-name">
+        <div class="hl-kind">딜 · Opportunity</div>
+        <h1>○○은행 차세대 방화벽 도입</h1>
+      </div>
+      <div class="hl-actions">
+        <button class="btn">편집</button>
+        <button class="btn">활동 기록</button>
+        <button class="btn pri">✓ 단계 완료</button>
+      </div>
+    </div>
+
+    <div class="chain">
+      <span class="node">Sangfor</span><span class="arr">▸</span>
+      <span class="node">○○총판</span><span class="arr">▸</span>
+      <span class="node me">나 · Platinum</span><span class="arr">▸</span>
+      <span class="node cust">○○은행</span>
+      <span class="reg">🛡️ 딜등록 보호중 · D-45</span>
+    </div>
+
+    <div class="kf">
+      <div class="c"><div class="l">고객사</div><div class="v">○○은행</div></div>
+      <div class="c"><div class="l">금액</div><div class="v">4.2억</div></div>
+      <div class="c"><div class="l">담당</div><div class="v">박정민</div></div>
+      <div class="c"><div class="l">마감 예정</div><div class="v">2026-08-20</div></div>
+      <div class="c"><div class="l">현재 단계</div><div class="v" style="color:#0176d3">③ 결과제출</div></div>
+      <div class="c"><div class="l">수주 확률</div><div class="v">65%</div></div>
+    </div>
+  </div>
+
+  <!-- path -->
+  <div class="pathwrap">
+    <ul class="path">
+      <li class="done">① 제안</li>
+      <li class="done">② PoC</li>
+      <li class="cur">③ 결과제출</li>
+      <li class="todo">④ 선정·입찰</li>
+      <li class="todo">⑤ 수주</li>
+      <li class="todo">⑥ 딜리버리</li>
+    </ul>
+    <div class="guide">
+      <div class="guide-head">
+        <span class="tag">③ 결과제출</span>
+        <span class="crit">통과 기준 — 합의 성공기준 <b>충족 입증</b> + 고객 측 기술·비즈니스 검증 인정</span>
+        <button class="btn pri mark">단계 완료 ✓</button>
+      </div>
+      <div class="checks">
+        <div class="chk ok"><span class="box"></span> 성공기준 대비 정량 결과 보고서</div>
+        <div class="chk"><span class="box"></span> 비즈니스 가치 / ROI (POV) 정리</div>
+        <div class="chk"><span class="box"></span> 경영진 readout 일정 확정</div>
+        <div class="chk"><span class="box"></span> 사후 인수인계 계획</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- body -->
+  <div class="grid">
+    <!-- work area -->
+    <div class="panel">
+      <div class="tabs">
+        <div class="t on">작업</div>
+        <div class="t">상세</div>
+        <div class="t">문서</div>
+        <div class="t">연락처</div>
+        <div class="t">채널·등록</div>
+      </div>
+      <div class="work">
+        <div class="doc-title">
+          <h3>PoC 결과 보고서</h3>
+          <div><button class="btn">미리보기</button> <button class="btn pri">저장</button></div>
+        </div>
+
+        <div class="field">
+          <div class="l">성능 측정 결과 (합의 성공기준 대비)</div>
+          <div class="metricbar">
+            <div class="m"><div class="n">8.2 Gbps</div><div class="k">처리량 · 기준 6Gbps ✓</div></div>
+            <div class="m"><div class="n">0.3 ms</div><div class="k">지연 · 기준 1ms ✓</div></div>
+            <div class="m"><div class="n">99.99%</div><div class="k">탐지율 · 기준 99% ✓</div></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="l">요약 본문 <span style="color:#b3b3b3">(내가 직접 작성)</span></div>
+          <div class="area">
+            3주간 ○○은행 DMZ 구간에 PoC 장비를 설치하여 실트래픽 기준으로 검증.
+            합의된 3개 성공기준을 모두 충족했으며, 특히 암호화 트래픽 처리에서…
+            <span class="ph">│</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- right rail -->
+    <div class="rail">
+      <!-- AI assist -->
+      <div class="panel ai">
+        <div class="h">✦ AI 거들기 <span style="color:#9a9a9a;font-weight:500;font-size:11px">— 제안만, 결정은 내가</span></div>
+        <div class="body">
+          <div class="sugg">
+            <p>측정값으로 ROI 표 초안을 만들까요?</p>
+            <div class="row"><span class="s y">초안 생성</span><span class="s n">나중에</span></div>
+          </div>
+          <div class="sugg">
+            <p>유사 금융권 방화벽 ROI 사례 3건을 찾았어요.</p>
+            <div class="row"><span class="s y">보기</span><span class="s n">무시</span></div>
+          </div>
+          <div class="note">AI는 초안·자료만 제시합니다. 본문은 당신이 씁니다.</div>
+        </div>
+      </div>
+      <!-- timeline -->
+      <div class="panel tl">
+        <div class="h">🕑 활동 타임라인</div>
+        <div class="body">
+          <div class="ev"><span class="dot"></span><div class="tx"><div class="t1">고객 기술 미팅</div><div class="t2">7/2 · 검증 결과 1차 공유</div></div></div>
+          <div class="ev"><span class="dot"></span><div class="tx"><div class="t1">PoC 종료</div><div class="t2">7/1 · 3주 평가 완료</div></div></div>
+          <div class="ev"><span class="dot g"></span><div class="tx"><div class="t1">총판 딜등록 승인</div><div class="t2">6/5 · 보호 90일 확보</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">시안 · Salesforce Lightning 룩 참고 — 색·여백·밀도는 자유롭게 의견 주세요</div>
+
+</div>
+</body>
+</html>
