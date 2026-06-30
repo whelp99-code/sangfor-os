@@ -131,3 +131,78 @@ export function canTransitionOpportunityStage(
 
   return { allowed: true };
 }
+
+export type OpportunityStageOrderReason =
+  | "stage_skip_forward"
+  | "illegal_stage_regression"
+  | "stage_is_terminal";
+
+export type OpportunityStageOrderDecision =
+  | { allowed: true }
+  | { allowed: false; reason: OpportunityStageOrderReason };
+
+/**
+ * Linear pipeline used for ordering checks. WON/LOST are terminal outcomes and
+ * are intentionally excluded so they get their own rules below.
+ */
+const ORDERED_PIPELINE: OpportunityStage[] = [
+  "LEAD",
+  "QUALIFIED",
+  "PROPOSAL",
+  "POC",
+  "NEGOTIATION",
+];
+
+/**
+ * Enforces canonical stage ordering for an opportunity stage change.
+ *
+ * Policy (deliberately permissive on backward moves, strict on forward skips):
+ *  - Same stage → allowed (no-op).
+ *  - LOST is reachable from any non-terminal stage (a deal can be lost anytime).
+ *  - WON is reachable only by adjacent advance from NEGOTIATION.
+ *  - Within the linear pipeline (LEAD…NEGOTIATION):
+ *      • forward by exactly one step (adjacent advance) — allowed
+ *      • any backward move (revert / correction) — allowed
+ *      • forward skipping ≥2 stages — rejected (`stage_skip_forward`)
+ *  - From a terminal stage (WON / LOST): only WON→LOST or LOST→WON (outcome
+ *    correction) and same-stage are allowed; re-entering the active pipeline
+ *    is rejected (`stage_is_terminal`).
+ */
+export function validateOpportunityStageOrder(
+  from: string,
+  to: string,
+): OpportunityStageOrderDecision {
+  const fromStage = normalizeOpportunityStage(from);
+  const toStage = normalizeOpportunityStage(to);
+
+  if (fromStage === toStage) return { allowed: true };
+
+  // LOST is always an acceptable outcome from any non-terminal stage.
+  if (toStage === "LOST" && fromStage !== "WON") return { allowed: true };
+
+  const fromTerminal = fromStage === "WON" || fromStage === "LOST";
+  if (fromTerminal) {
+    // Only allow correcting one terminal outcome into the other.
+    if (
+      (fromStage === "WON" && toStage === "LOST") ||
+      (fromStage === "LOST" && toStage === "WON")
+    ) {
+      return { allowed: true };
+    }
+    return { allowed: false, reason: "stage_is_terminal" };
+  }
+
+  // WON may only be entered by an adjacent advance from NEGOTIATION.
+  if (toStage === "WON") {
+    if (fromStage === "NEGOTIATION") return { allowed: true };
+    return { allowed: false, reason: "stage_skip_forward" };
+  }
+
+  const fromIdx = ORDERED_PIPELINE.indexOf(fromStage);
+  const toIdx = ORDERED_PIPELINE.indexOf(toStage);
+
+  // Both stages are within the linear pipeline at this point.
+  if (toIdx < fromIdx) return { allowed: true }; // backward revert/correction
+  if (toIdx - fromIdx === 1) return { allowed: true }; // adjacent forward
+  return { allowed: false, reason: "stage_skip_forward" };
+}

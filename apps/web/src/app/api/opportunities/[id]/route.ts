@@ -11,6 +11,7 @@ import {
 import { NextResponse } from "next/server";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
 import { syncCalendarMeetings } from "@/lib/outlook-graph";
+import { assertApiAccess } from "@/lib/api-auth";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -29,6 +30,9 @@ export async function GET(_request: Request, context: RouteContext) {
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
+
   const { id } = await context.params;
   try {
     const body = await request.json();
@@ -79,7 +83,10 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
+
   const { id } = await context.params;
   try {
     const opportunity = await archiveOpportunity(id);
