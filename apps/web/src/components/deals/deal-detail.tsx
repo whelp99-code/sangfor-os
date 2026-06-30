@@ -228,6 +228,12 @@ export function DealDetail({ opportunity }: DealDetailProps) {
                 opportunityId={id}
               />
               <InlineField
+                label="등록대행"
+                value={reg?.distributor?.name ?? "—"}
+                editable={false}
+                opportunityId={id}
+              />
+              <InlineField
                 label="보호 상태"
                 value={
                   <span className={regStatusInlineClasses(regMeta.tone)}>

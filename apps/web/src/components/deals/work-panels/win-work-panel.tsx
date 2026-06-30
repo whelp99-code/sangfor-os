@@ -220,6 +220,10 @@ function PoChainSection({ distributorName }: { distributorName: string | null })
 
       <Card>
         <CardContent className="pt-4 pb-4">
+          {/* Status labels below are presentational placeholders — data not yet connected */}
+          <p className="mb-3 text-[11px] text-muted-foreground">
+            준비중 (데이터 연결 전)
+          </p>
           <div
             className="flex flex-wrap items-center gap-2"
             aria-label="PO 체인: 고객에서 나, 총판을 거쳐 Sangfor로"

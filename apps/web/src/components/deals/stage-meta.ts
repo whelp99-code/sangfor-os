@@ -13,6 +13,10 @@ export const STAGE_DISPLAY: Record<string, { idx: number; label: string }> = {
   RESULT:      { idx: 3, label: "③ 결과제출" },
   NEGOTIATION: { idx: 4, label: "④ 선정·입찰" },
   WON:         { idx: 5, label: "⑤ 수주" },
+  // NOTE: LOST is a `dealStatus` value, NOT an opportunity stage enum value.
+  // Its idx mapping here is purely presentational (keeps the UI at stage ⑤ 수주
+  // while the status pill separately shows the LOST state). No behavioral
+  // meaning should be inferred from this entry.
   LOST:        { idx: 5, label: "⑤ 수주" }, // status=LOST shown via pill; stage is orthogonal
   DELIVERY:    { idx: 6, label: "⑥ 딜리버리" },
 };
