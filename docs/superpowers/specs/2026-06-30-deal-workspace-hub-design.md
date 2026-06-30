@@ -1,126 +1,159 @@
-# Deal Workspace Hub — Design Spec
+# Deal Workspace Hub — Design Spec (v2, red-team hardened)
 
 > Status: Draft for review · Date: 2026-06-30 · Branch: `feat-project-hub-phase3`
-> Author: 박정민 + Claude (brainstorming session)
+> Author: 박정민 + Claude · v2 incorporates a 4-angle adversarial red-team
+> (data-model / domain / scope / architecture).
 
 ## 0. Why this document exists
 
 This web app drifted for weeks. Root cause: **the target was never externalized** —
-40 sidebar items, 14 doc domains, no single spine. This spec fixes the target so
-every future task is measured against it. If a change does not serve the one core
-flow below, it is out of scope.
+40 sidebar items, 14 doc domains, no single spine. This spec fixes the target. A
+change that does not serve the one core flow below is out of scope. v2 adds the
+guardrails (§11) that v1 lacked, so "out of scope" is enforced in code, not just intent.
 
 ## 1. The one core flow (the "heart")
 
-A **deal (Opportunity) workspace** where the partner *does the work* of moving one
-deal through a standard 6-stage pursuit-to-delivery pipeline, **human-led, AI assists
-from the side** (Salesforce Lightning / Oracle CX layout pattern, validated visually).
+A **deal workspace** where the partner *does the work* of moving one deal through a
+standard pursuit-to-delivery pipeline, **human-led, AI assists from the side**
+(Salesforce Lightning / Oracle CX layout, validated visually as "가깝다/좋네").
+Not a status tracker — a workspace where each stage produces its deliverable.
 
-Not a status tracker. A **workspace**: each stage is where the deliverable is produced
-(proposal written, PoC run, results compiled), not a checkbox that is flipped.
+## 2. Pipeline = TWO orthogonal axes (red-team C1)
 
-## 2. The standard 6-stage pipeline
+v1's single linear 6-stage path could not represent a lost / dead / skipped deal —
+fatal, since 65–80% of channel deals are lost and the loss reason is the highest-value
+future-AI signal. **Stage and status are separate axes:**
 
-Buyer-behavior-based stages, each with standard deliverables + exit criteria
-(MEDDPICC overlay for qualification; standard POC evaluation-plan; standard
-SOW→UAT→Go-Live→Handover delivery gates).
+- **Stage** (how far it reached): ①제안 → ②PoC → ③결과제출 → ④선정·입찰 → ⑤수주 → ⑥딜리버리
+- **Status** (is it alive): `OPEN · WON · LOST · ON_HOLD · DISQUALIFIED` + `lostReason`
+  (price / competing-partner / competing-vendor / no-budget / no-decision / timing)
 
-| # | Stage (KO) | Standard deliverables | Exit criteria (buyer action) |
+**Deal type drives a variable path** (red-team H1): `dealType = NEW_BUILD | RENEWAL |
+UPSELL | RESELL_SIMPLE`. Renewals/simple resells skip ②③④ — stages are **skippable
+and recorded as events**, never force-passed. "단계 완료" is advisory, not a hard gate;
+skipped stages capture a reason (feeds the AI signal).
+
+| # | Stage | Standard deliverables | Exit (buyer action) |
 |---|---|---|---|
-| ① | 제안 | Deal Registration(총판 대행) · MEDDPICC 자격검증 · 제안서 | 딜 등록 승인 + 경제적 의사결정자 식별 + 제안서 확인 + 평가기준 합의 |
-| ② | PoC | 평가계획서(use case↔business) · 측정가능 성공기준 · MAP(30–90일) · 이해관계자 매핑 | 성공기준 크로스펑셔널 사인오프 |
-| ③ | 결과제출 | 정량 결과보고 · 비즈니스 가치/ROI(POV) · 경영진 readout | 합의 성공기준 충족 입증 + 고객 검증 인정 |
-| ④ | 선정·입찰 | RFP/입찰 응답 · SPR(특별가) · 경쟁 포지셔닝 · Paper Process | 고객 벤더 선정 + 법무·구매 경로 확인 + 가격 합의 |
-| ⑤ | 수주 | SOW/계약 체결 · 마일스톤 결제 · 영업→딜리버리 핸드오프 | SOW 서명 + PO 수령 + 딜리버리팀 인수 |
-| ⑥ | 딜리버리 | 킥오프→설계(FRD)→구축·통합→UAT(고객주도·사인오프)→Go-Live(Go/No-Go)→핸드오버 | 단계별 Phase Sign-off + 이슈 baseline 복귀 + 지식 이관 |
+| ① | 제안 | Deal Reg(총판 대행) · 자격검증 · 제안서 | 딜등록 승인 + EB 식별 + 제안서 확인 + 평가기준 합의 |
+| ② | PoC | 평가계획서 · 측정가능 성공기준 · MAP · 이해관계자 매핑 | 성공기준 크로스펑셔널 사인오프 |
+| ③ | 결과제출 | 정량 결과 · ROI(POV) · 경영진 readout | 성공기준 충족 입증 + 고객 검증 인정 |
+| ④ | 선정·입찰 | RFP/입찰 · SPR · 경쟁 포지셔닝 | 벤더 선정 + 법무·구매 경로 + 가격 합의 |
+| ⑤ | 수주 | SOW/계약 · 마일스톤 결제 · 핸드오프 | SOW 서명 + PO 수령 + 딜리버리팀 인수 |
+| ⑥ | 딜리버리 | 킥오프→설계→구축→UAT→Go-Live→핸드오버 | Phase Sign-off + 이슈 baseline + 지식 이관 |
 
-## 3. Channel model (Sangfor Platinum partner)
+## 3. Channel model (red-team C2, H3, H4)
 
-Fixed 3-party chain (reseller dropped per partner reality):
+Chain: `Sangfor ─▸ 총판(Distributor) ─▸ 나(Platinum) ─▸ 고객`.
 
-```
-Sangfor(벤더) ─▸ 총판(Distributor) ─▸ 나(Platinum Partner) ─▸ 고객(End Customer)
-```
-
-- **Deal Registration**: 총판이 대행 등록. 파트너는 정보 제공 → 보호상태(D-day) 추적.
-- **Special Pricing (SPR)**: 나 → 총판 → Sangfor, 등록 딜 기반 가격 보호.
-- **PO 체인**: 고객 → 나 → 총판 → Sangfor. 마진 = 등록딜 + Platinum 티어.
+- **Deal Registration is a GATE, not a timer.** `regStatus = NOT_SUBMITTED | SUBMITTED |
+  APPROVED | REJECTED | EXPIRED | CONTESTED`. REJECTED/EXPIRED/CONTESTED render as **red
+  risk states** (that's where the operator must act). Includes a renewal action + conflict note.
+- 총판이 대행 등록. 파트너는 정보 제공 → 상태 추적.
+- **SPR** 나→총판→Sangfor. **Distributor is mutable with history** (registering ≠ fulfilling).
+- **Margin has two components**: `frontMarginPct` (this deal) + `expectedRebate` (back-end
+  rebate/MDF, may be a note). Showing only front margin under-reports the real economics.
 
 ## 4. Three screens
 
-1. **프로젝트 전체 (table)** — entry. Salesforce/Oracle list view. Columns: Project ID,
-   딜/고객사, 총판, 제품군, 단계(mini path), 공급가, 마진%, 딜등록, 담당, 마감.
-   Filters by stage, totals, `+ 새 프로젝트` (generates ID). Inline-editable cells.
-2. **딜 작업화면** — Highlights(채널 체인 + 딜등록 배지) → Path(6-stage) → 단계 가이드
-   (표준 산출물 체크 + 통과기준) → 작업 탭(do the work) + 우측 AI 레일(제안만).
-3. **딜 상세** — 5 sections (딜 정보 / 채널·등록 / 고객·의사결정 / MEDDPICC / 일정),
-   **every field inline-editable (CRUD), + 전체 편집 모드, 실제 저장.**
+1. **딜 목록 (table)** — entry, route **`/deals`** (NOT `/projects` — see §5). Columns:
+   Deal Code(PRJ-####), 딜/고객사, 총판, 제품군, 단계(mini)+상태, 공급가, 마진%, 딜등록, 담당, 마감.
+   Stage filter, totals (labeled: 진행중 N건 · 가중 예상마진), `+ 새 딜`. Inline cell edit.
+2. **딜 작업화면** — Highlights(채널 체인 + 딜등록 상태 배지) → Path(stage+status) → 단계 가이드
+   (advisory) → 작업 탭(lazy-loaded per stage) + 우측 AI 레일.
+3. **딜 상세** — sections, **inline-editable (CRUD)** but **derived fields read-only**
+   (margin/score/probability are computed, never free-typed — red-team M2/H4). Default view
+   = "essential ~12" fields; the rest behind 전체 편집/더보기 (red-team M1).
 
-Visual: Salesforce Lightning look — validated "가깝다/좋네" in mockup
-(`.superpowers/brainstorm/.../table-projects.html`, `deal-detail-v2.html`, `deal-workspace.html`).
+**AI rail = one concrete assist per stage** (red-team M3), else hide the rail for that stage:
+①제안서 초안 · ②PoC 계획 초안 · ③ROI표(측정값→표) · ④SPR 요청 초안 · ⑤SOW 뼈대 · ⑥핸드오버 문서.
+"유사 사례" only if grounded in the partner's own history; otherwise cut.
 
-## 5. Data model — REUSE, do not reinvent
+## 5. Data model — REUSE existing, resolve the FOUR-way collision (red-team CRITICAL 1, 2)
 
-**Critical:** the "Project ID spine" the user wants already exists as the
-`Opportunity` aggregate. Building a NEW "Project" entity would create a THIRD
-overlapping concept (sprawl). Naming collision warning: `Project` is already the
-**AI/dev workspace tenant** (`Opportunity.projectId` points to it) — it is NOT the deal.
+There are **four** things called/used as "project": `Project` (AI tenant), `Opportunity`
+(deal), `Engagement` (=`delivery_projects`, **what `/projects` shows today**), `FinanceProject`
+(=`finance_projects`). Resolutions:
+
+- **The deal aggregate = `Opportunity`** (its `id` is the technical spine everything hangs off).
+  Add `code` (PRJ-YYYY-NNNN, the user-facing "Project ID"), `ownerId`, `dealStatus`,
+  `lostReason`, `dealType`, `distributorId`.
+- **Route + label**: the new deal list ships at **`/deals`**; the existing **`/projects`
+  stays the Engagement delivery hub** (just shipped in `feat(hub)` — do not break it). UI label
+  for the deal entity = **"딜"**. The word/route "Project" is reserved for the tenant.
+  *(User decision pending — see §9 D5. Default = this.)*
+- **`Opportunity.projectId` is a non-nullable FK to the AI tenant `Project`.** New-deal
+  creation MUST resolve a tenant id — transitionally `MOCK_PROJECTS[0].id` / session context.
+  Documented as a named assumption, not discovered at runtime.
+- **Do NOT remap the `OpportunityStage` enum** (red-team: breaks CFO forecast weights +
+  corrupts `OpportunityStageEvent` history). Keep the 7 values; add a **frontend label-mapping
+  layer** to present the 6 stages. Any real enum change is a separate, late, explicitly-mapped
+  migration — out of MVP.
 
 | User concept | Existing model | Action |
 |---|---|---|
-| Project/Deal (spine) | `Opportunity` (`id` = the FK everything hangs off) | **Adopt as aggregate root.** Add human-readable `code` (PRJ-2026-####) + `ownerId`. |
-| 단계 Path | `OpportunityStage` enum + `OpportunityStageEvent` (history) | **Remap enum to the canonical 6 stages**; keep stage-event log. |
-| 자격검증 | `DealQualification` (BANT: budget/authority/need/timeline) | **DECISION NEEDED:** extend to MEDDPICC or keep BANT + add MEDDPICC fields. |
-| PoC (②③) | `PocProject` + `PocResultReport` (already FK `opportunityId`) | Reuse. Surface in stage ②③ tabs. |
-| 딜리버리 (⑥) | `Engagement` (= `delivery_projects`, FK `opportunityId` unique) | Reuse. Surface in stage ⑥. |
-| 가격 (④⑤) | `Quote` / `QuoteLineItem` / `QuoteServiceLineItem` | Reuse in stage ④⑤. |
-| 벤더 요청 | `VendorRequest` (FK `opportunityId`) | Reuse for Sangfor/총판 interactions. |
+| Deal (spine) | `Opportunity` | Adopt. Add code/ownerId/dealStatus/lostReason/dealType/distributorId. |
+| 단계 Path + 이력 | `OpportunityStage` + `OpportunityStageEvent` | Keep enum; label-map to 6. StageEvent = **the AI training signal** (not AuditLog). |
+| 자격검증 | `DealQualification` (BANT) | **Keep BANT** + add `economicBuyer`,`champion` (structured refs). NOT full MEDDPICC (red-team H5/D1). |
+| PoC ②③ | `PocProject`+`PocResultReport` | Reuse — but `opportunityId` is nullable w/ deferred backfill: **backfill migration is a prerequisite** before surfacing (red-team F5). |
+| 딜리버리 ⑥ | `Engagement` (FK `opportunityId` `@unique`) | Reuse. Relax `@unique`→`@@unique([opportunityId,phase])` for multi-phase (red-team H3). |
+| 가격 ④⑤ | `Quote`/`QuoteLineItem` | Reuse; margins **DB-generated/read-only** + add `version` optimistic lock. |
+| 총판 | `Partner.partnerType` | Constrain to enum (`DISTRIBUTOR`/`RESELLER`/`VENDOR`); `Opportunity.distributorId` FK. |
+| Deal Registration | — (none) | **New `DealRegistration` model** (regStatus, number, protectionExpiresAt, sprStatus). Indexed for D-day query. |
 
-**Missing — must add (small, additive migrations):**
-- `Opportunity.code` (human-readable PRJ-YYYY-NNNN, the user-facing "Project ID").
-- `Opportunity.ownerId` → polymorphic-capable owner. **Seam #1** for future AI owner.
-- **Channel/Deal-Registration entity**: 총판(distributor) ref, deal-reg number/status/
-  protection-expiry, SPR status, partner tier margin. (No existing model covers this.)
-- Distributor as a party (extend `Partner` with a `kind` = DISTRIBUTOR vs RESELLER, or new field).
+## 6. Service boundary (red-team F6 — avoid god-loader)
 
-## 6. Future phase (seams only now, do NOT build)
+`OpportunityService.getWorkspaceSummary(id)` → header only (stage, status, amount, customer,
+channel, deal-reg). Stage detail loads **lazily per tab** (`PocService.getByOpportunityId`,
+`QuoteService.getByOpportunityId`, `EngagementService.…`). Router→service→repository; no
+business logic in route handlers. No single 10–15-query loader.
 
-> "추후에 담당을 AI에게 부여 — 내가 진행하는 걸 많이 학습한 후에."
+## 7. Future phase — seams only, do NOT build (red-team F7)
 
-- **Seam #1 — owner = human OR AI.** `Opportunity.ownerId` references a unified
-  actor (user or agent), so AI can later own a deal/stage without a rewrite.
-- **Seam #2 — every action logged as structured events** (reuse existing
-  `AuditLog` / `AgentDecisionLog` / `OutboxEvent`) → becomes AI training signal.
+- **Owner seam**: `Opportunity.ownerId` → `User.id` now (real FK), commented for a future
+  `Actor` union when AI ownership ships. Not a bare string.
+- **Training signal**: designate `OpportunityStageEvent` (already written on every stage move)
+  as the structured learning corpus. State it is load-bearing infra, not incidental logging.
 
-No AI-ownership logic is built in this scope. Seams must merely not preclude it.
+## 8. Slices — brutally minimal (red-team CRITICAL/scope)
 
-## 7. The other 35 menus
+v1's "MVP" was 4 features bundled = the exact drift pattern. Re-cut:
 
-Hidden under "더보기", **not deleted**. CFO(9), 지식/AI, 시스템 stay reachable but
-off the primary surface. Primary nav = 홈 / 프로젝트(table) / 딜 / 회사.
+- **Slice 1 (DoD: one checkpoint):** "`/deals` 목록에 PRJ-code 붙은 실제 Opportunity가 보인다."
+  = `Opportunity.code` migration (sequence + `@@unique`) + `/deals` table (real data, columns,
+  inline edit) + label-mapped stage/status pills. **No detail screen, no Path shell, no MEDDPICC,
+  no new model.** `/projects` (Engagement) untouched. 총판 column = read existing `partnerId`
+  or omit until Slice 2.
+- **Slice 2:** 딜 상세 (sections, inline CRUD, read-only derived fields) + `dealStatus`/`lostReason`/
+  `dealType` + BANT + EB/Champion. Lazy per-tab loaders.
+- **Slice 3:** Path + 단계 가이드 (advisory) on the workspace; StageEvent writes.
+- **Slice 4:** `DealRegistration` model + channel badges + SPR. Distributor enum.
+- **Slice 5+:** wire each stage tab to existing PocProject/Engagement/Quote screens, one at a
+  time. Reintegrate the Phase-3 AI domain hub as the ⑥딜리버리 tab (red-team: avoid orphaning).
 
-## 8. MVP first slice (build this first — resist building all of §2 at once)
+## 9. Open decisions (resolve at the stated slice)
 
-**Spine first, stage internals later:**
-1. `Opportunity.code` + `ownerId` migrations; remap stage enum to 6 stages.
-2. **프로젝트 테이블** (screen 1) reading real Opportunities, inline cell edit, `+ 새 프로젝트` issues a code.
-3. **딜 상세** (screen 3) — 5 sections, inline edit (CRUD), wired to Opportunity + relations.
-4. **6-stage Path** shell on the deal workspace (screen 2 header), reading `stage` + writing `OpportunityStageEvent`.
-5. Stage-tab internals (제안서 editor, PoC, 결과, 입찰, 딜리버리) reuse existing
-   PocProject/Engagement/Quote screens — wired in **one stage at a time** after the spine works.
-
-Channel/Deal-Reg entity + 단계 가이드 content land in slice 2.
-
-## 9. Open decisions (resolve before/at planning)
-
-- D1: BANT (existing) vs MEDDPICC (proposed) — extend or replace?
-- D2: `Opportunity.code` format + generation (PRJ-YYYY-NNNN, per-year sequence?).
-- D3: Distributor modeled as `Partner.kind=DISTRIBUTOR` vs a dedicated model.
-- D4: Stage enum remap — migration for existing Opportunity rows to the 6-stage set.
-- D5: Does "프로젝트" in the UI label map to Opportunity (recommended) — and how to
-  avoid confusing it with the existing `Project` tenant in code/naming?
+- **D-route/label (blocking Slice 1):** new deal list at `/deals`, `/projects` stays Engagement
+  hub, entity label "딜". **Needs user OK.** (Default = yes.)
+- **D-enum (blocking Slice 3):** keep 7-value enum + label map; defer any real remap. Mapping
+  for a future remap: LEAD/QUALIFIED/PROPOSAL→①, POC→②, NEGOTIATION→④, WON→⑤, LOST→status.
+- **D-tenant (blocking Slice 1):** `Opportunity.projectId` filled from `MOCK_PROJECTS[0]`/session.
+- **D-qual (blocking Slice 2):** BANT + EB + Champion (recommended), not full MEDDPICC.
+- **D-code (Slice 1):** PRJ-YYYY-NNNN via Postgres `SEQUENCE` (per-year via counter row + row lock).
+- **D-owner-filter (Slice 1/2):** does `ownerId` imply row-level "내 딜만 보기"? If yes it spreads
+  into every `listOpportunities` query — decide before adding the column.
 
 ## 10. Non-goals
 
-Rebuilding finance(CFO), knowledge base, agent-orchestration as part of this. AI
-autonomously owning deals. Multi-vendor (non-Sangfor) channel. Reseller (3rd tier).
+Rebuilding finance/knowledge/agent-orchestration here. AI autonomously owning deals.
+Non-Sangfor vendors. Reseller (3rd tier). True parallel stages (model doesn't preclude, doesn't build).
+
+## 11. Anti-drift guardrails (red-team F4, F11 — the part v1 missed)
+
+1. **`NavItem.tier` (`primary | more | system`)** added to `portal-config.ts`; all 33 items
+   tagged. Primary = 홈/딜/회사 only. "더보기" becomes a code fact, not a doc aspiration.
+   Comment: routes tier≠primary are **frozen** — no feature work without spec approval.
+2. **Per-slice Definition of Done** = the checkpoint sentence above; nothing merges without it.
+3. **Slice-1 PR limits:** ≤1 new migration, ≤2 new screens, **zero regression to `/opportunities`
+   and `/projects`**, zero hardcoded mock data in the new pages.
+4. AI assist lives only in the right rail (enforced in the workspace layout component).
