@@ -26,7 +26,7 @@ export function DealsWorkspace({
   customers: Option[];
   partners: Option[];
 }) {
-  const { view, setView, query, setQuery } = useCollectionView("kanban");
+  const { view, setView, query, setQuery } = useCollectionView("table");
   const router = useRouter();
   const [items, setItems] = useState<Deal[]>(deals);
   const [showCreate, setShowCreate] = useState(false);
