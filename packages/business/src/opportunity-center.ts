@@ -315,3 +315,14 @@ export async function getOpportunityPipelineSummary(projectSlug = "demo-project"
   }
   return { total: rows.length, byStage };
 }
+
+/**
+ * List quotes for one opportunity (newest first). Used by the deal workspace
+ * ④ 선정·입찰 work panel.
+ */
+export async function listQuotesByOpportunity(opportunityId: string) {
+  return prisma.quote.findMany({
+    where: { opportunityId },
+    orderBy: { createdAt: "desc" },
+  });
+}
