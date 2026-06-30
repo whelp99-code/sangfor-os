@@ -119,6 +119,7 @@ export async function listOpportunities(projectSlug = "demo-project") {
       customer: true,
       partner: true,
       links: true,
+      dealRegistration: true,
     },
   });
 }
@@ -129,9 +130,11 @@ export async function getOpportunityDetail(id: string) {
     include: {
       customer: true,
       partner: true,
+      distributor: true,
       links: { orderBy: { createdAt: "desc" } },
       stageEvents: { orderBy: { createdAt: "desc" } },
       qualification: { include: { economicBuyer: true, champion: true } },
+      dealRegistration: { include: { distributor: true } },
     },
   });
 }

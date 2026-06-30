@@ -77,3 +77,4 @@ export * from "./project-hub";
 export * from "./ai-classify-batch";
 export * from "./project-decision";
 export * from "./domain-proposal";
+export * from "./deal-registration";
