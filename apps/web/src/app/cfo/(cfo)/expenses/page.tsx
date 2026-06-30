@@ -39,6 +39,7 @@ const EXPENSE_FIELDS = [
     type: "select" as const,
     options: [
       { value: "전자세금계산서", label: "전자세금계산서" },
+      { value: "세금계산서", label: "세금계산서" },
       { value: "카드전표", label: "카드전표" },
       { value: "현금영수증", label: "현금영수증" },
       { value: "간이영수증", label: "간이영수증" },

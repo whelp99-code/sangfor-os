@@ -95,6 +95,16 @@ export default async function DashboardPage() {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 8);
 
+  // Distinguish "no data yet" from a genuine zero month: if there are no
+  // invoices and no expenses at all, the zeros below reflect an empty ledger
+  // rather than a real ₩0 result.
+  const ledgerEmpty = invoices.length === 0 && expenses.length === 0;
+  const monthAllZero =
+    kpi.totalRevenue === 0 &&
+    kpi.totalExpense === 0 &&
+    kpi.outstandingAmount === 0 &&
+    kpi.outstandingCount === 0;
+
   return (
     <div className="mx-auto max-w-6xl space-y-8" style={{ color: CFO.ink }}>
       {/* Masthead — ledger title with a single brass rule */}
@@ -106,6 +116,17 @@ export default async function DashboardPage() {
         <div className="mt-2 h-px w-full" style={{ background: CFO.hairline }} />
         <div className="h-0.5 w-16" style={{ background: CFO.brass }} />
       </header>
+
+      {/* Empty-ledger notice — only when there is no financial data at all,
+          so a genuine ₩0 month is never mislabelled as "no data". */}
+      {ledgerEmpty && monthAllZero && (
+        <div
+          className="rounded-lg p-3 text-sm"
+          style={{ background: CFO.paper, border: `1px solid ${CFO.hairline}`, color: CFO.muted }}
+        >
+          아직 등록된 인보이스·비용 데이터가 없습니다. 아래 수치는 실제 ₩0이 아니라 집계 대상이 없음을 의미합니다.
+        </div>
+      )}
 
       {/* Hero — the signature runway gauge */}
       <RunwayGauge months={kpi.cashRunwayMonths} currentCash={forecast.currentCash} />

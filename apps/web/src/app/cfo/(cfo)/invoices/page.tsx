@@ -73,6 +73,18 @@ export default function InvoicesPage() {
         endpoint="invoices"
         fields={fields}
         columns={INVOICE_COLUMNS}
+        filters={[
+          {
+            key: "depositStatus",
+            label: "입금상태",
+            options: [
+              { value: "all", label: "전체", test: () => true },
+              { value: "미수", label: "미수", test: (row) => (row.depositStatus ?? "미수") === "미수" },
+              { value: "부분", label: "부분입금", test: (row) => row.depositStatus === "부분" },
+              { value: "완료", label: "입금완료", test: (row) => row.depositStatus === "완료" },
+            ],
+          },
+        ]}
       />
     </div>
   );

@@ -15,11 +15,30 @@ export interface VatPeriodSummary {
   cardSalesCount: number;
   cardPurchaseSupply: number;
   cardPurchaseCount: number;
+  /**
+   * 납부세액. 매출세액 - 매입세액. 매입이 매출을 초과하면 음수(환급) 그대로 표현한다.
+   * 음수일 때 환급액은 `refundableVat`에 양수로 분리해 노출한다.
+   */
   payableVat: number;
+  /** 환급세액(매입 > 매출). 환급이 없으면 0. payableVat가 음수일 때 그 절댓값. */
+  refundableVat: number;
   filingDeadline: Date;
   matched: number;
   unmatched: number;
 }
+
+/**
+ * 매입세액 공제 대상 증빙 유형.
+ * DB에는 "세금계산서"(비-전자)와 "전자세금계산서"가 혼재한다(실데이터). 둘 다
+ * 적격증빙으로 공제 대상이므로 동일하게 인정한다. 데이터는 수정하지 않고
+ * 집계 시점에 동치 취급한다.
+ */
+export const DEDUCTIBLE_PROOF_TYPES = [
+  '세금계산서',
+  '전자세금계산서',
+  '카드전표',
+  '현금영수증',
+] as const;
 
 export class VatService {
   getPeriodBounds(year: number, half: 1 | 2): { start: Date; end: Date; deadline: Date } {
@@ -55,7 +74,7 @@ export class VatService {
     const purchaseVat = purchaseTaxInvoices.reduce((s, t) => s + (t.vatAmount ?? 0), 0);
 
     const expenses = await prisma.expense.findMany({
-      where: { date: { gte: start, lte: end }, isPaid: true, proofType: { in: ['카드전표', '전자세금계산서', '현금영수증'] } },
+      where: { date: { gte: start, lte: end }, isPaid: true, proofType: { in: [...DEDUCTIBLE_PROOF_TYPES] } },
     });
     const linkedExpenseIds = new Set(purchaseTaxInvoices.map((t) => t.invoiceId).filter(Boolean));
     const additionalExpenses = expenses.filter((e) => !linkedExpenseIds.has(e.id));
@@ -69,7 +88,10 @@ export class VatService {
     const totalSalesVat = salesVat + additionalVat;
     const totalPurchaseSupply = purchaseSupply + additionalPurchaseSupply;
     const totalPurchaseVat = purchaseVat + additionalPurchaseVat;
-    const payableVat = Math.max(0, totalSalesVat - totalPurchaseVat);
+    // 매입이 매출을 초과하면 환급(음수). 0으로 깔아뭉개지 말고 음수 그대로 보존하고,
+    // 환급액은 refundableVat에 양수로 분리해 소비자가 환급 상황을 인지할 수 있게 한다.
+    const payableVat = totalSalesVat - totalPurchaseVat;
+    const refundableVat = payableVat < 0 ? -payableVat : 0;
 
     return {
       year, half, startDate: start, endDate: end,
@@ -79,7 +101,7 @@ export class VatService {
       purchaseCount: purchaseTaxInvoices.length + additionalExpenses.length,
       cardSalesSupply: 0, cardSalesCount: 0,
       cardPurchaseSupply: additionalPurchaseSupply, cardPurchaseCount: additionalExpenses.length,
-      payableVat, filingDeadline: deadline, matched, unmatched: Math.max(0, unmatched),
+      payableVat, refundableVat, filingDeadline: deadline, matched, unmatched: Math.max(0, unmatched),
     };
   }
 
