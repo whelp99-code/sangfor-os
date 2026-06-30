@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sangfor 파트너 허브 — 시안 16장</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",system-ui,-apple-system,sans-serif;
+    background:#ececed;color:#181818;padding:22px 26px 60px}
+  header{max-width:1300px;margin:0 auto 18px}
+  header h1{font-size:22px;font-weight:800}
+  header p{color:#5c5c5c;font-size:13px;margin-top:4px}
+  .grp{max-width:1300px;margin:0 auto}
+  .grp h2{font-size:13px;font-weight:800;color:#0176d3;margin:24px 4px 10px;letter-spacing:.02em}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(390px,1fr));gap:18px}
+  .card{background:#fff;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .cap{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #eee}
+  .cap .no{background:#0176d3;color:#fff;font-weight:800;font-size:11px;border-radius:5px;padding:2px 7px}
+  .cap .nm{font-weight:700;font-size:13px}
+  .cap a{margin-left:auto;font-size:11px;color:#0176d3;text-decoration:none;font-weight:700}
+  .frame{position:relative;width:100%;height:268px;overflow:hidden;background:#f3f2f2}
+  .frame iframe{width:1300px;height:980px;border:0;transform:scale(.3);transform-origin:top left;pointer-events:none}
+  .frame a.open{position:absolute;inset:0;display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>Sangfor 파트너 허브 — 시안 16장</h1>
+  <p>딜 추적-딜리버리 워크스페이스 · 전부 하나의 디자인 키트에서 파생 · 카드를 클릭하면 원본이 새 탭으로 열립니다</p>
+</header>
+
+<div class="grp">
+  <h2>A · 핵심 워크스페이스</h2>
+  <div class="grid" id="gA"></div>
+  <h2>B · 6단계 작업 탭</h2>
+  <div class="grid" id="gB"></div>
+  <h2>C · CRM · 채널</h2>
+  <div class="grid" id="gC"></div>
+  <h2>D · 셸 · 조감</h2>
+  <div class="grid" id="gD"></div>
+</div>
+
+<script>
+  const pages = {
+    gA: [["01","딜 목록","01-deal-list.html"],["02","딜 작업화면","02-deal-workspace.html"],["03","딜 상세","03-deal-detail.html"],["04","새 딜 생성","04-new-deal.html"]],
+    gB: [["05","① 제안","05-stage1-proposal.html"],["06","② PoC","06-stage2-poc.html"],["07","③ 결과제출","07-stage3-results.html"],["08","④ 선정·입찰","08-stage4-bid.html"],["09","⑤ 수주","09-stage5-win.html"],["10","⑥ 딜리버리","10-stage6-delivery.html"]],
+    gC: [["11","회사","11-companies.html"],["12","연락처","12-contacts.html"],["13","총판·파트너","13-partners.html"],["14","딜등록 보드","14-deal-reg-board.html"]],
+    gD: [["15","홈 대시보드","15-home-dashboard.html"],["16","앱 셸","16-app-shell.html"]],
+  };
+  for (const [gid, items] of Object.entries(pages)) {
+    const g = document.getElementById(gid);
+    for (const [no, nm, file] of items) {
+      const card = document.createElement("div"); card.className = "card";
+      card.innerHTML =
+        '<div class="cap"><span class="no">'+no+'</span><span class="nm">'+nm+'</span><a href="'+file+'" target="_blank">원본 열기 ↗</a></div>'+
+        '<div class="frame"><iframe src="'+file+'" loading="lazy"></iframe><a class="open" href="'+file+'" target="_blank" title="'+nm+'"></a></div>';
+      g.appendChild(card);
+    }
+  }
+</script>
+</body>
+</html>
