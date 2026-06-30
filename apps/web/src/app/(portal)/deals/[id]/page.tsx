@@ -14,6 +14,7 @@ import {
 import { buildOpportunityOrchestratorSummary } from "@sangfor/business/skills";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Edit, ActivitySquare } from "lucide-react";
 
 import {
   AddOpportunityLinkForm,
@@ -33,10 +34,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-type PageProps = { params: Promise<{ id: string }> };
+type PageProps = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+};
 
-export default async function DealDetailPage({ params }: PageProps) {
+export default async function DealDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const { tab: tabParam } = await searchParams;
+  const VALID_TABS = ["작업", "상세", "문서", "연락처", "채널·등록", "활동"] as const;
+  const activeTab = VALID_TABS.includes(tabParam as (typeof VALID_TABS)[number])
+    ? (tabParam as (typeof VALID_TABS)[number])
+    : "작업";
   const [opportunity, customers, partners, pocProjects, proposals, mailEvidence, rawQuotes] = await Promise.all([
     getOpportunityDetail(id),
     listCustomers(),
@@ -175,6 +184,22 @@ export default async function DealDetailPage({ params }: PageProps) {
           <>
             <Badge>{stage}</Badge>
             <Badge variant="outline">{opportunity.probability}%</Badge>
+            <Link
+              href={`/deals/${opportunity.id}?tab=상세`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="딜 상세 편집"
+            >
+              <Edit className="size-3.5" aria-hidden="true" />
+              편집
+            </Link>
+            <Link
+              href={`/deals/${opportunity.id}?tab=활동`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="활동 기록 보기"
+            >
+              <ActivitySquare className="size-3.5" aria-hidden="true" />
+              활동 기록
+            </Link>
             <AdvanceOpportunityButton id={opportunity.id} stage={opportunity.stage} />
             <ConvertToProjectButton id={opportunity.id} engagementId={existingEngagement?.id} />
           </>
@@ -184,13 +209,14 @@ export default async function DealDetailPage({ params }: PageProps) {
       <DealStageGuide stage={stage} />
 
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-      <Tabs defaultValue="작업" className="space-y-0">
+      <Tabs defaultValue={activeTab} className="space-y-0">
         <TabsList variant="line" className="w-full justify-start border-b rounded-none px-2 pb-0 h-auto">
           <TabsTrigger value="작업">작업</TabsTrigger>
           <TabsTrigger value="상세">상세</TabsTrigger>
           <TabsTrigger value="문서">문서</TabsTrigger>
           <TabsTrigger value="연락처">연락처</TabsTrigger>
           <TabsTrigger value="채널·등록">채널·등록</TabsTrigger>
+          <TabsTrigger value="활동">활동</TabsTrigger>
         </TabsList>
 
         {/* 작업 tab: stage work panel + stage history */}
@@ -369,6 +395,39 @@ export default async function DealDetailPage({ params }: PageProps) {
                 .map((p) => ({ id: p.id, label: p.name }))
             }
           />
+        </TabsContent>
+
+        {/* 활동 tab (H-4): full-width activity timeline reusing stage history events */}
+        <TabsContent value="활동" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>활동 타임라인</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {opportunity.stageEvents.length === 0 ? (
+                <p className="text-muted-foreground">활동 기록이 없습니다.</p>
+              ) : (
+                <ol className="relative border-l border-border ml-2 space-y-4" aria-label="활동 타임라인">
+                  {opportunity.stageEvents.map((e) => (
+                    <li key={e.id} className="pl-5 relative">
+                      <span
+                        className="absolute -left-[5px] top-1.5 size-2.5 rounded-full border-2 border-background bg-primary"
+                        aria-hidden="true"
+                      />
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-semibold">
+                          {e.fromStage ?? "시작"}{" "}→{" "}{e.toStage}
+                        </span>
+                        {e.note ? (
+                          <span className="text-xs text-muted-foreground">{e.note}</span>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
