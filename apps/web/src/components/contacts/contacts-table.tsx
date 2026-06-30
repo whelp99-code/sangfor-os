@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Settings2, SlidersHorizontal } from "lucide-react";
+import { Plus, Settings2, SlidersHorizontal, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
@@ -144,10 +144,9 @@ export function ContactsTable({ contacts }: { contacts: ContactRow[] }) {
         {/* Top row: icon + title + count + actions */}
         <div className="flex items-center gap-3">
           <div
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary text-lg text-primary-foreground"
-            aria-hidden="true"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground"
           >
-            <span>&#9786;</span>
+            <Users className="size-4" aria-hidden="true" />
           </div>
           <h1 className="text-lg font-bold tracking-tight text-foreground">
             연락처
