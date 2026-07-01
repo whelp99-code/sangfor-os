@@ -29,7 +29,7 @@ export default async function ProposalDetailPage({ params }: PageProps) {
     <div className="space-y-6">
       <div>
         <Link href="/proposals" className="text-sm text-muted-foreground hover:underline">
-          ← Back to proposals
+          ← 제안서 목록으로
         </Link>
         <h1 className="mt-2 text-2xl font-semibold">{document.title}</h1>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -56,17 +56,17 @@ export default async function ProposalDetailPage({ params }: PageProps) {
       />
       <MailEvidenceCard evidence={mailEvidence} />
       <Card>
-        <CardHeader><CardTitle>Edit document</CardTitle></CardHeader>
+        <CardHeader><CardTitle>문서 편집</CardTitle></CardHeader>
         <CardContent>
           <SaveProposalForm documentId={document.id} initialBody={document.bodyMarkdown} />
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>Version history ({document.versions.length})</CardTitle></CardHeader>
+        <CardHeader><CardTitle>버전 이력 ({document.versions.length})</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm">
           {document.versions.map((v) => (
             <div key={v.id} className="rounded-md border p-3">
-              <p className="mb-2 font-medium">Version {v.version}</p>
+              <p className="mb-2 font-medium">버전 {v.version}</p>
               <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">
                 {v.bodyMarkdown.slice(0, 600)}
                 {v.bodyMarkdown.length > 600 ? "…" : ""}

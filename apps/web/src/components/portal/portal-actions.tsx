@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { actionErrorMessage } from "@/lib/action-error-labels";
 
 export function PortalActions() {
   const [accountId, setAccountId] = useState<string | null>(null);
@@ -17,16 +18,16 @@ export function PortalActions() {
     });
     const data = await response.json();
     if (!response.ok) {
-      setStatus(data.error ?? "connect_failed");
+      setStatus(actionErrorMessage(data.error, actionErrorMessage("connect_failed")));
       return;
     }
     setAccountId(data.account.id);
-    setStatus("Outlook mock connected");
+    setStatus("Outlook 목업 계정을 연결했습니다");
   }
 
   async function syncMail() {
     if (!accountId) {
-      setStatus("Connect Outlook first");
+      setStatus("먼저 Outlook을 연결하세요");
       return;
     }
     const response = await fetch("/api/portal", {
@@ -36,20 +37,20 @@ export function PortalActions() {
     });
     const data = await response.json();
     if (!response.ok) {
-      setStatus(data.error ?? "sync_failed");
+      setStatus(actionErrorMessage(data.error, actionErrorMessage("sync_failed")));
       return;
     }
-    setStatus(`Synced ${data.messages.length} messages`);
+    setStatus(`메일 ${data.messages.length}건을 동기화했습니다`);
     window.location.reload();
   }
 
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Button variant="secondary" onClick={connect}>
-        Connect Outlook (mock)
+        Outlook 연결 (목업)
       </Button>
       <Button variant="outline" onClick={syncMail}>
-        Sync mail
+        메일 동기화
       </Button>
       {status ? <span className="text-sm text-muted-foreground">{status}</span> : null}
     </div>

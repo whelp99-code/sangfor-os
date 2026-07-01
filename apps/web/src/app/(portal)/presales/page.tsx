@@ -103,14 +103,14 @@ export default function PresalesDashboardPage() {
                   <Search className="h-5 w-5 text-blue-600" />
                   <CardTitle className="text-base">Discovery 대기</CardTitle>
                 </div>
-                <CardDescription>Opportunities awaiting technical discovery</CardDescription>
+                <CardDescription>기술 Discovery 대기 중인 영업기회</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
                   <MetricRow label="신규 요청" value={String(data.pendingDiscovery)} />
                 ) : null}
                 {!data?.pendingDiscovery && !data?.solutionFitReview && (
-                  <p className="py-4 text-center text-sm text-muted-foreground">No discovery requests pending</p>
+                  <p className="py-4 text-center text-sm text-muted-foreground">대기 중인 Discovery 요청 없음</p>
                 )}
               </CardContent>
             </Card>
@@ -121,7 +121,7 @@ export default function PresalesDashboardPage() {
                   <CheckSquare className="h-5 w-5 text-emerald-600" />
                   <CardTitle className="text-base">Solution Fit 검토</CardTitle>
                 </div>
-                <CardDescription>Pending solution architecture reviews</CardDescription>
+                <CardDescription>솔루션 아키텍처 검토 대기</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
@@ -136,7 +136,7 @@ export default function PresalesDashboardPage() {
                   <Ruler className="h-5 w-5 text-amber-600" />
                   <CardTitle className="text-base">Sizing 누락 항목</CardTitle>
                 </div>
-                <CardDescription>Quotes missing sizing data</CardDescription>
+                <CardDescription>Sizing 데이터가 누락된 견적</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
@@ -151,14 +151,14 @@ export default function PresalesDashboardPage() {
                   <FlaskConical className="h-5 w-5 text-purple-600" />
                   <CardTitle className="text-base">PoC 준비</CardTitle>
                 </div>
-                <CardDescription>PoC preps requiring attention</CardDescription>
+                <CardDescription>확인이 필요한 PoC 준비 건</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
                   <MetricRow label="Planning" value={String(data.pocPrep)} />
                 ) : null}
                 {!data?.pocPrep && (
-                  <p className="py-4 text-center text-sm text-muted-foreground">No active PoC preps</p>
+                  <p className="py-4 text-center text-sm text-muted-foreground">진행 중인 PoC 준비 없음</p>
                 )}
               </CardContent>
             </Card>
@@ -169,13 +169,13 @@ export default function PresalesDashboardPage() {
                   <FileText className="h-5 w-5 text-indigo-600" />
                   <CardTitle className="text-base">AI Draft 검토 필요</CardTitle>
                 </div>
-                <CardDescription>AI-generated technical drafts pending human review</CardDescription>
+                <CardDescription>담당자 검토 대기 중인 AI 기술 초안</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
                   <>
                     <MetricRow label="검토 대기" value={String(data.aiDraftReview)} />
-                    <MetricRow label="Approval status" value={STATUS_LABELS.ready_for_human_approval} />
+                    <MetricRow label="승인 상태" value={STATUS_LABELS.ready_for_human_approval} />
                   </>
                 ) : null}
               </CardContent>

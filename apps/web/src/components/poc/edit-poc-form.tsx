@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { actionErrorMessage } from "@/lib/action-error-labels";
 import {
   POC_DEPLOYMENT_TYPES,
   POC_PRODUCT_LINES,
@@ -58,28 +59,40 @@ export function EditPocForm({
   const [customerId, setCustomerId] = useState(initial.customerId ?? "");
   const [partnerId, setPartnerId] = useState(initial.partnerId ?? "");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    await fetch(`/api/poc/${pocId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        productName: productName || null,
-        productLine: productLine || null,
-        deploymentType: deploymentType || null,
-        hwSpec: hwSpec || null,
-        swSpec: swSpec || null,
-        networkNotes: networkNotes || null,
-        scheduleAt: toIsoDateTime(scheduleAt),
-        customerId: customerId || null,
-        partnerId: partnerId || null,
-      }),
-    });
-    setLoading(false);
-    router.refresh();
+    setError(null);
+    try {
+      const res = await fetch(`/api/poc/${pocId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          productName: productName || null,
+          productLine: productLine || null,
+          deploymentType: deploymentType || null,
+          hwSpec: hwSpec || null,
+          swSpec: swSpec || null,
+          networkNotes: networkNotes || null,
+          scheduleAt: toIsoDateTime(scheduleAt),
+          customerId: customerId || null,
+          partnerId: partnerId || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(actionErrorMessage((data as { error?: string }).error, "PoC 정보를 저장하지 못했습니다."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("PoC 정보를 저장하지 못했습니다. 네트워크를 확인해 주세요.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -137,6 +150,11 @@ export function EditPocForm({
       <Button type="submit" size="sm" disabled={loading} className="sm:col-span-2">
         {loading ? "저장 중..." : "PoC 상세 저장"}
       </Button>
+      {error && (
+        <p className="text-xs text-destructive sm:col-span-2" role="alert">
+          {error}
+        </p>
+      )}
     </form>
   );
 }

@@ -125,12 +125,12 @@ export default function SalesDashboardPage() {
                   <Phone className="h-5 w-5 text-emerald-600" />
                   <CardTitle className="text-base">오늘 Follow-up</CardTitle>
                 </div>
-                <CardDescription>Tasks and calls scheduled for today</CardDescription>
+                <CardDescription>오늘 예정된 업무 및 통화</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
                   data.followUp > 0 ? (
-                    <MetricRow label="Discovery follow-up" value={String(data.followUp)} />
+                    <MetricRow label="Discovery 후속 조치" value={String(data.followUp)} />
                   ) : (
                     <p className="py-4 text-center text-sm text-muted-foreground">오늘 예정된 follow-up 없음</p>
                   )
@@ -144,7 +144,7 @@ export default function SalesDashboardPage() {
                   <Clock className="h-5 w-5 text-amber-600" />
                   <CardTitle className="text-base">승인 대기</CardTitle>
                 </div>
-                <CardDescription>Pending Opportunity approvals</CardDescription>
+                <CardDescription>영업기회 승인 대기</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
@@ -162,7 +162,7 @@ export default function SalesDashboardPage() {
                   <FileText className="h-5 w-5 text-purple-600" />
                   <CardTitle className="text-base">제안서 작성 중</CardTitle>
                 </div>
-                <CardDescription>Proposals in progress</CardDescription>
+                <CardDescription>작성 중인 제안서</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
@@ -177,7 +177,7 @@ export default function SalesDashboardPage() {
                   <RefreshCw className="h-5 w-5 text-indigo-600" />
                   <CardTitle className="text-base">갱신 예정 고객</CardTitle>
                 </div>
-                <CardDescription>Renewal alerts — 90-day window</CardDescription>
+                <CardDescription>갱신 알림 — 90일 이내</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 <MetricRow label="갱신 예정" value={String(data?.renewalsDue ?? 0)} />
@@ -190,7 +190,7 @@ export default function SalesDashboardPage() {
                   <AlertTriangle className="h-5 w-5 text-red-600" />
                   <CardTitle className="text-base">위험 딜</CardTitle>
                 </div>
-                <CardDescription>Deals at risk of slipping or losing</CardDescription>
+                <CardDescription>지연 또는 실주 위험이 있는 딜</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (

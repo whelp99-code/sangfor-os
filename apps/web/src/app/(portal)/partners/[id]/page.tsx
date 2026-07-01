@@ -14,7 +14,7 @@ export default async function PartnerDetailPage({ params }: PageProps) {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">{partner.name}</h1>
       <Card>
-        <CardHeader><CardTitle>Linked customers</CardTitle></CardHeader>
+        <CardHeader><CardTitle>연결된 고객사</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">
           {partner.customerLinks.map((l) => (
             <div key={l.id}>{l.customer.name}</div>

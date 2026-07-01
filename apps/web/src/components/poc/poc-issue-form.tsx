@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { actionErrorMessage } from "@/lib/action-error-labels";
 import { POC_ISSUE_STATUSES } from "@/lib/poc-constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,18 +14,30 @@ export function PocIssueForm({ pocId }: { pocId: string }) {
   const [title, setTitle] = useState("");
   const [severity, setSeverity] = useState("medium");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    await fetch(`/api/poc/${pocId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "add_issue", title, severity }),
-    });
-    setLoading(false);
-    setTitle("");
-    router.refresh();
+    setError(null);
+    try {
+      const res = await fetch(`/api/poc/${pocId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add_issue", title, severity }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(actionErrorMessage((data as { error?: string }).error, "이슈를 추가하지 못했습니다."));
+        return;
+      }
+      setTitle("");
+      router.refresh();
+    } catch {
+      setError("이슈를 추가하지 못했습니다. 네트워크를 확인해 주세요.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -41,6 +54,11 @@ export function PocIssueForm({ pocId }: { pocId: string }) {
         <option value="high">high</option>
       </select>
       <Button type="submit" size="sm" disabled={loading}>이슈 추가</Button>
+      {error && (
+        <p className="w-full text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      )}
     </form>
   );
 }
@@ -55,17 +73,32 @@ export function PocIssueRow({
   const router = useRouter();
   const [status, setStatus] = useState(issue.status);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onStatusChange(next: string) {
+    const previous = status;
     setStatus(next);
     setLoading(true);
-    await fetch(`/api/poc/${pocId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "update_issue", issueId: issue.id, status: next }),
-    });
-    setLoading(false);
-    router.refresh();
+    setError(null);
+    try {
+      const res = await fetch(`/api/poc/${pocId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update_issue", issueId: issue.id, status: next }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setStatus(previous);
+        setError(actionErrorMessage((data as { error?: string }).error, "상태를 변경하지 못했습니다."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setStatus(previous);
+      setError("상태를 변경하지 못했습니다. 네트워크를 확인해 주세요.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -84,6 +117,11 @@ export function PocIssueRow({
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
+        {error && (
+          <span className="text-xs text-destructive" role="alert">
+            {error}
+          </span>
+        )}
       </div>
     </div>
   );

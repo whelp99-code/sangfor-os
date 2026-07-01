@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { actionErrorMessage } from "@/lib/action-error-labels";
 import { OPPORTUNITY_STAGES } from "@/lib/poc-constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,30 +32,39 @@ export function CreateOpportunityForm({
   const [closeDate, setCloseDate] = useState("");
   const [nextAction, setNextAction] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const res = await fetch("/api/opportunities", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        projectSlug: "demo-project",
-        stage,
-        customerId: customerId || undefined,
-        partnerId: partnerId || undefined,
-        amount: amount ? Number(amount) : undefined,
-        probability: Number(probability),
-        closeDate: toIsoDate(closeDate),
-        nextAction: nextAction || undefined,
-      }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (res.ok) {
+    setError(null);
+    try {
+      const res = await fetch("/api/opportunities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          projectSlug: "demo-project",
+          stage,
+          customerId: customerId || undefined,
+          partnerId: partnerId || undefined,
+          amount: amount ? Number(amount) : undefined,
+          probability: Number(probability),
+          closeDate: toIsoDate(closeDate),
+          nextAction: nextAction || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(actionErrorMessage((data as { error?: string }).error, "기회를 생성하지 못했습니다."));
+        return;
+      }
       router.push(`/opportunities/${data.opportunity.id}`);
       router.refresh();
+    } catch {
+      setError("기회를 생성하지 못했습니다. 네트워크를 확인해 주세요.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -100,6 +110,11 @@ export function CreateOpportunityForm({
       <Button type="submit" disabled={loading} className="sm:col-span-2 lg:col-span-1">
         {loading ? "생성 중..." : "새 기회"}
       </Button>
+      {error && (
+        <p className="text-xs text-destructive sm:col-span-2 lg:col-span-4" role="alert">
+          {error}
+        </p>
+      )}
     </form>
   );
 }

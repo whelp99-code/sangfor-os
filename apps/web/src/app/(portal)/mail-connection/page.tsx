@@ -23,7 +23,7 @@ export default function MailConnectionPage() {
     fetch('/api/mail-status').then(r => r.json()).then(setStatus)
     const params = new URLSearchParams(window.location.search)
     if (params.get('connected')) {
-      setNotice({ kind: 'success', text: `Connected: ${params.get('connected')}` })
+      setNotice({ kind: 'success', text: `연결됨: ${params.get('connected')}` })
       window.history.replaceState({}, '', '/mail-connection')
     } else if (params.get('error')) {
       setNotice({ kind: 'error', text: decodeURIComponent(params.get('error') as string) })
@@ -38,7 +38,7 @@ export default function MailConnectionPage() {
       setSyncResult('받은/보낸 메일 전체 가져오는 중…')
       const importRes = await fetch('/api/mail-import', { method: 'POST' }).then(r => r.json())
       if (!importRes.success) {
-        setSyncResult(`Error: ${importRes.error}`)
+        setSyncResult(`오류: ${importRes.error}`)
         return
       }
       setSyncResult(`메일 ${importRes.synced}건 (받은 ${importRes.inbox ?? '?'} / 보낸 ${importRes.sent ?? '?'}) 동기화 완료. 대화 단위로 학습 중…`)
@@ -55,7 +55,7 @@ export default function MailConnectionPage() {
       const updated = await fetch('/api/mail-status').then(r => r.json())
       setStatus(updated)
     } catch {
-      setSyncResult('Sync request failed')
+      setSyncResult('동기화 요청에 실패했습니다')
     } finally {
       setSyncing(false)
     }
@@ -72,7 +72,7 @@ export default function MailConnectionPage() {
           : `캘린더 오류: ${res.error}`,
       )
     } catch {
-      setSyncResult('Calendar sync failed')
+      setSyncResult('캘린더 동기화에 실패했습니다')
     } finally {
       setSyncing(false)
     }
@@ -81,8 +81,8 @@ export default function MailConnectionPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Mail Connection</h1>
-        <p className="text-muted-foreground">Outlook 365 connector configuration and status</p>
+        <h1 className="text-3xl font-bold">메일 연동</h1>
+        <p className="text-muted-foreground">Outlook 365 커넥터 설정 및 상태</p>
       </div>
 
       {notice && (
@@ -99,19 +99,19 @@ export default function MailConnectionPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Connect a mailbox</CardTitle>
+          <CardTitle>메일함 연결</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {status?.delegated?.connected ? (
             <p className="text-sm">
-              Connected as <span className="font-medium">{status.delegated.email}</span>
+              <span className="font-medium">{status.delegated.email}</span> 계정으로 연결됨
               {status.delegated.lastSyncedAt
-                ? ` · last synced ${new Date(status.delegated.lastSyncedAt).toLocaleString()}`
+                ? ` · 마지막 동기화 ${new Date(status.delegated.lastSyncedAt).toLocaleString()}`
                 : ''}
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Authorize a personal or work Outlook account via Microsoft sign-in.
+              Microsoft 로그인으로 개인 또는 회사 Outlook 계정을 인증하세요.
             </p>
           )}
           <a
@@ -123,12 +123,12 @@ export default function MailConnectionPage() {
                 : 'pointer-events-none bg-muted text-muted-foreground opacity-50'
             }`}
           >
-            {status?.delegated?.connected ? 'Reconnect Outlook' : 'Connect Outlook'}
+            {status?.delegated?.connected ? 'Outlook 재연결' : 'Outlook 연결'}
           </a>
           {!status?.oauthConfigured && (
             <p className="text-xs text-muted-foreground">
-              Set <code className="rounded bg-muted px-1">OUTLOOK_CLIENT_ID</code> and{' '}
-              <code className="rounded bg-muted px-1">OUTLOOK_CLIENT_SECRET</code> to enable sign-in.
+              로그인을 활성화하려면 <code className="rounded bg-muted px-1">OUTLOOK_CLIENT_ID</code>와{' '}
+              <code className="rounded bg-muted px-1">OUTLOOK_CLIENT_SECRET</code>를 설정하세요.
             </p>
           )}
         </CardContent>
@@ -144,7 +144,7 @@ export default function MailConnectionPage() {
               <div className="flex items-center gap-2">
                 <span className={`inline-block h-3 w-3 rounded-full ${p.configured ? (p.connected ? 'bg-green-500' : 'bg-yellow-500') : 'bg-red-500'}`} />
                 <span className="text-sm">
-                  {p.configured ? (p.connected ? 'Connected' : 'Configured') : 'Not configured'}
+                  {p.configured ? (p.connected ? '연결됨' : '설정됨') : '미설정'}
                 </span>
               </div>
             </CardContent>
@@ -153,7 +153,7 @@ export default function MailConnectionPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Mail Accounts</CardTitle>
+            <CardTitle className="text-sm font-medium">메일 계정</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{status?.accountCount ?? 0}</div>
@@ -162,7 +162,7 @@ export default function MailConnectionPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Messages</CardTitle>
+            <CardTitle className="text-sm font-medium">메일 건수</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{status?.messageCount ?? 0}</div>
@@ -172,7 +172,7 @@ export default function MailConnectionPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Sync & Learn</CardTitle>
+          <CardTitle>동기화 및 학습</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
@@ -200,17 +200,17 @@ export default function MailConnectionPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Configuration Guide</CardTitle>
+          <CardTitle>설정 가이드</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>Register an Azure app (personal + work accounts), then set:</p>
+          <p>Azure 앱(개인 + 회사 계정)을 등록한 뒤 다음을 설정하세요:</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li><code className="rounded bg-muted px-1">OUTLOOK_CLIENT_ID</code> — Azure app (client) ID</li>
-            <li><code className="rounded bg-muted px-1">OUTLOOK_CLIENT_SECRET</code> — Azure app client secret</li>
-            <li><code className="rounded bg-muted px-1">OUTLOOK_TENANT_ID</code> — leave blank or <code className="rounded bg-muted px-1">common</code> for personal accounts</li>
-            <li><code className="rounded bg-muted px-1">OUTLOOK_REDIRECT_URI</code> — must match the Azure redirect URI</li>
+            <li><code className="rounded bg-muted px-1">OUTLOOK_CLIENT_ID</code> — Azure 앱(클라이언트) ID</li>
+            <li><code className="rounded bg-muted px-1">OUTLOOK_CLIENT_SECRET</code> — Azure 앱 클라이언트 시크릿</li>
+            <li><code className="rounded bg-muted px-1">OUTLOOK_TENANT_ID</code> — 개인 계정은 비워 두거나 <code className="rounded bg-muted px-1">common</code></li>
+            <li><code className="rounded bg-muted px-1">OUTLOOK_REDIRECT_URI</code> — Azure 리디렉션 URI와 일치해야 함</li>
           </ul>
-          <p className="pt-2">Delegated permissions required: <code className="rounded bg-muted px-1">Mail.Read</code>, <code className="rounded bg-muted px-1">offline_access</code>, <code className="rounded bg-muted px-1">User.Read</code>. Then click <span className="font-medium">Connect Outlook</span> above.</p>
+          <p className="pt-2">필요한 위임 권한: <code className="rounded bg-muted px-1">Mail.Read</code>, <code className="rounded bg-muted px-1">offline_access</code>, <code className="rounded bg-muted px-1">User.Read</code>. 그런 다음 위의 <span className="font-medium">Outlook 연결</span>을 클릭하세요.</p>
         </CardContent>
       </Card>
     </div>
