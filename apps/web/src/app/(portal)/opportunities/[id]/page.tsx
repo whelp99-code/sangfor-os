@@ -52,7 +52,6 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
-<<<<<<< HEAD
       <DealRecordHeader
         title={opportunity.title}
         stage={stage}
@@ -68,32 +67,11 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
             <Badge variant="outline">{opportunity.probability}%</Badge>
             <AdvanceOpportunityButton id={opportunity.id} stage={opportunity.stage} />
             <ConvertToProjectButton id={opportunity.id} engagementId={existingEngagement?.id} />
+            <DeleteEntityButton endpoint={`/api/opportunities/${opportunity.id}`} redirectTo="/opportunities" />
           </>
         }
       />
       <DealStagePath stage={stage} />
-=======
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">{opportunity.title}</h1>
-          <p className="text-muted-foreground">
-            {opportunity.customer?.name ?? "No customer"}
-            {opportunity.partner ? ` · Partner: ${opportunity.partner.name}` : ""}
-            {opportunity.amount != null ? ` · ${opportunity.amount.toString()}` : ""}
-            {opportunity.closeDate
-              ? ` · Close ${opportunity.closeDate.toISOString().slice(0, 10)}`
-              : ""}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <Badge>{stage}</Badge>
-          <Badge variant="outline">{opportunity.probability}%</Badge>
-          <AdvanceOpportunityButton id={opportunity.id} stage={opportunity.stage} />
-          <ConvertToProjectButton id={opportunity.id} engagementId={existingEngagement?.id} />
-          <DeleteEntityButton endpoint={`/api/opportunities/${opportunity.id}`} redirectTo="/opportunities" />
-        </div>
-      </div>
->>>>>>> 9c896d9 (feat(crud): reusable edit sheet + delete button wired to customers/partners/opportunities/tasks)
       <PortalOrchestratorRunPanel
         title="Phase 13 오케스트레이터"
         buttonLabel="오케스트레이터 실행"

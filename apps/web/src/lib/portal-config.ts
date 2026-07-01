@@ -56,6 +56,21 @@ export const PORTAL_NAV: NavItem[] = [
   { title: "설정", href: "/settings", icon: "settings", group: "System" },
 ];
 
+// Finance in-page horizontal sub-nav, rendered by <CfoSubnav />. The sidebar
+// shows the "재무" cluster; these sub-pages navigate in-place on /cfo pages.
+export const CFO_NAV: { title: string; href: string }[] = [
+  { title: "재무 대시보드", href: "/cfo/dashboard" },
+  { title: "딜별 손익", href: "/cfo/projects" },
+  { title: "매출/미수금", href: "/cfo/invoices" },
+  { title: "비용", href: "/cfo/expenses" },
+  { title: "현금흐름", href: "/cfo/cashflows" },
+  { title: "세금계산서", href: "/cfo/tax-invoices" },
+  { title: "부가세", href: "/cfo/vat" },
+  { title: "구독", href: "/cfo/subscriptions" },
+  { title: "월결산", href: "/cfo/month-close" },
+  { title: "재무 챗봇", href: "/cfo/chat" },
+];
+
 export type MockProject = {
   id: string;
   slug: string;

@@ -6,7 +6,7 @@
  */
 
 /** Internal → User-facing status label mapping (consumed via displayStatus). */
-const STATUS_LABELS: Record<string, string> = {
+export const STATUS_LABELS: Record<string, string> = {
   pending: "대기",
   auto_validating: "자동 검증 중",
   auto_failed: "자동 검증 실패",
