@@ -102,6 +102,29 @@ export async function listCustomers(projectSlug = "demo-project", search?: strin
   });
 }
 
+/**
+ * Lightweight customer list for the companies workspace: one query, only the
+ * opportunity fields the detail panel actually renders. Replaces the previous
+ * N+1 pattern (listCustomers + per-customer getCustomerDetail with 6 relations).
+ */
+export async function listCustomersWithOpportunities(projectSlug = "demo-project") {
+  const projectId = await resolveProjectId(projectSlug);
+  return prisma.customer.findMany({
+    where: { projectId },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      contacts: { select: { id: true } },
+      partnerLinks: { select: { id: true } },
+      _count: { select: { workTasks: true } },
+      opportunities: {
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+        select: { id: true, title: true, code: true, stage: true, amount: true },
+      },
+    },
+  });
+}
+
 export async function getCustomerDetail(id: string) {
   return prisma.customer.findUnique({
     where: { id },

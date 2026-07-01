@@ -95,9 +95,9 @@ export function TemplateRegistryGrid() {
     <div className="space-y-4">
       <div className="rounded-md border border-border bg-card shadow-sm">
         <div className="p-4 border-b border-border">
-          <h3 className="text-sm font-semibold tracking-tight">Templates Registry</h3>
+          <h3 className="text-sm font-semibold tracking-tight">템플릿 레지스트리</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Phase 14 templates used by the multi-agent orchestrator to packetize context inputs.
+            멀티 에이전트 오케스트레이터가 컨텍스트 입력을 패킷화하는 데 사용하는 Phase 14 템플릿입니다.
           </p>
         </div>
         <div className="p-4">
@@ -134,7 +134,7 @@ export function TemplateRegistryGrid() {
               type="button"
               className="text-xs text-muted-foreground hover:text-foreground font-medium underline"
             >
-              Close template preview
+              미리보기 닫기
             </button>
           </div>
 

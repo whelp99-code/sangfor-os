@@ -276,13 +276,13 @@ export function DealDetail({ opportunity }: DealDetailProps) {
             opportunityId={id}
           />
           <InlineField
-            label="Economic Buyer"
+            label="실구매 결정자(Economic Buyer)"
             value="—"
             editable={false}
             opportunityId={id}
           />
           <InlineField
-            label="Champion"
+            label="챔피언"
             value="—"
             editable={false}
             opportunityId={id}
@@ -324,13 +324,13 @@ export function DealDetail({ opportunity }: DealDetailProps) {
             opportunityId={id}
           />
           <InlineField
-            label="Economic Buyer"
+            label="실구매 결정자(Economic Buyer)"
             value="—"
             editable={false}
             opportunityId={id}
           />
           <InlineField
-            label="Champion"
+            label="챔피언"
             value="—"
             editable={false}
             opportunityId={id}

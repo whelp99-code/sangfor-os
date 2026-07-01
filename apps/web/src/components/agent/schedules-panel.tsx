@@ -34,26 +34,53 @@ export function SchedulesPanel() {
 
   async function create() {
     if (!playbookId || !(interval > 0)) return;
-    await fetch("/api/agent/schedules", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ playbookId, intervalMinutes: interval }),
-    });
-    await load();
+    setTickMsg(null);
+    try {
+      const res = await fetch("/api/agent/schedules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playbookId, intervalMinutes: interval }),
+      });
+      if (!res.ok) {
+        setTickMsg("스케줄 생성에 실패했습니다.");
+        return;
+      }
+      await load();
+    } catch {
+      setTickMsg("스케줄 생성에 실패했습니다. 네트워크를 확인해 주세요.");
+    }
   }
 
   async function toggle(s: ScheduleWithName) {
-    await fetch(`/api/agent/schedules/${s.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: !s.enabled }),
-    });
-    await load();
+    setTickMsg(null);
+    try {
+      const res = await fetch(`/api/agent/schedules/${s.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !s.enabled }),
+      });
+      if (!res.ok) {
+        setTickMsg("상태를 변경하지 못했습니다.");
+        return;
+      }
+      await load();
+    } catch {
+      setTickMsg("상태를 변경하지 못했습니다. 네트워크를 확인해 주세요.");
+    }
   }
 
   async function remove(id: string) {
-    await fetch(`/api/agent/schedules/${id}`, { method: "DELETE" });
-    await load();
+    setTickMsg(null);
+    try {
+      const res = await fetch(`/api/agent/schedules/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setTickMsg("스케줄을 삭제하지 못했습니다.");
+        return;
+      }
+      await load();
+    } catch {
+      setTickMsg("스케줄을 삭제하지 못했습니다. 네트워크를 확인해 주세요.");
+    }
   }
 
   async function tick() {
@@ -61,9 +88,16 @@ export function SchedulesPanel() {
     setTickMsg(null);
     try {
       const res = await fetch("/api/agent/schedules/tick", { method: "POST" });
-      const json = await res.json();
-      setTickMsg(`${json.count}개 스케줄 실행됨`);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setTickMsg("도래분 실행에 실패했습니다.");
+        return;
+      }
+      const count = typeof json.count === "number" ? json.count : 0;
+      setTickMsg(`${count}개 스케줄 실행됨`);
       await load();
+    } catch {
+      setTickMsg("도래분 실행에 실패했습니다. 네트워크를 확인해 주세요.");
     } finally {
       setTicking(false);
     }

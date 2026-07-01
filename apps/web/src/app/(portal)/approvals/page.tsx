@@ -99,20 +99,22 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
     status: revenueFilters.status === "all" ? undefined : revenueFilters.status,
   });
 
-  const approvals = await prisma.approvalRequest.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  }) as ApprovalRequestRecord[];
-  const customerPartnerCandidates = await prisma.mailDerivedCandidate.findMany({
-    where: { status: "proposed", candidateType: { in: ["customer", "partner"] } },
-    orderBy: [{ confidence: "desc" }, { sourceReceivedAt: "desc" }, { createdAt: "desc" }],
-    take: 50,
-  }) as MailDerivedCandidateRecord[];
-  const rawProjectCandidates = await prisma.mailDerivedCandidate.findMany({
-    where: { status: "proposed", candidateType: { in: ["task", "opportunity", "poc"] } },
-    orderBy: [{ confidence: "desc" }, { sourceReceivedAt: "desc" }, { createdAt: "desc" }],
-    take: 1_000,
-  }) as MailDerivedCandidateRecord[];
+  const [approvals, customerPartnerCandidates, rawProjectCandidates] = await Promise.all([
+    prisma.approvalRequest.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }) as Promise<ApprovalRequestRecord[]>,
+    prisma.mailDerivedCandidate.findMany({
+      where: { status: "proposed", candidateType: { in: ["customer", "partner"] } },
+      orderBy: [{ confidence: "desc" }, { sourceReceivedAt: "desc" }, { createdAt: "desc" }],
+      take: 50,
+    }) as Promise<MailDerivedCandidateRecord[]>,
+    prisma.mailDerivedCandidate.findMany({
+      where: { status: "proposed", candidateType: { in: ["task", "opportunity", "poc"] } },
+      orderBy: [{ confidence: "desc" }, { sourceReceivedAt: "desc" }, { createdAt: "desc" }],
+      take: 50,
+    }) as Promise<MailDerivedCandidateRecord[]>,
+  ]);
 
   const mailCandidates = [...customerPartnerCandidates, ...rawProjectCandidates.filter((candidate) =>
     hasAiRevalidation(candidate.metadata)

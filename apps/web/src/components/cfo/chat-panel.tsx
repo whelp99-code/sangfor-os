@@ -38,6 +38,7 @@ export function ChatPanel() {
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         placeholder="예: 이번 달 매출 얼마야?"
+        aria-label="메시지 입력"
       />
       <button
         type="button"
