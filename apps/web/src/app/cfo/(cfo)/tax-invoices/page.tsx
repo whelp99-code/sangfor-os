@@ -536,10 +536,11 @@ function SalesSection() {
         {/* Buyer info */}
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <label className={labelCls} style={{ color: CFO.muted }}>
+            <label htmlFor="tax-buyer-corpnum" className={labelCls} style={{ color: CFO.muted }}>
               거래처 사업자번호 *
             </label>
             <input
+              id="tax-buyer-corpnum"
               type="text"
               value={buyerCorpNum}
               onChange={(e) => setBuyerCorpNum(e.target.value)}
@@ -549,10 +550,11 @@ function SalesSection() {
             />
           </div>
           <div>
-            <label className={labelCls} style={{ color: CFO.muted }}>
+            <label htmlFor="tax-buyer-name" className={labelCls} style={{ color: CFO.muted }}>
               거래처명 *
             </label>
             <input
+              id="tax-buyer-name"
               type="text"
               value={buyerName}
               onChange={(e) => setBuyerName(e.target.value)}
@@ -562,10 +564,11 @@ function SalesSection() {
             />
           </div>
           <div>
-            <label className={labelCls} style={{ color: CFO.muted }}>
+            <label htmlFor="tax-buyer-ceo" className={labelCls} style={{ color: CFO.muted }}>
               대표자 (선택)
             </label>
             <input
+              id="tax-buyer-ceo"
               type="text"
               value={buyerCeoName}
               onChange={(e) => setBuyerCeoName(e.target.value)}
@@ -590,6 +593,7 @@ function SalesSection() {
                   handleLineChange(idx, "name", e.target.value)
                 }
                 placeholder="품목명"
+                aria-label={`품목 ${idx + 1} 품목명`}
                 className="flex-1 rounded-md px-3 py-2 text-sm"
                 style={inputStyle}
               />
@@ -600,6 +604,7 @@ function SalesSection() {
                   handleLineChange(idx, "amount", e.target.value)
                 }
                 placeholder="공급가액"
+                aria-label={`품목 ${idx + 1} 공급가액`}
                 step={1000}
                 className="w-40 rounded-md px-3 py-2 text-sm tabular-nums"
                 style={inputStyle}
@@ -607,6 +612,7 @@ function SalesSection() {
               {lineItems.length > 1 && (
                 <button
                   onClick={() => handleRemoveLine(idx)}
+                  aria-label="품목 삭제"
                   className="px-2 text-sm hover:opacity-70"
                   style={{ color: CFO.outflow }}
                 >

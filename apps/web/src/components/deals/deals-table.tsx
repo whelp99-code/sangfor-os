@@ -89,7 +89,7 @@ const columns: ColumnDef<Deal, unknown>[] = [
   // 1. Project ID
   {
     accessorKey: "code",
-    header: "Project ID",
+    header: "프로젝트 ID",
     cell: ({ row }) =>
       row.original.code ? (
         <span className="font-mono text-xs font-semibold text-primary">

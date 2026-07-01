@@ -17,20 +17,50 @@ type Citation = {
 export function KnowledgeSearch() {
   const [q, setQ] = useState("");
   const [citations, setCitations] = useState<Citation[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch(`/api/knowledge?q=${encodeURIComponent(q)}`);
-    const data = await res.json();
-    setCitations(data.citations ?? []);
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/knowledge?q=${encodeURIComponent(q)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(
+          typeof data?.error === "string" ? data.error : "검색에 실패했습니다. 다시 시도해 주세요.",
+        );
+        setCitations([]);
+        return;
+      }
+      setCitations(data.citations ?? []);
+      setSearched(true);
+    } catch {
+      setError("검색에 실패했습니다. 네트워크를 확인해 주세요.");
+      setCitations([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div className="space-y-3">
       <form className="flex gap-2" onSubmit={search}>
         <Input placeholder="지식 검색…" value={q} onChange={(e) => setQ(e.target.value)} required />
-        <Button type="submit">검색</Button>
+        <Button type="submit" disabled={loading}>
+          {loading ? "검색 중…" : "검색"}
+        </Button>
       </form>
+      {error && (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+      {!error && searched && citations.length === 0 ? (
+        <p className="text-sm text-muted-foreground">검색 결과가 없습니다.</p>
+      ) : null}
       {citations.length > 0 ? (
         <ul className="space-y-2 text-sm">
           {citations.map((c) => (

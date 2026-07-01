@@ -45,10 +45,13 @@ async function checkPostgres(databaseUrl: string) {
     await client.query("SELECT 1");
     return { ok: true, latencyMs: Date.now() - started };
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "postgres_check_failed",
-    };
+    // Sanitize: raw driver messages leak host:port (e.g. ECONNREFUSED host:port).
+    // Log the real cause server-side; return a stable, non-revealing code.
+    console.error(
+      "[infra-health] postgres_check_failed:",
+      error instanceof Error ? error.stack ?? error.message : error,
+    );
+    return { ok: false, error: "postgres_check_failed" };
   } finally {
     await client.end().catch(() => undefined);
   }
@@ -66,14 +69,17 @@ async function checkRedis(redisUrl: string) {
     await client.connect();
     const pong = await client.ping();
     if (pong !== "PONG") {
-      return { ok: false, error: `unexpected_pong:${pong}` };
+      return { ok: false, error: "unexpected_pong" };
     }
     return { ok: true, latencyMs: Date.now() - started };
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "redis_check_failed",
-    };
+    // Sanitize: raw driver messages leak host:port (e.g. ECONNREFUSED host:port).
+    // Log the real cause server-side; return a stable, non-revealing code.
+    console.error(
+      "[infra-health] redis_check_failed:",
+      error instanceof Error ? error.stack ?? error.message : error,
+    );
+    return { ok: false, error: "redis_check_failed" };
   } finally {
     client.disconnect();
   }

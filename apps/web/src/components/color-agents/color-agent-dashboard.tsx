@@ -82,7 +82,7 @@ export function ColorAgentDashboard() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/50">
               <Activity className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             </div>
-            <CardTitle className="text-base">My Color Reviews</CardTitle>
+            <CardTitle className="text-base">내 컬러 검토</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
               {MY_REVIEWS.map((r) => {
@@ -110,7 +110,7 @@ export function ColorAgentDashboard() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/50">
               <ArrowRight className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>
-            <CardTitle className="text-base">Handoff Activity</CardTitle>
+            <CardTitle className="text-base">핸드오프 활동</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[260px]">
@@ -135,7 +135,7 @@ export function ColorAgentDashboard() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/50">
             <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
           </div>
-          <CardTitle className="text-base">Project Board — Color Review Pipeline</CardTitle>
+          <CardTitle className="text-base">프로젝트 보드 — 컬러 검토 파이프라인</CardTitle>
         </CardHeader>
         <CardContent>
               <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7">

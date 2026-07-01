@@ -63,7 +63,7 @@ export function ImprovementCandidateActions({
             onClick={() => patchStatus("approved")}
             type="button"
           >
-            {loading === "approved" ? "…" : "Approve"}
+            {loading === "approved" ? "…" : "승인"}
           </Button>
           <Button
             size="sm"
@@ -72,7 +72,7 @@ export function ImprovementCandidateActions({
             onClick={() => patchStatus("rejected")}
             type="button"
           >
-            {loading === "rejected" ? "…" : "Reject"}
+            {loading === "rejected" ? "…" : "반려"}
           </Button>
         </>
       ) : null}

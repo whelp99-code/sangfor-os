@@ -18,6 +18,7 @@ export function PlaybooksPanel() {
   const [goal, setGoal] = useState("");
   const [allowUnsafe, setAllowUnsafe] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/agent/playbooks", { cache: "no-store" });
@@ -32,24 +33,40 @@ export function PlaybooksPanel() {
   async function create() {
     if (!name.trim() || !goal.trim() || saving) return;
     setSaving(true);
+    setFormError(null);
     try {
-      await fetch("/api/agent/playbooks", {
+      const res = await fetch("/api/agent/playbooks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), goal: goal.trim(), allowUnsafe }),
       });
+      if (!res.ok) {
+        setFormError("플레이북 저장에 실패했습니다. 다시 시도해 주세요.");
+        return;
+      }
       setName("");
       setGoal("");
       setAllowUnsafe(false);
       await load();
+    } catch {
+      setFormError("플레이북 저장에 실패했습니다. 네트워크를 확인해 주세요.");
     } finally {
       setSaving(false);
     }
   }
 
   async function remove(id: string) {
-    await fetch(`/api/agent/playbooks/${id}`, { method: "DELETE" });
-    await load();
+    setFormError(null);
+    try {
+      const res = await fetch(`/api/agent/playbooks/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setFormError("플레이북 삭제에 실패했습니다.");
+        return;
+      }
+      await load();
+    } catch {
+      setFormError("플레이북 삭제에 실패했습니다. 네트워크를 확인해 주세요.");
+    }
   }
 
   function runPlaybook(p: Playbook) {
@@ -147,6 +164,11 @@ export function PlaybooksPanel() {
                 저장
               </Button>
             </div>
+            {formError && (
+              <p className="text-xs text-red-600 dark:text-red-400" role="alert">
+                {formError}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

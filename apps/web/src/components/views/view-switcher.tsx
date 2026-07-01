@@ -45,6 +45,7 @@ export function ViewSwitcher({
             type="button"
             role="tab"
             aria-selected={active}
+            aria-label={meta.label}
             onClick={() => onChange(view)}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-smooth",

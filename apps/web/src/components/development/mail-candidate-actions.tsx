@@ -109,7 +109,7 @@ export function MailCandidateActions({ candidateId, status, requiresAiCheck = fa
         onClick={() => patch("reject")}
         type="button"
       >
-        {loading === "reject" ? "Rejecting…" : "Reject"}
+        {loading === "reject" ? "반려 중…" : "반려"}
       </Button>
       <RejectReasonSelect value={reasonCode} onChange={setReasonCode} />
       {error ? <span className="text-xs text-destructive">{error}</span> : null}

@@ -81,7 +81,7 @@ function DealsMiniTable({ deals }: { deals: CompanyDeal[] }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="py-2 text-[11px]">Project ID</TableHead>
+              <TableHead className="py-2 text-[11px]">프로젝트 ID</TableHead>
               <TableHead className="py-2 text-[11px]">딜명</TableHead>
               <TableHead className="py-2 text-[11px]">단계</TableHead>
               <TableHead className="py-2 text-right text-[11px]">공급가</TableHead>
