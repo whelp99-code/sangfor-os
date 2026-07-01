@@ -37,10 +37,11 @@ export function EditKnowledgeForm({
 
   return (
     <form className="grid gap-2" onSubmit={onSubmit}>
-      <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
-      <Input placeholder="Tags (comma-separated)" value={tags} onChange={(e) => setTags(e.target.value)} />
+      <Input aria-label="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+      <Input aria-label="Tags (comma-separated)" placeholder="Tags (comma-separated)" value={tags} onChange={(e) => setTags(e.target.value)} />
       <p className="text-xs text-muted-foreground">Source: {initial.source}</p>
       <textarea
+        aria-label="Body"
         className="min-h-[200px] rounded-md border bg-background px-3 py-2 text-sm"
         value={body}
         onChange={(e) => setBody(e.target.value)}

@@ -44,6 +44,7 @@ export function AddOpportunityLinkForm({
   return (
     <form className="flex flex-wrap gap-2" onSubmit={onSubmit}>
       <select
+        aria-label="Link entity type"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={entityType}
         onChange={(e) => {
@@ -57,6 +58,7 @@ export function AddOpportunityLinkForm({
         <option value="customer">Customer</option>
       </select>
       <select
+        aria-label={`Select ${entityType}`}
         className="h-9 min-w-[180px] rounded-md border bg-background px-2 text-sm"
         value={entityId}
         onChange={(e) => setEntityId(e.target.value)}

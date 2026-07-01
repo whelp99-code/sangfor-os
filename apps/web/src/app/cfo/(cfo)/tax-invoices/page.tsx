@@ -306,6 +306,7 @@ function PurchaseSection() {
           value={htmlInput}
           onChange={(e) => setHtmlInput(e.target.value)}
           placeholder="세금계산서 메일 HTML을 여기에 붙여넣으세요..."
+          aria-label="세금계산서 메일 HTML"
           rows={5}
           className="w-full rounded-md px-3 py-2 text-xs font-mono"
           style={{ border: `1px solid ${CFO.hairline}`, background: CFO.paper, color: CFO.ink }}
@@ -533,10 +534,11 @@ function SalesSection() {
         {/* Buyer info */}
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <label className={labelCls} style={{ color: CFO.muted }}>
+            <label htmlFor="tax-buyer-corp-num" className={labelCls} style={{ color: CFO.muted }}>
               거래처 사업자번호 *
             </label>
             <input
+              id="tax-buyer-corp-num"
               type="text"
               value={buyerCorpNum}
               onChange={(e) => setBuyerCorpNum(e.target.value)}
@@ -546,10 +548,11 @@ function SalesSection() {
             />
           </div>
           <div>
-            <label className={labelCls} style={{ color: CFO.muted }}>
+            <label htmlFor="tax-buyer-name" className={labelCls} style={{ color: CFO.muted }}>
               거래처명 *
             </label>
             <input
+              id="tax-buyer-name"
               type="text"
               value={buyerName}
               onChange={(e) => setBuyerName(e.target.value)}
@@ -559,10 +562,11 @@ function SalesSection() {
             />
           </div>
           <div>
-            <label className={labelCls} style={{ color: CFO.muted }}>
+            <label htmlFor="tax-buyer-ceo-name" className={labelCls} style={{ color: CFO.muted }}>
               대표자 (선택)
             </label>
             <input
+              id="tax-buyer-ceo-name"
               type="text"
               value={buyerCeoName}
               onChange={(e) => setBuyerCeoName(e.target.value)}
@@ -587,6 +591,7 @@ function SalesSection() {
                   handleLineChange(idx, "name", e.target.value)
                 }
                 placeholder="품목명"
+                aria-label={`품목명 ${idx + 1}`}
                 className="flex-1 rounded-md px-3 py-2 text-sm"
                 style={inputStyle}
               />
@@ -597,6 +602,7 @@ function SalesSection() {
                   handleLineChange(idx, "amount", e.target.value)
                 }
                 placeholder="공급가액"
+                aria-label={`공급가액 ${idx + 1}`}
                 step={1000}
                 className="w-40 rounded-md px-3 py-2 text-sm tabular-nums"
                 style={inputStyle}
