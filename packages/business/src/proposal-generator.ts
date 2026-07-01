@@ -166,31 +166,55 @@ export async function generateProposal(input: z.infer<typeof generateProposalSch
   return getGeneratedDocumentDetail(doc.id);
 }
 
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2002",
+  );
+}
+
 export async function saveDocumentVersion(
   documentId: string,
   bodyMarkdown: string,
 ) {
-  const doc = await prisma.generatedDocument.findUniqueOrThrow({
-    where: { id: documentId },
-  });
-  const last = await prisma.documentVersion.findFirst({
-    where: { generatedDocumentId: documentId },
-    orderBy: { version: "desc" },
-  });
-  const nextVersion = (last?.version ?? 0) + 1;
+  // Concurrent saves both computing `latest + 1` would collide on the
+  // DocumentVersion @@unique([generatedDocumentId, version]). Compute the next
+  // version and write the new row inside a single transaction, and retry when a
+  // racing writer wins the version number (P2002) so the loser re-reads and
+  // advances instead of failing.
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.generatedDocument.findUniqueOrThrow({ where: { id: documentId } });
+        const last = await tx.documentVersion.findFirst({
+          where: { generatedDocumentId: documentId },
+          orderBy: { version: "desc" },
+        });
+        const nextVersion = (last?.version ?? 0) + 1;
 
-  await prisma.generatedDocument.update({
-    where: { id: documentId },
-    data: { bodyMarkdown },
-  });
+        await tx.generatedDocument.update({
+          where: { id: documentId },
+          data: { bodyMarkdown },
+        });
 
-  await prisma.documentVersion.create({
-    data: {
-      generatedDocumentId: documentId,
-      version: nextVersion,
-      bodyMarkdown,
-    },
-  });
+        await tx.documentVersion.create({
+          data: {
+            generatedDocumentId: documentId,
+            version: nextVersion,
+            bodyMarkdown,
+          },
+        });
+      });
+      return getGeneratedDocumentDetail(documentId);
+    } catch (error) {
+      // Version number was taken by a concurrent writer — retry with a fresh read.
+      if (isUniqueViolation(error) && attempt < MAX_ATTEMPTS - 1) continue;
+      throw error;
+    }
+  }
 
   return getGeneratedDocumentDetail(documentId);
 }

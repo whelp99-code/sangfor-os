@@ -49,8 +49,9 @@ export default function SecurityPage() {
     fetch('/api/dashboard/security').then(r => r.json()).then(d => { setData(d.result?.data || d); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
-  function handleCommand(cmd: string) {
-    console.log('[Security] CEO command:', cmd)
+  async function handleCommand(_cmd: string) {
+    // TODO(oma-deferred): wire the security AI assistant when the endpoint is provisioned.
+    return 'AI 어시스턴트는 준비 중입니다'
   }
 
   return (

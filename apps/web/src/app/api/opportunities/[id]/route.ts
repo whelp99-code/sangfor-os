@@ -66,6 +66,9 @@ export async function PATCH(request: Request, context: RouteContext) {
         opportunityId: id,
         name: body.name,
         force: body.force,
+        // Forward absorb selection when provided; the service applies its own
+        // per-field defaults (proposals/poc/quotes/meetings) for anything omitted.
+        ...(body.absorb !== undefined ? { absorb: body.absorb } : {}),
       });
       return NextResponse.json(serializeDecimalAtBoundary(result), { status: result.created ? 201 : 200 });
     }

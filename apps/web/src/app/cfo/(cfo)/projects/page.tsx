@@ -58,6 +58,25 @@ export default async function ProjectsPage() {
           </span>
         }
       />
+      {/* Basis 표기: 딜별손익은 발생주의(청구/발생 기준 = 전체 invoice/expense 합산)라
+          KPI·월결산의 현금주의(입금/지급 기준)와 값이 다르다. 계산은 그대로 두고, 같은
+          "매출/원가"가 화면 간 왜 다른지 혼선을 없애기 위해 basis를 명시한다. */}
+      <div
+        className="flex items-start gap-2 rounded-lg border px-3 py-2 text-xs"
+        style={{ background: "#f8fafc", borderColor: "#e2e8f0", color: CFO.muted }}
+      >
+        <span
+          className="rounded px-1.5 py-0.5 font-medium"
+          style={{ background: "#e0e7ff", color: "#3730a3" }}
+        >
+          발생주의(청구/발생 기준)
+        </span>
+        <span>
+          매출·원가는 청구·발생 시점의 전체 invoice/expense 합계입니다. 대시보드 KPI·월결산은
+          현금주의(입금·지급 기준)라 같은 딜이라도 금액이 다를 수 있습니다. 실제 입금은
+          맨 오른쪽 <span className="font-medium">총입금(공급가환산)</span> 열을 참고하세요.
+        </span>
+      </div>
       <div className="overflow-x-auto rounded-xl border bg-white">
         <table className="w-full text-sm">
           <thead>
@@ -65,8 +84,18 @@ export default async function ProjectsPage() {
               <th className="px-3 py-2 font-medium">딜</th>
               <th className="px-3 py-2 font-medium">고객</th>
               <th className="px-3 py-2 text-right font-medium">건수(청구/비용)</th>
-              <th className="px-3 py-2 text-right font-medium">총매출</th>
-              <th className="px-3 py-2 text-right font-medium">총원가/비용</th>
+              <th
+                className="px-3 py-2 text-right font-medium"
+                title="발생주의: 청구된 전체 invoice 공급가 합계 (입금 여부 무관)"
+              >
+                총매출<sup className="ml-0.5 text-[9px] font-normal text-zinc-400">발생</sup>
+              </th>
+              <th
+                className="px-3 py-2 text-right font-medium"
+                title="발생주의: 발생한 전체 expense 공급가 합계 (지급 여부 무관)"
+              >
+                총원가/비용<sup className="ml-0.5 text-[9px] font-normal text-zinc-400">발생</sup>
+              </th>
               <th className="px-3 py-2 text-right font-medium">영업이익</th>
               <th className="px-3 py-2 text-right font-medium">이익률</th>
               <th className="px-3 py-2 text-right font-medium">총입금(공급가환산)</th>

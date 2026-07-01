@@ -63,8 +63,9 @@ export default function SupportDashboardPage() {
     fetchData();
   }, []);
 
-  function handleCommand(cmd: string) {
-    console.log("[Support] CEO command:", cmd);
+  async function handleCommand(_cmd: string) {
+    // TODO(oma-deferred): wire the support AI assistant when the endpoint is provisioned.
+    return "AI 어시스턴트는 준비 중입니다";
   }
 
   return (

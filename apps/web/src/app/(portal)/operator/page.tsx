@@ -37,8 +37,9 @@ export default function OperatorPage() {
     fetch('/api/dashboard/operator').then(r => r.json()).then(d => { setData(d.result?.data || d); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
-  function handleCommand(cmd: string) {
-    console.log('[Operator] CEO command:', cmd)
+  async function handleCommand(_cmd: string) {
+    // TODO(oma-deferred): wire the operator AI assistant when the endpoint is provisioned.
+    return 'AI 어시스턴트는 준비 중입니다'
   }
 
   return (
