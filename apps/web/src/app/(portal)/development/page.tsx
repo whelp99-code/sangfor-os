@@ -30,8 +30,8 @@ export default async function DevelopmentCenterPage() {
     <div className="space-y-6">
       <RegistryPageView
         pageKey="development"
-        title="Development Center"
-        description="Branches, code changes, builds, and test runs from the dev automation engine."
+        title="개발 센터"
+        description="개발 자동화 엔진의 브랜치, 코드 변경, 빌드, 테스트 실행 현황."
       />
       <div className="flex flex-wrap gap-2">
         {DEV_LINKS.map((link) => (
@@ -47,26 +47,26 @@ export default async function DevelopmentCenterPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Open PRs</CardTitle>
+            <CardTitle className="text-sm font-medium">열린 PR</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{prCount}</CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Build runs</CardTitle>
+            <CardTitle className="text-sm font-medium">빌드 실행</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{buildCount}</CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Recent changes</CardTitle>
+            <CardTitle className="text-sm font-medium">최근 변경</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{changes.length}</CardContent>
         </Card>
       </div>
       <div className="grid gap-3">
         {changes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No code changes recorded yet.</p>
+          <p className="text-sm text-muted-foreground">아직 기록된 코드 변경이 없습니다.</p>
         ) : (
           changes.map((change) => (
             <Card key={change.id}>

@@ -52,9 +52,9 @@ export function AddOpportunityLinkForm({
         }}
       >
         <option value="poc">PoC</option>
-        <option value="proposal">Proposal</option>
-        <option value="partner">Partner</option>
-        <option value="customer">Customer</option>
+        <option value="proposal">제안</option>
+        <option value="partner">파트너</option>
+        <option value="customer">고객사</option>
       </select>
       <select
         className="h-9 min-w-[180px] rounded-md border bg-background px-2 text-sm"
@@ -62,13 +62,15 @@ export function AddOpportunityLinkForm({
         onChange={(e) => setEntityId(e.target.value)}
         required
       >
-        <option value="">Select {entityType}…</option>
+        <option value="">
+          {options.length === 0 ? "사용 가능한 항목이 없습니다" : "항목 선택…"}
+        </option>
         {options.map((o) => (
           <option key={o.id} value={o.id}>{o.label}</option>
         ))}
       </select>
       <Button type="submit" size="sm" disabled={loading || options.length === 0}>
-        {loading ? "Linking..." : "Link"}
+        {loading ? "연결 중..." : "연결"}
       </Button>
     </form>
   );
@@ -97,7 +99,7 @@ export function RemoveOpportunityLinkButton({
 
   return (
     <Button type="button" variant="ghost" size="sm" disabled={loading} onClick={onRemove}>
-      {loading ? "…" : "Remove"}
+      {loading ? "…" : "제거"}
     </Button>
   );
 }

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { actionErrorMessage } from "@/lib/action-error-labels";
 
 type Props = {
   candidateId?: string;
@@ -29,7 +30,7 @@ export function GenerateMailCandidatesButton() {
       setMessage(`Created ${data.created}, skipped ${data.skipped}, scanned ${data.scanned}`);
       router.refresh();
     } else {
-      setMessage(data.error ?? "generate_failed");
+      setMessage(actionErrorMessage(data.error, actionErrorMessage("generate_failed")));
     }
     setLoading(false);
   }
@@ -63,7 +64,7 @@ export function MailCandidateActions({ candidateId, status, requiresAiCheck = fa
       router.refresh();
     } else {
       const data = await res.json();
-      setError(data.error ?? "patch_failed");
+      setError(actionErrorMessage(data.error, actionErrorMessage("patch_failed")));
     }
     setLoading(null);
   }

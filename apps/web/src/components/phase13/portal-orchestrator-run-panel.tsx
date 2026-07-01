@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ContextPackSummaryCard } from "@/components/phase13/context-pack-summary-card";
+import { actionErrorMessage } from "@/lib/action-error-labels";
 
 type SourceEntityType = "opportunity" | "proposal" | "poc";
 
@@ -141,7 +142,7 @@ export function PortalOrchestratorRunPanel({
       if (!res.ok) throw new Error(data.error ?? "phase13_run_failed");
       setResult(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "phase13_run_failed");
+      setError(actionErrorMessage(err instanceof Error ? err.message : "phase13_run_failed"));
       setResult(null);
     } finally {
       setLoading(false);

@@ -8,8 +8,8 @@ export default function RegistryPage() {
     <div className="space-y-8">
       <RegistryPageView
         pageKey="registry"
-        title="Registry Admin"
-        description="DB-backed module, block, query, layout, node, and connector registry."
+        title="레지스트리 관리"
+        description="DB 기반 모듈, 블록, 쿼리, 레이아웃, 노드, 커넥터 레지스트리."
       />
       <RegistryAdminPanel />
     </div>

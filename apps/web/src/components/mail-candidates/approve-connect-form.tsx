@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { actionErrorMessage } from "@/lib/action-error-labels";
 
 type ConnectionDefaults = {
   customer: { name: string; domain?: string; notes?: string };
@@ -64,7 +65,7 @@ export function ApproveConnectForm({ candidateId, status, defaults }: Props) {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "connect_failed");
+      setError(actionErrorMessage(data.error, actionErrorMessage("connect_failed")));
       setLoading(false);
       return;
     }

@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { actionErrorMessage } from "@/lib/action-error-labels";
 
 export function CreateCommandForm() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export function CreateCommandForm() {
       router.push(`/commands/${data.run.id}`);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "create_failed");
+      setError(actionErrorMessage(err instanceof Error ? err.message : "create_failed"));
     } finally {
       setLoading(false);
     }

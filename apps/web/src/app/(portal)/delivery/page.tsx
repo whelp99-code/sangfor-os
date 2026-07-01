@@ -35,7 +35,7 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-12 text-center dark:border-red-900/50 dark:bg-red-950/20">
       <AlertTriangle className="h-10 w-10 text-red-500" />
-      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">Failed to load dashboard</h2>
+      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">대시보드를 불러오지 못했습니다</h2>
       <p className="text-sm text-red-600 dark:text-red-300">{message}</p>
     </div>
   );
@@ -55,7 +55,7 @@ export default function DeliveryDashboardPage() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setData(await res.json());
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(err instanceof Error ? err.message : "알 수 없는 오류");
       } finally {
         setLoading(false);
       }
@@ -69,8 +69,8 @@ export default function DeliveryDashboardPage() {
 
   return (
     <AIWorkspaceLayout
-      title="Delivery Engineer"
-      subtitle="Role-based operational dashboard"
+      title="딜리버리"
+      subtitle="역할 기반 운영 대시보드"
       activities={deliveryActivities}
       stats={deliveryStats}
       onCommand={handleCommand}
@@ -93,7 +93,7 @@ export default function DeliveryDashboardPage() {
               <MetricRow label="예정 건수" value={String(data.upcomingDeployments)} />
             ) : null}
             {!data?.upcomingDeployments && (
-              <p className="py-4 text-center text-sm text-muted-foreground">No upcoming deployments</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">예정된 구축 없음</p>
             )}
           </CardContent>
         </Card>

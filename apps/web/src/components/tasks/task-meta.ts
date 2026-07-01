@@ -18,6 +18,18 @@ export function nextTaskStatus(status: string): TaskStatus | null {
   return TASK_NEXT_STATUS[status as TaskStatus] ?? null;
 }
 
+/** ko display labels for task statuses. Keys stay English (state-machine SSOT). */
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  todo: "할 일",
+  doing: "진행 중",
+  waiting: "대기",
+  done: "완료",
+};
+
+export function taskStatusLabel(status: string): string {
+  return TASK_STATUS_LABELS[status as TaskStatus] ?? status;
+}
+
 export const PRIORITY_OPTIONS = [
   { value: "low", label: "낮음" },
   { value: "normal", label: "보통" },

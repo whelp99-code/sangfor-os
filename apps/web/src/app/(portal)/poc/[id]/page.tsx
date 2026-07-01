@@ -82,12 +82,16 @@ export default async function PocDetailPage({ params }: PageProps) {
           <CardContent className="space-y-3">
             <PocRequirementForm pocId={project.id} />
             <div className="space-y-2 text-sm">
-              {project.requirementRows.map((r) => (
-                <div key={r.id}>
-                  <span className="font-medium">{r.label}</span>
-                  {r.details ? <span className="text-muted-foreground"> — {r.details}</span> : null}
-                </div>
-              ))}
+              {project.requirementRows.length === 0 ? (
+                <p className="text-muted-foreground">아직 등록된 요구사항이 없습니다.</p>
+              ) : (
+                project.requirementRows.map((r) => (
+                  <div key={r.id}>
+                    <span className="font-medium">{r.label}</span>
+                    {r.details ? <span className="text-muted-foreground"> — {r.details}</span> : null}
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -96,12 +100,16 @@ export default async function PocDetailPage({ params }: PageProps) {
           <CardContent className="space-y-3">
             <PocEventForm pocId={project.id} />
             <div className="space-y-2 text-sm">
-              {project.events.map((e) => (
-                <div key={e.id} className="flex justify-between gap-2">
-                  <span>{e.summary}</span>
-                  <Badge variant="outline">{e.eventType}</Badge>
-                </div>
-              ))}
+              {project.events.length === 0 ? (
+                <p className="text-muted-foreground">아직 등록된 이벤트가 없습니다.</p>
+              ) : (
+                project.events.map((e) => (
+                  <div key={e.id} className="flex justify-between gap-2">
+                    <span>{e.summary}</span>
+                    <Badge variant="outline">{e.eventType}</Badge>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -111,9 +119,13 @@ export default async function PocDetailPage({ params }: PageProps) {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <PocIssueForm pocId={project.id} />
-            {project.issues.map((issue) => (
-              <PocIssueRow key={issue.id} pocId={project.id} issue={issue} />
-            ))}
+            {project.issues.length === 0 ? (
+              <p className="text-muted-foreground">아직 등록된 이슈가 없습니다.</p>
+            ) : (
+              project.issues.map((issue) => (
+                <PocIssueRow key={issue.id} pocId={project.id} issue={issue} />
+              ))
+            )}
           </CardContent>
         </Card>
         <Card className="md:col-span-2">

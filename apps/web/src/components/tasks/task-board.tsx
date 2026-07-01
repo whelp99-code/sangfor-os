@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { formatDueAt, nextTaskStatus } from "./task-meta";
+import { formatDueAt, nextTaskStatus, taskStatusLabel } from "./task-meta";
 
 type Task = {
   id: string;
@@ -22,7 +22,7 @@ export function TaskBoard({ tasks }: { tasks: Task[] }) {
   const router = useRouter();
 
   if (tasks.length === 0) {
-    return <p className="text-sm text-muted-foreground">No tasks.</p>;
+    return <p className="text-sm text-muted-foreground">작업이 없습니다.</p>;
   }
 
   async function advance(id: string, status: string) {
@@ -49,20 +49,20 @@ export function TaskBoard({ tasks }: { tasks: Task[] }) {
               <p className="font-medium">{task.title}</p>
               <p className="text-muted-foreground">
                 {task.assigneeName ? `${task.assigneeName} · ` : ""}
-                {task.customer?.name ?? task.partner?.name ?? "Unlinked"}
+                {task.customer?.name ?? task.partner?.name ?? "미연결"}
                 {due ? ` · 마감 ${due}` : ""}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline">{task.priority}</Badge>
-              <Badge>{task.status}</Badge>
+              <Badge>{taskStatusLabel(task.status)}</Badge>
               {nextTaskStatus(task.status) ? (
                 <Button
                   size="sm"
                   variant="secondary"
                   onClick={() => advance(task.id, task.status)}
                 >
-                  Advance
+                  다음 단계
                 </Button>
               ) : null}
             </div>

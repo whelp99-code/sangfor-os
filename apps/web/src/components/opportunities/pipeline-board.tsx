@@ -6,6 +6,7 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { stageLabel } from "@/components/deals/stage-meta";
 
 type OpportunityRow = {
   id: string;
@@ -26,12 +27,24 @@ export function OpportunityPipelineBoard({ opportunities }: { opportunities: Opp
     byStage.get(stage)!.push(opp);
   }
 
+  const hasActive = columns.some((stage) => (byStage.get(stage) ?? []).length > 0);
+  if (!hasActive) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-md border border-dashed p-8 text-center">
+        <p className="text-sm text-muted-foreground">진행 중인 기회가 없습니다.</p>
+        <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/opportunities">
+          기회 추가
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-5">
       {columns.map((stage) => (
         <Card key={stage}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm capitalize">{stage}</CardTitle>
+            <CardTitle className="text-sm">{stageLabel(stage)}</CardTitle>
             <Badge variant="outline">{(byStage.get(stage) ?? []).length}</Badge>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -61,15 +74,15 @@ export function OpportunityClosedList({ opportunities }: { opportunities: Opport
 
   return (
     <div className="space-y-2">
-      <h2 className="text-sm font-medium text-muted-foreground">Closed</h2>
+      <h2 className="text-sm font-medium text-muted-foreground">종료</h2>
       {closed.map((o) => (
         <Card key={o.id}>
           <CardHeader className="flex flex-row items-center justify-between py-3">
             <CardTitle className="text-base">{o.title}</CardTitle>
             <div className="flex items-center gap-2">
-              <Badge>{normalizeOpportunityStage(o.stage)}</Badge>
+              <Badge>{stageLabel(normalizeOpportunityStage(o.stage))}</Badge>
               <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={`/opportunities/${o.id}`}>
-                Open
+                열기
               </Link>
             </div>
           </CardHeader>

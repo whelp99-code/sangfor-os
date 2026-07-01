@@ -9,9 +9,9 @@ export default async function ModulesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Module & Block Center</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">모듈 &amp; 블록 센터</h1>
         <p className="text-xs text-muted-foreground">
-          Monitor and configure registered runtime modules, blocks, nodes, and connectors.
+          등록된 런타임 모듈, 블록, 노드, 커넥터를 모니터링하고 구성합니다.
         </p>
       </div>
 

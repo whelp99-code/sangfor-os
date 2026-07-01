@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { actionErrorMessage } from "@/lib/action-error-labels";
+
 type PolicyMemory = {
   id: string;
   memoryType: string;
@@ -38,7 +40,7 @@ export function PolicyMemoryManager({
         prev.map((p) => (p.id === id ? { ...p, status: "active" } : p))
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "failed_to_promote");
+      setError(actionErrorMessage(err instanceof Error ? err.message : "failed_to_promote"));
     } finally {
       setLoadingId(null);
     }

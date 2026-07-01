@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { actionErrorMessage } from "@/lib/action-error-labels";
 
 type Props = {
   candidateId: string;
@@ -30,7 +31,7 @@ export function ImprovementCandidateActions({
     });
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error ?? "patch_failed");
+      setError(actionErrorMessage(data.error, actionErrorMessage("patch_failed")));
     } else {
       router.refresh();
     }
@@ -45,7 +46,7 @@ export function ImprovementCandidateActions({
     });
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error ?? "run_failed");
+      setError(actionErrorMessage(data.error, actionErrorMessage("run_failed")));
     } else {
       router.refresh();
     }

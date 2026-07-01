@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { formatDueAt, nextTaskStatus, TASK_STATUSES } from "./task-meta";
+import { formatDueAt, nextTaskStatus, taskStatusLabel, TASK_STATUSES } from "./task-meta";
 
 type Task = {
   id: string;
@@ -22,7 +22,7 @@ export function TaskKanbanBoard({ tasks }: { tasks: Task[] }) {
   const router = useRouter();
 
   if (tasks.length === 0) {
-    return <p className="text-sm text-muted-foreground">No tasks.</p>;
+    return <p className="text-sm text-muted-foreground">작업이 없습니다.</p>;
   }
 
   async function advance(id: string, status: string) {
@@ -42,8 +42,8 @@ export function TaskKanbanBoard({ tasks }: { tasks: Task[] }) {
         const columnTasks = tasks.filter((t) => t.status === col);
         return (
           <div key={col} className="rounded-md border p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {col} ({columnTasks.length})
+            <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground">
+              {taskStatusLabel(col)} ({columnTasks.length})
             </p>
             <div className="space-y-2">
               {columnTasks.map((task) => {
@@ -53,7 +53,7 @@ export function TaskKanbanBoard({ tasks }: { tasks: Task[] }) {
                     <p className="font-medium">{task.title}</p>
                     <p className="text-muted-foreground">
                       {task.assigneeName ? `${task.assigneeName} · ` : ""}
-                      {task.customer?.name ?? task.partner?.name ?? "Unlinked"}
+                      {task.customer?.name ?? task.partner?.name ?? "미연결"}
                       {due ? ` · 마감 ${due}` : ""}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
@@ -64,7 +64,7 @@ export function TaskKanbanBoard({ tasks }: { tasks: Task[] }) {
                           variant="secondary"
                           onClick={() => advance(task.id, task.status)}
                         >
-                          Advance
+                          다음 단계
                         </Button>
                       ) : null}
                     </div>

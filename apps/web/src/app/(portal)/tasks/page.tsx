@@ -19,15 +19,15 @@ export default async function TasksPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">작업 관리</h1>
-        <p className="text-muted-foreground">Manage work tasks linked to customers and partners.</p>
+        <p className="text-muted-foreground">고객사와 파트너에 연결된 작업을 관리합니다.</p>
       </div>
       <CreateTaskForm engagements={engagementOptions} />
       <Card>
-        <CardHeader><CardTitle>Board</CardTitle></CardHeader>
+        <CardHeader><CardTitle>보드</CardTitle></CardHeader>
         <CardContent><TaskKanbanBoard tasks={all} /></CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>Today ({today.length})</CardTitle></CardHeader>
+        <CardHeader><CardTitle>오늘 ({today.length})</CardTitle></CardHeader>
         <CardContent><TaskBoard tasks={today} /></CardContent>
       </Card>
     </div>
