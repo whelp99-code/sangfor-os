@@ -2,6 +2,7 @@ import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { logStateTransition } from "./audit";
+import { recordDecision } from "./ai-decision";
 import { formatDealCode } from "./deal-code";
 import {
   CANONICAL_STAGES,
@@ -220,6 +221,16 @@ export async function updateOpportunity(
       actorType: "user",
     });
 
+    // S1: unified decision instrumentation (best-effort, outside txn, never throws).
+    await recordDecision({
+      projectId: existing.projectId,
+      domain: "sales",
+      actor: "sales",
+      actionType: "stage_transition",
+      caseRef: "opp:" + id,
+      outcome: "approved",
+    });
+
     return updated;
   }
 
@@ -266,6 +277,16 @@ export async function advanceOpportunityStage(id: string) {
     fromStatus: fromStage,
     toStatus: next,
     actorType: "user",
+  });
+
+  // S1: unified decision instrumentation (best-effort, outside txn, never throws).
+  await recordDecision({
+    projectId: opp.projectId,
+    domain: "sales",
+    actor: "sales",
+    actionType: "stage_transition",
+    caseRef: "opp:" + id,
+    outcome: "approved",
   });
 
   return updated;

@@ -15,6 +15,7 @@ import {
   upsertPolicyMemory,
 } from "./mail-policy-memory";
 import { createOpportunity } from "./opportunity-center";
+import { recordDecision } from "./ai-decision";
 import {
   buildChatCompletionRequestBody,
   extractChatCompletionText,
@@ -2076,6 +2077,33 @@ export async function revalidateMailDerivedCandidate(id: string) {
       }),
     },
   });
+
+  // S1: unified decision instrumentation (best-effort, outside txn, never throws).
+  // revalidation.confidence is a 0..100 percentage; normalize to 0..1 for the log.
+  // Wrapped defensively: projectId resolution must not break the mail flow.
+  try {
+    const outcome: "approved" | "rejected" | "corrected" =
+      revalidation.decision === "approve_candidate"
+        ? "approved"
+        : revalidation.decision === "reject"
+          ? "rejected"
+          : "corrected";
+    const projectId = await resolveProjectId("demo-project");
+    await recordDecision({
+      projectId,
+      domain: "sales",
+      actor: "sales",
+      actionType: "mail_revalidation",
+      caseRef: "mail_candidate:" + id,
+      outcome,
+      predictedConfidence:
+        typeof revalidation.confidence === "number"
+          ? revalidation.confidence / 100
+          : null,
+    });
+  } catch (error) {
+    console.error("[revalidateMailDerivedCandidate] recordDecision failed (swallowed):", error);
+  }
 
   return { candidate: updated, revalidation };
 }
