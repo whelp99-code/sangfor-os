@@ -510,6 +510,7 @@ export function ModuleDashboardClient({
                   <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                   <input
                     type="text"
+                    aria-label="모듈 검색"
                     placeholder="모듈 키 검색..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}

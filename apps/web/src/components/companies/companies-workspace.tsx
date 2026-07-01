@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Building2, Plus } from "lucide-react";
+import Link from "next/link";
+import { Building2, Plus, X } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CreateCustomerForm } from "@/components/customers/create-customer-form";
 import {
   Table,
   TableBody,
@@ -134,12 +136,18 @@ function CompanyDetailPanel({ company }: { company: Company }) {
           </h2>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Button variant="outline" size="sm" className="h-7 text-xs">
+          <Link
+            href={`/customers/${company.id}#contacts`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7 text-xs")}
+          >
             연락처 추가
-          </Button>
-          <Button size="sm" className="h-7 text-xs">
+          </Link>
+          <Link
+            href={`/customers/${company.id}`}
+            className={cn(buttonVariants({ size: "sm" }), "h-7 text-xs")}
+          >
             전체 편집
-          </Button>
+          </Link>
         </div>
       </div>
 
@@ -269,6 +277,7 @@ export function CompaniesWorkspace({ companies }: { companies: Company[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(
     companies[0]?.id ?? null
   );
+  const [showCreate, setShowCreate] = useState(false);
 
   const selectedCompany = useMemo(
     () => companies.find((c) => c.id === selectedId) ?? null,
@@ -287,14 +296,40 @@ export function CompaniesWorkspace({ companies }: { companies: Company[] }) {
           <span className="text-sm text-muted-foreground">· {companies.length}곳</span>
         </div>
         <div className="ml-auto flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled
+            title="준비 중"
+            aria-label="필터 (준비 중)"
+          >
             필터
           </Button>
-          <Button size="sm" className="gap-1">
-            <Plus className="size-3.5" aria-hidden="true" />새 회사
+          <Button
+            size="sm"
+            className="gap-1"
+            onClick={() => setShowCreate((open) => !open)}
+            aria-expanded={showCreate}
+          >
+            {showCreate ? (
+              <X className="size-3.5" aria-hidden="true" />
+            ) : (
+              <Plus className="size-3.5" aria-hidden="true" />
+            )}
+            {showCreate ? "닫기" : "새 회사"}
           </Button>
         </div>
       </div>
+
+      {/* Inline create-company form (POST /api/customers) */}
+      {showCreate ? (
+        <div className="mb-3 rounded-xl border bg-card p-3 ring-1 ring-foreground/10">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            새 회사 추가
+          </p>
+          <CreateCustomerForm />
+        </div>
+      ) : null}
 
       {/* Master-detail two-column split */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[400px_1fr]">

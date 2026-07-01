@@ -259,7 +259,7 @@ export default async function HomePage() {
                   <thead>
                     <tr className="border-b bg-muted/40">
                       <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                        Project ID
+                        프로젝트 ID
                       </th>
                       <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">
                         딜 / 고객사

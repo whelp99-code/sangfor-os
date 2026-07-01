@@ -183,7 +183,7 @@ function Toast({ message, type, onClose }: { message: string; type: "success" | 
   return (
     <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg border px-4 py-3 shadow-lg animate-in slide-in-from-right-2 ${bg}`}>
       <span className="text-sm">{message}</span>
-      <button onClick={onClose} className="ml-2 text-xs opacity-60 hover:opacity-100">&times;</button>
+      <button onClick={onClose} aria-label="닫기" className="ml-2 text-xs opacity-60 hover:opacity-100">&times;</button>
     </div>
   );
 }

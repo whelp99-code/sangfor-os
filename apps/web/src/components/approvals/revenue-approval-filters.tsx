@@ -18,30 +18,30 @@ type FilterOption = {
 
 const FILTER_OPTIONS: Record<FilterKey, FilterOption[]> = {
   ownerRole: [
-    { label: "All roles", value: "all" },
-    { label: "Sales", value: "sales" },
-    { label: "Presales", value: "presales" },
+    { label: "전체 역할", value: "all" },
+    { label: "영업", value: "sales" },
+    { label: "프리세일즈", value: "presales" },
     { label: "CFO", value: "cfo" },
   ],
   itemType: [
-    { label: "All types", value: "all" },
-    { label: "Quotes", value: "quote" },
-    { label: "Proposals", value: "proposal" },
-    { label: "Discounts", value: "discount" },
+    { label: "전체 유형", value: "all" },
+    { label: "견적", value: "quote" },
+    { label: "제안", value: "proposal" },
+    { label: "할인", value: "discount" },
   ],
   status: [
-    { label: "All statuses", value: "all" },
-    { label: "Draft", value: "draft" },
-    { label: "Ready for approval", value: "ready_for_human_approval" },
-    { label: "Approved", value: "approved" },
-    { label: "Rejected", value: "rejected" },
+    { label: "전체 상태", value: "all" },
+    { label: "초안", value: "draft" },
+    { label: "승인 대기", value: "ready_for_human_approval" },
+    { label: "승인됨", value: "approved" },
+    { label: "반려됨", value: "rejected" },
   ],
 };
 
 const FILTER_LABELS: Record<FilterKey, string> = {
-  ownerRole: "Owner role",
-  itemType: "Item type",
-  status: "Status",
+  ownerRole: "담당자 역할",
+  itemType: "항목 유형",
+  status: "상태",
 };
 
 export function RevenueApprovalFilters({
@@ -63,7 +63,7 @@ export function RevenueApprovalFilters({
           </p>
         </div>
         <Badge variant="outline">
-          {filteredCount} of {totalCount} shown
+          전체 {totalCount}건 중 {filteredCount}건 표시
         </Badge>
       </div>
 

@@ -17,8 +17,8 @@ export default function DashboardPage() {
 
   return (
     <AIWorkspaceLayout
-      title="Executive Dashboard"
-      subtitle="Unified visibility across revenue, delivery, support, and governance"
+      title="경영 대시보드"
+      subtitle="매출·딜리버리·지원·거버넌스를 한눈에 통합 조망합니다"
       activities={ACTIVITIES}
       stats={STATS}
       onCommand={handleCommand}

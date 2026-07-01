@@ -82,10 +82,11 @@ function BusinessNumberSection() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <label className={labelCls} style={{ color: CFO.muted }}>
+            <label htmlFor="cfo-business-number" className={labelCls} style={{ color: CFO.muted }}>
               사업자등록번호 *
             </label>
             <input
+              id="cfo-business-number"
               type="text"
               value={businessNumber}
               onChange={(e) => setBusinessNumber(e.target.value)}
@@ -95,10 +96,11 @@ function BusinessNumberSection() {
             />
           </div>
           <div>
-            <label className={labelCls} style={{ color: CFO.muted }}>
+            <label htmlFor="cfo-company-name" className={labelCls} style={{ color: CFO.muted }}>
               회사명
             </label>
             <input
+              id="cfo-company-name"
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
@@ -108,10 +110,11 @@ function BusinessNumberSection() {
             />
           </div>
           <div>
-            <label className={labelCls} style={{ color: CFO.muted }}>
+            <label htmlFor="cfo-ceo-name" className={labelCls} style={{ color: CFO.muted }}>
               대표자
             </label>
             <input
+              id="cfo-ceo-name"
               type="text"
               value={ceoName}
               onChange={(e) => setCeoName(e.target.value)}
