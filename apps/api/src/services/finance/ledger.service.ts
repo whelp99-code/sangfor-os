@@ -163,6 +163,72 @@ export class LedgerService {
     }
   }
 
+  /**
+   * 시드·CSV 임포트로 들어온 invoice/expense는 create/update 훅을 타지 않아 원장에
+   * 미기표된다. 그 결과 `getProfitAndLoss`가 실매출과 완전히 괴리된다(revenue ₩0).
+   * 이 백필은 기존 invoice/expense 중 **아직 원장에 기표되지 않은 것**만 골라 발행/입금/
+   * 지출 분개를 기표한다.
+   *
+   * 멱등성: LedgerEntry.reference(=invoice/expense id) + referenceType으로 기존 기표
+   * 여부를 판정한다. 이미 기표된 문서는 skip하므로 몇 번을 재실행해도 이중기표가 없다.
+   * (역분개된 문서도 reference가 남아 있으므로 재기표하지 않는다 — 정합 교정은
+   *  reverseInvoiceEntries → post* 경로에서 별도로 다룬다.)
+   *
+   * 실행: `pnpm --filter @sangfor/db cfo:ledger-backfill`
+   */
+  async backfillLedger(): Promise<{ invoicesPosted: number; expensesPosted: number; skipped: number }> {
+    // 이미 기표된 문서 id 집합을 한 번에 로드(문서당 쿼리 방지).
+    const posted = await prisma.ledgerEntry.findMany({
+      where: { referenceType: { in: ['invoice', 'expense'] }, reference: { not: null } },
+      select: { reference: true, referenceType: true },
+    });
+    const postedInvoices = new Set<string>();
+    const postedExpenses = new Set<string>();
+    for (const p of posted) {
+      if (!p.reference) continue;
+      if (p.referenceType === 'invoice') postedInvoices.add(p.reference);
+      else if (p.referenceType === 'expense') postedExpenses.add(p.reference);
+    }
+
+    let invoicesPosted = 0;
+    let expensesPosted = 0;
+    let skipped = 0;
+
+    const invoices = await prisma.invoice.findMany({ select: { id: true, depositStatus: true } });
+    for (const inv of invoices) {
+      if (postedInvoices.has(inv.id)) {
+        skipped += 1;
+        continue;
+      }
+      // 발행분개(매출/부가세예수). 금액 0이면 post*가 null을 돌려주므로 카운트하지 않는다.
+      const issued = await this.postInvoiceIssued(inv.id);
+      // depositStatus가 '완료'인 건만 입금분개(실입금액 기준). '부분'은 아직 미완료로 본다.
+      if (inv.depositStatus === '완료') {
+        await this.postInvoicePaid(inv.id);
+      }
+      if (issued) invoicesPosted += 1;
+      else skipped += 1;
+    }
+
+    const expenses = await prisma.expense.findMany({ select: { id: true, isPaid: true } });
+    for (const exp of expenses) {
+      if (postedExpenses.has(exp.id)) {
+        skipped += 1;
+        continue;
+      }
+      if (!exp.isPaid) {
+        // 미지급 비용은 아직 기표 대상 아님(현금주의 지출 분개 기준).
+        skipped += 1;
+        continue;
+      }
+      const posted = await this.postExpense(exp.id);
+      if (posted) expensesPosted += 1;
+      else skipped += 1;
+    }
+
+    return { invoicesPosted, expensesPosted, skipped };
+  }
+
   validate(entries: { debitAccount: string; creditAccount: string; amount: number }[]) {
     const debit = entries.reduce((s, e) => s + e.amount, 0);
     const credit = entries.reduce((s, e) => s + e.amount, 0);

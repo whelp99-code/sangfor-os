@@ -1,9 +1,14 @@
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 
+import { assertApiAccess } from "@/lib/api-auth";
 import { isApmTestRouteAllowed } from "@/lib/observability/sentry";
 
-export async function POST() {
+export async function POST(request: Request) {
+  // Mutating diagnostic route (emits a Sentry event) — guard as a mutating op.
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
+
   if (!isApmTestRouteAllowed()) {
     return NextResponse.json(
       {

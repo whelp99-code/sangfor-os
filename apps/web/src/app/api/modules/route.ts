@@ -2,6 +2,8 @@ import { enrichModuleWithActionConnectorMetadata } from "@sangfor/business/actio
 import { listModuleManifests } from "@sangfor/business/module-runtime";
 import { NextResponse } from "next/server";
 
+import { apiError } from "@/lib/api-auth";
+
 export async function GET() {
   try {
     const manifests = await listModuleManifests();
@@ -18,9 +20,6 @@ export async function GET() {
       },
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "list_modules_failed" },
-      { status: 500 },
-    );
+    return apiError("list_modules_failed", error, { status: 500 });
   }
 }

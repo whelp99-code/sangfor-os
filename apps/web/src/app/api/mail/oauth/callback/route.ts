@@ -29,7 +29,10 @@ export async function GET(request: NextRequest) {
     const account = await connectOutlookAccount(tokens);
     dest.searchParams.set("connected", account.email);
   } catch (error) {
-    dest.searchParams.set("error", error instanceof Error ? error.message : "oauth_failed");
+    // Sanitize: log the real cause server-side; surface only a stable code in the
+    // redirect URL (raw error.message can leak token-exchange / upstream detail).
+    console.error("[api] oauth_callback_failed:", error);
+    dest.searchParams.set("error", "oauth_failed");
   }
 
   const res = NextResponse.redirect(dest);
