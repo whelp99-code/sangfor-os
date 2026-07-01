@@ -80,6 +80,7 @@ export * from "./domain-proposal";
 export * from "./deal-registration";
 export * from "./ai-decision-policy";
 export * from "./ai-decision";
+export * from "./case-ref";
 export * from "./ai-decision-analytics";
 export * from "./ai-decision-commercial";
 export * from "./ai-decision-commercial-resolution";

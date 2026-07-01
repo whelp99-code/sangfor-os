@@ -46,6 +46,9 @@ export async function runWorkflowMock(commandRunId: string) {
           content: "Mock agent assigned. Planning tool calls.",
         },
       });
+      // @deprecated `agent_decision_logs` is a legacy workflow-agent trace, not
+      // the canonical decision spine (`domain_decision_logs` via recordDecision()).
+      // Kept for workflow audit continuity; add no new decision types here (ADR-001).
       await prisma.agentDecisionLog.create({
         data: {
           agentAssignmentId: assignment.id,

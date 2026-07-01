@@ -12,6 +12,7 @@ import {
   recordDomainDecision,
   loadDomainMemories,
   recallDomainMemories,
+  buildMemoryTags,
 } from './domain-memory';
 import { Prisma, prisma } from '@sangfor/db';
 
@@ -92,9 +93,13 @@ export async function generateDomainProposal(
   // 1. Load memories from DB
   const memories = await loadDomainMemories(input.domain);
 
-  // 2. Recall/filter top relevant memories
+  // 2. Recall/filter top relevant memories.
+  // Query tags MUST use the same buildMemoryTags vocabulary the write path
+  // stores (project-decision.ts writes domain:/entity:/intent: tags); passing
+  // raw [domain, engagementName] never overlapped, so approved proposal
+  // memories were unrecallable (Step 8 / ADR-001 D5).
   const recalled = recallDomainMemories(
-    { domain: input.domain, tags: [input.domain, input.engagementName] },
+    { domain: input.domain, tags: buildMemoryTags({ domain: input.domain, entityType: "proposal" }) },
     memories,
   );
 

@@ -166,7 +166,13 @@ export async function upsertDomainMemory(input: {
   });
 }
 
-/** 결정/핸드오프 1건 기록 (감사 추적 + 피드백 루프). */
+/**
+ * 결정/핸드오프 1건 기록 (감사 추적 + 피드백 루프).
+ * @deprecated Writes `domain_decision_logs` directly, BYPASSING the fail-closed
+ * tier gate in `recordDecision()` (ai-decision.ts). It is the 2nd writer to the
+ * canonical table; its call sites should migrate to `recordDecision()` so every
+ * row is tier-gated. Kept working this pass (additive) — see ADR-001 / PLAN §7.
+ */
 export async function recordDomainDecision(input: {
   projectSlug?: string;
   domain: GtmDomain;

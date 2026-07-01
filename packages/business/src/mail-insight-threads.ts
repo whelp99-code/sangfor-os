@@ -249,6 +249,10 @@ export async function upsertMailInsightThreads(
       },
     });
 
+    // NOTE (ADR-001 deprecation boundary): writes `policy_decision_logs` as an
+    // INGEST-AUDIT event (thread_ingested), not a governed human-in-loop decision,
+    // so it is intentionally NOT routed through recordDecision(). Ingest audit is a
+    // separate stream; stream-ownership is a named follow-up (PLAN §7).
     await prisma.policyDecisionLog.create({
       data: {
         projectId,
