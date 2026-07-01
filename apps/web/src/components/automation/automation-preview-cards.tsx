@@ -119,7 +119,7 @@ export function AutomationPreviewCards({ result }: { result: PreviewResult }) {
                 <th className="py-2 pr-4">단계</th>
                 <th className="py-2 pr-4">영역</th>
                 <th className="py-2 pr-4">Agent</th>
-                <th className="py-2 pr-4">Risk</th>
+                <th className="py-2 pr-4">위험도</th>
                 <th className="py-2">검증</th>
               </tr>
             </thead>
