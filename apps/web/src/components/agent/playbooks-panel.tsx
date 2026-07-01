@@ -68,7 +68,12 @@ export function PlaybooksPanel() {
           </CardHeader>
           <CardContent className="p-0">
             {playbooks.length === 0 ? (
-              <p className="p-6 text-center text-xs text-muted-foreground">저장된 플레이북이 없습니다.</p>
+              <div className="space-y-1 p-6 text-center">
+                <p className="text-xs font-semibold text-muted-foreground">저장된 플레이북이 없습니다.</p>
+                <p className="text-[11px] text-muted-foreground/80">
+                  아래 “새 플레이북”에서 자주 쓰는 목표를 등록하면 원클릭으로 실행할 수 있습니다.
+                </p>
+              </div>
             ) : (
               <ul className="divide-y divide-border" aria-label="플레이북 목록">
                 {playbooks.map((p) => (

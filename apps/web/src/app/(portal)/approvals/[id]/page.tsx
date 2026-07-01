@@ -73,7 +73,7 @@ type DiffEntry = {
 
 const APPROVAL = {
   id: "APPR-2024-0042",
-  title: "Commercial Approval — 신한은행 차세대 보안 인프라",
+  title: "상업 승인 — 신한은행 차세대 보안 인프라",
   requester: "김영업",
   createdAt: "2026-06-20 14:32",
   status: "ready_for_human_approval" as ApprovalStatus,
@@ -85,26 +85,26 @@ const APPROVAL = {
 const DIFFS: DiffEntry[] = [
   { field: "할인율", before: "15%", after: "22%" },
   { field: "총 계약 금액", before: "₩450,000,000", after: "₩420,000,000" },
-  { field: "Payment Terms", before: "Net 30", after: "Net 60" },
-  { field: "유지보수 기간", before: "12 months", after: "24 months" },
-  { field: "SLA 응답 시간", before: "4 hours", after: "8 hours" },
+  { field: "결제 조건", before: "Net 30", after: "Net 60" },
+  { field: "유지보수 기간", before: "12개월", after: "24개월" },
+  { field: "SLA 응답 시간", before: "4시간", after: "8시간" },
 ];
 
 const VALIDATIONS: ValidationCheck[] = [
-  { name: "Margin floor check", status: "failed", detail: "예상 마진 18% < 최소 마진 20%" },
-  { name: "Discount authority", status: "passed", detail: "영업 관리자 할인 한도 내 (max 25%)" },
-  { name: "Customer credit", status: "passed", detail: "신용 등급 A — 이상 없음" },
-  { name: "Contract compliance", status: "warning", detail: "Payment term Net 60 — 표준 조건 아님" },
-  { name: "Product availability", status: "passed", detail: "재고 확인 완료" },
-  { name: "Maintenance cost calc", status: "passed", detail: "유지보수 비용 정상 계산" },
+  { name: "최소 마진 확인", status: "failed", detail: "예상 마진 18% < 최소 마진 20%" },
+  { name: "할인 권한", status: "passed", detail: "영업 관리자 할인 한도 내 (최대 25%)" },
+  { name: "고객 신용", status: "passed", detail: "신용 등급 A — 이상 없음" },
+  { name: "계약 컴플라이언스", status: "warning", detail: "결제 조건 Net 60 — 표준 조건 아님" },
+  { name: "제품 재고", status: "passed", detail: "재고 확인 완료" },
+  { name: "유지보수 비용 산정", status: "passed", detail: "유지보수 비용 정상 계산" },
 ];
 
 const COLOR_REVIEWS: ColorReview[] = [
-  { color: "Blue", label: "기술 검토", desc: "Technical Direction / Architecture", status: "passed" },
-  { color: "Red", label: "리스크 검토", desc: "Risk & Safety / Security", status: "pending" },
-  { color: "Orange", label: "비즈니스 가치 검토", desc: "Product & Business Value", status: "passed" },
-  { color: "Gray", label: "문서/근거 검토", desc: "Documentation & Evidence", status: "failed" },
-  { color: "Teal", label: "UX/가시성 검토", desc: "UX & Visibility", status: "not_required" },
+  { color: "Blue", label: "기술 검토", desc: "기술 방향성 / 아키텍처", status: "passed" },
+  { color: "Red", label: "리스크 검토", desc: "리스크·안전성 / 보안", status: "pending" },
+  { color: "Orange", label: "비즈니스 가치 검토", desc: "제품·비즈니스 가치", status: "passed" },
+  { color: "Gray", label: "문서/근거 검토", desc: "문서 및 근거", status: "failed" },
+  { color: "Teal", label: "UX/가시성 검토", desc: "UX·가시성", status: "not_required" },
 ];
 
 const HISTORY: ApprovalHistoryEvent[] = [
@@ -116,10 +116,16 @@ const HISTORY: ApprovalHistoryEvent[] = [
   { action: "승인 대기", actor: "시스템", timestamp: "2026-06-22 14:31", note: "모든 Color Review 완료, 최종 승인 대기" },
 ];
 
-const RELATED_ARTIFACTS = [
-  { type: "Proposal", id: "PROP-2024-0031", title: "신한은행 차세대 보안 인프라 제안서", href: "/proposals/PROP-2024-0031" },
-  { type: "Quote", id: "QTE-2024-0018", title: "견적서 v3.2", href: "#" },
-  { type: "PoC Result", id: "POC-2024-0007", title: "PoC 결과 보고서 — 신한은행", href: "/poc/POC-2024-0007" },
+const RELATED_ARTIFACTS: {
+  type: "Proposal" | "Quote" | "PoC Result";
+  typeLabel: string;
+  id: string;
+  title: string;
+  href: string | null;
+}[] = [
+  { type: "Proposal", typeLabel: "제안서", id: "PROP-2024-0031", title: "신한은행 차세대 보안 인프라 제안서", href: "/proposals/PROP-2024-0031" },
+  { type: "Quote", typeLabel: "견적서", id: "QTE-2024-0018", title: "견적서 v3.2", href: null },
+  { type: "PoC Result", typeLabel: "PoC 결과", id: "POC-2024-0007", title: "PoC 결과 보고서 — 신한은행", href: "/poc/POC-2024-0007" },
 ];
 
 const STATUS_VARIANT_MAP: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -135,18 +141,18 @@ const STATUS_VARIANT_MAP: Record<string, "default" | "secondary" | "destructive"
 
 function ColorStatusIcon({ status }: { status: ColorStatus }) {
   switch (status) {
-    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label="Passed" />;
-    case "pending": return <Clock className="h-4 w-4 text-amber-500" role="img" aria-label="Pending" />;
-    case "failed": return <XCircle className="h-4 w-4 text-red-500" role="img" aria-label="Failed" />;
-    case "not_required": return <MinusCircle className="h-4 w-4 text-gray-400" role="img" aria-label="Not Required" />;
+    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label="통과" />;
+    case "pending": return <Clock className="h-4 w-4 text-amber-500" role="img" aria-label="대기" />;
+    case "failed": return <XCircle className="h-4 w-4 text-red-500" role="img" aria-label="실패" />;
+    case "not_required": return <MinusCircle className="h-4 w-4 text-gray-400" role="img" aria-label="해당 없음" />;
   }
 }
 
 function ValidationStatusIcon({ status }: { status: ValidationCheck["status"] }) {
   switch (status) {
-    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label="Validation passed" />;
-    case "failed": return <XCircle className="h-4 w-4 text-red-500" role="img" aria-label="Validation failed" />;
-    case "warning": return <AlertTriangle className="h-4 w-4 text-amber-500" role="img" aria-label="Validation warning" />;
+    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label="검증 통과" />;
+    case "failed": return <XCircle className="h-4 w-4 text-red-500" role="img" aria-label="검증 실패" />;
+    case "warning": return <AlertTriangle className="h-4 w-4 text-amber-500" role="img" aria-label="검증 경고" />;
   }
 }
 
@@ -209,7 +215,7 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
     setRequestChangesOpen(false);
     setEscalateOpen(false);
     setComment("");
-    showToast(`${action} successful`, "success");
+    showToast(`${action} 완료`, "success");
   }, [showToast]);
 
   const canAct = APPROVAL.status === "ready_for_human_approval";
@@ -226,13 +232,13 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
       <div className="flex flex-col gap-3">
         <Link href="/approvals" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline">
           <ArrowLeft className="h-3.5 w-3.5" />
-          Back to approvals
+          승인 목록으로
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">{APPROVAL.title}</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={variant}>{statusInfo}</Badge>
           <Badge variant="outline">{APPROVAL.id}</Badge>
-          <Badge variant="outline">{APPROVAL.type}</Badge>
+          <Badge variant="outline">{APPROVAL.type === "commercial" ? "상업" : APPROVAL.type}</Badge>
         </div>
       </div>
 
@@ -247,10 +253,10 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
             </CardHeader>
             <CardContent>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <InfoRow label="Requester" value={APPROVAL.requester} />
+                <InfoRow label="요청자" value={APPROVAL.requester} />
                 <InfoRow label="생성일" value={APPROVAL.createdAt} />
-                <InfoRow label="Customer" value={APPROVAL.customer} />
-                <InfoRow label="Opportunity" value={APPROVAL.opportunity} />
+                <InfoRow label="고객" value={APPROVAL.customer} />
+                <InfoRow label="영업 기회" value={APPROVAL.opportunity} />
               </div>
             </CardContent>
           </Card>
@@ -265,9 +271,9 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Field</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Before</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">After</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">항목</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">변경 전</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">변경 후</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -359,25 +365,25 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
             <CardContent>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-lg border bg-muted/20 px-3 py-3">
-                  <p className="text-xs text-muted-foreground">Total Revenue</p>
+                  <p className="text-xs text-muted-foreground">총 매출</p>
                   <p className="text-lg font-semibold">₩420,000,000</p>
                   <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
                     <AlertTriangle className="h-3 w-3" />
-                    -₩30,000,000 from original
+                    기존 대비 -₩30,000,000
                   </p>
                 </div>
                 <div className="rounded-lg border bg-muted/20 px-3 py-3">
-                  <p className="text-xs text-muted-foreground">Expected Margin</p>
+                  <p className="text-xs text-muted-foreground">예상 마진</p>
                   <p className="text-lg font-semibold text-red-500">18%</p>
                   <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
                     <AlertTriangle className="h-3 w-3" />
-                    Below 20% floor
+                    최소 기준 20% 미달
                   </p>
                 </div>
                 <div className="rounded-lg border bg-muted/20 px-3 py-3">
-                  <p className="text-xs text-muted-foreground">Discount Rate</p>
+                  <p className="text-xs text-muted-foreground">할인율</p>
                   <p className="text-lg font-semibold text-amber-500">22%</p>
-                  <p className="text-xs text-muted-foreground mt-1">+7% from standard</p>
+                  <p className="text-xs text-muted-foreground mt-1">표준 대비 +7%</p>
                 </div>
               </div>
             </CardContent>
@@ -390,22 +396,40 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {RELATED_ARTIFACTS.map((a) => (
-                  <Link
-                    key={a.id}
-                    href={a.href}
-                    className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5 hover:bg-muted/40 transition-colors"
-                  >
-                    {a.type === "Proposal" ? <FileSpreadsheet className="h-4 w-4 text-blue-500" /> :
-                     a.type === "Quote" ? <FileBarChart className="h-4 w-4 text-emerald-500" /> :
-                     <Beaker className="h-4 w-4 text-purple-500" />}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{a.title}</p>
-                      <p className="text-xs text-muted-foreground">{a.type} · {a.id}</p>
+                {RELATED_ARTIFACTS.map((a) => {
+                  const icon =
+                    a.type === "Proposal" ? <FileSpreadsheet className="h-4 w-4 text-blue-500" /> :
+                    a.type === "Quote" ? <FileBarChart className="h-4 w-4 text-emerald-500" /> :
+                    <Beaker className="h-4 w-4 text-purple-500" />;
+                  const body = (
+                    <>
+                      {icon}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">{a.title}</p>
+                        <p className="text-xs text-muted-foreground">{a.typeLabel} · {a.id}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">{a.typeLabel}</Badge>
+                    </>
+                  );
+                  return a.href ? (
+                    <Link
+                      key={a.id}
+                      href={a.href}
+                      className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5 hover:bg-muted/40 transition-colors"
+                    >
+                      {body}
+                    </Link>
+                  ) : (
+                    <div
+                      key={a.id}
+                      className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5 opacity-60"
+                      title="아직 열람할 수 없습니다"
+                    >
+                      {body}
+                      <span className="text-xs text-muted-foreground">준비 중</span>
                     </div>
-                    <Badge variant="outline" className="text-xs">{a.type}</Badge>
-                  </Link>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -421,12 +445,12 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
                   <Brain className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">AI Draft</p>
+                  <p className="text-sm font-medium">AI 초안</p>
                   <p className="text-xs text-muted-foreground">
-                    Initial proposal was AI-generated on 2026-06-18. Human review completed on 2026-06-19 with 3 modifications.
+                    최초 제안서는 2026-06-18에 AI로 생성되었습니다. 2026-06-19에 3건 수정과 함께 사람 검토가 완료되었습니다.
                   </p>
                 </div>
-                <Badge variant="secondary">Human reviewed</Badge>
+                <Badge variant="secondary">사람 검토 완료</Badge>
               </div>
             </CardContent>
           </Card>
@@ -467,7 +491,7 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Add your review comments here..."
+                placeholder="검토 의견을 입력하세요..."
                 rows={4}
                 className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
@@ -510,54 +534,54 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
         <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Dialog open={requestChangesOpen} onOpenChange={setRequestChangesOpen}>
-              <DialogTrigger render={<Button variant="secondary" size="sm"><MessageSquare className="h-3.5 w-3.5" />Request Changes</Button>} />
+              <DialogTrigger render={<Button variant="secondary" size="sm"><MessageSquare className="h-3.5 w-3.5" />수정 요청</Button>} />
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Request Changes</DialogTitle>
-                  <DialogDescription>Provide feedback for the requester to address.</DialogDescription>
+                  <DialogTitle>수정 요청</DialogTitle>
+                  <DialogDescription>요청자가 반영할 피드백을 작성하세요.</DialogDescription>
                 </DialogHeader>
                 <textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder="Describe what needs to change..."
+                  placeholder="변경이 필요한 내용을 설명하세요..."
                   rows={4}
                   className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setRequestChangesOpen(false)}>Cancel</Button>
+                  <Button variant="outline" onClick={() => setRequestChangesOpen(false)}>취소</Button>
                   <Button
                     variant="secondary"
                     disabled={loading === "request-changes"}
-                    onClick={() => handleAction("Changes requested")}
+                    onClick={() => handleAction("수정 요청")}
                   >
-                    {loading === "request-changes" ? "Submitting..." : "Submit Request"}
+                    {loading === "request-changes" ? "제출 중..." : "요청 제출"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
 
             <Dialog open={escalateOpen} onOpenChange={setEscalateOpen}>
-              <DialogTrigger render={<Button variant="outline" size="sm"><ArrowUpCircle className="h-3.5 w-3.5" />Escalate</Button>} />
+              <DialogTrigger render={<Button variant="outline" size="sm"><ArrowUpCircle className="h-3.5 w-3.5" />상위 상신</Button>} />
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Escalate Approval</DialogTitle>
-                  <DialogDescription>Send this approval to a higher authority for review.</DialogDescription>
+                  <DialogTitle>상위 상신</DialogTitle>
+                  <DialogDescription>이 승인을 상위 결재자에게 검토 요청합니다.</DialogDescription>
                 </DialogHeader>
                 <textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder="Reason for escalation..."
+                  placeholder="상신 사유..."
                   rows={4}
                   className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setEscalateOpen(false)}>Cancel</Button>
+                  <Button variant="outline" onClick={() => setEscalateOpen(false)}>취소</Button>
                   <Button
                     variant="default"
                     disabled={loading === "escalate"}
-                    onClick={() => handleAction("Escalated")}
+                    onClick={() => handleAction("상위 상신")}
                   >
-                    {loading === "escalate" ? "Escalating..." : "Confirm Escalation"}
+                    {loading === "escalate" ? "상신 중..." : "상신 확정"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -566,49 +590,49 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
             <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
             <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-              <DialogTrigger render={<Button variant="destructive" size="sm">Reject</Button>} />
+              <DialogTrigger render={<Button variant="destructive" size="sm">반려</Button>} />
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Reject approval</DialogTitle>
-                  <DialogDescription>Are you sure you want to reject this approval? This will notify the requester.</DialogDescription>
+                  <DialogTitle>승인 반려</DialogTitle>
+                  <DialogDescription>이 승인을 반려하시겠습니까? 요청자에게 알림이 전송됩니다.</DialogDescription>
                 </DialogHeader>
                 <textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder="Reason for rejection..."
+                  placeholder="반려 사유..."
                   rows={3}
                   className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
+                  <Button variant="outline" onClick={() => setRejectOpen(false)}>취소</Button>
                   <Button
                     variant="destructive"
                     disabled={loading === "reject"}
-                    onClick={() => handleAction("Rejected")}
+                    onClick={() => handleAction("반려")}
                   >
-                    {loading === "reject" ? "Rejecting..." : "Confirm Reject"}
+                    {loading === "reject" ? "반려 중..." : "반려 확정"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
 
             <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
-              <DialogTrigger render={<Button size="sm">Approve</Button>} />
+              <DialogTrigger render={<Button size="sm">승인</Button>} />
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Approve this request?</DialogTitle>
+                  <DialogTitle>이 요청을 승인하시겠습니까?</DialogTitle>
                   <DialogDescription>
-                    This will finalize the commercial approval for {APPROVAL.customer}.
-                    Review all checks before confirming.
+                    {APPROVAL.customer}에 대한 상업 승인이 최종 확정됩니다.
+                    확정 전 모든 검증 항목을 확인하세요.
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setApproveOpen(false)}>Cancel</Button>
+                  <Button variant="outline" onClick={() => setApproveOpen(false)}>취소</Button>
                   <Button
                     disabled={loading === "approve"}
-                    onClick={() => handleAction("Approved")}
+                    onClick={() => handleAction("승인")}
                   >
-                    {loading === "approve" ? "Approving..." : "Confirm Approval"}
+                    {loading === "approve" ? "승인 중..." : "승인 확정"}
                   </Button>
                 </DialogFooter>
               </DialogContent>

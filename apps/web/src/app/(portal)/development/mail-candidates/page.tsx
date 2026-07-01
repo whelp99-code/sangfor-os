@@ -20,7 +20,7 @@ const entityHref: Record<string, string> = {
 };
 
 function formatDate(value?: Date | null) {
-  if (!value) return "unknown date";
+  if (!value) return "날짜 미상";
   return new Intl.DateTimeFormat("ko-KR", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -60,10 +60,10 @@ function statusBadges(candidate: { metadata: unknown; status: string; candidateT
     isProjectCandidate(candidate.candidateType) ? "needs_check" : "not_required"
   ));
   return {
-    mailIntel: aiEnhanced ? "Mail Intel AI" : "Mail Intel Rules",
-    policy: `AIOS Policy: ${policyRole}`,
-    revalidation: `AIOS Revalidation: ${revalidationDecision}`,
-    human: `Human Approval: ${candidate.status}`,
+    mailIntel: aiEnhanced ? "Mail Intel AI" : "Mail Intel 규칙",
+    policy: `AIOS 정책: ${policyRole}`,
+    revalidation: `AIOS 재검증: ${revalidationDecision}`,
+    human: `사람 승인: ${candidate.status}`,
   };
 }
 
@@ -105,8 +105,8 @@ export default async function MailCandidatesPage() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-normal">메일 후보 관리</h1>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            Mail Intelligence thread insights are turned into AIOS candidates through policy memory,
-            evidence checks, AIOS revalidation, and final human approval.
+            Mail Intelligence 스레드 인사이트는 정책 메모리, 근거 검증, AIOS 재검증, 최종 사람 승인을
+            거쳐 AIOS 후보로 전환됩니다.
           </p>
         </div>
         <GenerateMailCandidatesButton />
@@ -115,31 +115,31 @@ export default async function MailCandidatesPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Thread insights</CardTitle>
+            <CardTitle className="text-sm">스레드 인사이트</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{threadCount}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Proposed</CardTitle>
+            <CardTitle className="text-sm">제안됨</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{proposed}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Needs AI check</CardTitle>
+            <CardTitle className="text-sm">AI 확인 필요</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{needsRevalidation}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Converted</CardTitle>
+            <CardTitle className="text-sm">전환됨</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{converted}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Policy memory</CardTitle>
+            <CardTitle className="text-sm">정책 메모리</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{policyMemoryCount}</CardContent>
         </Card>
@@ -147,8 +147,8 @@ export default async function MailCandidatesPage() {
 
       <Card>
         <CardContent className="py-3 text-xs text-muted-foreground">
-          Created objects: {businessCounts[0]} customers · {businessCounts[1]} partners ·{" "}
-          {businessCounts[2]} tasks · {businessCounts[3]} opps · {businessCounts[4]} PoCs
+          생성된 객체: 고객 {businessCounts[0]} · 파트너 {businessCounts[1]} ·{" "}
+          작업 {businessCounts[2]} · 기회 {businessCounts[3]} · PoC {businessCounts[4]}
         </CardContent>
       </Card>
 
@@ -156,7 +156,7 @@ export default async function MailCandidatesPage() {
         {candidates.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-sm text-muted-foreground">
-              No mail candidates yet. Generate candidates from the imported mail intelligence cache.
+              아직 메일 후보가 없습니다. 우측 상단의 생성 버튼으로 가져온 Mail Intelligence 캐시에서 후보를 생성하세요.
             </CardContent>
           </Card>
         ) : (
@@ -176,7 +176,7 @@ export default async function MailCandidatesPage() {
                       <Badge variant="outline">{badges.revalidation}</Badge>
                       <Badge variant="outline">{badges.human}</Badge>
                       <span className="text-xs text-muted-foreground">
-                        confidence {candidate.confidence}
+                        신뢰도 {candidate.confidence}
                       </span>
                     </div>
                     <CardTitle className="break-words text-base">{candidate.title}</CardTitle>
@@ -190,18 +190,18 @@ export default async function MailCandidatesPage() {
                 <CardContent className="space-y-3 text-sm">
                   <p className="break-words text-muted-foreground">{candidate.summary}</p>
                   <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                    <span className="break-words">Source: {candidate.sourceTitle ?? "mail thread"}</span>
-                    <span className="break-words">Sender: {candidate.sourceSender ?? "unknown"}</span>
-                    <span>Received: {formatDate(candidate.sourceReceivedAt)}</span>
+                    <span className="break-words">출처: {candidate.sourceTitle ?? "메일 스레드"}</span>
+                    <span className="break-words">발신자: {candidate.sourceSender ?? "알 수 없음"}</span>
+                    <span>수신: {formatDate(candidate.sourceReceivedAt)}</span>
                     {candidate.createdEntityId && candidate.createdEntityType ? (
                       <Link
                         className="text-primary hover:underline"
                         href={entityHref[candidate.createdEntityType] ?? "/development/mail-candidates"}
                       >
-                        Created {candidate.createdEntityType}: {candidate.createdEntityId.slice(0, 8)}
+                        생성된 {candidate.createdEntityType}: {candidate.createdEntityId.slice(0, 8)}
                       </Link>
                     ) : (
-                      <span>Created entity: none</span>
+                      <span>생성된 객체: 없음</span>
                     )}
                   </div>
                 </CardContent>

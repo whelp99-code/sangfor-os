@@ -32,7 +32,7 @@ export default async function CodexTasksPage() {
                 <Badge variant="outline">{task.status}</Badge>
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground">
-                Run: {task.commandRunId ?? "—"} · Logs: {task.logs.length}
+                실행: {task.commandRunId ?? "—"} · 로그: {task.logs.length}건
               </CardContent>
             </Card>
           ))

@@ -45,9 +45,9 @@ function approvalBadges(candidate: { metadata: unknown; candidateType: string })
   const policy = nestedRecord(candidate.metadata, "policyDecision");
   const revalidation = nestedRecord(candidate.metadata, "aiRevalidation");
   return {
-    mailIntel: mailIntel.aiEnhanced === true ? "Mail Intel AI" : "Mail Intel Rules",
-    policy: `AIOS Policy: ${String(policy.entityRole ?? "unclassified")}`,
-    revalidation: `AIOS Revalidation: ${String(
+    mailIntel: mailIntel.aiEnhanced === true ? "Mail Intel AI" : "Mail Intel 규칙",
+    policy: `AIOS 정책: ${String(policy.entityRole ?? "unclassified")}`,
+    revalidation: `AIOS 재검증: ${String(
       revalidation.decision ?? (isProjectCandidate(candidate.candidateType) ? "needs_check" : "not_required"),
     )}`,
   };
@@ -125,16 +125,16 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
   return (
     <AIWorkspaceLayout
       title="승인 관리"
-      subtitle={`Review mail-derived project candidates and gated automation. ${totalPending} awaiting approval.`}
+      subtitle={`메일 기반 프로젝트 후보와 게이트 자동화를 검토합니다. 승인 대기 ${totalPending}건.`}
       activities={ACTIVITIES}
       stats={STATS}
     >
       <div className="space-y-6">
         <section className="space-y-3">
           <div>
-            <h2 className="text-lg font-medium">Revenue approval queue</h2>
+            <h2 className="text-lg font-medium">매출 승인 큐</h2>
             <p className="text-sm text-muted-foreground">
-              Cursor-role commercial approval metadata for quotes, proposals, and discount exceptions.
+              견적·제안·할인 예외에 대한 역할별 상업 승인 메타데이터입니다.
             </p>
           </div>
           <RevenueApprovalFilters
@@ -146,7 +146,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
             {filteredRevenueApprovals.length === 0 ? (
               <Card>
                 <CardContent className="py-6 text-sm text-muted-foreground">
-                  No revenue approvals match this filter.
+                  이 필터에 해당하는 매출 승인이 없습니다.
                 </CardContent>
               </Card>
             ) : (
@@ -161,19 +161,19 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
                           {item.status}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
-                          {item.priority} priority · requested by {item.requestedBy}
+                          {item.priority} 우선순위 · 요청자 {item.requestedBy}
                         </span>
                       </div>
                       <CardTitle className="break-words text-base">{item.title}</CardTitle>
                     </div>
                     <div className="text-right text-sm">
                       <p className="font-medium">{item.amountKrw}</p>
-                      <p className="text-muted-foreground">Margin {item.marginPercent}%</p>
+                      <p className="text-muted-foreground">마진 {item.marginPercent}%</p>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     <p className="text-muted-foreground">
-                      {item.customer} · Discount {item.discountPercent}% · metadata/status preview only
+                      {item.customer} · 할인 {item.discountPercent}% · 메타데이터/상태 미리보기 전용
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {item.metadata.map((tag) => (
@@ -190,24 +190,24 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-lg font-medium">Mail candidate approval queue</h2>
+              <h2 className="text-lg font-medium">메일 후보 승인 큐</h2>
               <p className="text-sm text-muted-foreground">
-                Customer and partner candidates are auto-derived for final approval. Project-like
-                candidates appear here only after AIOS AI revalidation.
+                고객·파트너 후보는 최종 승인을 위해 자동 도출됩니다. 프로젝트성 후보는 AIOS AI
+                재검증을 거친 뒤에만 여기에 표시됩니다.
               </p>
             </div>
             <Link
               href="/development/mail-candidates"
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
-              Candidate workspace
+              후보 워크스페이스
             </Link>
           </div>
           <div className="grid gap-3">
             {mailCandidates.length === 0 ? (
               <Card>
                 <CardContent className="py-6 text-sm text-muted-foreground">
-                  No mail candidates are waiting. Generate candidates from mail intelligence first.
+                  대기 중인 메일 후보가 없습니다. 먼저 Mail Intelligence에서 후보를 생성하세요.
                 </CardContent>
               </Card>
             ) : (
@@ -219,12 +219,12 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
                       <div className="min-w-0 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline">{candidate.candidateType}</Badge>
-                          <Badge variant="outline">pending</Badge>
+                          <Badge variant="outline">대기</Badge>
                           <Badge variant="outline">{badges.mailIntel}</Badge>
                           <Badge variant="outline">{badges.policy}</Badge>
                           <Badge variant="outline">{badges.revalidation}</Badge>
                           <span className="text-xs text-muted-foreground">
-                            confidence {candidate.confidence}
+                            신뢰도 {candidate.confidence}
                           </span>
                         </div>
                         <CardTitle className="break-words text-base">
@@ -243,13 +243,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
                         {candidate.summary}
                       </p>
                       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        <span className="break-words">Source: {candidate.sourceTitle ?? "mail thread"}</span>
-                        <span>Sender: {candidate.sourceSender ?? "unknown"}</span>
+                        <span className="break-words">출처: {candidate.sourceTitle ?? "메일 스레드"}</span>
+                        <span>발신자: {candidate.sourceSender ?? "알 수 없음"}</span>
                         <Link
                           href={`/approvals/mail-candidates/${candidate.id}`}
                           className="text-primary hover:underline"
                         >
-                          Review detail
+                          상세 검토
                         </Link>
                       </div>
                     </CardContent>
@@ -262,29 +262,29 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
 
         <section className="space-y-3">
           <div>
-            <h2 className="text-lg font-medium">Automation approvals</h2>
+            <h2 className="text-lg font-medium">자동화 승인</h2>
             <p className="text-sm text-muted-foreground">
-              Risk-gated command runs and PR approval requests.
+              리스크 게이트가 적용된 명령 실행 및 PR 승인 요청입니다.
             </p>
           </div>
           <div className="grid gap-3">
           {approvals.length === 0 ? (
             <Card>
               <CardContent className="py-6 text-sm text-muted-foreground">
-                No automation approval requests yet.
+                아직 자동화 승인 요청이 없습니다.
               </CardContent>
             </Card>
           ) : (
             approvals.map((approval) => (
               <Card key={approval.id}>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-base">{approval.reason ?? "Review required"}</CardTitle>
+                  <CardTitle className="text-base">{approval.reason ?? "검토 필요"}</CardTitle>
                   <Badge variant={approval.status === "pending" ? "outline" : "secondary"}>
                     {approval.status}
                   </Badge>
                 </CardHeader>
                 <CardContent className="text-xs text-muted-foreground">
-                  Command run: {approval.commandRunId ?? "—"} · PR: {approval.pullRequestId ?? "—"}
+                  명령 실행: {approval.commandRunId ?? "—"} · PR: {approval.pullRequestId ?? "—"}
                 </CardContent>
               </Card>
             ))

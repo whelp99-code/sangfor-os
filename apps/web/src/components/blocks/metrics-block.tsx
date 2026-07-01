@@ -14,7 +14,7 @@ export function MetricsBlock({
         <CardHeader>
           <CardTitle>{title}</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">No data</CardContent>
+        <CardContent className="text-sm text-muted-foreground">데이터 없음</CardContent>
       </Card>
     );
   }
@@ -22,17 +22,17 @@ export function MetricsBlock({
   const entries =
     "modules" in data
       ? [
-          { label: "Modules", value: data.modules },
-          { label: "Blocks", value: data.blocks },
-          { label: "Queries", value: data.queries },
-          { label: "Layout slots", value: data.slots },
-          { label: "Nodes", value: data.nodes },
-          { label: "Connectors", value: data.connectors },
+          { label: "모듈", value: data.modules },
+          { label: "블록", value: data.blocks },
+          { label: "쿼리", value: data.queries },
+          { label: "레이아웃 슬롯", value: data.slots },
+          { label: "노드", value: data.nodes },
+          { label: "커넥터", value: data.connectors },
         ]
       : [
-          { label: "Total runs", value: data.total },
-          { label: "Running", value: data.running },
-          { label: "Pending", value: data.pending },
+          { label: "총 실행", value: data.total },
+          { label: "실행 중", value: data.running },
+          { label: "대기 중", value: data.pending },
         ];
 
   return (

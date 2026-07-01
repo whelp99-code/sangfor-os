@@ -90,7 +90,12 @@ export function SchedulesPanel() {
         </CardHeader>
         <CardContent className="p-0">
           {schedules.length === 0 ? (
-            <p className="p-6 text-center text-xs text-muted-foreground">등록된 스케줄이 없습니다.</p>
+            <div className="space-y-1 p-6 text-center">
+              <p className="text-xs font-semibold text-muted-foreground">등록된 스케줄이 없습니다.</p>
+              <p className="text-[11px] text-muted-foreground/80">
+                아래 “새 스케줄”에서 플레이북과 주기를 선택해 자동 실행을 등록하세요.
+              </p>
+            </div>
           ) : (
             <ul className="divide-y divide-border" aria-label="스케줄 목록">
               {schedules.map((s) => (

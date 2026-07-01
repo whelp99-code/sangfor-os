@@ -34,20 +34,20 @@ export default async function ImprovementsPage({ searchParams }: PageProps) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Improvement candidates
+            개선 후보
           </h1>
           <p className="text-muted-foreground">
-            Phase 15 self-improving loop — errors to approved Phase 13 runs.
+            Phase 15 자기 개선 루프 — 오류를 승인된 Phase 13 실행으로 전환합니다.
           </p>
         </div>
         <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/development">
-          Back to Development
+          개발 센터로 돌아가기
         </Link>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Create from error</CardTitle>
+          <CardTitle>오류에서 생성</CardTitle>
         </CardHeader>
         <CardContent>
           <CreateImprovementForm />
@@ -56,31 +56,33 @@ export default async function ImprovementsPage({ searchParams }: PageProps) {
 
       <div className="flex flex-wrap gap-2 text-sm">
         <Link className={buttonVariants({ variant: "ghost", size: "sm" })} href="/development/improvements">
-          All
+          전체
         </Link>
         <Link
           className={buttonVariants({ variant: "ghost", size: "sm" })}
           href="/development/improvements?status=proposed"
         >
-          Proposed
+          제안됨
         </Link>
         <Link
           className={buttonVariants({ variant: "ghost", size: "sm" })}
           href="/development/improvements?status=approved"
         >
-          Approved
+          승인됨
         </Link>
         <Link
           className={buttonVariants({ variant: "ghost", size: "sm" })}
           href="/development/improvements?status=converted"
         >
-          Converted
+          전환됨
         </Link>
       </div>
 
       <div className="grid gap-3">
         {candidates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No improvement candidates yet.</p>
+          <p className="text-sm text-muted-foreground">
+            아직 개선 후보가 없습니다. 위의 &ldquo;오류에서 생성&rdquo;으로 첫 후보를 등록해 보세요.
+          </p>
         ) : (
           candidates.map((candidate) => (
             <Card key={candidate.id}>

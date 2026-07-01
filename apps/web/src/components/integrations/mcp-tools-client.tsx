@@ -147,7 +147,7 @@ export function McpToolsClient() {
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Tools</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">MCP 도구</h1>
           <p className="text-muted-foreground">
             MCP 브릿지가 노출하는 도구 레지스트리 · 안전 도구는 읽기 전용으로 즉시 실행 가능
           </p>
@@ -215,11 +215,29 @@ export function McpToolsClient() {
                   ))}
                 </div>
               ) : filtered.length === 0 ? (
-                <div className="space-y-1 p-10 text-center">
+                <div className="space-y-2 p-10 text-center">
                   <Wrench className="mx-auto h-7 w-7 text-muted-foreground/30" aria-hidden="true" />
                   <p className="text-xs font-semibold text-muted-foreground">
                     {tools.length === 0 ? "노출된 도구가 없습니다" : "검색 결과가 없습니다"}
                   </p>
+                  {tools.length === 0 ? (
+                    <>
+                      <p className="text-[11px] text-muted-foreground/80">
+                        MCP 브릿지가 도구를 노출하면 이 목록에 표시됩니다.
+                      </p>
+                      <Button variant="outline" size="xs" onClick={loadTools} disabled={refreshing}>
+                        <RefreshCw
+                          className={cn("h-3 w-3", refreshing && "animate-spin")}
+                          aria-hidden="true"
+                        />
+                        다시 불러오기
+                      </Button>
+                    </>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground/80">
+                      다른 검색어로 시도해 보세요.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <ul className="divide-y divide-border" aria-label="MCP 도구 목록">
@@ -230,7 +248,7 @@ export function McpToolsClient() {
                         <button
                           type="button"
                           onClick={() => selectTool(t.name)}
-                          aria-current={isSelected}
+                          aria-current={isSelected ? "page" : undefined}
                           className={cn(
                             "relative flex w-full flex-col gap-0.5 p-3 text-left transition-colors hover:bg-muted/40",
                             isSelected && "bg-muted/60",
