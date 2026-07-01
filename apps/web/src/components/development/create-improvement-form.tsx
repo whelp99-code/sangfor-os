@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { actionErrorMessage } from "@/lib/action-error-labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -11,18 +12,30 @@ export function CreateImprovementForm() {
   const [message, setMessage] = useState("");
   const [sourceType, setSourceType] = useState("manual");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    await fetch("/api/improvements", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, sourceType }),
-    });
-    setMessage("");
-    setLoading(false);
-    router.refresh();
+    setError(null);
+    try {
+      const res = await fetch("/api/improvements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, sourceType }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(actionErrorMessage((data as { error?: string }).error, "후보를 생성하지 못했습니다."));
+        return;
+      }
+      setMessage("");
+      router.refresh();
+    } catch {
+      setError("후보를 생성하지 못했습니다. 네트워크를 확인해 주세요.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -44,6 +57,11 @@ export function CreateImprovementForm() {
       <Button disabled={loading} type="submit">
         {loading ? "생성 중…" : "후보 생성"}
       </Button>
+      {error && (
+        <p className="w-full text-xs text-destructive sm:basis-full" role="alert">
+          {error}
+        </p>
+      )}
     </form>
   );
 }

@@ -110,17 +110,17 @@ export function AutomationPreviewCards({ result }: { result: PreviewResult }) {
 
       <Card size="sm" className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>Plan preview</CardTitle>
+          <CardTitle>플랜 미리보기</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full min-w-[680px] text-sm">
             <thead>
               <tr className="border-b text-left">
-                <th className="py-2 pr-4">Step</th>
-                <th className="py-2 pr-4">Area</th>
+                <th className="py-2 pr-4">단계</th>
+                <th className="py-2 pr-4">영역</th>
                 <th className="py-2 pr-4">Agent</th>
                 <th className="py-2 pr-4">Risk</th>
-                <th className="py-2">Validation</th>
+                <th className="py-2">검증</th>
               </tr>
             </thead>
             <tbody>
@@ -145,7 +145,7 @@ export function AutomationPreviewCards({ result }: { result: PreviewResult }) {
       {result.approvalSummary ? (
         <Card size="sm">
           <CardHeader>
-            <CardTitle>Approval summary</CardTitle>
+            <CardTitle>승인 요약</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm font-medium">{result.approvalSummary.headline}</p>
@@ -164,7 +164,7 @@ export function AutomationPreviewCards({ result }: { result: PreviewResult }) {
       {result.prDraft ? (
         <Card size="sm">
           <CardHeader>
-            <CardTitle>PR draft preview</CardTitle>
+            <CardTitle>PR 초안 미리보기</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm font-medium">{result.prDraft.title}</p>

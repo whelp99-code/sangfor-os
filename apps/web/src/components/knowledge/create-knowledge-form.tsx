@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { actionErrorMessage } from "@/lib/action-error-labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -12,27 +13,36 @@ export function CreateKnowledgeForm() {
   const [body, setBody] = useState("");
   const [tags, setTags] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const res = await fetch("/api/knowledge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        body,
-        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-        projectSlug: "demo-project",
-      }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (res.ok) {
+    setError(null);
+    try {
+      const res = await fetch("/api/knowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          body,
+          tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+          projectSlug: "demo-project",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(actionErrorMessage((data as { error?: string }).error, "문서를 추가하지 못했습니다."));
+        return;
+      }
       setTitle("");
       setBody("");
       setTags("");
       router.push(`/knowledge/${data.document.id}`);
+    } catch {
+      setError("문서를 추가하지 못했습니다. 네트워크를 확인해 주세요.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -47,6 +57,11 @@ export function CreateKnowledgeForm() {
         onChange={(e) => setBody(e.target.value)}
         required
       />
+      {error && (
+        <p className="text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      )}
       <Button type="submit" disabled={loading}>{loading ? "저장 중..." : "문서 추가"}</Button>
     </form>
   );

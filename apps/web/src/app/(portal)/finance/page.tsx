@@ -94,9 +94,9 @@ export default function FinanceDashboardPage() {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <ClipboardList className="h-5 w-5 text-blue-600" />
-                  <CardTitle className="text-base">Commercial Approval Queue</CardTitle>
+                  <CardTitle className="text-base">상업 승인 대기열</CardTitle>
                 </div>
-                <CardDescription>Pending financial approvals</CardDescription>
+                <CardDescription>재무 승인 대기</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? (
@@ -106,7 +106,7 @@ export default function FinanceDashboardPage() {
                   </>
                 ) : null}
                 {!data?.commercialApprovalQueue && (
-                  <p className="py-4 text-center text-sm text-muted-foreground">Approval queue is clear</p>
+                  <p className="py-4 text-center text-sm text-muted-foreground">승인 대기열 없음</p>
                 )}
               </CardContent>
             </Card>
@@ -117,7 +117,7 @@ export default function FinanceDashboardPage() {
                   <TrendingDown className="h-5 w-5 text-red-600" />
                   <CardTitle className="text-base">낮은 마진 딜</CardTitle>
                 </div>
-                <CardDescription>Deals below margin threshold</CardDescription>
+                <CardDescription>마진 기준 미달 딜</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? <MetricRow label="마진 15% 미만" value={String(data.lowMarginDeals)} /> : null}
@@ -130,7 +130,7 @@ export default function FinanceDashboardPage() {
                   <Percent className="h-5 w-5 text-amber-600" />
                   <CardTitle className="text-base">높은 할인 요청</CardTitle>
                 </div>
-                <CardDescription>Discount requests exceeding policy</CardDescription>
+                <CardDescription>정책 초과 할인 요청</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? <MetricRow label="30% 초과" value={String(data.highDiscountRequests)} /> : null}
@@ -143,7 +143,7 @@ export default function FinanceDashboardPage() {
                   <Diff className="h-5 w-5 text-purple-600" />
                   <CardTitle className="text-base">견적 Diff</CardTitle>
                 </div>
-                <CardDescription>Quote vs actual discrepancies</CardDescription>
+                <CardDescription>견적 대비 실제 차이</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? <MetricRow label="견적 초과" value={String(data.quoteDiffs)} /> : null}
@@ -156,7 +156,7 @@ export default function FinanceDashboardPage() {
                   <CreditCard className="h-5 w-5 text-indigo-600" />
                   <CardTitle className="text-base">예외 Payment Term</CardTitle>
                 </div>
-                <CardDescription>Non-standard payment term requests</CardDescription>
+                <CardDescription>비표준 Payment Term 요청</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data ? <MetricRow label="예외 건수" value={String(data.exceptionPayments)} /> : null}

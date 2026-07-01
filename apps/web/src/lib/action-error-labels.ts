@@ -14,8 +14,9 @@ export const ACTION_ERROR_LABELS: Record<string, string> = {
   // mail-candidate-actions
   generate_failed: "메일 후보 생성에 실패했습니다.",
   patch_failed: "상태를 변경하지 못했습니다.",
-  // approve-connect-form
+  // approve-connect-form / portal-actions
   connect_failed: "연결에 실패했습니다.",
+  sync_failed: "메일 동기화에 실패했습니다.",
   // policy-memory-manager
   failed_to_promote: "정책을 활성화하지 못했습니다.",
   // create-command-form

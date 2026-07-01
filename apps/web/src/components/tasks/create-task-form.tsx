@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { actionErrorMessage } from "@/lib/action-error-labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,33 +34,43 @@ export function CreateTaskForm({ engagementId, engagements, projectSlug = "demo-
   const [dueAt, setDueAt] = useState("");
   const [selectedEngagement, setSelectedEngagement] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const showPicker = !engagementId && engagements && engagements.length > 0;
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
+    setError(null);
     const resolvedEngagementId = engagementId ?? (selectedEngagement || undefined);
-    const response = await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        priority,
-        assigneeName: assigneeName || undefined,
-        dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
-        engagementId: resolvedEngagementId,
-        projectSlug,
-      }),
-    });
-    setLoading(false);
-    if (response.ok) {
+    try {
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          priority,
+          assigneeName: assigneeName || undefined,
+          dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
+          engagementId: resolvedEngagementId,
+          projectSlug,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setError(actionErrorMessage((data as { error?: string }).error, "작업을 추가하지 못했습니다."));
+        return;
+      }
       setTitle("");
       setAssigneeName("");
       setPriority("normal");
       setDueAt("");
       setSelectedEngagement("");
       router.refresh();
+    } catch {
+      setError("작업을 추가하지 못했습니다. 네트워크를 확인해 주세요.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -116,6 +127,11 @@ export function CreateTaskForm({ engagementId, engagements, projectSlug = "demo-
       <Button type="submit" disabled={loading}>
         {loading ? "저장 중..." : "작업 추가"}
       </Button>
+      {error && (
+        <p className="text-xs text-destructive md:col-span-full" role="alert">
+          {error}
+        </p>
+      )}
     </form>
   );
 }

@@ -37,14 +37,14 @@ export function CreateCommandForm() {
   return (
     <form className="flex flex-col gap-3 sm:flex-row" onSubmit={onSubmit}>
       <Input
-        placeholder="Describe the automation request…"
+        placeholder="자동화 요청 내용을 입력하세요…"
         value={inputSummary}
         onChange={(e) => setInputSummary(e.target.value)}
         required
         minLength={3}
       />
       <Button type="submit" disabled={loading}>
-        {loading ? "Creating…" : "New command run"}
+        {loading ? "생성 중…" : "새 커맨드 실행"}
       </Button>
       {error ? <p className="text-sm text-destructive sm:basis-full">{error}</p> : null}
     </form>

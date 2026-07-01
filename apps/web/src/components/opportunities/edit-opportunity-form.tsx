@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { actionErrorMessage } from "@/lib/action-error-labels";
 import { OPPORTUNITY_STAGES } from "@/lib/poc-constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,26 +52,38 @@ export function EditOpportunityForm({
   const [customerId, setCustomerId] = useState(initial.customerId ?? "");
   const [partnerId, setPartnerId] = useState(initial.partnerId ?? "");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    await fetch(`/api/opportunities/${opportunityId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        stage,
-        amount: amount ? Number(amount) : undefined,
-        probability: Number(probability),
-        closeDate: toIsoDate(closeDate),
-        nextAction: nextAction || null,
-        customerId: customerId || null,
-        partnerId: partnerId || null,
-      }),
-    });
-    setLoading(false);
-    router.refresh();
+    setError(null);
+    try {
+      const res = await fetch(`/api/opportunities/${opportunityId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          stage,
+          amount: amount ? Number(amount) : undefined,
+          probability: Number(probability),
+          closeDate: toIsoDate(closeDate),
+          nextAction: nextAction || null,
+          customerId: customerId || null,
+          partnerId: partnerId || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(actionErrorMessage((data as { error?: string }).error, "기회 정보를 저장하지 못했습니다."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("기회 정보를 저장하지 못했습니다. 네트워크를 확인해 주세요.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -115,6 +128,11 @@ export function EditOpportunityForm({
       <Button type="submit" size="sm" disabled={loading} className="sm:col-span-2">
         {loading ? "저장 중..." : "기회 저장"}
       </Button>
+      {error && (
+        <p className="text-xs text-destructive sm:col-span-2" role="alert">
+          {error}
+        </p>
+      )}
     </form>
   );
 }

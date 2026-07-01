@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { actionErrorMessage } from "@/lib/action-error-labels";
 import {
   POC_DEPLOYMENT_TYPES,
   POC_PRODUCT_LINES,
@@ -36,32 +37,41 @@ export function CreatePocForm({
   const [customerId, setCustomerId] = useState("");
   const [partnerId, setPartnerId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const res = await fetch("/api/poc", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        productName,
-        productLine: productLine || undefined,
-        deploymentType: deploymentType || undefined,
-        hwSpec: hwSpec || undefined,
-        swSpec: swSpec || undefined,
-        networkNotes: networkNotes || undefined,
-        scheduleAt: toIsoDateTime(scheduleAt),
-        customerId: customerId || undefined,
-        partnerId: partnerId || undefined,
-        projectSlug: "demo-project",
-      }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (res.ok) {
+    setError(null);
+    try {
+      const res = await fetch("/api/poc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          productName,
+          productLine: productLine || undefined,
+          deploymentType: deploymentType || undefined,
+          hwSpec: hwSpec || undefined,
+          swSpec: swSpec || undefined,
+          networkNotes: networkNotes || undefined,
+          scheduleAt: toIsoDateTime(scheduleAt),
+          customerId: customerId || undefined,
+          partnerId: partnerId || undefined,
+          projectSlug: "demo-project",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(actionErrorMessage((data as { error?: string }).error, "PoC를 생성하지 못했습니다."));
+        return;
+      }
       router.push(`/poc/${data.project.id}`);
       router.refresh();
+    } catch {
+      setError("PoC를 생성하지 못했습니다. 네트워크를 확인해 주세요.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -120,6 +130,11 @@ export function CreatePocForm({
       <Button type="submit" disabled={loading} className="sm:col-span-2 lg:col-span-1">
         {loading ? "생성 중..." : "새 PoC"}
       </Button>
+      {error && (
+        <p className="text-xs text-destructive sm:col-span-2 lg:col-span-4" role="alert">
+          {error}
+        </p>
+      )}
     </form>
   );
 }
