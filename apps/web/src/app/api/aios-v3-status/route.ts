@@ -32,12 +32,18 @@ async function checkService(
     }
     return { name, url, status: "error", latencyMs, detail: `${res.status}` };
   } catch (e) {
+    // Log the real cause server-side; the client body gets a stable code so
+    // the probed host/port never leaks through error.message.
+    console.error(
+      `[api] aios-v3-status ${name} unreachable:`,
+      e instanceof Error ? e.stack ?? e.message : e,
+    );
     return {
       name,
       url,
       status: "unreachable",
       latencyMs: Date.now() - start,
-      detail: e instanceof Error ? e.message : "unknown",
+      detail: "upstream_unavailable",
     };
   }
 }

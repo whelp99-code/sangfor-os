@@ -44,9 +44,15 @@ export async function GET() {
       detail: monitoringHealth.status,
     };
   } catch (error) {
+    // Log the real cause server-side; surface a stable code so upstream
+    // host/port/driver internals never reach the client body.
+    console.error(
+      "[api] aios-v3 v3Server unreachable:",
+      error instanceof Error ? error.stack ?? error.message : error,
+    );
     services.v3Server = {
       status: "unreachable",
-      detail: error instanceof Error ? error.message : "unknown_error",
+      detail: "upstream_unavailable",
     };
   }
 
@@ -60,9 +66,13 @@ export async function GET() {
       detail: `${models.data?.length ?? 0} model(s) available`,
     };
   } catch (error) {
+    console.error(
+      "[api] aios-v3 lmStudio unreachable:",
+      error instanceof Error ? error.stack ?? error.message : error,
+    );
     services.lmStudio = {
       status: "unreachable",
-      detail: error instanceof Error ? error.message : "unknown_error",
+      detail: "upstream_unavailable",
     };
   }
 

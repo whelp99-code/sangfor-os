@@ -36,13 +36,17 @@ export async function GET() {
       { status: healthy ? 200 : 503 },
     );
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "health_check_failed";
+    // Sanitize: log the real cause server-side, return a stable code (no raw
+    // error.message that could leak DB/Redis host/port/driver internals).
+    console.error(
+      "[api] health_check_failed:",
+      error instanceof Error ? error.stack ?? error.message : error,
+    );
 
     return NextResponse.json(
       {
         status: "error",
-        error: message,
+        error: "health_check_failed",
         timestamp,
       },
       { status: 503 },

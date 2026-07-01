@@ -80,11 +80,12 @@ export function createApp(): Express {
         details: result.details ?? target.readinessNote,
       });
     } catch (error) {
+      console.error("[api] whelp99 health probe failed:", error instanceof Error ? error.stack ?? error.message : error);
       res.status(500).json({
         id: "whelp99-code-sangfor-engineer-mcp",
         status: "unreachable",
         upstream: "",
-        details: error instanceof Error ? error.message : String(error),
+        details: "upstream_unavailable",
       });
     }
   });
@@ -99,9 +100,10 @@ export function createApp(): Express {
         targets: results,
       });
     } catch (error) {
+      console.error("[api] integrations health aggregate failed:", error instanceof Error ? error.stack ?? error.message : error);
       res.status(500).json({
         status: "error",
-        details: error instanceof Error ? error.message : String(error),
+        details: "upstream_unavailable",
       });
     }
   });
@@ -112,8 +114,9 @@ export function createApp(): Express {
       const tools = await listMcpTools();
       res.json({ tools });
     } catch (error) {
+      console.error("[api] whelp99 tools list failed:", error instanceof Error ? error.stack ?? error.message : error);
       res.status(502).json({
-        error: error instanceof Error ? error.message : String(error),
+        error: "upstream_unavailable",
         tools: [],
       });
     }
@@ -132,8 +135,9 @@ export function createApp(): Express {
       const result = await callMcpTool(name, args);
       res.status(result.error ? 502 : 200).json(result);
     } catch (error) {
+      console.error("[api] whelp99 tool call failed:", error instanceof Error ? error.stack ?? error.message : error);
       res.status(500).json({
-        error: error instanceof Error ? error.message : String(error),
+        error: "upstream_unavailable",
       });
     }
   });
