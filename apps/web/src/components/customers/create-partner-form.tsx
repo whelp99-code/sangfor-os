@@ -34,8 +34,8 @@ export function CreatePartnerForm() {
 
   return (
     <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSubmit}>
-      <Input placeholder="Partner name" value={name} onChange={(event) => setName(event.target.value)} required />
-      <Input placeholder="Type (reseller, SI...)" value={partnerType} onChange={(event) => setPartnerType(event.target.value)} />
+      <Input aria-label="Partner name" placeholder="Partner name" value={name} onChange={(event) => setName(event.target.value)} required />
+      <Input aria-label="Type (reseller, SI...)" placeholder="Type (reseller, SI...)" value={partnerType} onChange={(event) => setPartnerType(event.target.value)} />
       <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Add partner"}</Button>
     </form>
   );

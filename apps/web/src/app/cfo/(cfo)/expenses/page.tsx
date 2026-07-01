@@ -3,6 +3,7 @@
 import CrudTable from "@/components/cfo/crud-table";
 import { useProjectOptions } from "@/components/cfo/use-project-options";
 import { CfoPageHeading } from "@/components/cfo/page-heading";
+import { won } from "@/lib/format-krw";
 
 const EXPENSE_FIELDS = [
   { name: "expenseName", label: "지출명", type: "text" as const, required: true },
@@ -49,8 +50,6 @@ const EXPENSE_FIELDS = [
   { name: "isPaid", label: "납입완료", type: "checkbox" as const },
 ];
 
-const wonE = (v: number) => `₩${(v ?? 0).toLocaleString()}`;
-
 // Columns mirror the Notion "매입/비용 DB" view:
 // 프로젝트, 지출명, 매입처, 일자, 구분, 공급가액, VAT, 합계, 결재수단, 증빙, 납입여부
 const EXPENSE_COLUMNS = [
@@ -59,9 +58,9 @@ const EXPENSE_COLUMNS = [
   { key: "vendor", label: "매입처" },
   { key: "date", label: "일자", format: (v: string) => (v ? new Date(v).toLocaleDateString("ko-KR") : "-") },
   { key: "category", label: "구분" },
-  { key: "amount", label: "공급가액", format: wonE },
-  { key: "vat", label: "VAT", format: wonE },
-  { key: "total", label: "합계", format: wonE },
+  { key: "amount", label: "공급가액", format: won },
+  { key: "vat", label: "VAT", format: won },
+  { key: "total", label: "합계", format: won },
   { key: "paymentMethod", label: "결재수단", format: (v: string) => v || "-" },
   { key: "proofType", label: "증빙", format: (v: string) => v || "-" },
   { key: "isPaid", label: "납입여부", format: (v: boolean) => (v ? "✅" : "⬜") },

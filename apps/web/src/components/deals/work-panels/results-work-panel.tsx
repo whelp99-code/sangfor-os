@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format-date";
 
 // ---------------------------------------------------------------------------
 // Lean data types — no Prisma imports; server-safe.
@@ -47,11 +48,6 @@ const REPORT_STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" 
   ARCHIVED: "secondary",
 };
 
-function formatDate(value: Date | string): string {
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10);
-}
 
 // ---------------------------------------------------------------------------
 // ResultsWorkPanel — stage ③ (결과제출)

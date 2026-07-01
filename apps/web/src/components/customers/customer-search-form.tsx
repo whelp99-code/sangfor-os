@@ -26,6 +26,7 @@ export function CustomerSearchForm() {
   return (
     <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSubmit}>
       <Input
+        aria-label="Search by name or domain"
         placeholder="Search by name or domain…"
         value={q}
         onChange={(e) => setQ(e.target.value)}

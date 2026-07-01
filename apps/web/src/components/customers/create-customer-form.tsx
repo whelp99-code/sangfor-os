@@ -30,8 +30,8 @@ export function CreateCustomerForm() {
 
   return (
     <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSubmit}>
-      <Input placeholder="Customer name" value={name} onChange={(e) => setName(e.target.value)} required />
-      <Input placeholder="Domain (optional)" value={domain} onChange={(e) => setDomain(e.target.value)} />
+      <Input aria-label="Customer name" placeholder="Customer name" value={name} onChange={(e) => setName(e.target.value)} required />
+      <Input aria-label="Domain (optional)" placeholder="Domain (optional)" value={domain} onChange={(e) => setDomain(e.target.value)} />
       <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Add customer"}</Button>
     </form>
   );

@@ -4,6 +4,7 @@ import CrudTable from "@/components/cfo/crud-table";
 import { useProjectOptions } from "@/components/cfo/use-project-options";
 import { CfoPageHeading } from "@/components/cfo/page-heading";
 import { CFO } from "@/lib/cfo-theme";
+import { won } from "@/lib/format-krw";
 
 // Single source of truth for deposit-status display labels so the edit form,
 // table cell, and filter all read identically (previously the cell showed the
@@ -33,8 +34,6 @@ const INVOICE_FIELDS = [
   { name: "depositDate", label: "입금일", type: "date" as const },
   { name: "memo", label: "메모", type: "text" as const },
 ];
-
-const won = (v: number) => `₩${(v ?? 0).toLocaleString()}`;
 
 // Columns mirror the Notion "미수금/입금관리" view:
 // 프로젝트, 거래처, 공급가액, VAT, 합계, 입금상태, 입금일, 입금액, 메모

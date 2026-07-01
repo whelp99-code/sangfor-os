@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useId, useRef } from "react";
 import { CFO } from "@/lib/cfo-theme";
 
 type FieldConfig = {
@@ -79,6 +79,13 @@ export default function CrudTable({ title, endpoint, fields, columns, filters }:
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
 
+  // Modal a11y: title id, focus trap container, trigger restore.
+  const modalTitleId = useId();
+  const modalRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+
+  const closeModal = useCallback(() => setShowModal(false), []);
+
   // Header-click sorting (client-side; third click clears).
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -129,6 +136,56 @@ export default function CrudTable({ title, endpoint, fields, columns, filters }:
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Modal: Escape to close, initial focus, Tab focus trap, restore focus on close.
+  useEffect(() => {
+    if (!showModal) return;
+
+    triggerRef.current = (document.activeElement as HTMLElement) ?? null;
+
+    const modal = modalRef.current;
+    const focusables = () =>
+      modal
+        ? Array.from(
+            modal.querySelectorAll<HTMLElement>(
+              'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+            ),
+          ).filter((el) => !el.hasAttribute("disabled"))
+        : [];
+
+    // Initial focus on first field.
+    focusables()[0]?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeModal();
+        return;
+      }
+      if (e.key === "Tab") {
+        const items = focusables();
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (e.shiftKey) {
+          if (activeEl === first || !modal?.contains(activeEl)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else if (activeEl === last || !modal?.contains(activeEl)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      triggerRef.current?.focus?.();
+    };
+  }, [showModal, closeModal]);
 
   const openCreate = () => {
     setEditRow(null);
@@ -250,6 +307,15 @@ export default function CrudTable({ title, endpoint, fields, columns, filters }:
                 return (
                   <th
                     key={col.key}
+                    aria-sort={
+                      sortable
+                        ? active
+                          ? sortDir === "asc"
+                            ? "ascending"
+                            : "descending"
+                          : "none"
+                        : undefined
+                    }
                     className="p-3 text-left text-[11px] font-medium uppercase tracking-wide"
                   >
                     {sortable ? (
@@ -336,24 +402,38 @@ export default function CrudTable({ title, endpoint, fields, columns, filters }:
 
       {/* 모달 */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={closeModal}
+        >
           <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={modalTitleId}
+            onClick={(e) => e.stopPropagation()}
             className="w-full max-w-lg rounded-xl p-6 shadow-xl"
             style={{ background: CFO.paper, color: CFO.ink, border: `1px solid ${CFO.hairline}` }}
           >
-            <h3 className="text-lg font-semibold tracking-tight">{editRow ? "수정" : "추가"}</h3>
+            <h3 id={modalTitleId} className="text-lg font-semibold tracking-tight">{editRow ? "수정" : "추가"}</h3>
             <div className="mt-1 mb-4 h-0.5 w-12" style={{ background: CFO.brass }} />
             <div className="space-y-3">
-              {fields.map((field) => (
+              {fields.map((field) => {
+                const fieldId = `${modalTitleId}-${field.name}`;
+                return (
                 <div key={field.name}>
-                  <label
-                    className="mb-1 block text-[11px] font-medium uppercase tracking-wide"
-                    style={{ color: CFO.muted }}
-                  >
-                    {field.label}
-                  </label>
+                  {field.type !== "checkbox" && (
+                    <label
+                      htmlFor={fieldId}
+                      className="mb-1 block text-[11px] font-medium uppercase tracking-wide"
+                      style={{ color: CFO.muted }}
+                    >
+                      {field.label}
+                    </label>
+                  )}
                   {field.type === "select" ? (
                     <select
+                      id={fieldId}
                       value={formData[field.name] ?? ""}
                       onChange={(e) =>
                         setFormData({ ...formData, [field.name]: e.target.value })
@@ -369,8 +449,9 @@ export default function CrudTable({ title, endpoint, fields, columns, filters }:
                       ))}
                     </select>
                   ) : field.type === "checkbox" ? (
-                    <label className="flex items-center gap-2">
+                    <label className="flex items-center gap-2" htmlFor={fieldId}>
                       <input
+                        id={fieldId}
                         type="checkbox"
                         checked={formData[field.name] ?? false}
                         onChange={(e) =>
@@ -383,6 +464,7 @@ export default function CrudTable({ title, endpoint, fields, columns, filters }:
                     </label>
                   ) : (
                     <input
+                      id={fieldId}
                       type={field.type}
                       value={formData[field.name] ?? ""}
                       step={field.step}
@@ -399,11 +481,13 @@ export default function CrudTable({ title, endpoint, fields, columns, filters }:
                     />
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <button
-                onClick={() => setShowModal(false)}
+                type="button"
+                onClick={closeModal}
                 className="rounded-md px-4 py-2 text-sm transition-colors hover:opacity-80"
                 style={{ border: `1px solid ${CFO.hairline}`, background: "#fff" }}
               >

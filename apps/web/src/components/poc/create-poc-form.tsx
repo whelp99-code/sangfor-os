@@ -67,9 +67,10 @@ export function CreatePocForm({
 
   return (
     <form className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" onSubmit={onSubmit}>
-      <Input placeholder="PoC title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-      <Input placeholder="Product name" value={productName} onChange={(e) => setProductName(e.target.value)} />
+      <Input aria-label="PoC title" placeholder="PoC title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+      <Input aria-label="Product name" placeholder="Product name" value={productName} onChange={(e) => setProductName(e.target.value)} />
       <select
+        aria-label="Product line"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={productLine}
         onChange={(e) => setProductLine(e.target.value)}
@@ -80,6 +81,7 @@ export function CreatePocForm({
         ))}
       </select>
       <select
+        aria-label="Deployment type"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={deploymentType}
         onChange={(e) => setDeploymentType(e.target.value)}
@@ -89,11 +91,12 @@ export function CreatePocForm({
           <option key={t} value={t}>{t}</option>
         ))}
       </select>
-      <Input placeholder="HW spec" value={hwSpec} onChange={(e) => setHwSpec(e.target.value)} />
-      <Input placeholder="SW spec" value={swSpec} onChange={(e) => setSwSpec(e.target.value)} />
-      <Input placeholder="Network notes" value={networkNotes} onChange={(e) => setNetworkNotes(e.target.value)} />
-      <Input type="date" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} />
+      <Input aria-label="HW spec" placeholder="HW spec" value={hwSpec} onChange={(e) => setHwSpec(e.target.value)} />
+      <Input aria-label="SW spec" placeholder="SW spec" value={swSpec} onChange={(e) => setSwSpec(e.target.value)} />
+      <Input aria-label="Network notes" placeholder="Network notes" value={networkNotes} onChange={(e) => setNetworkNotes(e.target.value)} />
+      <Input aria-label="Schedule date" type="date" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} />
       <select
+        aria-label="Customer (optional)"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={customerId}
         onChange={(e) => setCustomerId(e.target.value)}
@@ -104,6 +107,7 @@ export function CreatePocForm({
         ))}
       </select>
       <select
+        aria-label="Partner (optional)"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={partnerId}
         onChange={(e) => setPartnerId(e.target.value)}

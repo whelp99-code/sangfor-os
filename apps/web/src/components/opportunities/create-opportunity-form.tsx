@@ -60,8 +60,9 @@ export function CreateOpportunityForm({
 
   return (
     <form className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" onSubmit={onSubmit}>
-      <Input placeholder="Opportunity title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+      <Input aria-label="Opportunity title" placeholder="Opportunity title" value={title} onChange={(e) => setTitle(e.target.value)} required />
       <select
+        aria-label="Customer (optional)"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={customerId}
         onChange={(e) => setCustomerId(e.target.value)}
@@ -72,6 +73,7 @@ export function CreateOpportunityForm({
         ))}
       </select>
       <select
+        aria-label="Partner (optional)"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={partnerId}
         onChange={(e) => setPartnerId(e.target.value)}
@@ -82,6 +84,7 @@ export function CreateOpportunityForm({
         ))}
       </select>
       <select
+        aria-label="Stage"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={stage}
         onChange={(e) => setStage(e.target.value)}
@@ -90,10 +93,10 @@ export function CreateOpportunityForm({
           <option key={s} value={s}>{s}</option>
         ))}
       </select>
-      <Input type="number" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
-      <Input type="number" min={0} max={100} placeholder="Probability %" value={probability} onChange={(e) => setProbability(e.target.value)} />
-      <Input type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
-      <Input placeholder="Next action" value={nextAction} onChange={(e) => setNextAction(e.target.value)} />
+      <Input aria-label="Amount" type="number" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      <Input aria-label="Probability %" type="number" min={0} max={100} placeholder="Probability %" value={probability} onChange={(e) => setProbability(e.target.value)} />
+      <Input aria-label="Close date" type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
+      <Input aria-label="Next action" placeholder="Next action" value={nextAction} onChange={(e) => setNextAction(e.target.value)} />
       <Button type="submit" disabled={loading} className="sm:col-span-2 lg:col-span-1">
         {loading ? "Creating..." : "New opportunity"}
       </Button>

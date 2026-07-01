@@ -48,9 +48,9 @@ function ErrorState({ message }: { message: string }) {
   );
 }
 
-const handleCommand = async (command: string) => {
-  console.log("AI Command:", command);
-  // 실제 API 연동은 추후
+const handleCommand = async (_command: string) => {
+  // TODO(oma-deferred): wire the finance AI assistant when the endpoint is provisioned.
+  return "AI 어시스턴트는 준비 중입니다";
 };
 
 export default function FinanceDashboardPage() {

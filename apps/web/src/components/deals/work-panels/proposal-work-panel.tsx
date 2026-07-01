@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format-date";
 
 // ---------------------------------------------------------------------------
 // Minimal GeneratedDocument shape — only what ProposalWorkPanel needs.
@@ -42,11 +43,6 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "dest
   archived: "secondary",
 };
 
-function formatDate(value: Date | string): string {
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10);
-}
 
 // ---------------------------------------------------------------------------
 // ProposalWorkPanel

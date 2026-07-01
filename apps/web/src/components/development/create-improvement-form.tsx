@@ -28,12 +28,14 @@ export function CreateImprovementForm() {
   return (
     <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSubmit}>
       <Input
+        aria-label="Error / failure message"
         placeholder="Error / failure message"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         required
       />
       <Input
+        aria-label="sourceType"
         className="sm:w-40"
         placeholder="sourceType"
         value={sourceType}

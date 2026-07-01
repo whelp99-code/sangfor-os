@@ -62,8 +62,9 @@ export default function PresalesDashboardPage() {
     fetchData();
   }, []);
 
-  const handleCommand = useCallback((cmd: string) => {
-    console.log("[Presales AI Command]", cmd);
+  const handleCommand = useCallback((_cmd: string) => {
+    // TODO(oma-deferred): wire the presales AI assistant when the endpoint is provisioned.
+    return "AI 어시스턴트는 준비 중입니다";
   }, []);
 
   const stats = [

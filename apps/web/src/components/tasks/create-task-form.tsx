@@ -69,18 +69,20 @@ export function CreateTaskForm({ engagementId, engagements, projectSlug = "demo-
       onSubmit={onSubmit}
     >
       <Input
+        aria-label="작업 제목"
         placeholder="작업 제목"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
         required
       />
       <Input
+        aria-label="담당자"
         placeholder="담당자"
         value={assigneeName}
         onChange={(event) => setAssigneeName(event.target.value)}
       />
       <Select value={priority} onValueChange={(val) => setPriority(val ?? "normal")}>
-        <SelectTrigger>
+        <SelectTrigger aria-label="우선순위">
           <SelectValue placeholder="우선순위" />
         </SelectTrigger>
         <SelectContent>
@@ -92,13 +94,14 @@ export function CreateTaskForm({ engagementId, engagements, projectSlug = "demo-
         </SelectContent>
       </Select>
       <Input
+        aria-label="마감일시"
         type="datetime-local"
         value={dueAt}
         onChange={(event) => setDueAt(event.target.value)}
       />
       {showPicker ? (
         <Select value={selectedEngagement} onValueChange={(val) => setSelectedEngagement(val ?? "")}>
-          <SelectTrigger>
+          <SelectTrigger aria-label="프로젝트(선택)">
             <SelectValue placeholder="프로젝트(선택)" />
           </SelectTrigger>
           <SelectContent>
