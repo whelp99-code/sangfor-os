@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Building2, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -270,7 +270,10 @@ export function CompaniesWorkspace({ companies }: { companies: Company[] }) {
     companies[0]?.id ?? null
   );
 
-  const selectedCompany = companies.find((c) => c.id === selectedId) ?? null;
+  const selectedCompany = useMemo(
+    () => companies.find((c) => c.id === selectedId) ?? null,
+    [companies, selectedId]
+  );
 
   return (
     <div>

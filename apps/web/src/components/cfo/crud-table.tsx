@@ -190,11 +190,13 @@ export default function CrudTable({ title, endpoint, fields, columns, filters }:
   const openCreate = () => {
     setEditRow(null);
     setFormData({});
+    setError(null);
     setShowModal(true);
   };
 
   const openEdit = (row: any) => {
     setEditRow(row);
+    setError(null);
     const init: Record<string, any> = {};
     fields.forEach((f) => {
       if (f.type === "checkbox") {
@@ -212,6 +214,7 @@ export default function CrudTable({ title, endpoint, fields, columns, filters }:
   const handleSave = async () => {
     try {
       setSaving(true);
+      setError(null);
       const url = editRow
         ? `/api/finance/${endpoint}/${editRow.id}`
         : `/api/finance/${endpoint}`;
@@ -225,7 +228,7 @@ export default function CrudTable({ title, endpoint, fields, columns, filters }:
       setShowModal(false);
       fetchData();
     } catch (e: any) {
-      alert(e.message);
+      setError(e instanceof Error ? e.message : "저장 실패");
     } finally {
       setSaving(false);
     }
@@ -234,13 +237,14 @@ export default function CrudTable({ title, endpoint, fields, columns, filters }:
   const handleDelete = async (id: string) => {
     if (!confirm("정말 삭제하시겠습니까?")) return;
     try {
+      setError(null);
       const res = await fetch(`/api/finance/${endpoint}/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("삭제 실패");
       fetchData();
     } catch (e: any) {
-      alert(e.message);
+      setError(e instanceof Error ? e.message : "삭제 실패");
     }
   };
 
@@ -484,6 +488,11 @@ export default function CrudTable({ title, endpoint, fields, columns, filters }:
                 );
               })}
             </div>
+            {error && (
+              <p className="mt-4 text-sm" role="alert" style={{ color: CFO.outflow }}>
+                {error}
+              </p>
+            )}
             <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"

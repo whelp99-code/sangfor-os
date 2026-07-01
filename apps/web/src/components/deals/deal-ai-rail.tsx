@@ -70,7 +70,7 @@ export function DealAiRail({ stage, className }: DealAiRailProps) {
           )}
 
           {/* Disclaimer note */}
-          <p className="text-center text-[11px] text-muted-foreground">
+          <p className="text-center text-xs text-muted-foreground">
             AI는 초안·자료만 제시합니다. 본문은 당신이 씁니다.
           </p>
         </CardContent>
@@ -89,7 +89,7 @@ export function DealAiRail({ stage, className }: DealAiRailProps) {
           {/* Placeholder: activity timeline not yet connected to backend data */}
           <p className="text-xs text-muted-foreground text-center py-2">
             활동 기록 없음
-            <span className="block mt-0.5 text-[11px] opacity-60">준비</span>
+            <span className="block mt-0.5 text-xs text-muted-foreground">준비</span>
           </p>
         </CardContent>
       </Card>

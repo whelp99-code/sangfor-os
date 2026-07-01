@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { 
   AlertTriangle, 
   CheckCircle2, 
@@ -218,9 +218,6 @@ export function ModuleDashboardClient({
     a11y: "idle"
   });
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
-
-  // Reference for scrolling sections
-  const detailContainerRef = useRef<HTMLDivElement>(null);
 
   // Computed module list
   const activeModule = modules.find(m => m.moduleKey === selectedKey) || modules[0];
@@ -753,8 +750,7 @@ export function ModuleDashboardClient({
               </div>
 
               {/* Details card content - vertical stack of all 7 sections */}
-              <div 
-                ref={detailContainerRef}
+              <div
                 className="p-4 flex-1 overflow-y-auto max-h-[600px] space-y-6 scroll-smooth"
               >
                 {/* Visual states & Warnings stack */}

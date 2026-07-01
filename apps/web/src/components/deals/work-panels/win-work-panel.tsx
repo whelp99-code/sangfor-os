@@ -211,7 +211,7 @@ function PoChainSection({ distributorName }: { distributorName: string | null })
       <Card>
         <CardContent className="pt-4 pb-4">
           {/* Status labels below are presentational placeholders — data not yet connected */}
-          <p className="mb-3 text-[11px] text-muted-foreground">
+          <p className="mb-3 text-xs text-muted-foreground">
             준비중 (데이터 연결 전)
           </p>
           <div

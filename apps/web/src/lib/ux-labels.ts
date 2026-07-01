@@ -5,8 +5,8 @@
  * UX 원칙: 사용자는 기술 용어가 아니라 업무 언어를 본다.
  */
 
-/** Internal → User-facing status label mapping */
-export const STATUS_LABELS: Record<string, string> = {
+/** Internal → User-facing status label mapping (consumed via displayStatus). */
+const STATUS_LABELS: Record<string, string> = {
   pending: "대기",
   auto_validating: "자동 검증 중",
   auto_failed: "자동 검증 실패",
@@ -70,15 +70,6 @@ export const STATUS_LABELS: Record<string, string> = {
   not_required: "해당 없음",
 };
 
-/** Color Agent display names */
-export const COLOR_AGENT_LABELS: Record<string, { label: string; description: string }> = {
-  blue: { label: "기술 검토", description: "기술 방향 / 구현 / 아키텍처" },
-  red: { label: "리스크 검토", description: "보안 / 리스크 / 회귀 / 승인 우회" },
-  orange: { label: "비즈니스 가치 검토", description: "고객 가치 / 매출 / ROI" },
-  gray: { label: "문서 검토", description: "문서 / 결정 기록 / 근거" },
-  teal: { label: "UX 검토", description: "UI/UX / 대시보드 / 가시성" },
-};
-
 /** Color Agent color CSS classes */
 export const COLOR_AGENT_COLORS: Record<string, { dot: string; bg: string; text: string; border: string }> = {
   blue: { dot: "bg-blue-agent", bg: "bg-blue-agent-bg", text: "text-blue-agent", border: "border-blue-agent-border" },
@@ -91,9 +82,4 @@ export const COLOR_AGENT_COLORS: Record<string, { dot: string; bg: string; text:
 /** Map internal status to user-facing label */
 export function displayStatus(status: string): string {
   return STATUS_LABELS[status] ?? status;
-}
-
-/** Get Color Agent display info */
-export function colorAgentInfo(color: string): { label: string; description: string } {
-  return COLOR_AGENT_LABELS[color] ?? { label: color, description: "" };
 }

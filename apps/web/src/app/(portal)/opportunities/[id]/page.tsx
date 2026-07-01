@@ -30,17 +30,20 @@ type PageProps = { params: Promise<{ id: string }> };
 
 export default async function OpportunityDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const [opportunity, customers, partners, pocProjects, proposals, mailEvidence] = await Promise.all([
-    getOpportunityDetail(id),
-    listCustomers(),
-    listPartners(),
-    listPocProjects(),
-    listGeneratedDocuments(),
-    listMailEvidenceForEntity("opportunity", id),
-  ]);
+  // getEngagementByOpportunity depends only on `id`, so it joins the initial
+  // parallel batch instead of running as a sequential await afterwards (−1 round-trip).
+  const [opportunity, customers, partners, pocProjects, proposals, mailEvidence, existingEngagement] =
+    await Promise.all([
+      getOpportunityDetail(id),
+      listCustomers(),
+      listPartners(),
+      listPocProjects(),
+      listGeneratedDocuments(),
+      listMailEvidenceForEntity("opportunity", id),
+      getEngagementByOpportunity(id),
+    ]);
   if (!opportunity) notFound();
 
-  const existingEngagement = await getEngagementByOpportunity(id);
   const stage = normalizeOpportunityStage(opportunity.stage);
   const enrichedLinks = await enrichOpportunityLinks(opportunity.links);
   const customerOptions = customers.map((c) => ({ id: c.id, label: c.name }));

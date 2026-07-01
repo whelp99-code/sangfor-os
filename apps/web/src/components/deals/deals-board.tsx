@@ -1,3 +1,7 @@
+"use client";
+
+import { useMemo } from "react";
+
 import { CANONICAL_STAGES, normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
 
 import { KanbanBoard, type KanbanColumnDef } from "@/components/views/kanban-board";
@@ -16,15 +20,25 @@ export function DealsBoard({
   deals: Deal[];
   onMove: (id: string, toStage: string) => void;
 }) {
-  const columns: KanbanColumnDef[] = ACTIVE_STAGES.map((stage) => ({
-    id: stage,
-    title: STAGE_LABELS[stage] ?? stage,
-    accent: STAGE_ACCENT[stage],
-  }));
+  // Columns are derived from the static stage enum — compute once.
+  const columns: KanbanColumnDef[] = useMemo(
+    () =>
+      ACTIVE_STAGES.map((stage) => ({
+        id: stage,
+        title: STAGE_LABELS[stage] ?? stage,
+        accent: STAGE_ACCENT[stage],
+      })),
+    []
+  );
 
-  const items: BoardItem[] = deals
-    .map((deal) => ({ ...deal, columnId: normalizeOpportunityStage(deal.stage) }))
-    .filter((deal) => ACTIVE_STAGES.includes(deal.columnId as (typeof ACTIVE_STAGES)[number]));
+  // Re-map/filter only when the deals list changes.
+  const items: BoardItem[] = useMemo(
+    () =>
+      deals
+        .map((deal) => ({ ...deal, columnId: normalizeOpportunityStage(deal.stage) }))
+        .filter((deal) => ACTIVE_STAGES.includes(deal.columnId as (typeof ACTIVE_STAGES)[number])),
+    [deals]
+  );
 
   return (
     <KanbanBoard<BoardItem>

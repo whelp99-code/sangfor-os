@@ -80,7 +80,7 @@ function PlaceholderStageCard({ label, icon }: PlaceholderStageCardProps) {
           <p className="mt-1 text-xs text-muted-foreground">
             이 단계 작업은 다음 단계에서 연결됩니다
           </p>
-          <p className="mt-0.5 text-xs text-muted-foreground/60">준비</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">준비</p>
         </div>
       </CardContent>
     </Card>

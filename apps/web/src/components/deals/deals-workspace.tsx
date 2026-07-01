@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Briefcase, Plus, X } from "lucide-react";
 
@@ -59,26 +59,33 @@ export function DealsWorkspace({
   // Re-sync optimistic state when the server re-renders with fresh data.
   useEffect(() => setItems(deals), [deals]);
 
-  const normalized = query.trim().toLowerCase();
-  const queryFiltered = normalized
-    ? items.filter((deal) =>
-        `${deal.title} ${deal.customer ?? ""}`.toLowerCase().includes(normalized)
-      )
-    : items;
+  // Query + stage filtering and the weighted-forecast rollup only change when
+  // items / query / activeStage change — memoize to skip per-render recompute.
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    const queryFiltered = normalized
+      ? items.filter((deal) =>
+          `${deal.title} ${deal.customer ?? ""}`.toLowerCase().includes(normalized)
+        )
+      : items;
 
-  const filtered =
-    activeStage === "ALL"
+    return activeStage === "ALL"
       ? queryFiltered
       : queryFiltered.filter((deal) =>
           (STAGE_MAP[activeStage] ?? []).includes(normalizeOpportunityStage(deal.stage))
         );
+  }, [items, query, activeStage]);
 
-  const totalCount = filtered.length;
-  const totalValue = filtered.reduce((sum, deal) => sum + (deal.amount ?? 0), 0);
-  const weightedMargin = filtered.reduce(
-    (sum, deal) =>
-      sum + (deal.amount ?? 0) * ((deal.marginPct ?? 0) / 100),
-    0
+  const { totalCount, totalValue, weightedMargin } = useMemo(
+    () => ({
+      totalCount: filtered.length,
+      totalValue: filtered.reduce((sum, deal) => sum + (deal.amount ?? 0), 0),
+      weightedMargin: filtered.reduce(
+        (sum, deal) => sum + (deal.amount ?? 0) * ((deal.marginPct ?? 0) / 100),
+        0
+      ),
+    }),
+    [filtered]
   );
 
   async function moveDeal(id: string, toStage: string) {

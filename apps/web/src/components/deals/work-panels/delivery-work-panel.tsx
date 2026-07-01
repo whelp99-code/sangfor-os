@@ -153,7 +153,7 @@ function GateSection({ checklistItems, hasEngagement }: GateSectionProps) {
 
           {/* Note when showing template only */}
           {!hasItems && hasEngagement && (
-            <p className="mt-3 mb-1 text-xs text-muted-foreground/70">
+            <p className="mt-3 mb-1 text-xs text-muted-foreground">
               엔게이지먼트 생성 후 추적
             </p>
           )}

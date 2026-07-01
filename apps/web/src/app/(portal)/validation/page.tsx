@@ -22,7 +22,7 @@ export default async function ValidationPage() {
         <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/20 p-12 text-center">
           <BarChart3 className="h-10 w-10 text-muted-foreground/40" />
           <h2 className="text-lg font-semibold text-muted-foreground">아직 관측성 데이터가 없습니다</h2>
-          <p className="text-sm text-muted-foreground/70 max-w-md">
+          <p className="text-sm text-muted-foreground max-w-md">
             자동화 워크플로가 실행되며 텔레메트리를 생성하면 검증 지표가 여기에 표시됩니다.
           </p>
         </div>

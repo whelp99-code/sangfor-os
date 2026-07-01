@@ -108,7 +108,7 @@ export function InlineField({
       aria-label={canEdit && !editing ? `${label} 편집` : undefined}
     >
       {/* Label row */}
-      <p className="mb-1 text-[11px] text-muted-foreground">
+      <p className="mb-1 text-xs text-muted-foreground">
         {label}
         {readOnly && (
           <Badge

@@ -46,7 +46,18 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
   const activeTab = VALID_TABS.includes(tabParam as (typeof VALID_TABS)[number])
     ? (tabParam as (typeof VALID_TABS)[number])
     : "작업";
-  const [opportunity, customers, partners, pocProjects, proposals, mailEvidence, rawQuotes] = await Promise.all([
+  // getEngagementByOpportunity depends only on `id`, so it joins the initial
+  // parallel batch instead of running as a sequential await afterwards (−1 round-trip).
+  const [
+    opportunity,
+    customers,
+    partners,
+    pocProjects,
+    proposals,
+    mailEvidence,
+    rawQuotes,
+    existingEngagement,
+  ] = await Promise.all([
     getOpportunityDetail(id),
     listCustomers(),
     listPartners(),
@@ -54,6 +65,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
     listGeneratedDocuments(),
     listMailEvidenceForEntity("opportunity", id),
     listQuotesByOpportunity(id),
+    getEngagementByOpportunity(id),
   ]);
   if (!opportunity) notFound();
 
@@ -73,8 +85,6 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
     opportunity.dealRegistration?.distributor?.name ??
     null;
   const competitors: string[] = [];
-
-  const existingEngagement = await getEngagementByOpportunity(id);
 
   // Serialize Decimal fields and dates for the WinWorkPanel (crosses RSC boundary).
   const winEngagement = existingEngagement
