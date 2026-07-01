@@ -66,7 +66,10 @@ export async function POST(request: Request) {
           blockedArguments: result.blockedArguments,
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        // Sanitize: log the real cause server-side, surface only a stable code
+        // (raw error.message can leak internal/upstream detail to the browser).
+        console.error("[api] agent_run_failed:", error instanceof Error ? error.stack ?? error.message : error);
+        const message = "agent_run_failed";
         agentRunStore.finish(record.id, { status: "error", error: message });
         send("error", { id: record.id, message });
       } finally {

@@ -40,11 +40,14 @@ export async function GET() {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    // Sanitize: log the real cause server-side, return a stable code (no raw
+    // error.message). Response shape is preserved for the health dashboard.
+    console.error("[api] integration_health_failed:", error instanceof Error ? error.stack ?? error.message : error);
     return NextResponse.json(
       {
         overall: "error",
         targets: [],
-        error: error instanceof Error ? error.message : "integration_health_failed",
+        error: "integration_health_failed",
         timestamp: new Date().toISOString(),
       },
       { status: 500 },

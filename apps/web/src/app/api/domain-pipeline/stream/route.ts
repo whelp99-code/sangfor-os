@@ -41,7 +41,10 @@ export async function GET(request: Request) {
             send("heartbeat", { at: snapshot.generatedAt });
           }
         } catch (error) {
-          send("error", { message: error instanceof Error ? error.message : "stream_failed" });
+          // Sanitize: log the real cause server-side, surface only a stable code
+          // (raw error.message can leak internal detail to the browser stream).
+          console.error("[api] domain_pipeline_stream_failed:", error instanceof Error ? error.stack ?? error.message : error);
+          send("error", { message: "stream_failed" });
         }
       };
 

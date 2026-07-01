@@ -70,7 +70,10 @@ describe("POST /api/agent/run", () => {
     const res = await POST(req({ goal: "x" }));
     const text = await res.text();
     expect(text).toContain("event: error");
-    expect(text).toContain("bridge down");
+    // The raw error.message ("bridge down") is sanitized out of the client-facing
+    // SSE payload; only a stable code is surfaced (server logs the real cause).
+    expect(text).not.toContain("bridge down");
+    expect(text).toContain("agent_run_failed");
     expect(agentRunStore.list(1)[0].status).toBe("error");
   });
 });

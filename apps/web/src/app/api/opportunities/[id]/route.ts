@@ -11,7 +11,7 @@ import {
 import { NextResponse } from "next/server";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
 import { syncCalendarMeetings } from "@/lib/outlook-graph";
-import { assertApiAccess } from "@/lib/api-auth";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -22,10 +22,7 @@ export async function GET(_request: Request, context: RouteContext) {
     if (!opportunity) return NextResponse.json({ error: "not_found" }, { status: 404 });
     return NextResponse.json({ opportunity: serializeDecimalAtBoundary(opportunity) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "fetch_failed" },
-      { status: 500 },
-    );
+    return apiError("fetch_failed", error, { status: 500 });
   }
 }
 
@@ -76,10 +73,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const opportunity = await updateOpportunity(id, body);
     return NextResponse.json({ opportunity: serializeDecimalAtBoundary(opportunity) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "update_failed" },
-      { status: 400 },
-    );
+    return apiError("update_failed", error, { status: 400 });
   }
 }
 
@@ -92,9 +86,6 @@ export async function DELETE(request: Request, context: RouteContext) {
     const opportunity = await archiveOpportunity(id);
     return NextResponse.json({ opportunity });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "archive_failed" },
-      { status: 400 },
-    );
+    return apiError("archive_failed", error, { status: 400 });
   }
 }

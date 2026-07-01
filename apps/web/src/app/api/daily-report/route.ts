@@ -1,5 +1,6 @@
 import { prisma } from "@sangfor/db";
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-auth";
 
 export async function GET() {
   try {
@@ -55,9 +56,6 @@ export async function GET() {
       candidatesByType: candidates,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "report_failed" },
-      { status: 400 },
-    );
+    return apiError("report_failed", error, { status: 400 });
   }
 }

@@ -1,5 +1,6 @@
 import { listConnectorRuntimeStates } from "@sangfor/business/action-connector-runtime";
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-auth";
 
 export async function GET() {
   try {
@@ -13,9 +14,6 @@ export async function GET() {
       },
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "list_connectors_failed" },
-      { status: 500 },
-    );
+    return apiError("list_connectors_failed", error, { status: 500 });
   }
 }

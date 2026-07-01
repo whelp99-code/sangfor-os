@@ -1,5 +1,6 @@
 import { getActionDefinition } from "@sangfor/business/action-connector-runtime";
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-auth";
 
 type RouteContext = { params: Promise<{ actionKey: string }> };
 
@@ -19,9 +20,6 @@ export async function GET(_request: Request, context: RouteContext) {
       },
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "get_action_failed" },
-      { status: 500 },
-    );
+    return apiError("get_action_failed", error, { status: 500 });
   }
 }

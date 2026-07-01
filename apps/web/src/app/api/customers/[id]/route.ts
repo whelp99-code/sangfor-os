@@ -1,6 +1,6 @@
 import { archiveCustomer, getCustomerDetail, updateCustomer } from "@sangfor/business";
 import { NextResponse } from "next/server";
-import { assertApiAccess } from "@/lib/api-auth";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -11,10 +11,7 @@ export async function GET(_request: Request, context: RouteContext) {
     if (!customer) return NextResponse.json({ error: "not_found" }, { status: 404 });
     return NextResponse.json({ customer });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "fetch_failed" },
-      { status: 500 },
-    );
+    return apiError("fetch_failed", error, { status: 500 });
   }
 }
 
@@ -28,10 +25,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const customer = await updateCustomer(id, body);
     return NextResponse.json({ customer });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "update_failed" },
-      { status: 400 },
-    );
+    return apiError("update_failed", error, { status: 400 });
   }
 }
 
@@ -44,9 +38,6 @@ export async function DELETE(request: Request, context: RouteContext) {
     const customer = await archiveCustomer(id);
     return NextResponse.json({ customer });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "archive_failed" },
-      { status: 400 },
-    );
+    return apiError("archive_failed", error, { status: 400 });
   }
 }
