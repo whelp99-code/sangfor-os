@@ -37,11 +37,11 @@ export function ContextPackSummaryCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Context pack</CardTitle>
+        <CardTitle className="text-base">컨텍스트 팩</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {contextPack?.templateKey ? (
-          <Badge variant="outline">Template: {contextPack.templateKey}</Badge>
+          <Badge variant="outline">템플릿: {contextPack.templateKey}</Badge>
         ) : null}
         {contextPack?.summaryText ? (
           <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 text-xs">

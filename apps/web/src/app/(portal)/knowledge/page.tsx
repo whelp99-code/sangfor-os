@@ -26,7 +26,7 @@ export default async function KnowledgePage() {
           <p><code className="rounded bg-muted px-1 py-0.5">pnpm knowledge:*</code> 운영 스크립트로 OpenKB와 Graphify를 실행하세요.</p>
         </CardContent>
       </Card>
-      <Card>
+      <Card id="add-document">
         <CardHeader><CardTitle>문서 추가</CardTitle></CardHeader>
         <CardContent>
           <CreateKnowledgeForm />
@@ -36,7 +36,15 @@ export default async function KnowledgePage() {
         <CardHeader><CardTitle>전체 문서 ({documents.length})</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm">
           {documents.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">등록된 지식 문서가 없습니다.</p>
+            <div className="rounded-lg border border-dashed p-6 text-center">
+              <p className="text-xs text-muted-foreground italic">등록된 지식 문서가 없습니다.</p>
+              <Link
+                href="#add-document"
+                className="mt-3 inline-block text-sm font-medium text-primary hover:underline"
+              >
+                문서 추가
+              </Link>
+            </div>
           ) : (
             documents.map((doc) => (
               <div key={doc.id} className="border-b border-border/40 pb-2 last:border-0 last:pb-0">

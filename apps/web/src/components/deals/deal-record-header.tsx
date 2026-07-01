@@ -85,7 +85,7 @@ function regBadgeLabel(status: RegStatus, protectionExpiresAt?: string | null): 
 
 export function DealRecordHeader({
   title,
-  kind = "딜 · Opportunity",
+  kind = "딜 · 영업기회",
   stage,
   probability,
   amount,

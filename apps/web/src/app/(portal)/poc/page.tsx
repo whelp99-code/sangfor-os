@@ -21,13 +21,23 @@ export default async function PocPage() {
         <h1 className="text-2xl font-semibold tracking-tight">PoC 프로젝트</h1>
         <p className="text-muted-foreground">Sangfor 개념검증(PoC) 라이프사이클 관리.</p>
       </div>
-      <CreatePocForm
-        customers={customers.map((c) => ({ id: c.id, label: c.name }))}
-        partners={partners.map((p) => ({ id: p.id, label: p.name }))}
-      />
+      <div id="create-poc">
+        <CreatePocForm
+          customers={customers.map((c) => ({ id: c.id, label: c.name }))}
+          partners={partners.map((p) => ({ id: p.id, label: p.name }))}
+        />
+      </div>
       <div className="grid gap-3">
         {projects.length === 0 ? (
-          <p className="text-sm text-muted-foreground">아직 PoC 프로젝트가 없습니다.</p>
+          <div className="rounded-lg border border-dashed p-6 text-center">
+            <p className="text-sm text-muted-foreground">아직 PoC 프로젝트가 없습니다.</p>
+            <Link
+              className={`mt-3 ${buttonVariants({ variant: "outline", size: "sm" })}`}
+              href="#create-poc"
+            >
+              새 PoC 등록
+            </Link>
+          </div>
         ) : (
           projects.map((p) => (
             <Card key={p.id}>

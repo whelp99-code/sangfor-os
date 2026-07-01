@@ -49,9 +49,9 @@ export function PocIssueForm({ pocId }: { pocId: string }) {
         value={severity}
         onChange={(e) => setSeverity(e.target.value)}
       >
-        <option value="low">low</option>
-        <option value="medium">medium</option>
-        <option value="high">high</option>
+        <option value="low">낮음</option>
+        <option value="medium">보통</option>
+        <option value="high">높음</option>
       </select>
       <Button type="submit" size="sm" disabled={loading}>이슈 추가</Button>
       {error && (

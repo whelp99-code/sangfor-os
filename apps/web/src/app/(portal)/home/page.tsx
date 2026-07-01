@@ -244,9 +244,15 @@ export default async function HomePage() {
           </CardHeader>
           <CardContent className="p-0">
             {recentDeals.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-                진행 중인 딜이 없습니다.
-              </p>
+              <div className="px-4 py-6 text-center">
+                <p className="text-sm text-muted-foreground">진행 중인 딜이 없습니다.</p>
+                <Link
+                  href="/deals/registrations"
+                  className="mt-3 inline-block text-sm font-medium text-primary hover:underline"
+                >
+                  딜 등록하기
+                </Link>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

@@ -1,5 +1,9 @@
 import { prisma } from "@sangfor/db";
-import { normalizeOpportunityStage } from "./opportunity-stage";
+import {
+  normalizeOpportunityStage,
+  validateOpportunityStageOrder,
+  validateRegistrationGate,
+} from "./opportunity-stage";
 
 export interface ConvertMailToOpportunityInput {
   candidateId: string;
@@ -42,12 +46,37 @@ export interface AdvanceOpportunityInput {
 }
 
 export async function advanceOpportunity(input: AdvanceOpportunityInput): Promise<CoreLoopResult> {
-  const opp = await prisma.opportunity.findUnique({ where: { id: input.opportunityId } });
+  const opp = await prisma.opportunity.findUnique({
+    where: { id: input.opportunityId },
+    include: { dealRegistration: { select: { regStatus: true } } },
+  });
   if (!opp) throw new Error("Opportunity not found");
+
+  const targetStage = normalizeOpportunityStage(input.targetStage);
+
+  // Enforce the same guards as the wired advance path (opportunity-center):
+  // reject illegal stage skips/regressions and block forward entry into a
+  // registration-gated late stage while the deal registration is unresolved.
+  // This function is not currently wired to any surface, but keeping the gates
+  // here prevents a stage bypass if it is ever routed in the future.
+  const order = validateOpportunityStageOrder(opp.stage, targetStage);
+  if (!order.allowed) {
+    throw new Error(`illegal_stage_transition:${order.reason}`);
+  }
+
+  const gate = validateRegistrationGate({
+    from: opp.stage,
+    to: targetStage,
+    dealType: opp.dealType,
+    regStatus: opp.dealRegistration?.regStatus ?? null,
+  });
+  if (!gate.allowed) {
+    throw new Error(`registration_gate:${gate.reason}`);
+  }
 
   const updated = await prisma.opportunity.update({
     where: { id: input.opportunityId },
-    data: { stage: normalizeOpportunityStage(input.targetStage) },
+    data: { stage: targetStage },
   });
 
   return { opportunityId: updated.id, stage: updated.stage };

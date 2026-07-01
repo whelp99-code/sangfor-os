@@ -73,7 +73,7 @@ export function KnowledgeSearch() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Knowledge Search</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">지식 검색</h1>
         <p className="text-muted-foreground">
           Engineer 콘솔의 RAG 검색·제품 매뉴얼을 포털에서 직접 조회합니다.
         </p>
@@ -104,7 +104,7 @@ export function KnowledgeSearch() {
               </Button>
             </div>
             {ragError && (
-              <p className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
+              <p role="alert" className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
                 <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" /> {ragError}
               </p>
             )}
@@ -171,7 +171,7 @@ export function KnowledgeSearch() {
               </Button>
             </div>
             {kbError && (
-              <p className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
+              <p role="alert" className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
                 <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" /> {kbError}
               </p>
             )}

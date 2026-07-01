@@ -102,7 +102,7 @@ export function LlmSettingsCard() {
             />
           </label>
           <label className="block text-sm">
-            <span className="text-muted-foreground">Model</span>
+            <span className="text-muted-foreground">모델</span>
             <input
               value={model}
               onChange={(e) => setModel(e.target.value)}

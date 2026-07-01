@@ -17,8 +17,12 @@ export function ChatPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
       });
-      const data = await res.json();
-      setReply(data.reply ?? JSON.stringify(data));
+      const data = await res.json().catch(() => ({}) as { reply?: string; error?: string });
+      if (!res.ok) {
+        setReply(data.error ?? `요청 실패 (HTTP ${res.status})`);
+      } else {
+        setReply(data.reply ?? JSON.stringify(data));
+      }
     } catch (e: unknown) {
       setReply(e instanceof Error ? e.message : "오류");
     } finally {

@@ -210,13 +210,13 @@ export function PortalOrchestratorRunPanel({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-left">
-                      <th className="p-2">Title</th>
-                      <th className="p-2">Area</th>
+                      <th className="p-2">제목</th>
+                      <th className="p-2">영역</th>
                       <th className="p-2">Agent</th>
-                      <th className="p-2">Suggested</th>
-                      <th className="p-2">Owner</th>
-                      <th className="p-2">Risk</th>
-                      <th className="p-2">Hrs</th>
+                      <th className="p-2">제안</th>
+                      <th className="p-2">담당</th>
+                      <th className="p-2">위험도</th>
+                      <th className="p-2">시간</th>
                     </tr>
                   </thead>
                   <tbody>

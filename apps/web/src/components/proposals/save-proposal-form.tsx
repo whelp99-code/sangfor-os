@@ -54,7 +54,7 @@ export function SaveProposalForm({
         </p>
       )}
       <Button type="submit" disabled={loading}>
-        {loading ? "Saving version..." : "Save new version"}
+        {loading ? "버전 저장 중..." : "새 버전 저장"}
       </Button>
     </form>
   );
