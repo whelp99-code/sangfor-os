@@ -5,7 +5,12 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { CreateContactForm } from "@/components/customers/create-contact-form";
+<<<<<<< HEAD
 import { CustomerHubHeader } from "@/components/companies/customer-hub-header";
+=======
+import { EntityEditSheet } from "@/components/common/entity-edit-sheet";
+import { DeleteEntityButton } from "@/components/common/delete-entity-button";
+>>>>>>> 9c896d9 (feat(crud): reusable edit sheet + delete button wired to customers/partners/opportunities/tasks)
 import { MailEvidenceCard } from "@/components/mail-candidates/mail-evidence-card";
 import { stageLabel } from "@/components/deals/stage-meta";
 import { RecordLayout } from "@/components/views/record-layout";
@@ -28,12 +33,31 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   return (
     <div className="space-y-5">
       <div>
+<<<<<<< HEAD
         <Link
           href="/customers"
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-3.5" /> 고객사
         </Link>
+=======
+        <h1 className="text-2xl font-semibold">{customer.name}</h1>
+        <p className="text-muted-foreground">{customer.domain ?? "No domain"} · {customer.industry ?? "—"}</p>
+        <div className="flex items-center gap-2 mt-2">
+          <EntityEditSheet
+            title="고객 수정"
+            endpoint={`/api/customers/${customer.id}`}
+            fields={[
+              { name: "name", label: "이름" },
+              { name: "domain", label: "도메인" },
+              { name: "industry", label: "업종" },
+              { name: "notes", label: "메모" },
+            ]}
+            initial={{ name: customer.name, domain: customer.domain ?? "", industry: customer.industry ?? "", notes: customer.notes ?? "" }}
+          />
+          <DeleteEntityButton endpoint={`/api/customers/${customer.id}`} redirectTo="/customers" />
+        </div>
+>>>>>>> 9c896d9 (feat(crud): reusable edit sheet + delete button wired to customers/partners/opportunities/tasks)
       </div>
 
       <CustomerHubHeader
