@@ -11,3 +11,10 @@ __pycache__
 .DS_Store
 *.db
 .worktrees/
+
+# Tooling/session caches (oma, serena MCP)
+.omo/
+.serena/
+
+# Derived mail-learning snapshots (redacted but mail-derived; not for VCS history)
+memory/mail-learning/
