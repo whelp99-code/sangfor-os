@@ -100,7 +100,11 @@ export class VatService {
     const expenses = await prisma.expense.findMany({
       where: { date: { gte: start, lte: end }, isPaid: true, proofType: { in: [...DEDUCTIBLE_PROOF_TYPES] } },
     });
-    const linkedExpenseIds = new Set(purchaseTaxInvoices.map((t) => t.invoiceId).filter(Boolean));
+    // 매입 direction의 세금계산서-지출 연결 FK는 expenseId다(invoiceId는 매출 인보이스
+    // 연결용이라 purchase에서는 항상 null). 과거 t.invoiceId로 dedup해 매입은 전부
+    // null → Set이 비어 dedup이 무효화됐고, 세금계산서에 연결된 지출이
+    // additionalExpenses로도 다시 잡혀 매입세액에 이중 계상될 수 있었다.
+    const linkedExpenseIds = new Set(purchaseTaxInvoices.map((t) => t.expenseId).filter(Boolean));
     const additionalExpenses = expenses.filter((e) => !linkedExpenseIds.has(e.id));
 
     // proofType별 분류 보정 (Round 10 MED):

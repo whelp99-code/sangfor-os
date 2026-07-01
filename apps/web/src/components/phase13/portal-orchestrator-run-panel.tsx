@@ -166,13 +166,13 @@ export function PortalOrchestratorRunPanel({
           {inputSummary}
         </p>
         <Button disabled={loading} onClick={handleRun} type="button">
-          {loading ? "Running…" : buttonLabel}
+          {loading ? "실행 중…" : buttonLabel}
         </Button>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         {result?.commandRunId ? (
           <div className="space-y-3 text-sm">
             <p>
-              <span className="font-medium">Command run:</span>{" "}
+              <span className="font-medium">명령 실행:</span>{" "}
               <Link
                 href="/development/orchestrator"
                 className="text-primary hover:underline"
@@ -182,12 +182,12 @@ export function PortalOrchestratorRunPanel({
             </p>
             {result.sourceEntityType && result.sourceEntityId ? (
               <p className="text-muted-foreground">
-                Linked {result.sourceEntityType} {result.sourceEntityId}
+                연결됨 {result.sourceEntityType} {result.sourceEntityId}
               </p>
             ) : null}
             {result.performance ? (
               <p className="text-xs text-muted-foreground">
-                Runtime {Math.round((result.performance.totalDurationMs ?? 0) / 1000)}s
+                실행시간 {Math.round((result.performance.totalDurationMs ?? 0) / 1000)}s
                 {" · "}
                 llm={result.performance.llmCallCount ?? 0}
                 {" · "}
@@ -256,18 +256,18 @@ export function PortalOrchestratorRunPanel({
             {result.handoffDraft ? (
               <div className="space-y-2 rounded-md border p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium">Handoff draft</p>
+                  <p className="font-medium">Handoff 초안</p>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     onClick={handleCopyHandoff}
                   >
-                    {copied ? "Copied" : "Copy handoff"}
+                    {copied ? "복사됨" : "Handoff 복사"}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Branch: {result.handoffDraft.suggestedBranch}
+                  브랜치: {result.handoffDraft.suggestedBranch}
                 </p>
                 <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 text-xs">
                   {formatHandoffCopy(result.handoffDraft)}

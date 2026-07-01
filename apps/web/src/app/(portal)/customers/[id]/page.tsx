@@ -130,7 +130,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         }
         aside={
           <>
-            <Card>
+            <Card id="contacts" className="scroll-mt-20">
               <CardHeader className="flex-row items-center justify-between">
                 <CardTitle className="text-base">연락처</CardTitle>
                 <Badge variant="secondary">{customer.contacts.length}</Badge>

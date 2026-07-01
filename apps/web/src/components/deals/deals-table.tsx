@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MoreHorizontal } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
@@ -55,6 +58,62 @@ function StageCell({ deal }: { deal: Deal }) {
         </Badge>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// RowActions — ⋯ dropdown: 편집(상세 링크) · 복사(준비 중) · 삭제(confirm→DELETE)
+// ---------------------------------------------------------------------------
+function RowActions({ deal }: { deal: Deal }) {
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (deleting) return;
+    if (!confirm(`"${deal.title}" 딜을 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/opportunities/${deal.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        alert("딜을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      alert("딜을 삭제하지 못했습니다. 네트워크를 확인해 주세요.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="flex size-7 items-center justify-center rounded-md p-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={`${deal.title} 더보기`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <MoreHorizontal className="size-3.5" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          render={<Link href={`/deals/${deal.id}`} onClick={(e) => e.stopPropagation()} />}
+        >
+          편집
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled>복사 (준비 중)</DropdownMenuItem>
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={deleting}
+          onSelect={(e) => {
+            e.preventDefault();
+            void handleDelete();
+          }}
+        >
+          {deleting ? "삭제 중..." : "삭제"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -205,22 +264,7 @@ const columns: ColumnDef<Deal, unknown>[] = [
     id: "actions",
     enableSorting: false,
     header: () => null,
-    cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          className="flex size-7 items-center justify-center rounded-md p-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={`${row.original.title} 더보기`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <MoreHorizontal className="size-3.5" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>편집</DropdownMenuItem>
-          <DropdownMenuItem>복사</DropdownMenuItem>
-          <DropdownMenuItem variant="destructive">삭제</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
+    cell: ({ row }) => <RowActions deal={row.original} />,
   },
 ];
 

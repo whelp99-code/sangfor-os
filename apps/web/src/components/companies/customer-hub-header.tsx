@@ -49,7 +49,7 @@ export function CustomerHubHeader({
             </div>
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Customer Hub · Account Record
+                고객사 허브 · 계정 기록
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="truncate text-xl font-semibold tracking-tight">{title}</h1>

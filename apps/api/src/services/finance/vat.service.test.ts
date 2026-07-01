@@ -174,6 +174,41 @@ describe.skipIf(!integration)('VatService.calculateVat (integration)', () => {
       },
     });
     createdExpenseIds.push(cashReceiptProof.id);
+
+    // Purchase tax invoice linked to a NEW expense via expenseId (the correct FK).
+    // The linked expense must be deduped so its VAT is counted ONCE (via the tax
+    // invoice), not twice (tax invoice + additionalExpenses). Regression for the
+    // t.invoiceId → t.expenseId dedup FK bug: invoiceId is always null on purchase
+    // rows, so the old code never deduped and double-counted linked expenses.
+    const linkedPurchaseExpense = await prisma.expense.create({
+      data: {
+        expenseName: 'linked-purchase-expense',
+        amount: 40_000,
+        vat: 4_000,
+        total: 44_000,
+        date: inPeriod,
+        isPaid: true,
+        proofType: '전자세금계산서',
+      },
+    });
+    createdExpenseIds.push(linkedPurchaseExpense.id);
+
+    const purchaseTaxInvoice = await prisma.taxInvoice.create({
+      data: {
+        direction: 'purchase',
+        status: 'transmitted',
+        supplierCorpNum: '2222222222',
+        supplierName: 'vendor',
+        buyerCorpNum: '0000000000',
+        buyerName: 'us',
+        supplyAmount: 40_000,
+        vatAmount: 4_000,
+        totalAmount: 44_000,
+        issueDate: inPeriod,
+        expenseId: linkedPurchaseExpense.id,
+      },
+    });
+    createdTaxInvoiceIds.push(purchaseTaxInvoice.id);
   });
 
   afterAll(async () => {
@@ -187,18 +222,32 @@ describe.skipIf(!integration)('VatService.calculateVat (integration)', () => {
 
   it('includes "세금계산서" proof expenses in purchase VAT deduction (B3 fix)', async () => {
     const r = await service.calculateVat(YEAR, HALF);
-    // All 4 deductible expenses counted in purchase VAT:
-    // 세금계산서 10,000 + 전자세금계산서 5,000 + 카드전표 3,000 + 현금영수증 2,000 = 20,000.
-    expect(r.purchaseVat).toBe(20_000);
-    expect(r.purchaseCount).toBe(4);
+    // 4 additional deductible expenses (세금계산서 10,000 + 전자세금계산서 5,000 +
+    // 카드전표 3,000 + 현금영수증 2,000 = 20,000) PLUS the purchase tax invoice
+    // (4,000). The expense linked to that tax invoice via expenseId is deduped, so
+    // it is NOT added again → 24,000, not 28,000.
+    expect(r.purchaseVat).toBe(24_000);
+    expect(r.purchaseCount).toBe(5);
+  });
+
+  it('dedups purchase tax invoice ↔ expense by expenseId (no double-count of linked expense)', async () => {
+    const r = await service.calculateVat(YEAR, HALF);
+    // The linked expense (VAT 4,000) is counted once via the purchase tax invoice,
+    // NOT twice. With the old t.invoiceId dedup (always null on purchase), it would
+    // have been added again → purchaseVat 28,000. Correct total is 24,000.
+    expect(r.purchaseVat).toBe(24_000);
+    // 1 purchase tax invoice + 4 additional (non-linked) deductible expenses.
+    // The linked expense is excluded from additionalExpenses by the expenseId dedup.
+    expect(r.purchaseCount).toBe(5);
+    expect(r.proofBackedPurchaseCount).toBe(5);
   });
 
   it('represents refund (purchase > sales) instead of clamping to 0', async () => {
     const r = await service.calculateVat(YEAR, HALF);
-    // sales VAT 1,000 - purchase VAT 20,000 = -19,000 payable (refund).
+    // sales VAT 1,000 - purchase VAT 24,000 = -23,000 payable (refund).
     expect(r.salesVat).toBe(1_000);
-    expect(r.payableVat).toBe(-19_000);
-    expect(r.refundableVat).toBe(19_000);
+    expect(r.payableVat).toBe(-23_000);
+    expect(r.refundableVat).toBe(23_000);
   });
 
   it('classifies ONLY proofType="카드전표" as card purchase (Round 10 MED)', async () => {
@@ -212,17 +261,20 @@ describe.skipIf(!integration)('VatService.calculateVat (integration)', () => {
 
   it('routes 세금계산서/전자세금계산서/현금영수증 into purchase (non-card) buckets', async () => {
     const r = await service.calculateVat(YEAR, HALF);
-    // Total purchase supply = 100,000 + 50,000 + 30,000 + 20,000 = 200,000.
-    // Card supply is 30,000; the remaining 170,000 is non-card and must NOT be
+    // Purchase supply = purchase tax invoice (40,000) + additional expenses
+    // (100,000 + 50,000 + 30,000 + 20,000 = 200,000) = 240,000. The linked
+    // expense is deduped so its 40,000 is not double-counted.
+    // Card supply is 30,000; the remaining 210,000 is non-card and must NOT be
     // double-counted as card.
-    expect(r.purchaseSupply).toBe(200_000);
-    expect(r.purchaseSupply - r.cardPurchaseSupply).toBe(170_000);
+    expect(r.purchaseSupply).toBe(240_000);
+    expect(r.purchaseSupply - r.cardPurchaseSupply).toBe(210_000);
   });
 
   it('exposes proofBackedPurchaseCount (matched alias) as deductible-proof purchase count', async () => {
     const r = await service.calculateVat(YEAR, HALF);
-    // 0 transmitted purchase tax invoices + 4 deductible expenses = 4.
-    expect(r.proofBackedPurchaseCount).toBe(4);
+    // 1 transmitted purchase tax invoice + 4 additional deductible expenses = 5.
+    // (The expense linked to the tax invoice via expenseId is deduped out.)
+    expect(r.proofBackedPurchaseCount).toBe(5);
     expect(r.matched).toBe(r.proofBackedPurchaseCount); // backward-compat alias
     expect(r.proofMissingCount).toBe(r.unmatched); // backward-compat alias
     expect(r.proofMissingCount).toBeGreaterThanOrEqual(0);
