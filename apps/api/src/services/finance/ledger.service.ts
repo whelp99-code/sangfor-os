@@ -64,17 +64,57 @@ export class LedgerService {
     if (!invoice) return null;
     const total = (invoice.amount ?? 0) + (invoice.vat ?? 0);
     if (total <= 0) return null;
+    // 현금 기표는 "실입금액" 기준. 부분입금 후 완료 처리되는 경우 depositAmount가 실제
+    // 수취액이므로 그것을 쓰고, depositAmount가 없으면(단건 전액입금) total로 폴백한다.
+    // 과거엔 total 전액을 현금계정에 기표해 부분입금 완료 건에서 현금이 과대계상됐다.
+    const cashReceived = invoice.depositAmount ?? total;
+    if (cashReceived <= 0) return null;
     return prisma.ledgerEntry.create({
       data: {
         date: invoice.depositDate ?? new Date(),
-        description: `[입금] ${invoice.buyer ?? '고객'} ${total.toLocaleString()}원`,
+        description: `[입금] ${invoice.buyer ?? '고객'} ${cashReceived.toLocaleString()}원`,
         debitAccount: '100',
         creditAccount: '110',
-        amount: total,
+        amount: cashReceived,
         reference: invoiceId,
         referenceType: 'invoice',
       },
     });
+  }
+
+  /**
+   * 특정 인보이스가 참조하는 원장 분개를 역분개(reversal)한다.
+   *
+   * 인보이스 금액이 수정되면 기존에 postInvoiceIssued/Paid로 기표한 분개가 낡아버린다.
+   * 원 분개를 지우는 대신, 차·대변을 뒤집은 반대 분개를 추가해 감사추적을 남긴 채
+   * 순효과를 0으로 만든다(회계 원칙: 기표 취소는 삭제가 아니라 역분개). 이후 호출측이
+   * 새 금액으로 재기표한다.
+   *
+   * NOTE(oma-deferred): 원장 P&L 전면 백필/재계산은 범위 밖이다. 여기서는 해당 인보이스의
+   * 발행·입금 분개 정합만 교정하며, 과거 마감/집계 스냅샷은 조정하지 않는다.
+   */
+  async reverseInvoiceEntries(invoiceId: string) {
+    const entries = await prisma.ledgerEntry.findMany({
+      where: { reference: invoiceId, referenceType: 'invoice' },
+    });
+    // 이미 역분개 표식이 있는 건은 재역분개하지 않는다(중복 방지).
+    const active = entries.filter((e) => !e.referenceType?.endsWith(':reversed'));
+    if (active.length === 0) return null;
+    return prisma.$transaction(
+      active.map((e) =>
+        prisma.ledgerEntry.create({
+          data: {
+            date: new Date(),
+            description: `[역분개] ${e.description}`,
+            debitAccount: e.creditAccount, // 차·대변 반전
+            creditAccount: e.debitAccount,
+            amount: e.amount,
+            reference: invoiceId,
+            referenceType: 'invoice:reversal',
+          },
+        }),
+      ),
+    );
   }
 
   async postExpense(expenseId: string) {

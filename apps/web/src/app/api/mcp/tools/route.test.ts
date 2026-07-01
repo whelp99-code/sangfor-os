@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, beforeEach, vi } from "vitest";
 
 const { mockList, mockCall } = vi.hoisted(() => ({
   mockList: vi.fn(),
@@ -10,6 +10,14 @@ vi.mock("@sangfor/infra", () => ({
 }));
 
 import { GET, POST } from "./route";
+
+const prevBypass = process.env.AUTH_BYPASS_ENABLED;
+beforeAll(() => {
+  process.env.AUTH_BYPASS_ENABLED = "1";
+});
+afterAll(() => {
+  process.env.AUTH_BYPASS_ENABLED = prevBypass;
+});
 
 function postReq(body: unknown, raw = false) {
   return new Request("http://localhost/api/mcp/tools", {
@@ -39,7 +47,8 @@ describe("GET /api/mcp/tools", () => {
     const body = await res.json();
     expect(res.status).toBe(502);
     expect(body.tools).toEqual([]);
-    expect(body.error).toContain("fetch failed");
+    // Error detail is sanitized (Round 7 security); assert the stable error code, not the raw message.
+    expect(body.error).toBe("mcp_tools_unreachable");
   });
 });
 

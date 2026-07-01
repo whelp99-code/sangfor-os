@@ -26,21 +26,46 @@ export interface OutstandingInvoiceLike {
 export const DEPOSIT_STATUS_COMPLETE = '완료';
 
 /**
- * 미수금 SSOT.
+ * 미수 "건" 판정 SSOT (single predicate for the outstanding *count*).
  *
- * Σ(total - COALESCE(depositAmount, 0)) over invoices whose depositStatus is
- * not '완료'. Uses `total` (VAT 포함) as the receivable basis and subtracts any
- * partial deposit so 부분입금 invoices are not over-counted.
+ * An invoice is 미수(outstanding) iff ALL of:
+ *   1. total > 0                       — 0원 유령 인보이스(buyer 공백, amount 0) 제외
+ *   2. (total - COALESCE(depositAmount, 0)) > 0  — 잔액이 남아있다
+ *   3. depositStatus !== '완료'        — 완료분 제외
  *
- * Never negative per-invoice (a deposit exceeding total is clamped to 0 so an
- * over-deposit on one invoice cannot mask receivables on another).
+ * This is the ONE predicate every surface must use so the 미수 건수가 일치한다.
+ * Root cause of the 9 vs 8 vs 9 divergence was three surfaces each using a
+ * different subset of these conditions (length-of-notdone / remaining>0 /
+ * notIn['완료','취소']). A 0원·buyer 공백 유령 인보이스 slipped through the
+ * length-only and status-only counts. Requiring total>0 excludes it uniformly.
+ */
+export function isOutstanding(inv: OutstandingInvoiceLike): boolean {
+  const total = inv.total ?? 0;
+  if (total <= 0) return false;
+  if (inv.depositStatus === DEPOSIT_STATUS_COMPLETE) return false;
+  return total - (inv.depositAmount ?? 0) > 0;
+}
+
+/**
+ * 미수 건수 SSOT. isOutstanding를 만족하는 인보이스 수.
+ */
+export function outstandingCount(invoices: OutstandingInvoiceLike[]): number {
+  return invoices.reduce((n, inv) => (isOutstanding(inv) ? n + 1 : n), 0);
+}
+
+/**
+ * 미수금 SSOT (금액).
+ *
+ * Σ(total - COALESCE(depositAmount, 0)) over 미수(isOutstanding) invoices. Uses
+ * `total` (VAT 포함) as the receivable basis and subtracts any partial deposit
+ * so 부분입금 invoices are not over-counted. isOutstanding와 동일 술어를 써서
+ * 금액 합계와 건수가 동일한 모집단에서 산출되게 한다.
  */
 export function outstandingAmount(invoices: OutstandingInvoiceLike[]): number {
   let sum = 0;
   for (const inv of invoices) {
-    if (inv.depositStatus === DEPOSIT_STATUS_COMPLETE) continue;
-    const remaining = (inv.total ?? 0) - (inv.depositAmount ?? 0);
-    if (remaining > 0) sum += remaining;
+    if (!isOutstanding(inv)) continue;
+    sum += (inv.total ?? 0) - (inv.depositAmount ?? 0);
   }
   return Math.round(sum);
 }

@@ -4,6 +4,7 @@ import {
 } from "@sangfor/business/mail-insight-threads";
 import { NextResponse } from "next/server";
 
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 import { ingestLightRagText } from "@/lib/knowledge/lightrag-client";
 
 export async function GET(request: Request) {
@@ -15,14 +16,13 @@ export async function GET(request: Request) {
     });
     return NextResponse.json({ threads });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "list_failed" },
-      { status: 500 },
-    );
+    return apiError("list_failed", error, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   try {
     const body = await request.json();
     const result = await upsertMailInsightThreads(body);
@@ -39,9 +39,6 @@ export async function POST(request: Request) {
     }
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "upsert_failed" },
-      { status: 400 },
-    );
+    return apiError("upsert_failed", error, { status: 400 });
   }
 }

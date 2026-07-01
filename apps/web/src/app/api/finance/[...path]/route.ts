@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildFinanceProxyUrl } from "@/lib/finance-proxy";
+import { assertApiAccess } from "@/lib/api-auth";
 
 async function proxy(req: NextRequest, method: string) {
+  // The proxy injects a real upstream API key (FINANCE_API_KEY||API_KEY), so
+  // every method must be authenticated — otherwise an unauthenticated client
+  // could perform CFO financial CRUD (role gate bypass). In dev/demo this
+  // passes when AUTH_BYPASS_ENABLED=1; in prod it hard-blocks with 401.
+  const denied = assertApiAccess(req);
+  if (denied) return denied;
+
   const url = buildFinanceProxyUrl(req.nextUrl.pathname, req.nextUrl.search);
   const headers: Record<string, string> = {
     "X-API-Key": process.env.FINANCE_API_KEY || process.env.API_KEY || "",
@@ -34,7 +42,11 @@ function parseFinanceResponse(text: string) {
   try {
     return JSON.parse(text);
   } catch {
-    return { error: text };
+    // Never echo raw upstream text back to the client — it may carry internal
+    // detail (stack hints, driver text, payloads). Log server-side and return
+    // a stable, generic envelope.
+    console.error("[api] finance_upstream_parse_failed:", text);
+    return { error: "invalid_upstream_response" };
   }
 }
 

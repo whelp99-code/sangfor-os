@@ -1,6 +1,9 @@
 import { prisma } from '@sangfor/db';
 
-import { outstandingAmount as computeOutstanding } from './finance-amounts';
+import {
+  outstandingAmount as computeOutstanding,
+  outstandingCount as computeOutstandingCount,
+} from './finance-amounts';
 
 export class MonthCloseService {
   async runChecklist(year: number, month: number) {
@@ -11,16 +14,19 @@ export class MonthCloseService {
       where: { date: { gte: start, lte: end }, category: { in: ['', '기타'] } },
     });
 
-    const pendingInvoices = await prisma.invoice.count({
-      where: { depositStatus: { notIn: ['완료', '취소'] } },
-    });
-
-    // 미수금 SSOT: Σ(total - depositAmount) for 미완료. dashboard와 동일 값.
+    // 미수 SSOT: isOutstanding 술어로 금액·건수 동시 산출 (dashboard와 동일 모집단).
+    // 과거엔 pendingInvoices를 notIn['완료','취소'] count로 잡아 0원 유령 인보이스까지
+    // 세는 바람에 KPI(9)·현황(8)과 어긋난 9가 나왔다. 이제 세 곳 모두 outstandingCount.
     const outstandingInvoices = await prisma.invoice.findMany({
       where: { depositStatus: { not: '완료' } },
       select: { total: true, depositAmount: true, depositStatus: true },
     });
     const outstanding = computeOutstanding(outstandingInvoices);
+    // '취소'는 이미 total>0/잔액 조건과 무관하게 미수 아님 — 취소분은 잔액이 없거나
+    // 완료로 정리되므로 isOutstanding에서 자연 배제된다. 별도 상태 필터 없이 통일.
+    const pendingInvoices = computeOutstandingCount(
+      outstandingInvoices.filter((i) => i.depositStatus !== '취소'),
+    );
 
     const totalRevenue = await prisma.invoice.aggregate({
       where: { depositDate: { gte: start, lte: end }, depositStatus: '완료' },

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 import {
   executeWorkflow,
   getWorkflowStatus,
@@ -45,6 +46,8 @@ export async function GET(request: Request) {
 
 /** POST /api/aios-v3/workflow – execute a workflow on the v3 server */
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   try {
     const body = (await request.json()) as WorkflowExecutionRequest;
 
@@ -65,8 +68,6 @@ export async function POST(request: Request) {
     const result = await executeWorkflow(body);
     return NextResponse.json(result);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "workflow_execution_failed";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return apiError("workflow_execution_failed", error, { status: 502 });
   }
 }

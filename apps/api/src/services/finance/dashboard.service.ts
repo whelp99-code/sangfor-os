@@ -4,7 +4,9 @@ import {
   cashBalanceFromCashflows,
   cashRunwayMonths,
   estimatedVat as computeEstimatedVat,
+  isOutstanding,
   outstandingAmount as computeOutstanding,
+  outstandingCount as computeOutstandingCount,
 } from './finance-amounts';
 
 export class DashboardService {
@@ -32,12 +34,15 @@ export class DashboardService {
 
     const netIncome = totalRevenue - totalExpense;
 
-    // 미수금 SSOT: Σ(total - depositAmount) for 미완료. 부분입금 차감.
+    // 미수금 SSOT: isOutstanding(total>0 && 잔액>0 && ≠완료) 술어로 금액·건수 동시 산출.
+    // where는 완료만 배제하고(넓게), 0원·잔액0 유령 인보이스는 isOutstanding에서 제외해
+    // 건수(outstandingCount)와 금액(outstandingAmount)이 동일 모집단에서 나오게 한다.
     const outstandingInvoices = await prisma.invoice.findMany({
       where: { depositStatus: { not: '완료' } },
       select: { total: true, depositAmount: true, depositStatus: true },
     });
     const outstandingAmount = computeOutstanding(outstandingInvoices);
+    const outstandingCount = computeOutstandingCount(outstandingInvoices);
 
     const subs = await prisma.financeSubscription.findMany({ where: { isActive: true } });
     let monthlySubscription = 0;
@@ -63,7 +68,7 @@ export class DashboardService {
       totalExpense: Math.round(totalExpense),
       netIncome: Math.round(netIncome),
       outstandingAmount,
-      outstandingCount: outstandingInvoices.length,
+      outstandingCount,
       revenueCount: paidInvoices._count,
       expenseCount: expenses._count,
       monthlySubscription,
@@ -84,12 +89,14 @@ export class DashboardService {
       select: { buyer: true, total: true, depositAmount: true, depositStatus: true, project: { select: { name: true } } },
     });
     const rows = invoices
+      // 미수 판정은 isOutstanding SSOT로 통일 (KPI outstandingCount와 동일 모집단).
+      // 0원 유령 인보이스·잔액0·완료분 모두 여기서 배제되어 rows.length == outstandingCount.
+      .filter((i) => isOutstanding(i))
       .map((i) => ({
         buyer: i.buyer ?? i.project?.name ?? '—',
         status: i.depositStatus ?? '미수',
         remaining: (i.total ?? 0) - (i.depositAmount ?? 0),
       }))
-      .filter((r) => r.status !== '완료' && r.remaining > 0)
       .sort((a, b) => b.remaining - a.remaining);
     const total = rows.reduce((s, r) => s + r.remaining, 0);
     return { total: Math.round(total), count: rows.length, rows: rows.slice(0, limit) };
@@ -128,20 +135,59 @@ export class DashboardService {
 
   async getCashflowForecast(days = 90) {
     const today = new Date();
-    const start30 = new Date();
-    start30.setDate(start30.getDate() - 30);
+    const WINDOW_DAYS = 30;
 
-    const recentInvoices = await prisma.invoice.findMany({
-      where: { depositDate: { gte: start30 } },
-    });
-    const recentExpenses = await prisma.expense.findMany({
-      where: { date: { gte: start30 }, isPaid: true },
-    });
+    // 예측 근거(일평균 매출/비용)는 최근 30일 트레일링으로 잡되, 기준을 오늘로 고정하면
+    // 실데이터 최신일(입금 4/30, 지출 5/29)과 오늘(7/1) 사이 공백 때문에 윈도우가 텅 비어
+    // dailyRevenue/Expense=0 → 90일 전구간 평선이 된다. 그래서 "데이터 최신일" 기준
+    // 상대 윈도우로 잡는다: max(depositDate)/max(date)에서 30일을 되짚는다.
+    const [latestInvoice, latestExpense] = await Promise.all([
+      prisma.invoice.findFirst({
+        where: { depositDate: { not: null } },
+        orderBy: { depositDate: 'desc' },
+        select: { depositDate: true },
+      }),
+      prisma.expense.findFirst({
+        where: { isPaid: true },
+        orderBy: { date: 'desc' },
+        select: { date: true },
+      }),
+    ]);
+
+    // 매출·비용 윈도우 앵커를 각자의 최신 데이터일로 잡는다(둘의 최신일이 달라도 각자 최근
+    // 30일을 본다). 데이터가 아예 없으면 앵커 없음 → 근거 부족 플래그.
+    const revenueAnchor = latestInvoice?.depositDate ?? null;
+    const expenseAnchor = latestExpense?.date ?? null;
+
+    const windowFrom = (anchor: Date | null): Date | null => {
+      if (!anchor) return null;
+      const from = new Date(anchor);
+      from.setDate(from.getDate() - WINDOW_DAYS);
+      return from;
+    };
+
+    const [recentInvoices, recentExpenses] = await Promise.all([
+      revenueAnchor
+        ? prisma.invoice.findMany({
+            where: { depositDate: { gte: windowFrom(revenueAnchor)!, lte: revenueAnchor } },
+          })
+        : Promise.resolve([]),
+      expenseAnchor
+        ? prisma.expense.findMany({
+            where: { isPaid: true, date: { gte: windowFrom(expenseAnchor)!, lte: expenseAnchor } },
+          })
+        : Promise.resolve([]),
+    ]);
+
     // 비용도 공급가(amount) 기준으로 통일.
     const avgMonthlyRevenue = recentInvoices.reduce((s, r) => s + (r.amount ?? 0), 0);
     const avgMonthlyExpense = recentExpenses.reduce((s, e) => s + (e.amount ?? 0), 0);
-    const dailyRevenue = avgMonthlyRevenue / 30;
-    const dailyExpense = avgMonthlyExpense / 30;
+    const dailyRevenue = avgMonthlyRevenue / WINDOW_DAYS;
+    const dailyExpense = avgMonthlyExpense / WINDOW_DAYS;
+
+    // 예측 근거 부족 판정: 최근 30일 윈도우에 매출·비용 표본이 하나도 없으면 run-rate가
+    // 0이라 예측이 무의미하다. 이때는 forecast를 currentCash 평선으로 두되 플래그로 알린다.
+    const insufficientData = recentInvoices.length === 0 && recentExpenses.length === 0;
 
     // 현재 현금 = cashflow 기반 (미수금이 아니라). 데이터 없으면 null(미산출).
     const cashflows = await prisma.cashflow.findMany({
@@ -166,9 +212,19 @@ export class DashboardService {
       currentCash: currentCash == null ? null : Math.round(currentCash),
       dailyRevenue: Math.round(dailyRevenue),
       dailyExpense: Math.round(dailyExpense),
+      // 예측 run-rate 산출에 실제로 사용한 데이터 윈도우(관측 최신일 기준). null이면 표본 없음.
+      revenueWindow: revenueAnchor
+        ? { from: windowFrom(revenueAnchor)!.toISOString().slice(0, 10), to: revenueAnchor.toISOString().slice(0, 10), samples: recentInvoices.length }
+        : null,
+      expenseWindow: expenseAnchor
+        ? { from: windowFrom(expenseAnchor)!.toISOString().slice(0, 10), to: expenseAnchor.toISOString().slice(0, 10), samples: recentExpenses.length }
+        : null,
+      // true면 최근 30일 무데이터 → 위 forecast는 run-rate 0(현금 평선), 예측 근거 부족.
+      insufficientData,
       forecast,
-      trend:
-        finalBalance == null
+      trend: insufficientData
+        ? 'unknown'
+        : finalBalance == null
           ? 'unknown'
           : finalBalance > 0
             ? 'positive'

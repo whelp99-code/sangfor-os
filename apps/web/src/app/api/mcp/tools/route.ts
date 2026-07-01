@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { callMcpTool, listMcpTools } from "@sangfor/infra";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,13 +10,10 @@ export async function GET() {
     const tools = await listMcpTools();
     return NextResponse.json({ tools, timestamp: new Date().toISOString() });
   } catch (error) {
-    return NextResponse.json(
-      {
-        tools: [],
-        error: error instanceof Error ? error.message : "mcp_tools_unreachable",
-      },
-      { status: 502 },
-    );
+    return apiError("mcp_tools_unreachable", error, {
+      status: 502,
+      extra: { tools: [] },
+    });
   }
 }
 
@@ -26,6 +24,8 @@ export async function GET() {
  * as { error, allowedTools } with a 403-equivalent envelope.
  */
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   let body: { name?: unknown; arguments?: unknown; args?: unknown };
   try {
     body = await request.json();
@@ -46,9 +46,6 @@ export async function POST(request: Request) {
     const result = await callMcpTool(name, args);
     return NextResponse.json(result, { status: result.error ? 502 : 200 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "mcp_call_failed" },
-      { status: 500 },
-    );
+    return apiError("mcp_call_failed", error, { status: 500 });
   }
 }
