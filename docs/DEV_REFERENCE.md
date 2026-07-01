@@ -249,7 +249,38 @@ make app                                 # 앱 스택 일괄
 # LLM 백엔드(도메인 실 LLM)
 opencode auth login                      # OpenAI → ChatGPT Plus/Pro (1회)
 opencode serve --port 4096
+
+# 로컬 스택 원커맨드 (포트정리·ulimit·WATCHPACK·AUTH_BYPASS 자동 처리)
+scripts/dev-up.sh                        # postgres + api(:3200) + web(:3101), 헬스까지 대기
+scripts/dev-smoke.sh                     # 핵심 라우트 200/307 스모크
+scripts/dev-down.sh                      # api/web 정지 (postgres 유지; --db로 함께 정지)
 ```
+
+### 개선 라운드 워크플로우 (`/round` 스킬 + auto-merge)
+반복적인 fix/cleanup 라운드는 `.claude/skills/round/SKILL.md`(`/round`)로 표준화됨.
+격리 worktree → 파일범위 분리 병렬 에이전트 → `scripts/dev-up.sh`+검증 → `scripts/round-ship.sh`.
+
+```bash
+# 라운드 배포: 커밋+push+PR+auto-merge(squash)를 한 번에
+scripts/round-ship.sh improve/round-N "fix(round-N): 요약" "본문"
+gh pr checks --watch                     # (선택) CI 진행만 지켜보기 — sleep 폴링 금지
+```
+
+**Auto-merge 설정** (한 번만): repo 토글은 활성화됨(`allow_auto_merge`, `delete_branch_on_merge`).
+CI 게이팅을 실제로 걸려면 `main`에 branch protection + required checks 필요:
+```bash
+gh api -X PUT repos/whelp99-code/sangfor-os/branches/main/protection \
+  -f 'required_status_checks[strict]=true' \
+  -f 'required_status_checks[checks][][context]=build' \
+  -f 'required_status_checks[checks][][context]=lint' \
+  -f 'required_status_checks[checks][][context]=test' \
+  -f 'required_status_checks[checks][][context]=typecheck' \
+  -f 'required_status_checks[checks][][context]=secrets-scan' \
+  -F 'enforce_admins=false' -F 'required_pull_request_reviews=null' -F 'restrictions=null'
+```
+설정 후 `scripts/round-ship.sh`의 `gh pr merge --auto`가 CI green 시 자동 머지.
+branch protection 없으면 `--auto`는 mergeable 즉시 머지(게이트 없음)이므로,
+다른 세션이 main에 함께 머지 중이면 required checks 설정을 권장.
 
 ### DB
 ```bash
