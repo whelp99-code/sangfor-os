@@ -201,7 +201,12 @@ export function RunPanel({ initialGoal }: { initialGoal?: string }) {
           </CardHeader>
           <CardContent className="p-0">
             {history.length === 0 ? (
-              <p className="p-6 text-center text-xs text-muted-foreground">실행 이력이 없습니다.</p>
+              <div className="space-y-1 p-6 text-center">
+                <p className="text-xs font-semibold text-muted-foreground">실행 이력이 없습니다.</p>
+                <p className="text-[11px] text-muted-foreground/80">
+                  위에서 목표를 입력하고 “실행”하면 이력이 여기에 쌓입니다.
+                </p>
+              </div>
             ) : (
               <ul className="max-h-[520px] divide-y divide-border overflow-y-auto" aria-label="실행 이력 목록">
                 {history.map((r) => {

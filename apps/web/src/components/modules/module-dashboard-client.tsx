@@ -248,7 +248,7 @@ export function ModuleDashboardClient({
           loading: false,
           valid: false,
           errors: data.errors || [],
-          errorMsg: data.error || "Registry validator returned failed status."
+          errorMsg: data.error || "레지스트리 검증기가 실패 상태를 반환했습니다."
         });
       } else {
         setValResultsReal({
@@ -263,7 +263,7 @@ export function ModuleDashboardClient({
         loading: false,
         valid: false,
         errors: [],
-        errorMsg: e instanceof Error ? e.message : "Network error connecting to validation service."
+        errorMsg: e instanceof Error ? e.message : "검증 서비스 연결 중 네트워크 오류가 발생했습니다."
       });
     }
   }
@@ -278,7 +278,7 @@ export function ModuleDashboardClient({
         // Trigger re-validation
         handleRealValidation(moduleKey);
       } catch (err) {
-        setApiError(err instanceof Error ? err.message : "Failed to toggle module status.");
+        setApiError(err instanceof Error ? err.message : "모듈 상태 전환에 실패했습니다.");
       }
     });
   };
@@ -313,7 +313,7 @@ export function ModuleDashboardClient({
         const updated = await toggleConnectorCredentialMode(connectorKey, currentStatus);
         setConnectors(prev => prev.map(c => c.connectorKey === connectorKey ? { ...c, status: updated.status } : c));
       } catch (err) {
-        setApiError(err instanceof Error ? err.message : "Failed to cycle connector mode.");
+        setApiError(err instanceof Error ? err.message : "커넥터 모드 전환에 실패했습니다.");
         // Rollback on failure
         setConnectors(initialConnectors);
       }
@@ -327,14 +327,16 @@ export function ModuleDashboardClient({
     setTimeout(() => {
       setTestingConnector(null);
       if (details.status !== "mock" && !details.isConfigured) {
-        setConnSuccess(prev => ({ 
-          ...prev, 
-          [key]: `ERROR: Missing credential configuration! Env variable not found.` 
+        setConnSuccess(prev => ({
+          ...prev,
+          [key]: `오류: 자격 증명 구성 누락! 환경 변수를 찾을 수 없습니다.`
         }));
       } else {
-        setConnSuccess(prev => ({ 
-          ...prev, 
-          [key]: `SUCCESS (Ping latency: ${Math.floor(Math.random() * 20) + 12}ms)` 
+        // Ping latency is not actually measured in this demo build; report a
+        // truthful "not measured" status instead of a fabricated number.
+        setConnSuccess(prev => ({
+          ...prev,
+          [key]: `연결 확인됨 (데모: 지연시간 미측정)`
         }));
       }
       setTimeout(() => {
@@ -440,7 +442,7 @@ export function ModuleDashboardClient({
         <Card className="rounded-md border border-border shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Modules</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">전체 모듈</p>
               <p className="text-2xl font-bold">{totalModules}</p>
             </div>
             <div className="p-2.5 bg-muted rounded-md border border-border">
@@ -452,7 +454,7 @@ export function ModuleDashboardClient({
         <Card className="rounded-md border border-border shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Modules</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">활성 모듈</p>
               <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{activeModulesCount}</p>
             </div>
             <div className="p-2.5 bg-emerald-500/10 rounded-md border border-emerald-500/20">
@@ -464,7 +466,7 @@ export function ModuleDashboardClient({
         <Card className="rounded-md border border-border shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inactive Modules</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">비활성 모듈</p>
               <p className="text-2xl font-bold text-amber-600 dark:text-amber-500">{disabledModulesCount}</p>
             </div>
             <div className="p-2.5 bg-amber-500/10 rounded-md border border-amber-500/20">
@@ -476,7 +478,7 @@ export function ModuleDashboardClient({
         <Card className="rounded-md border border-border shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Validation Alerts</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">검증 경고</p>
               <p className={`text-2xl font-bold ${validationAlerts > 0 ? "text-destructive animate-pulse" : "text-emerald-500"}`}>
                 {validationAlerts}
               </p>
@@ -496,13 +498,13 @@ export function ModuleDashboardClient({
           <Card className="rounded-md border border-border shadow-sm flex flex-col h-auto lg:min-h-[700px]">
             <CardHeader className="p-4 space-y-2 border-b border-border">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-bold uppercase tracking-wider text-foreground">Modules Inventory</CardTitle>
+                <CardTitle className="text-sm font-bold uppercase tracking-wider text-foreground">모듈 인벤토리</CardTitle>
                 <Badge variant="secondary" className="rounded-sm font-mono text-xs uppercase px-1.5 py-0.5">
                   Local Registry
                 </Badge>
               </div>
               <CardDescription className="text-xs">
-                Filter and select registered runtime modules to view detailed configurations and diagnostics.
+                등록된 런타임 모듈을 필터링하고 선택하여 상세 구성과 진단을 확인합니다.
               </CardDescription>
 
               {/* Filters */}
@@ -511,7 +513,7 @@ export function ModuleDashboardClient({
                   <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                   <input
                     type="text"
-                    placeholder="Search module key..."
+                    placeholder="모듈 키 검색..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-background border border-input rounded-md py-1.5 pl-8 pr-3 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -522,13 +524,13 @@ export function ModuleDashboardClient({
                     <button
                       key={filter}
                       onClick={() => setStatusFilter(filter)}
-                      className={`px-2 py-0.5 text-xs font-bold rounded-sm uppercase transition-all ${
+                      className={`px-2 py-0.5 text-xs font-bold rounded-sm transition-all ${
                         statusFilter === filter
                           ? "bg-background text-foreground shadow-xs"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {filter}
+                      {filter === "all" ? "전체" : filter === "active" ? "활성" : "비활성"}
                     </button>
                   ))}
                 </div>
@@ -539,8 +541,8 @@ export function ModuleDashboardClient({
               {filteredModules.length === 0 ? (
                 <div className="p-12 text-center space-y-2">
                   <Layers className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-                  <p className="text-xs font-bold text-muted-foreground">No modules match search filter</p>
-                  <p className="text-xs text-muted-foreground/70">Clear the text search or change status filter toggles.</p>
+                  <p className="text-xs font-bold text-muted-foreground">검색 필터와 일치하는 모듈이 없습니다</p>
+                  <p className="text-xs text-muted-foreground/70">검색어를 지우거나 상태 필터 토글을 변경하세요.</p>
                 </div>
               ) : (
                 <div className="divide-y divide-border">
@@ -584,13 +586,13 @@ export function ModuleDashboardClient({
                           <div className="flex items-center gap-1.5 shrink-0">
                             {hasDepAlert && (
                               <Badge variant="outline" className="rounded-sm bg-destructive/10 text-destructive border-destructive/20 text-xs px-1 py-0 animate-pulse font-bold">
-                                DEP ALERT
+                                의존성 경고
                               </Badge>
                             )}
                             <div className="flex items-center gap-1">
-                              <span className={`h-1.5 w-1.5 rounded-full ${isInactive ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} role="img" aria-label={isInactive ? "Inactive" : "Active"} />
-                              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                                {mod.status}
+                              <span className={`h-1.5 w-1.5 rounded-full ${isInactive ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} role="img" aria-label={isInactive ? "비활성" : "활성"} />
+                              <span className="text-xs font-bold tracking-wider text-muted-foreground">
+                                {isInactive ? "비활성" : "활성"}
                               </span>
                             </div>
                           </div>
@@ -599,19 +601,19 @@ export function ModuleDashboardClient({
                         {/* Badges footer */}
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           <Badge variant="secondary" className="rounded-sm text-xs py-0 px-1 font-semibold">
-                            {blocksCount} Block{blocksCount !== 1 ? "s" : ""}
+                            블록 {blocksCount}개
                           </Badge>
                           <Badge variant="secondary" className="rounded-sm text-xs py-0 px-1 font-semibold">
-                            {nodesCount} Node{nodesCount !== 1 ? "s" : ""}
+                            노드 {nodesCount}개
                           </Badge>
                           {rules.length > 0 && (
                             <Badge variant="secondary" className="rounded-sm text-xs py-0 px-1 font-semibold">
-                              {rules.length} Dep{rules.length !== 1 ? "s" : ""}
+                              의존성 {rules.length}개
                             </Badge>
                           )}
                           {isTraceReady(mod.moduleKey) && (
                             <Badge className="rounded-sm text-xs py-0 px-1 font-bold bg-violet-500/10 text-violet-500 border border-violet-500/20 hover:bg-violet-500/20 shrink-0">
-                              TRACE READY
+                              추적 준비됨
                             </Badge>
                           )}
                         </div>
@@ -629,9 +631,9 @@ export function ModuleDashboardClient({
           {!activeModule ? (
             <Card className="rounded-md border border-border shadow-sm flex flex-col items-center justify-center p-12 text-center h-[520px]">
               <Database className="h-12 w-12 text-muted-foreground/20 mb-3" />
-              <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">No Module Selected</h3>
+              <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">선택된 모듈 없음</h3>
               <p className="text-xs text-muted-foreground/80 max-w-sm mt-1">
-                Select a module from the inventory sidebar to monitor subcomponents, routes, credentials, and trigger diagnostic scans.
+                인벤토리 사이드바에서 모듈을 선택하여 하위 구성 요소, 라우트, 자격 증명을 모니터링하고 진단 스캔을 실행하세요.
               </p>
             </Card>
           ) : (
@@ -650,8 +652,8 @@ export function ModuleDashboardClient({
                     
                     {/* Trace ready badge for phase 13, 14, 15 */}
                     {isTraceReady(activeModule.moduleKey) && (
-                      <Badge className="rounded-sm text-xs font-bold bg-violet-600/10 text-violet-600 border border-violet-600/20 hover:bg-violet-600/20 shrink-0 uppercase animate-pulse">
-                        TRACE-READY
+                      <Badge className="rounded-sm text-xs font-bold bg-violet-600/10 text-violet-600 border border-violet-600/20 hover:bg-violet-600/20 shrink-0 animate-pulse">
+                        추적 준비됨
                       </Badge>
                     )}
                   </div>
@@ -671,9 +673,9 @@ export function ModuleDashboardClient({
                     {isPending ? (
                       <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                     ) : activeModule.status === "active" ? (
-                      "Disable Module"
+                      "모듈 비활성화"
                     ) : (
-                      "Enable Module"
+                      "모듈 활성화"
                     )}
                   </Button>
                 </div>
@@ -682,25 +684,25 @@ export function ModuleDashboardClient({
               {/* Observability Panel & Trace Links (NO NESTED CARDS!) */}
               <div className="px-4 py-3 border-b border-border bg-zinc-50/50 dark:bg-zinc-950/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs uppercase font-mono text-muted-foreground font-bold">Observability:</span>
+                  <span className="text-xs uppercase font-mono text-muted-foreground font-bold">관측성:</span>
                   {(() => {
                     const status = getObservabilityStatus(activeModule);
                     if (status === "disabled") {
                       return (
                         <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-500 border-amber-500/20 py-0.5">
-                          DISABLED
+                          비활성화됨
                         </Badge>
                       );
                     } else if (status === "configured") {
                       return (
                         <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-500 border-emerald-500/20 py-0.5 font-bold">
-                          CONFIGURED & ACTIVE
+                          구성됨 & 활성
                         </Badge>
                       );
                     } else {
                       return (
                         <Badge variant="outline" className="text-xs bg-zinc-500/10 text-zinc-500 border-zinc-500/20 py-0.5">
-                          NO-OP (NO TELEMETRY)
+                          NO-OP (텔레메트리 없음)
                         </Badge>
                       );
                     }
@@ -714,26 +716,26 @@ export function ModuleDashboardClient({
                     className="text-xs text-violet-600 hover:text-violet-500 font-bold flex items-center gap-1 underline transition-all self-start sm:self-auto"
                   >
                     <ExternalLink className="h-3 w-3 shrink-0" />
-                    View Recent Execution Trace
+                    최근 실행 추적 보기
                   </a>
                 ) : getObservabilityStatus(activeModule) === "configured" ? (
                   <span className="text-xs text-muted-foreground/60 italic self-start sm:self-auto select-none">
-                    No active runs logged in trace index
+                    추적 인덱스에 기록된 활성 실행이 없습니다
                   </span>
                 ) : null}
               </div>
 
               {/* Sticky Quick Nav Anchor Buttons */}
               <div className="sticky top-0 bg-background/95 backdrop-blur-xs border-b border-border z-10 px-4 py-2 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap scrollbar-thin">
-                <span className="text-xs uppercase font-mono text-muted-foreground mr-1 select-none">Sections:</span>
+                <span className="text-xs uppercase font-mono text-muted-foreground mr-1 select-none">섹션:</span>
                 {[
-                  { id: "validation", label: "Validation" },
-                  { id: "dependencies", label: "Dependencies" },
-                  { id: "routes", label: "Routes" },
-                  { id: "blocks", label: "Blocks" },
-                  { id: "nodes", label: "Nodes" },
-                  { id: "actions", label: "Actions" },
-                  { id: "connectors", label: "Connectors" },
+                  { id: "validation", label: "검증" },
+                  { id: "dependencies", label: "의존성" },
+                  { id: "routes", label: "라우트" },
+                  { id: "blocks", label: "블록" },
+                  { id: "nodes", label: "노드" },
+                  { id: "actions", label: "액션" },
+                  { id: "connectors", label: "커넥터" },
                 ].map((sec) => (
                   <button
                     key={sec.id}
@@ -762,7 +764,7 @@ export function ModuleDashboardClient({
                     <div className="flex items-start gap-2.5 p-3 bg-red-500/10 border border-red-500/20 text-red-800 dark:text-red-300 rounded-md text-xs">
                       <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-bold">API Action Failure</p>
+                        <p className="font-bold">API 작업 실패</p>
                         <p className="text-[11px] leading-relaxed">{apiError}</p>
                       </div>
                     </div>
@@ -772,7 +774,7 @@ export function ModuleDashboardClient({
                   {isPending && (
                     <div className="flex items-center gap-2 p-2 bg-primary/5 border border-primary/20 text-primary rounded-md text-xs justify-center animate-pulse">
                       <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                      <span>Applying state transition to local database registry...</span>
+                      <span>로컬 데이터베이스 레지스트리에 상태 전환을 적용하는 중...</span>
                     </div>
                   )}
 
@@ -781,9 +783,9 @@ export function ModuleDashboardClient({
                     <div className="flex items-start gap-3 p-3.5 bg-amber-500/10 text-amber-800 dark:text-amber-200 border border-amber-500/30 rounded-md">
                       <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5 text-amber-500" />
                       <div className="space-y-1">
-                        <p className="text-xs font-bold leading-none uppercase tracking-wider">Disabled Module Warning</p>
+                        <p className="text-xs font-bold leading-none uppercase tracking-wider">비활성화된 모듈 경고</p>
                         <p className="text-xs leading-normal">
-                          This module registry status is currently <strong className="font-bold">Inactive</strong>. Registered Blocks are offline, and Execution Nodes are bypassed in the pipeline flow.
+                          이 모듈의 레지스트리 상태는 현재 <strong className="font-bold">비활성</strong>입니다. 등록된 블록은 오프라인 상태이며, 실행 노드는 파이프라인 흐름에서 건너뜁니다.
                         </p>
                         <Button
                           size="xs"
@@ -791,7 +793,7 @@ export function ModuleDashboardClient({
                           onClick={() => handleToggleModule(activeModule.moduleKey, activeModule.status)}
                           className="h-6 mt-1.5 text-xs font-bold border-amber-500/40 text-amber-800 dark:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20"
                         >
-                          Enable Module Now
+                          지금 모듈 활성화
                         </Button>
                       </div>
                     </div>
@@ -808,9 +810,9 @@ export function ModuleDashboardClient({
                           <div key={key} className="flex items-start gap-3 p-3 bg-red-500/10 text-red-800 dark:text-red-300 border border-red-500/20 rounded-md">
                             <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5" />
                             <div className="space-y-1">
-                              <p className="text-xs font-bold leading-none uppercase tracking-wider">Missing dependency warning</p>
+                              <p className="text-xs font-bold leading-none uppercase tracking-wider">누락된 의존성 경고</p>
                               <p className="text-xs leading-normal">
-                                Critical Failure: Requires the missing module key <code className="font-mono bg-red-500/20 dark:bg-red-500/30 text-red-800 dark:text-red-300 px-1 rounded-sm">{key}</code> (version &gt;= 0.1.0) which is absent from this registry environment.
+                                치명적 오류: 이 레지스트리 환경에 존재하지 않는 모듈 키 <code className="font-mono bg-red-500/20 dark:bg-red-500/30 text-red-800 dark:text-red-300 px-1 rounded-sm">{key}</code> (버전 &gt;= 0.1.0)이 필요합니다.
                               </p>
                             </div>
                           </div>
@@ -820,9 +822,9 @@ export function ModuleDashboardClient({
                           <div key={key} className="flex items-start gap-3 p-3 bg-amber-500/10 text-amber-800 dark:text-amber-200 border border-amber-500/30 rounded-md">
                             <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
                             <div className="space-y-1">
-                              <p className="text-xs font-bold leading-none uppercase tracking-wider">Dependency Inactive warning</p>
+                              <p className="text-xs font-bold leading-none uppercase tracking-wider">의존성 비활성 경고</p>
                               <p className="text-xs leading-normal">
-                                Warning: Requires module <code className="font-mono bg-amber-500/20 dark:bg-amber-500/30 text-amber-800 dark:text-amber-200 px-1 rounded-sm">{key}</code> which is currently <strong className="font-bold">Disabled</strong>.
+                                경고: 현재 <strong className="font-bold">비활성화</strong>된 모듈 <code className="font-mono bg-amber-500/20 dark:bg-amber-500/30 text-amber-800 dark:text-amber-200 px-1 rounded-sm">{key}</code>이 필요합니다.
                               </p>
                               <Button
                                 size="xs"
@@ -830,7 +832,7 @@ export function ModuleDashboardClient({
                                 onClick={() => handleToggleModule(key, "disabled")}
                                 className="h-6 mt-1 text-xs font-bold border-amber-500/40 text-amber-800 dark:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20"
                               >
-                                Activate Dependency Module ({key})
+                                의존성 모듈 활성화 ({key})
                               </Button>
                             </div>
                           </div>
@@ -845,10 +847,10 @@ export function ModuleDashboardClient({
                   <div className="flex items-center justify-between border-b border-border pb-1">
                     <div className="flex items-center gap-1.5">
                       <Activity className="h-4 w-4 text-primary" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">1. Integrity Validation Gates</h3>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">1. 무결성 검증 게이트</h3>
                     </div>
                     <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
-                      System Audit
+                      시스템 감사
                     </Badge>
                   </div>
 
@@ -856,9 +858,9 @@ export function ModuleDashboardClient({
                   <div className="border border-border rounded-md p-4 bg-muted/10 space-y-3">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="space-y-0.5">
-                        <p className="text-xs font-bold text-foreground">Real Manifest Validator API</p>
+                        <p className="text-xs font-bold text-foreground">실제 매니페스트 검증기 API</p>
                         <p className="text-xs text-muted-foreground">
-                          Validates module structures against the live schema and dependencies in real-time.
+                          라이브 스키마와 의존성을 기준으로 모듈 구조를 실시간으로 검증합니다.
                         </p>
                       </div>
                       <Button
@@ -870,9 +872,9 @@ export function ModuleDashboardClient({
                         {valResultsReal.loading ? (
                           <>
                             <RefreshCw className="h-3 w-3 animate-spin mr-1" />
-                            Validating...
+                            검증 중...
                           </>
-                        ) : "Run Manifest Validation"}
+                        ) : "매니페스트 검증 실행"}
                       </Button>
                     </div>
 
@@ -880,7 +882,7 @@ export function ModuleDashboardClient({
                     {valResultsReal.loading && (
                       <div className="flex items-center gap-2 p-3 bg-muted/40 rounded-sm text-xs justify-center animate-pulse">
                         <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
-                        <span className="text-muted-foreground">Checking live schema constraints...</span>
+                        <span className="text-muted-foreground">라이브 스키마 제약 조건을 확인하는 중...</span>
                       </div>
                     )}
 
@@ -897,7 +899,7 @@ export function ModuleDashboardClient({
                             <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
                           )}
                           <span className="font-bold">
-                            {valResultsReal.valid ? "Manifest Schema Check: PASSED" : "Manifest Schema Check: FAILED"}
+                            {valResultsReal.valid ? "매니페스트 스키마 검사: 통과" : "매니페스트 스키마 검사: 실패"}
                           </span>
                         </div>
                         
@@ -909,13 +911,13 @@ export function ModuleDashboardClient({
                           </ul>
                         ) : valResultsReal.valid ? (
                           <p className="text-xs leading-relaxed">
-                            No validation warnings or database mismatches detected. Manifest file structure conforms fully to schema standard.
+                            검증 경고나 데이터베이스 불일치가 감지되지 않았습니다. 매니페스트 파일 구조가 스키마 표준을 완전히 준수합니다.
                           </p>
                         ) : null}
 
                         {valResultsReal.errorMsg && (
                           <p className="text-xs font-mono text-red-600 dark:text-red-400">
-                            Error: {valResultsReal.errorMsg}
+                            오류: {valResultsReal.errorMsg}
                           </p>
                         )}
                       </div>
@@ -923,7 +925,7 @@ export function ModuleDashboardClient({
 
                     {valResultsReal.valid === null && !valResultsReal.loading && (
                       <p className="text-xs text-muted-foreground italic text-center p-1 select-none">
-                        No validation status cached. Trigger manifest validation to run real diagnostic checks.
+                        캐시된 검증 상태가 없습니다. 매니페스트 검증을 실행하여 실제 진단 검사를 수행하세요.
                       </p>
                     )}
                   </div>
@@ -933,13 +935,13 @@ export function ModuleDashboardClient({
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-xs font-bold text-foreground">Quality pipeline checks</p>
+                          <p className="text-xs font-bold text-foreground">품질 파이프라인 검사</p>
                           <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20 font-bold tracking-wider px-1 py-0 uppercase shrink-0">
-                            DEMO ONLY (SIMULATION)
+                            데모 전용 (시뮬레이션)
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Provides simulated test runners, linters, and accessibility analyzers.
+                          시뮬레이션된 테스트 러너, 린터, 접근성 분석기를 제공합니다.
                         </p>
                       </div>
                       <Button
@@ -949,24 +951,24 @@ export function ModuleDashboardClient({
                         disabled={isValidating || activeModule.status === "disabled"}
                         className="h-7 text-xs font-bold px-2.5 rounded-sm border border-border"
                       >
-                        {isValidating ? "Simulating..." : "Run Simulated Gates"}
+                        {isValidating ? "시뮬레이션 중..." : "시뮬레이션 게이트 실행"}
                       </Button>
                     </div>
 
                     {activeModule.status === "disabled" ? (
                       <p className="text-xs text-muted-foreground bg-muted/40 p-3 rounded-md text-center italic">
-                        Quality pipelines are bypassed while the module registry status is disabled.
+                        모듈 레지스트리 상태가 비활성화된 동안에는 품질 파이프라인을 건너뜁니다.
                       </p>
                     ) : (
                       <div className="space-y-2">
                         {(["lint", "test", "build", "security", "a11y"] as const).map((check) => {
                           const state = valResults[check];
-                          const label = 
-                            check === "lint" ? "Linter Syntax Scan (Simulation)" :
-                            check === "test" ? "Unit Test Integration Suite (Simulation)" :
-                            check === "build" ? "NextJS Build Compilations (Simulation)" :
-                            check === "security" ? "Security Dependency Analysis (Simulation)" :
-                            "Axe Accessibility WCAG Contrast Audit (Simulation)";
+                          const label =
+                            check === "lint" ? "린터 구문 스캔 (시뮬레이션)" :
+                            check === "test" ? "단위 테스트 통합 스위트 (시뮬레이션)" :
+                            check === "build" ? "NextJS 빌드 컴파일 (시뮬레이션)" :
+                            check === "security" ? "보안 의존성 분석 (시뮬레이션)" :
+                            "Axe 접근성 WCAG 대비 감사 (시뮬레이션)";
                           
                           const isExpanded = expandedLog === check;
 
@@ -991,12 +993,12 @@ export function ModuleDashboardClient({
                                 <div className="flex items-center gap-1.5">
                                   {state === "passed" && (
                                     <Badge variant="outline" className="rounded-sm text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0 font-bold shrink-0">
-                                      PASSED
+                                      통과
                                     </Badge>
                                   )}
                                   {state === "running" && (
                                     <Badge variant="outline" className="rounded-sm text-[10px] bg-primary/10 text-primary border-primary/20 py-0 animate-pulse font-bold shrink-0">
-                                      RUNNING
+                                      실행 중
                                     </Badge>
                                   )}
                                   {state === "passed" && (
@@ -1005,7 +1007,7 @@ export function ModuleDashboardClient({
                                       className="text-xs text-muted-foreground hover:text-foreground font-mono flex items-center gap-0.5 border border-border rounded-xs px-1 hover:bg-muted bg-background transition-all"
                                     >
                                       <Terminal className="h-2.5 w-2.5" />
-                                      {isExpanded ? "Hide Logs" : "View Logs"}
+                                      {isExpanded ? "로그 숨기기" : "로그 보기"}
                                     </button>
                                   )}
                                 </div>
@@ -1014,7 +1016,7 @@ export function ModuleDashboardClient({
                               {isExpanded && state === "passed" && (
                                 <div className="bg-zinc-950 p-2.5 border-t border-border font-mono text-xs leading-relaxed text-emerald-400 overflow-x-auto whitespace-pre">
                                   <div className="text-zinc-500 select-none block mb-1 font-sans font-semibold tracking-wider text-[10px] uppercase border-b border-zinc-800 pb-0.5">
-                                    [SIMULATED DEVELOPMENT PREVIEW OUTPUT LOG]
+                                    [시뮬레이션된 개발 미리보기 출력 로그]
                                   </div>
                                   {MOCK_VAL_LOGS[check]}
                                 </div>
@@ -1032,10 +1034,10 @@ export function ModuleDashboardClient({
                   <div className="flex items-center justify-between border-b border-border pb-1">
                     <div className="flex items-center gap-1.5">
                       <Settings className="h-4 w-4 text-primary" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">2. Registry Dependencies</h3>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">2. 레지스트리 의존성</h3>
                     </div>
                     <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
-                      Registry Bindings
+                      레지스트리 바인딩
                     </Badge>
                   </div>
 
@@ -1045,9 +1047,9 @@ export function ModuleDashboardClient({
                       return (
                         <div className="text-center p-6 border border-dashed border-border rounded-md bg-muted/10">
                           <Layers className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
-                          <p className="text-xs font-bold text-muted-foreground">No Dependencies Registered</p>
+                          <p className="text-xs font-bold text-muted-foreground">등록된 의존성 없음</p>
                           <p className="text-xs text-muted-foreground/80 mt-0.5">
-                            This core module operates standalone with no external registry prerequisites.
+                            이 코어 모듈은 외부 레지스트리 전제 조건 없이 독립적으로 작동합니다.
                           </p>
                         </div>
                       );
@@ -1058,8 +1060,8 @@ export function ModuleDashboardClient({
                         <table className="w-full text-xs text-left">
                           <thead className="bg-muted text-muted-foreground font-mono text-xs border-b border-border">
                             <tr>
-                              <th className="p-2 font-medium">Required Module Key</th>
-                              <th className="p-2 font-medium text-right">Status</th>
+                              <th className="p-2 font-medium">필수 모듈 키</th>
+                              <th className="p-2 font-medium text-right">상태</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border">
@@ -1076,15 +1078,15 @@ export function ModuleDashboardClient({
                                   <td className="p-2 text-right">
                                     {isMissing ? (
                                       <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-500/20 py-0 font-bold">
-                                        MISSING
+                                        누락
                                       </Badge>
                                     ) : isDisabled ? (
                                       <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-500/20 py-0 font-bold">
-                                        INACTIVE (DISABLED)
+                                        비활성 (비활성화됨)
                                       </Badge>
                                     ) : (
                                       <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0 font-bold">
-                                        ACTIVE & OPERATIONAL
+                                        활성 & 운영 중
                                       </Badge>
                                     )}
                                   </td>
@@ -1103,10 +1105,10 @@ export function ModuleDashboardClient({
                   <div className="flex items-center justify-between border-b border-border pb-1">
                     <div className="flex items-center gap-1.5">
                       <GitBranch className="h-4 w-4 text-primary" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">3. Navigation Routes</h3>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">3. 내비게이션 라우트</h3>
                     </div>
                     <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
-                      Route Mapping
+                      라우트 매핑
                     </Badge>
                   </div>
 
@@ -1116,9 +1118,9 @@ export function ModuleDashboardClient({
                       return (
                         <div className="text-center p-6 border border-dashed border-border rounded-md bg-muted/10">
                           <GitBranch className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
-                          <p className="text-xs font-bold text-muted-foreground">No Direct Navigation Routes</p>
+                          <p className="text-xs font-bold text-muted-foreground">직접 내비게이션 라우트 없음</p>
                           <p className="text-xs text-muted-foreground/80 mt-0.5">
-                            This module is a background system provider with no direct entry point links.
+                            이 모듈은 직접 진입점 링크가 없는 백그라운드 시스템 제공자입니다.
                           </p>
                         </div>
                       );
@@ -1129,10 +1131,10 @@ export function ModuleDashboardClient({
                         <table className="w-full text-xs text-left">
                           <thead className="bg-muted text-muted-foreground font-mono text-xs border-b border-border">
                             <tr>
-                              <th className="p-2 font-medium">Link Descriptor</th>
-                              <th className="p-2 font-medium">App Route</th>
-                              <th className="p-2 font-medium">File Path</th>
-                              <th className="p-2 font-medium text-right">Status</th>
+                              <th className="p-2 font-medium">링크 설명</th>
+                              <th className="p-2 font-medium">앱 라우트</th>
+                              <th className="p-2 font-medium">파일 경로</th>
+                              <th className="p-2 font-medium text-right">상태</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border">
@@ -1156,11 +1158,11 @@ export function ModuleDashboardClient({
                                   <td className="p-2 text-right">
                                     {isInactive ? (
                                       <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-500/20 py-0">
-                                        OFFLINE
+                                        오프라인
                                       </Badge>
                                     ) : (
                                       <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0">
-                                        ONLINE
+                                        온라인
                                       </Badge>
                                     )}
                                   </td>
@@ -1179,19 +1181,19 @@ export function ModuleDashboardClient({
                   <div className="flex items-center justify-between border-b border-border pb-1">
                     <div className="flex items-center gap-1.5">
                       <Layout className="h-4 w-4 text-primary" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">4. UI Layout Blocks</h3>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">4. UI 레이아웃 블록</h3>
                     </div>
                     <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
-                      Mounted Blocks
+                      마운트된 블록
                     </Badge>
                   </div>
 
                   {initialBlocks.filter(b => b.moduleKey === activeModule.moduleKey).length === 0 ? (
                     <div className="text-center p-6 border border-dashed border-border rounded-md bg-muted/10">
                       <Layout className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
-                      <p className="text-xs font-bold text-muted-foreground">No Registered Layout Blocks</p>
+                      <p className="text-xs font-bold text-muted-foreground">등록된 레이아웃 블록 없음</p>
                       <p className="text-xs text-muted-foreground/80 mt-0.5">
-                        This module does not hook UI rendering blocks or layouts.
+                        이 모듈은 UI 렌더링 블록이나 레이아웃을 연결하지 않습니다.
                       </p>
                     </div>
                   ) : (
@@ -1199,8 +1201,8 @@ export function ModuleDashboardClient({
                       <table className="w-full text-xs text-left">
                         <thead className="bg-muted text-muted-foreground font-mono text-xs border-b border-border">
                           <tr>
-                            <th className="p-2 font-medium">Display Name / Key</th>
-                            <th className="p-2 font-medium">Mounted Slots</th>
+                            <th className="p-2 font-medium">표시 이름 / 키</th>
+                            <th className="p-2 font-medium">마운트된 슬롯</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -1216,7 +1218,7 @@ export function ModuleDashboardClient({
                                   </td>
                                   <td className="p-2">
                                     {slots.length === 0 ? (
-                                      <span className="text-muted-foreground/60 italic text-xs font-mono">unassigned</span>
+                                      <span className="text-muted-foreground/60 italic text-xs font-mono">미할당</span>
                                     ) : (
                                       <div className="flex flex-col gap-1">
                                         {slots.map(slot => (
@@ -1244,19 +1246,19 @@ export function ModuleDashboardClient({
                   <div className="flex items-center justify-between border-b border-border pb-1">
                     <div className="flex items-center gap-1.5">
                       <Cpu className="h-4 w-4 text-primary" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">5. Execution Flow Nodes</h3>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">5. 실행 흐름 노드</h3>
                     </div>
                     <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
-                      Flow Nodes
+                      흐름 노드
                     </Badge>
                   </div>
 
                   {initialNodes.filter(n => n.moduleKey === activeModule.moduleKey).length === 0 ? (
                     <div className="text-center p-6 border border-dashed border-border rounded-md bg-muted/10">
                       <Cpu className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
-                      <p className="text-xs font-bold text-muted-foreground">No Registered Flow Nodes</p>
+                      <p className="text-xs font-bold text-muted-foreground">등록된 흐름 노드 없음</p>
                       <p className="text-xs text-muted-foreground/80 mt-0.5">
-                        No background execution flow nodes mapped to this automation component.
+                        이 자동화 구성 요소에 매핑된 백그라운드 실행 흐름 노드가 없습니다.
                       </p>
                     </div>
                   ) : (
@@ -1264,9 +1266,9 @@ export function ModuleDashboardClient({
                       <table className="w-full text-xs text-left">
                         <thead className="bg-muted text-muted-foreground font-mono text-xs border-b border-border">
                           <tr>
-                            <th className="p-2 font-medium">Node Registry Key</th>
-                            <th className="p-2 font-medium">Node Type</th>
-                            <th className="p-2 font-medium">Specifications Schema</th>
+                            <th className="p-2 font-medium">노드 레지스트리 키</th>
+                            <th className="p-2 font-medium">노드 유형</th>
+                            <th className="p-2 font-medium">사양 스키마</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -1296,10 +1298,10 @@ export function ModuleDashboardClient({
                   <div className="flex items-center justify-between border-b border-border pb-1">
                     <div className="flex items-center gap-1.5">
                       <Terminal className="h-4 w-4 text-primary" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">6. Automated Skill Actions</h3>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">6. 자동화 스킬 액션</h3>
                     </div>
                     <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
-                      Runtime Skills
+                      런타임 스킬
                     </Badge>
                   </div>
 
@@ -1309,9 +1311,9 @@ export function ModuleDashboardClient({
                       return (
                         <div className="text-center p-6 border border-dashed border-border rounded-md bg-muted/10">
                           <Terminal className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
-                          <p className="text-xs font-bold text-muted-foreground">No Automated Skills Exposed</p>
+                          <p className="text-xs font-bold text-muted-foreground">노출된 자동화 스킬 없음</p>
                           <p className="text-xs text-muted-foreground/80 mt-0.5">
-                            This module operates entirely via standard workflows with no custom system actions.
+                            이 모듈은 사용자 정의 시스템 액션 없이 전적으로 표준 워크플로를 통해 작동합니다.
                           </p>
                         </div>
                       );
@@ -1331,12 +1333,12 @@ export function ModuleDashboardClient({
                                   {skill.source}
                                 </Badge>
                               </div>
-                              <p className="text-[11px] text-muted-foreground leading-normal">{skill.usage || "No custom usage details specified."}</p>
+                              <p className="text-[11px] text-muted-foreground leading-normal">{skill.usage || "지정된 사용자 정의 사용 정보가 없습니다."}</p>
                             </div>
                             
                             <div className="flex items-center justify-between mt-1 flex-wrap gap-1.5 border-t border-border/40 pt-2 text-xs text-muted-foreground font-mono">
                               <div className="flex items-center gap-1.5">
-                                <span className="uppercase text-[10px] tracking-wider text-zinc-400 select-none">Agents:</span>
+                                <span className="uppercase text-[10px] tracking-wider text-zinc-400 select-none">에이전트:</span>
                                 {skill.agentUsage.map(agent => (
                                   <Badge key={agent} variant="secondary" className="rounded-sm text-[10px] py-0 px-1 font-mono uppercase">
                                     {agent}
@@ -1344,7 +1346,7 @@ export function ModuleDashboardClient({
                                 ))}
                               </div>
                               <div className="flex items-center gap-1">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" role="img" aria-label="Active" />
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" role="img" aria-label="활성" />
                                 <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                                   {skill.status}
                                 </span>
@@ -1362,10 +1364,10 @@ export function ModuleDashboardClient({
                   <div className="flex items-center justify-between border-b border-border pb-1">
                     <div className="flex items-center gap-1.5">
                       <Key className="h-4 w-4 text-primary" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">7. Integration Connectors</h3>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">7. 통합 커넥터</h3>
                     </div>
                     <Badge variant="outline" className="rounded-sm font-mono text-xs uppercase px-1.5 bg-muted">
-                      Credentials Gateway
+                      자격 증명 게이트웨이
                     </Badge>
                   </div>
 
@@ -1373,7 +1375,7 @@ export function ModuleDashboardClient({
                   <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
                     {SYSTEM_CONNECTORS.map((conn) => {
                       const details = getConnectorDetails(conn.key);
-                      const isError = connSuccess[conn.key]?.startsWith("ERROR");
+                      const isError = connSuccess[conn.key]?.startsWith("오류");
                       return (
                         <div 
                           key={conn.key} 
@@ -1394,16 +1396,16 @@ export function ModuleDashboardClient({
                             
                             {/* Credential mode badge */}
                             {details.status === "real" ? (
-                              <Badge variant="outline" className="rounded-sm text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-500 border-emerald-500/20 px-1.5 py-0.5 shrink-0 uppercase tracking-wide">
-                                REAL CREDENTIALS
+                              <Badge variant="outline" className="rounded-sm text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-500 border-emerald-500/20 px-1.5 py-0.5 shrink-0 tracking-wide">
+                                실제 자격 증명
                               </Badge>
                             ) : details.status === "read_only" ? (
-                              <Badge variant="outline" className="rounded-sm text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-500 border-indigo-500/20 px-1.5 py-0.5 shrink-0 uppercase tracking-wide">
-                                READ ONLY
+                              <Badge variant="outline" className="rounded-sm text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-500 border-indigo-500/20 px-1.5 py-0.5 shrink-0 tracking-wide">
+                                읽기 전용
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="rounded-sm text-[10px] font-mono font-bold bg-amber-500/10 text-amber-500 border-amber-500/20 px-1.5 py-0.5 shrink-0 uppercase tracking-wide">
-                                MOCK CREDENTIALS
+                              <Badge variant="outline" className="rounded-sm text-[10px] font-mono font-bold bg-amber-500/10 text-amber-500 border-amber-500/20 px-1.5 py-0.5 shrink-0 tracking-wide">
+                                모의 자격 증명
                               </Badge>
                             )}
                           </div>
@@ -1413,7 +1415,7 @@ export function ModuleDashboardClient({
                             <div className="p-2 bg-red-500/10 border border-red-500/20 text-red-800 dark:text-red-300 rounded-sm text-xs flex items-start gap-1.5">
                               <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                               <span>
-                                <strong>Missing Credential:</strong> Server environment key is not configured. Real gateway processes will fail.
+                                <strong>자격 증명 누락:</strong> 서버 환경 키가 구성되지 않았습니다. 실제 게이트웨이 프로세스가 실패합니다.
                               </span>
                             </div>
                           )}
@@ -1423,7 +1425,7 @@ export function ModuleDashboardClient({
                             <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 rounded-sm text-xs flex items-start gap-1.5">
                               <ShieldAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                               <span>
-                                <strong>Read-Only Warning:</strong> Outgoing mail dispatches are blocked. Write actions are offline.
+                                <strong>읽기 전용 경고:</strong> 발신 메일 전송이 차단됩니다. 쓰기 작업이 오프라인 상태입니다.
                               </span>
                             </div>
                           )}
@@ -1436,18 +1438,18 @@ export function ModuleDashboardClient({
                                 "bg-amber-500"
                               }`} role="img" aria-label={
                                 details.status === "real"
-                                  ? (details.isConfigured ? "Connected active" : "Config missing")
+                                  ? (details.isConfigured ? "연결됨 (활성)" : "구성 누락")
                                   : details.status === "read_only"
-                                    ? (details.isConfigured ? "Read only active" : "Config missing")
-                                    : "Mock mode"
+                                    ? (details.isConfigured ? "읽기 전용 활성" : "구성 누락")
+                                    : "모의 모드"
                               } />
                               <span className={`text-xs font-mono truncate ${isError ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
                                 {connSuccess[conn.key] || (
-                                  details.status === "real" 
-                                    ? (details.isConfigured ? "Connected (Active)" : "Offline (Config Missing)") 
-                                    : details.status === "read_only" 
-                                      ? (details.isConfigured ? "Connected (Read-Only)" : "Offline (Config Missing)") 
-                                      : "Simulated Active (Mock)"
+                                  details.status === "real"
+                                    ? (details.isConfigured ? "연결됨 (활성)" : "오프라인 (구성 누락)")
+                                    : details.status === "read_only"
+                                      ? (details.isConfigured ? "연결됨 (읽기 전용)" : "오프라인 (구성 누락)")
+                                      : "시뮬레이션 활성 (모의)"
                                 )}
                               </span>
                             </div>
@@ -1460,7 +1462,7 @@ export function ModuleDashboardClient({
                                 disabled={testingConnector === conn.key}
                                 className="h-6 text-xs font-bold px-2 rounded-xs"
                               >
-                                {testingConnector === conn.key ? "Testing..." : "Test Ping"}
+                                {testingConnector === conn.key ? "테스트 중..." : "연결 테스트"}
                               </Button>
                               <Button
                                 size="xs"
@@ -1468,7 +1470,7 @@ export function ModuleDashboardClient({
                                 onClick={() => handleToggleConnectorMode(conn.key, details.status)}
                                 className="h-6 text-xs font-bold px-2 rounded-xs"
                               >
-                                Toggle Mode
+                                모드 전환
                               </Button>
                             </div>
                           </div>
