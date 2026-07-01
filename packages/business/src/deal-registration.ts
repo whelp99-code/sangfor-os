@@ -1,5 +1,7 @@
 import { prisma } from "@sangfor/db";
 
+import { recordDealRegistrationDecision } from "./ai-decision-deal-registration";
+
 export async function getDealRegistration(opportunityId: string) {
   return prisma.dealRegistration.findUnique({
     where: { opportunityId },
@@ -50,10 +52,35 @@ export async function upsertDealRegistration(
   if (input.partnerTierMargin !== undefined) data.partnerTierMargin = input.partnerTierMargin;
   if (input.conflictNote !== undefined) data.conflictNote = input.conflictNote;
 
-  return prisma.dealRegistration.upsert({
+  const registration = await prisma.dealRegistration.upsert({
     where: { opportunityId },
     create: { opportunityId, ...data },
     update: { ...data },
     include: { distributor: true },
   });
+
+  // S1: unified decision instrumentation for registration approve/reject
+  // (best-effort, outside any transaction, never throws). Only APPROVED/REJECTED
+  // are treated as human resolution decisions; the helper no-ops otherwise.
+  if (input.regStatus === "APPROVED" || input.regStatus === "REJECTED") {
+    try {
+      const opp = await prisma.opportunity.findUnique({
+        where: { id: opportunityId },
+        select: { projectId: true },
+      });
+      if (opp) {
+        await recordDealRegistrationDecision({
+          projectId: opp.projectId,
+          opportunityId,
+          regStatus: input.regStatus,
+          registrationNumber: registration.registrationNumber,
+        });
+      }
+    } catch (error) {
+      // best-effort: never let instrumentation break the write path.
+      console.error("[upsertDealRegistration] recordDecision failed (swallowed):", error);
+    }
+  }
+
+  return registration;
 }
