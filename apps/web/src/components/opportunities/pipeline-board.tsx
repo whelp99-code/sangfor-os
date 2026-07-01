@@ -1,5 +1,3 @@
-"use client";
-
 import { CANONICAL_STAGES, normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
 import Link from "next/link";
 

@@ -29,27 +29,27 @@ export default async function PocDetailPage({ params }: PageProps) {
       <div>
         <h1 className="text-2xl font-semibold">{project.title}</h1>
         <p className="text-muted-foreground">
-          {project.productName ?? "Product TBD"}
+          {project.productName ?? "제품 미정"}
           {project.productLine ? ` · ${project.productLine}` : ""}
           {" · "}
-          {project.deploymentType ?? "deployment TBD"}
+          {project.deploymentType ?? "배포 방식 미정"}
           {" · "}
-          {project.customer?.name ?? "No customer"}
+          {project.customer?.name ?? "고객 미지정"}
           {project.scheduleAt
-            ? ` · Schedule ${project.scheduleAt.toISOString().slice(0, 10)}`
+            ? ` · 일정 ${project.scheduleAt.toISOString().slice(0, 10)}`
             : ""}
         </p>
       </div>
       <PortalOrchestratorRunPanel
-        title="Phase 13 orchestrator"
-        buttonLabel="Design assumptions / experiments"
+        title="Phase 13 오케스트레이터"
+        buttonLabel="가정 / 실험 설계"
         inputSummary={buildPocOrchestratorSummary(project)}
         sourceEntityType="poc"
         sourceEntityId={project.id}
         module="poc"
       />
       <Card>
-        <CardHeader><CardTitle>Sangfor project details</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Sangfor 프로젝트 상세</CardTitle></CardHeader>
         <CardContent>
           <EditPocForm
             pocId={project.id}
@@ -72,13 +72,13 @@ export default async function PocDetailPage({ params }: PageProps) {
       </Card>
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle>Checklist</CardTitle></CardHeader>
+          <CardHeader><CardTitle>체크리스트</CardTitle></CardHeader>
           <CardContent>
             <PocChecklistActions pocId={project.id} items={project.checklistItems} />
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Requirements</CardTitle></CardHeader>
+          <CardHeader><CardTitle>요구사항</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <PocRequirementForm pocId={project.id} />
             <div className="space-y-2 text-sm">
@@ -96,7 +96,7 @@ export default async function PocDetailPage({ params }: PageProps) {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Events</CardTitle></CardHeader>
+          <CardHeader><CardTitle>이벤트</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <PocEventForm pocId={project.id} />
             <div className="space-y-2 text-sm">
@@ -115,7 +115,7 @@ export default async function PocDetailPage({ params }: PageProps) {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Issues</CardTitle>
+            <CardTitle>이슈</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <PocIssueForm pocId={project.id} />
@@ -130,12 +130,12 @@ export default async function PocDetailPage({ params }: PageProps) {
         </Card>
         <Card className="md:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Result reports</CardTitle>
+            <CardTitle>결과 보고서</CardTitle>
             <GeneratePocReportButton pocId={project.id} />
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             {project.resultReports.length === 0 ? (
-              <p className="text-muted-foreground">No reports yet. Generate from checklist, requirements, and issues.</p>
+              <p className="text-muted-foreground">아직 보고서가 없습니다. 체크리스트, 요구사항, 이슈를 바탕으로 생성하세요.</p>
             ) : (
               project.resultReports.map((report) => (
                 <div key={report.id} className="rounded-md border p-3">

@@ -25,7 +25,7 @@ export default async function CommandDetailPage({ params }: PageProps) {
         </div>
         <div className="flex gap-2">
           <Badge>{run.status}</Badge>
-          {run.risk ? <Badge variant="secondary">Risk: {run.risk.riskLevel}</Badge> : null}
+          {run.risk ? <Badge variant="secondary">위험도: {run.risk.riskLevel}</Badge> : null}
         </div>
       </div>
 
@@ -34,25 +34,25 @@ export default async function CommandDetailPage({ params }: PageProps) {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Intent analysis</CardTitle>
+            <CardTitle>의도 분석</CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
-            {run.intent?.summary ?? "Pending"}
+            {run.intent?.summary ?? "대기 중"}
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Risk analysis</CardTitle>
+            <CardTitle>위험 분석</CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
-            {run.risk ? `${run.risk.riskLevel} risk` : "Pending"}
+            {run.risk ? `${run.risk.riskLevel} 위험` : "대기 중"}
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Execution timeline</CardTitle>
+          <CardTitle>실행 타임라인</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           {timeline.map((item, index) => (
@@ -67,14 +67,14 @@ export default async function CommandDetailPage({ params }: PageProps) {
       {run.codeChanges.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Code changes</CardTitle>
+            <CardTitle>코드 변경</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {run.codeChanges.map((change) => (
               <div key={change.id}>
                 <p>{change.summary}</p>
                 <p className="text-muted-foreground">
-                  {change.changedFiles.length} files · {change.buildRuns[0]?.status ?? "no build"}
+                  {change.changedFiles.length}개 파일 · {change.buildRuns[0]?.status ?? "빌드 없음"}
                 </p>
               </div>
             ))}

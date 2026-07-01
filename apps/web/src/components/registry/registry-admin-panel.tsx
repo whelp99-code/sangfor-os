@@ -26,26 +26,26 @@ export async function RegistryAdminPanel() {
       {/* Main Registries Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <RegistryCard
-          title="Modules"
+          title="모듈"
           rows={data.modules.map((m) => `${m.moduleKey} · v${m.version}`)}
         />
         <RegistryCard
-          title="Blocks"
+          title="블록"
           rows={data.blocks.map((b) => `${b.blockKey} → ${b.moduleKey}`)}
         />
         <RegistryCard
-          title="Queries"
+          title="쿼리"
           rows={data.queries.map((q) => `${q.queryKey} (${q.sourceType})`)}
         />
         <RegistryCard
-          title="Layout slots"
+          title="레이아웃 슬롯"
           rows={data.slots.map(
             (s) =>
               `${s.pageKey}/${s.slotKey} → ${s.block?.blockKey ?? "unassigned"}`,
           )}
         />
         <RegistryCard
-          title="Nodes"
+          title="노드"
           rows={data.nodes.map((n) => `${n.nodeKey} (${n.nodeType})`)}
         />
 
@@ -53,15 +53,15 @@ export async function RegistryAdminPanel() {
         <Card className="rounded-md border border-border shadow-sm">
           <CardHeader className="p-4 border-b border-border">
             <CardTitle className="text-sm font-semibold flex items-center justify-between">
-              <span>Connectors</span>
+              <span>커넥터</span>
               <span className="text-xs text-muted-foreground font-mono">
-                {connectorStates.length} registered
+                {connectorStates.length}개 등록됨
               </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4">
             {connectorStates.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">No connectors registered.</p>
+              <p className="text-xs text-muted-foreground italic">등록된 커넥터가 없습니다.</p>
             ) : (
               <div className="space-y-3">
                 {connectorStates.map((c) => {
@@ -88,8 +88,8 @@ export async function RegistryAdminPanel() {
                             {c.effectiveMode}
                           </Badge>
                           {!c.credentialsPresent && (
-                            <span className="text-xs text-amber-600 bg-amber-500/5 px-1 py-0.2 rounded border border-amber-500/10" title="Missing config / env credentials">
-                              missing credential
+                            <span className="text-xs text-amber-600 bg-amber-500/5 px-1 py-0.2 rounded border border-amber-500/10" title="설정 / 환경 자격 증명 누락">
+                              자격 증명 누락
                             </span>
                           )}
                         </div>
@@ -101,7 +101,7 @@ export async function RegistryAdminPanel() {
                         <div className="text-xs text-muted-foreground leading-relaxed pl-2 border-l border-border mt-0.5">
                           {c.warnings.map((warn, i) => (
                             <div key={i} className="truncate" title={warn}>
-                              <span role="img" aria-label="Warning">⚠️</span> {warn}
+                              <span role="img" aria-label="경고">⚠️</span> {warn}
                             </div>
                           ))}
                         </div>
@@ -126,7 +126,7 @@ function RegistryCard({ title, rows }: { title: string; rows: string[] }) {
       </CardHeader>
       <CardContent className="p-4">
         {rows.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">No entries registered.</p>
+          <p className="text-xs text-muted-foreground italic">등록된 항목이 없습니다.</p>
         ) : (
           <ul className="space-y-1 text-xs text-muted-foreground font-mono">
             {rows.map((row) => (

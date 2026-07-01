@@ -218,11 +218,17 @@ const isEntrypoint = process.argv[1] === fileURLToPath(import.meta.url);
 
 if (isEntrypoint) {
   const app = createApp();
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`🚀 AIOS API Server running on port ${PORT}`);
     console.log(`   tRPC: http://localhost:${PORT}/trpc`);
     console.log(`   Health: http://localhost:${PORT}/health`);
     console.log(`   Health (api): http://localhost:${PORT}/api/health`);
+  });
+
+  // Handle server-level errors (e.g. EADDRINUSE, EACCES) so an unhandled
+  // 'error' event does not crash the process.
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    console.error(`[Server] listen error on port ${PORT}:`, err.code ?? err.message, err);
   });
 }
 

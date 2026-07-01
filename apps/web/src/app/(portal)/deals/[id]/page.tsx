@@ -254,7 +254,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
             }}
           />
           <Card>
-            <CardHeader><CardTitle>Stage history</CardTitle></CardHeader>
+            <CardHeader><CardTitle>단계 이력</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               {opportunity.stageEvents.length === 0 ? (
                 <p className="text-muted-foreground">이력 없음</p>
@@ -316,7 +316,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         {/* 연락처 tab: linked entities + mail evidence */}
         <TabsContent value="연락처" className="space-y-4 pt-4">
           <Card>
-            <CardHeader><CardTitle>Linked entities</CardTitle></CardHeader>
+            <CardHeader><CardTitle>연결 항목</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <AddOpportunityLinkForm
                 opportunityId={opportunity.id}
@@ -329,7 +329,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
               />
               <div className="space-y-2 text-sm">
                 {enrichedLinks.length === 0 ? (
-                  <p className="text-muted-foreground">No links yet.</p>
+                  <p className="text-muted-foreground">아직 연결된 항목이 없습니다.</p>
                 ) : (
                   enrichedLinks.map((link) => (
                     <div key={link.id} className="flex items-center justify-between gap-2">
@@ -434,8 +434,8 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
       <div className="space-y-4">
         <DealAiRail stage={stage} />
         <PortalOrchestratorRunPanel
-          title="Phase 13 orchestrator"
-          buttonLabel="Run orchestrator"
+          title="Phase 13 오케스트레이터"
+          buttonLabel="오케스트레이터 실행"
           inputSummary={buildOpportunityOrchestratorSummary(opportunity)}
           sourceEntityType="opportunity"
           sourceEntityId={opportunity.id}

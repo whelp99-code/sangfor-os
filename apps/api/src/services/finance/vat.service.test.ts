@@ -144,6 +144,36 @@ describe.skipIf(!integration)('VatService.calculateVat (integration)', () => {
       },
     });
     createdExpenseIds.push(eTaxInvoiceProof.id);
+
+    // Paid expense with proofType "카드전표" — the ONLY thing that should count as
+    // a card purchase (Round 10 MED). supply 30,000 / VAT 3,000.
+    const cardProof = await prisma.expense.create({
+      data: {
+        expenseName: 'card-slip-proof',
+        amount: 30_000,
+        vat: 3_000,
+        total: 33_000,
+        date: inPeriod,
+        isPaid: true,
+        proofType: '카드전표',
+      },
+    });
+    createdExpenseIds.push(cardProof.id);
+
+    // Paid expense with proofType "현금영수증" — deductible, but NOT a card purchase.
+    // supply 20,000 / VAT 2,000.
+    const cashReceiptProof = await prisma.expense.create({
+      data: {
+        expenseName: 'cash-receipt-proof',
+        amount: 20_000,
+        vat: 2_000,
+        total: 22_000,
+        date: inPeriod,
+        isPaid: true,
+        proofType: '현금영수증',
+      },
+    });
+    createdExpenseIds.push(cashReceiptProof.id);
   });
 
   afterAll(async () => {
@@ -157,16 +187,44 @@ describe.skipIf(!integration)('VatService.calculateVat (integration)', () => {
 
   it('includes "세금계산서" proof expenses in purchase VAT deduction (B3 fix)', async () => {
     const r = await service.calculateVat(YEAR, HALF);
-    // 세금계산서 (10,000) + 전자세금계산서 (5,000) both counted.
-    expect(r.purchaseVat).toBe(15_000);
-    expect(r.purchaseCount).toBe(2);
+    // All 4 deductible expenses counted in purchase VAT:
+    // 세금계산서 10,000 + 전자세금계산서 5,000 + 카드전표 3,000 + 현금영수증 2,000 = 20,000.
+    expect(r.purchaseVat).toBe(20_000);
+    expect(r.purchaseCount).toBe(4);
   });
 
   it('represents refund (purchase > sales) instead of clamping to 0', async () => {
     const r = await service.calculateVat(YEAR, HALF);
-    // sales VAT 1,000 - purchase VAT 15,000 = -14,000 payable (refund).
+    // sales VAT 1,000 - purchase VAT 20,000 = -19,000 payable (refund).
     expect(r.salesVat).toBe(1_000);
-    expect(r.payableVat).toBe(-14_000);
-    expect(r.refundableVat).toBe(14_000);
+    expect(r.payableVat).toBe(-19_000);
+    expect(r.refundableVat).toBe(19_000);
+  });
+
+  it('classifies ONLY proofType="카드전표" as card purchase (Round 10 MED)', async () => {
+    const r = await service.calculateVat(YEAR, HALF);
+    // Only the 카드전표 expense (supply 30,000) is a card purchase — not the
+    // 세금계산서/전자세금계산서/현금영수증 rows that a live empty tax_invoices table
+    // would previously have mislabeled as card purchases.
+    expect(r.cardPurchaseSupply).toBe(30_000);
+    expect(r.cardPurchaseCount).toBe(1);
+  });
+
+  it('routes 세금계산서/전자세금계산서/현금영수증 into purchase (non-card) buckets', async () => {
+    const r = await service.calculateVat(YEAR, HALF);
+    // Total purchase supply = 100,000 + 50,000 + 30,000 + 20,000 = 200,000.
+    // Card supply is 30,000; the remaining 170,000 is non-card and must NOT be
+    // double-counted as card.
+    expect(r.purchaseSupply).toBe(200_000);
+    expect(r.purchaseSupply - r.cardPurchaseSupply).toBe(170_000);
+  });
+
+  it('exposes proofBackedPurchaseCount (matched alias) as deductible-proof purchase count', async () => {
+    const r = await service.calculateVat(YEAR, HALF);
+    // 0 transmitted purchase tax invoices + 4 deductible expenses = 4.
+    expect(r.proofBackedPurchaseCount).toBe(4);
+    expect(r.matched).toBe(r.proofBackedPurchaseCount); // backward-compat alias
+    expect(r.proofMissingCount).toBe(r.unmatched); // backward-compat alias
+    expect(r.proofMissingCount).toBeGreaterThanOrEqual(0);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 
@@ -127,17 +127,19 @@ export default function MailIntelligencePage() {
     load();
   }, []);
 
-  // Total candidates across all type/status buckets (real DB groupBy count).
-  const totalCandidates = report
-    ? report.candidatesByType.reduce((sum, c) => sum + c._count, 0)
-    : null;
-
-  // Converted entities = candidates whose lifecycle reached "converted".
-  const convertedTotal = report
-    ? report.candidatesByType
-        .filter((c) => c.status === "converted")
-        .reduce((sum, c) => sum + c._count, 0)
-    : null;
+  // Fold the candidate buckets in a single pass per report change:
+  //  - totalCandidates: all type/status buckets (real DB groupBy count)
+  //  - convertedTotal: candidates whose lifecycle reached "converted"
+  const { totalCandidates, convertedTotal } = useMemo(() => {
+    if (!report) return { totalCandidates: null, convertedTotal: null };
+    let total = 0;
+    let converted = 0;
+    for (const c of report.candidatesByType) {
+      total += c._count;
+      if (c.status === "converted") converted += c._count;
+    }
+    return { totalCandidates: total, convertedTotal: converted };
+  }, [report]);
 
   const entityBreakdown = report
     ? `고객 ${report.entities.customers} · 파트너 ${report.entities.partners} · 기회 ${report.entities.opportunities} · 작업 ${report.entities.tasks}`

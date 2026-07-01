@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DollarSign, Phone, Clock, FileText, RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -70,7 +70,18 @@ export default function SalesDashboardPage() {
     fetchData();
   }, []);
 
-  const totalPipeline = data?.pipeline.reduce((s, o) => s + o.value, 0) ?? 0;
+  // Derive pipeline aggregates once per data change (single pass over pipeline)
+  // rather than re-running reduce + filter().length on every render.
+  const { totalPipeline, quoteStageCount } = useMemo(() => {
+    const rows = data?.pipeline ?? [];
+    let total = 0;
+    let quoteCount = 0;
+    for (const o of rows) {
+      total += o.value;
+      if (o.stage === "quote") quoteCount += 1;
+    }
+    return { totalPipeline: total, quoteStageCount: quoteCount };
+  }, [data]);
 
   return (
     <AIWorkspaceLayout
@@ -185,7 +196,7 @@ export default function SalesDashboardPage() {
                 {data ? (
                   <>
                     <MetricRow label="$50K+ 견적 딜" value={String(data.riskDeals)} />
-                    <MetricRow label="단계 변경" value={String(data.pipeline.filter((o) => o.stage === "quote").length)} />
+                    <MetricRow label="단계 변경" value={String(quoteStageCount)} />
                   </>
                 ) : null}
               </CardContent>
