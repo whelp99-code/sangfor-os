@@ -9,6 +9,8 @@ import {
   regStatusMeta,
   regStatusBadgeVariant,
 } from "@/components/deals/reg-status";
+import { formatDate } from "@/lib/format-date";
+import { formatKRWShort } from "@/lib/format-krw";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -59,17 +61,7 @@ const QUOTE_STATUS_VARIANT: Record<
 function formatAmount(value: string): string {
   const num = Number(value);
   if (!Number.isFinite(num)) return value;
-  if (num >= 100_000_000)
-    return `${(num / 100_000_000).toFixed(1)}억`;
-  if (num >= 10_000)
-    return `${Math.round(num / 10_000).toLocaleString("ko-KR")}만`;
-  return num.toLocaleString("ko-KR");
-}
-
-function formatDate(value: Date | string): string {
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10);
+  return formatKRWShort(num);
 }
 
 /**

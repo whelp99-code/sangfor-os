@@ -6,6 +6,7 @@ import { stageLabel } from "@/components/deals/stage-meta";
 import { DealDetailSection } from "@/components/deals/deal-detail-section";
 import { InlineField } from "@/components/deals/inline-field";
 import { regStatusMeta, regStatusInlineClasses } from "@/components/deals/reg-status";
+import { formatDate } from "@/lib/format-date";
 
 // ---------------------------------------------------------------------------
 // Explicit type matching the shape returned by getOpportunityDetail.
@@ -98,13 +99,6 @@ function formatAmount(value: { toString(): string } | number | null | undefined)
     currency: "KRW",
     maximumFractionDigits: 0,
   }).format(n);
-}
-
-function formatDate(value: Date | string | null | undefined): string {
-  if (!value) return "—";
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toISOString().slice(0, 10);
 }
 
 function formatDealType(value: string | null | undefined): string {
@@ -367,11 +361,11 @@ export function DealDetail({ opportunity }: DealDetailProps) {
           />
           <InlineField
             label="마감/납품"
-            value={formatDate(opp.closeDate)}
+            value={formatDate(opp.closeDate, "—")}
             field="closeDate"
             inputType="date"
             opportunityId={id}
-            rawValue={opp.closeDate != null ? formatDate(opp.closeDate) : null}
+            rawValue={opp.closeDate != null ? formatDate(opp.closeDate, "—") : null}
           />
         </DealDetailSection>
 

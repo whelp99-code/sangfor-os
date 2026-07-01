@@ -10,8 +10,9 @@ const ACTIVITIES: { id: string; time: string; icon?: React.ReactNode; text: stri
 const STATS: { label: string; value: string; type: "success" | "warning" | "error" | "default" }[] = []
 
 export default function ColorAgentsPage() {
-  const handleCommand = (cmd: string) => {
-    console.log("[ColorAgents] Command:", cmd)
+  const handleCommand = (_cmd: string) => {
+    // TODO(oma-deferred): wire the Color Agents AI assistant when the endpoint is provisioned.
+    return "AI 어시스턴트는 준비 중입니다"
   }
 
   return (

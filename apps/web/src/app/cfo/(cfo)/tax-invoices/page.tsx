@@ -710,6 +710,8 @@ export default function TaxInvoicesPage() {
 
       {/* Tab strip */}
       <div
+        role="tablist"
+        aria-label="세금계산서 구분"
         className="flex gap-1 rounded-lg p-1"
         style={{ background: CFO.paper, border: `1px solid ${CFO.hairline}`, width: "fit-content" }}
       >
@@ -718,6 +720,12 @@ export default function TaxInvoicesPage() {
           return (
             <button
               key={t}
+              type="button"
+              role="tab"
+              id={`tax-tab-${t}`}
+              aria-selected={active}
+              aria-current={active ? "page" : undefined}
+              aria-controls={`tax-panel-${t}`}
               onClick={() => setTab(t)}
               className="rounded-md px-4 py-1.5 text-sm font-medium transition-colors"
               style={{
@@ -731,7 +739,13 @@ export default function TaxInvoicesPage() {
         })}
       </div>
 
-      {tab === "purchase" ? <PurchaseSection /> : <SalesSection />}
+      <div
+        role="tabpanel"
+        id={`tax-panel-${tab}`}
+        aria-labelledby={`tax-tab-${tab}`}
+      >
+        {tab === "purchase" ? <PurchaseSection /> : <SalesSection />}
+      </div>
     </div>
   );
 }

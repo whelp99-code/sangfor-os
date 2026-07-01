@@ -29,8 +29,9 @@ export function PocIssueForm({ pocId }: { pocId: string }) {
 
   return (
     <form className="flex flex-wrap gap-2" onSubmit={onSubmit}>
-      <Input placeholder="Issue title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+      <Input aria-label="Issue title" placeholder="Issue title" value={title} onChange={(e) => setTitle(e.target.value)} required />
       <select
+        aria-label="Severity"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={severity}
         onChange={(e) => setSeverity(e.target.value)}
@@ -73,6 +74,7 @@ export function PocIssueRow({
       <div className="flex items-center gap-2">
         <Badge variant="secondary">{issue.severity}</Badge>
         <select
+          aria-label={`${issue.title} 상태`}
           className="h-8 rounded-md border bg-background px-2 text-xs"
           value={status}
           disabled={loading}

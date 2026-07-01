@@ -9,10 +9,18 @@ import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 interface AICommandBarProps {
-  onSend: (command: string) => void
+  /**
+   * Handle a submitted command. May return (or resolve to) a status message
+   * that is surfaced in the toast; when nothing is returned a neutral default
+   * is shown. Returning a message lets callers report honest state (e.g. an
+   * "in preparation" notice) instead of a misleading "sent" confirmation.
+   */
+  onSend: (command: string) => void | string | Promise<void | string>
   disabled?: boolean
   placeholder?: string
 }
+
+const DEFAULT_TOAST_MESSAGE = "AI 어시스턴트는 준비 중입니다"
 
 function Toast({ message, visible, onClose }: { message: string; visible: boolean; onClose: () => void }) {
   React.useEffect(() => {
@@ -38,6 +46,7 @@ function Toast({ message, visible, onClose }: { message: string; visible: boolea
 export function AICommandBar({ onSend, disabled, placeholder = "AI 보조 명령을 입력하세요..." }: AICommandBarProps) {
   const [value, setValue] = React.useState("")
   const [loading, setLoading] = React.useState(false)
+  const [toastMessage, setToastMessage] = React.useState("")
   const [sent, setSent] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
 
@@ -47,7 +56,8 @@ export function AICommandBar({ onSend, disabled, placeholder = "AI 보조 명령
 
     setLoading(true)
     try {
-      await onSend(trimmed)
+      const result = await onSend(trimmed)
+      setToastMessage(typeof result === "string" && result ? result : DEFAULT_TOAST_MESSAGE)
       setValue("")
       setSent(true)
       inputRef.current?.focus()
@@ -68,7 +78,7 @@ export function AICommandBar({ onSend, disabled, placeholder = "AI 보조 명령
 
   return (
     <Card className="relative">
-      <Toast message="명령 전송됨" visible={sent} onClose={() => setSent(false)} />
+      <Toast message={toastMessage} visible={sent} onClose={() => setSent(false)} />
       <CardContent className="flex items-center gap-2 py-3">
         <Input
           ref={inputRef}

@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/table";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format-date";
+import { formatKRWShort } from "@/lib/format-krw";
 
 // ---------------------------------------------------------------------------
 // Types — all Decimal fields serialised to string at the page boundary.
@@ -62,19 +64,7 @@ function formatAmount(value: string | null, ratio: number): string {
   if (!value) return `${Math.round(ratio * 100)}%`;
   const total = Number(value);
   if (!Number.isFinite(total) || total <= 0) return `${Math.round(ratio * 100)}%`;
-  const share = total * ratio;
-  if (share >= 100_000_000)
-    return `${(share / 100_000_000).toFixed(2)}억`;
-  if (share >= 10_000)
-    return `${Math.round(share / 10_000).toLocaleString("ko-KR")}만`;
-  return share.toLocaleString("ko-KR");
-}
-
-function formatDate(value: Date | string | null): string {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10);
+  return formatKRWShort(total * ratio, 2);
 }
 
 // ---------------------------------------------------------------------------

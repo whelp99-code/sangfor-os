@@ -75,8 +75,9 @@ export function EditOpportunityForm({
 
   return (
     <form className="grid gap-2 sm:grid-cols-2" onSubmit={onSubmit}>
-      <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
+      <Input aria-label="Opportunity title" value={title} onChange={(e) => setTitle(e.target.value)} required />
       <select
+        aria-label="Stage"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={stage}
         onChange={(e) => setStage(e.target.value)}
@@ -86,6 +87,7 @@ export function EditOpportunityForm({
         ))}
       </select>
       <select
+        aria-label="Customer"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={customerId}
         onChange={(e) => setCustomerId(e.target.value)}
@@ -96,6 +98,7 @@ export function EditOpportunityForm({
         ))}
       </select>
       <select
+        aria-label="Partner"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={partnerId}
         onChange={(e) => setPartnerId(e.target.value)}
@@ -105,10 +108,10 @@ export function EditOpportunityForm({
           <option key={p.id} value={p.id}>{p.label}</option>
         ))}
       </select>
-      <Input type="number" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
-      <Input type="number" min={0} max={100} value={probability} onChange={(e) => setProbability(e.target.value)} />
-      <Input type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
-      <Input placeholder="Next action" value={nextAction} onChange={(e) => setNextAction(e.target.value)} />
+      <Input aria-label="Amount" type="number" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      <Input aria-label="Probability %" type="number" min={0} max={100} value={probability} onChange={(e) => setProbability(e.target.value)} />
+      <Input aria-label="Close date" type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
+      <Input aria-label="Next action" placeholder="Next action" value={nextAction} onChange={(e) => setNextAction(e.target.value)} />
       <Button type="submit" size="sm" disabled={loading} className="sm:col-span-2">
         {loading ? "Saving..." : "Save opportunity"}
       </Button>

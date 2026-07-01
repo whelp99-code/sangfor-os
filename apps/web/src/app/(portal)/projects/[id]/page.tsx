@@ -7,9 +7,9 @@ import { LaneDecisionControls } from "@/components/hub/lane-decision-controls";
 import { LaneGenerateButton } from "@/components/hub/lane-generate-button";
 import { CreateTaskForm } from "@/components/tasks/create-task-form";
 import { TaskBoard } from "@/components/tasks/task-board";
+import { won } from "@/lib/format-krw";
 
 type PageProps = { params: Promise<{ id: string }> };
-const won = (n?: number) => `₩${(n ?? 0).toLocaleString()}`;
 const DOMAIN_LABEL: Record<string, string> = { marketing: "마케팅", sales: "세일즈", presales: "프리세일즈", engineer: "엔지니어", cfo: "CFO" };
 const DOT: Record<string, string> = { done: "●", active: "◐", pending: "○" };
 

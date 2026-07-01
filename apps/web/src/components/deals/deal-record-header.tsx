@@ -4,6 +4,7 @@ import { ArrowRight, CalendarDays, CircleDollarSign, Handshake, ShieldCheck, Tar
 import { formatKRWCompact, stageDisplay } from "@/components/deals/stage-meta";
 import { regStatusMeta } from "@/components/deals/reg-status";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format-date";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,12 +53,6 @@ function formatAmount(value: number | string | null | undefined) {
   return Number.isFinite(numeric) ? formatKRWCompact(numeric) : String(value);
 }
 
-function formatDate(value: string | Date | null | undefined) {
-  if (!value) return "미정";
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "미정";
-  return date.toISOString().slice(0, 10);
-}
 
 /**
  * Resolve semantic Tailwind token classes for each deal-reg gate tone.
@@ -202,7 +197,7 @@ export function DealRecordHeader({
           <dt className="text-xs text-muted-foreground">마감 예정</dt>
           <dd className="mt-1 inline-flex items-center gap-1 font-semibold">
             <CalendarDays className="size-3.5 text-muted-foreground" aria-hidden="true" />
-            {formatDate(closeDate)}
+            {formatDate(closeDate, "미정")}
           </dd>
         </div>
 

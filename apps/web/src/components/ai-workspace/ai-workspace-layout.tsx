@@ -19,7 +19,7 @@ interface AIWorkspaceLayoutProps {
   subtitle?: string
   activities: ActivityItem[]
   stats?: StatItem[]
-  onCommand?: (cmd: string) => void
+  onCommand?: (cmd: string) => void | string | Promise<void | string>
   children: React.ReactNode
 }
 

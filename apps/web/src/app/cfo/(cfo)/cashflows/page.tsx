@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import CrudTable from "@/components/cfo/crud-table";
 import { BankCsvImport } from "@/components/cfo/bank-csv-import";
+import { won } from "@/lib/format-krw";
 
 const CASHFLOW_FIELDS = [
   { name: "counterparty", label: "거래처", type: "text" as const, required: true },
@@ -45,8 +46,6 @@ const CASHFLOW_FIELDS = [
   { name: "memo", label: "메모", type: "text" as const },
 ];
 
-const wonC = (v: number) => `₩${(v ?? 0).toLocaleString()}`;
-
 // Columns mirror the Notion "자금흐름 DB" view:
 // 프로젝트, 거래처, 유형, 일자, 금액, 현금변동, 입금계좌, 출금계좌, 메모
 const CASHFLOW_COLUMNS = [
@@ -74,11 +73,11 @@ const CASHFLOW_COLUMNS = [
     label: "일자",
     format: (v: string) => (v ? new Date(v).toLocaleDateString("ko-KR") : "-"),
   },
-  { key: "amount", label: "금액", format: wonC },
+  { key: "amount", label: "금액", format: won },
   {
     key: "cashChange",
     label: "현금변동",
-    format: (v: number) => <span className={(v ?? 0) < 0 ? "text-red-600" : "text-green-600"}>{wonC(v)}</span>,
+    format: (v: number) => <span className={(v ?? 0) < 0 ? "text-red-600" : "text-green-600"}>{won(v)}</span>,
   },
   { key: "inAccount", label: "입금계좌", format: (v: string) => v || "-" },
   { key: "outAccount", label: "출금계좌", format: (v: string) => v || "-" },

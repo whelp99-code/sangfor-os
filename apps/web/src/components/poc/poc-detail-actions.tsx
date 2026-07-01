@@ -24,7 +24,7 @@ export function PocRequirementForm({ pocId }: Props) {
 
   return (
     <form className="flex gap-2" onSubmit={onSubmit}>
-      <Input placeholder="Requirement label" value={label} onChange={(e) => setLabel(e.target.value)} required />
+      <Input aria-label="Requirement label" placeholder="Requirement label" value={label} onChange={(e) => setLabel(e.target.value)} required />
       <Button type="submit" size="sm" disabled={loading}>Add</Button>
     </form>
   );
@@ -48,8 +48,8 @@ export function PocEventForm({ pocId }: Props) {
 
   return (
     <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSubmit}>
-      <Input placeholder="Event type" value={eventType} onChange={(e) => setEventType(e.target.value)} />
-      <Input placeholder="Summary" value={summary} onChange={(e) => setSummary(e.target.value)} required />
+      <Input aria-label="Event type" placeholder="Event type" value={eventType} onChange={(e) => setEventType(e.target.value)} />
+      <Input aria-label="Summary" placeholder="Summary" value={summary} onChange={(e) => setSummary(e.target.value)} required />
       <Button type="submit" size="sm" disabled={loading}>Log event</Button>
     </form>
   );

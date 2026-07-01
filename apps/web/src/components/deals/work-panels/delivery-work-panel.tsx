@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format-date";
 
 // ---------------------------------------------------------------------------
 // Types — all Date fields serialised to string at the page boundary.
@@ -51,12 +52,6 @@ const DELIVERY_GATES: GateDef[] = [
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDate(value: Date | string | null): string {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10);
-}
 
 function isDone(status: string): boolean {
   return status === "done" || status === "completed";

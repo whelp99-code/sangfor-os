@@ -118,15 +118,38 @@ export function DataTable<T extends Record<string, any>>({
         <Table>
           <TableHeader>
             <TableRow>
-              {columns.map((col) => (
+              {columns.map((col) => {
+                const isSortable = Boolean(col.sortable && sortable)
+                const ariaSort: "ascending" | "descending" | "none" | undefined = isSortable
+                  ? sortColumn === col.id
+                    ? sortDirection === "asc"
+                      ? "ascending"
+                      : "descending"
+                    : "none"
+                  : undefined
+                return (
                 <TableHead
                   key={col.id}
+                  aria-sort={ariaSort}
                   className={cn(
                     "text-xs font-medium text-muted-foreground",
-                    col.sortable && sortable && "cursor-pointer select-none hover:text-foreground",
+                    isSortable && "cursor-pointer select-none hover:text-foreground",
                     col.cellClassName,
                   )}
-                  onClick={() => col.sortable && sortable && handleSort(col.id)}
+                  {...(isSortable
+                    ? {
+                        role: "button" as const,
+                        tabIndex: 0,
+                        "aria-label": `${col.label} 정렬`,
+                        onClick: () => handleSort(col.id),
+                        onKeyDown: (e: React.KeyboardEvent<HTMLTableCellElement>) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault()
+                            handleSort(col.id)
+                          }
+                        },
+                      }
+                    : {})}
                 >
                   <div className="flex items-center gap-1">
                     {col.label}
@@ -140,7 +163,8 @@ export function DataTable<T extends Record<string, any>>({
                     )}
                   </div>
                 </TableHead>
-              ))}
+                )
+              })}
             </TableRow>
           </TableHeader>
           <TableBody>
