@@ -23,9 +23,9 @@ export function LaneGenerateButton({ projectId, domain }: { projectId: string; d
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain }),
       });
-      const data = await res.json();
-      if (data.error) {
-        setError(data.error);
+      const data = await res.json().catch(() => ({}) as { error?: string });
+      if (!res.ok || data.error) {
+        setError(data.error ?? `요청 실패 (HTTP ${res.status})`);
       } else {
         setSuccess(true);
         router.refresh();

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from './trpc';
 import { prisma } from '@sangfor/db';
-import { calculateBantScore, calculateQuote, normalizeOpportunityStage, routeColorAgents, submitCommercialApproval } from '@sangfor/business';
+import { calculateBantScore, calculateQuote, normalizeOpportunityStage, routeColorAgents, submitCommercialApproval, validateOpportunityStageOrder, validateRegistrationGate } from '@sangfor/business';
 import { evaluateQuality, releaseGatePassed } from '@sangfor/business';
 
 export const businessRouter = router({
@@ -268,10 +268,34 @@ export const businessRouter = router({
         data: { status: "completed", completedAt: new Date() },
       });
       if (project.opportunityId) {
-        await prisma.opportunity.update({
+        // Don't blindly force the linked opportunity to WON: validate the
+        // stage order and the deal-registration gate first, mirroring the
+        // wired advance path. This prevents an illegal stage skip (e.g. a
+        // still-LEAD opportunity) or a WON with an unresolved registration
+        // from being written silently as a side effect of delivery.
+        const opp = await prisma.opportunity.findUnique({
           where: { id: project.opportunityId },
-          data: { stage: "WON" },
+          include: { dealRegistration: { select: { regStatus: true } } },
         });
+        if (opp) {
+          const order = validateOpportunityStageOrder(opp.stage, "WON");
+          if (!order.allowed) {
+            throw new Error(`illegal_stage_transition:${order.reason}`);
+          }
+          const gate = validateRegistrationGate({
+            from: opp.stage,
+            to: "WON",
+            dealType: opp.dealType,
+            regStatus: opp.dealRegistration?.regStatus ?? null,
+          });
+          if (!gate.allowed) {
+            throw new Error(`registration_gate:${gate.reason}`);
+          }
+          await prisma.opportunity.update({
+            where: { id: project.opportunityId },
+            data: { stage: "WON" },
+          });
+        }
       }
       const asset = await prisma.customerAsset.create({
         data: { customerId: input.customerId, name: input.assetName, assetType: "product", status: "active" },

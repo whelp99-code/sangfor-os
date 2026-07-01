@@ -57,9 +57,9 @@ export function RevenueApprovalFilters({
     <div className="space-y-4 rounded-lg border bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-medium">Revenue approval filters</h3>
+          <h3 className="font-medium">매출 승인 필터</h3>
           <p className="text-sm text-muted-foreground">
-            Narrow commercial approval metadata by owner, type, and approval status.
+            담당자, 유형, 승인 상태로 매출 승인 항목을 좁혀 조회합니다.
           </p>
         </div>
         <Badge variant="outline">

@@ -130,9 +130,9 @@ export default function SalesDashboardPage() {
               <CardContent className="space-y-2">
                 {data ? (
                   data.followUp > 0 ? (
-                    <MetricRow label="Discovery 후속 조치" value={String(data.followUp)} />
+                    <MetricRow label="발굴 후속 조치" value={String(data.followUp)} />
                   ) : (
-                    <p className="py-4 text-center text-sm text-muted-foreground">오늘 예정된 follow-up 없음</p>
+                    <p className="py-4 text-center text-sm text-muted-foreground">오늘 예정된 후속 조치 없음</p>
                   )
                 ) : null}
               </CardContent>

@@ -18,7 +18,15 @@ type Kpi = {
   cashRunwayMonths: number | null;
 };
 type TrendPoint = { year: number; month: number; revenue: number; expense: number };
-type Forecast = { currentCash: number; forecast: { date: string; balance: number }[] };
+type Forecast = {
+  currentCash: number | null;
+  forecast: { date: string; balance: number | null }[];
+  // 예측 정직 플래그 — 서버가 근거 부족·앵커 시차를 그대로 전달한다.
+  insufficientData: boolean;
+  anchorSkewWarning: boolean;
+  anchorSkewDays: number;
+  anchorDate: string | null;
+};
 // 미수금·프로젝트손익은 서버에서 집계해 결과만 받는다(과거엔 invoices/expenses 500건씩
 // 받아 클라에서 돌렸음 — over-fetch 제거).
 type Receivables = {
@@ -101,8 +109,29 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {/* Forecast honesty notice — surface the server's own confidence flags so
+          the 90-day projection is never read as a hard number when its basis is
+          thin (no recent ledger) or the revenue/expense windows are skewed. */}
+      {(forecast.insufficientData || forecast.anchorSkewWarning) && (
+        <div
+          role="note"
+          className="rounded-lg p-3 text-sm"
+          style={{ background: CFO.paper, border: `1px solid ${CFO.brass}66`, color: CFO.ink }}
+        >
+          <span
+            className="mr-2 inline-block rounded-sm px-1.5 py-0.5 font-mono text-[11px]"
+            style={{ border: `1px solid ${CFO.brass}`, color: CFO.brass }}
+          >
+            예측 참고용
+          </span>
+          {forecast.insufficientData
+            ? "최근 30일 매출·비용 데이터가 없어 예측 근거가 부족합니다. 아래 자금흐름 예측선은 현재 현금 기준 평선으로, 참고용입니다."
+            : `매출·비용 기준일 시차 ${forecast.anchorSkewDays}일 — 두 기간의 런레이트를 서로 다른 시점에서 산출했습니다. 예측선은 참고용입니다.`}
+        </div>
+      )}
+
       {/* Hero — the signature runway gauge */}
-      <RunwayGauge months={kpi.cashRunwayMonths} currentCash={forecast.currentCash} />
+      <RunwayGauge months={kpi.cashRunwayMonths} currentCash={forecast.currentCash ?? 0} />
 
       {/* Ledger KPI strip — hairline-divided, monospaced figures */}
       <section className="grid grid-cols-2 gap-px overflow-hidden rounded-xl md:grid-cols-3 lg:grid-cols-6" style={{ background: CFO.hairline }}>
@@ -119,7 +148,7 @@ export default async function DashboardPage() {
         <Panel title="월별 매출 · 비용 · 순이익" className="lg:col-span-2">
           <MonthlyPnlChart data={trend} />
         </Panel>
-        <Panel title="자금흐름 예측 (90일)" subtitle={`현재 ${krw(forecast.currentCash)}`}>
+        <Panel title="자금흐름 예측 (90일)" subtitle={`현재 ${krw(forecast.currentCash ?? 0)}`}>
           <CashflowForecastChart data={forecast.forecast} />
         </Panel>
       </section>

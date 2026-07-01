@@ -15,7 +15,7 @@ import {
 } from "recharts";
 
 type TrendPoint = { year: number; month: number; revenue: number; expense: number };
-type ForecastPoint = { date: string; balance: number };
+type ForecastPoint = { date: string; balance: number | null };
 
 const krwCompact = (n: number) => {
   const sign = n < 0 ? "-" : "";
@@ -50,6 +50,9 @@ export function MonthlyPnlChart({ data }: { data: TrendPoint[] }) {
 }
 
 export function CashflowForecastChart({ data }: { data: ForecastPoint[] }) {
+  // balance may be null when the server has no cash anchor (insufficientData);
+  // recharts renders null as a gap rather than dropping to 0, keeping the
+  // "no basis" state honest instead of drawing a false ₩0 line.
   const rows = data.map((d) => ({ label: d.date.slice(5), 잔액: d.balance }));
   return (
     <ResponsiveContainer width="100%" height={240}>
