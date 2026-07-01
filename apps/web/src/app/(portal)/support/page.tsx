@@ -84,16 +84,16 @@ export default function SupportDashboardPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Ticket className="h-5 w-5 text-blue-600" />
-              <CardTitle className="text-base">신규 Ticket</CardTitle>
+              <CardTitle className="text-base">신규 티켓</CardTitle>
             </div>
-            <CardDescription>New support tickets today</CardDescription>
+            <CardDescription>오늘 접수된 신규 지원 티켓</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {data && data.newTickets > 0 ? (
               <MetricRow label="열린 티켓" value={String(data.newTickets)} />
             ) : null}
             {data && !data.newTickets && (
-              <p className="py-4 text-center text-sm text-muted-foreground">열린 티켓 없음</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">기록 없음</p>
             )}
           </CardContent>
         </Card>
@@ -104,7 +104,7 @@ export default function SupportDashboardPage() {
               <Timer className="h-5 w-5 text-red-600" />
               <CardTitle className="text-base">SLA 임박</CardTitle>
             </div>
-            <CardDescription>Tickets approaching SLA deadlines</CardDescription>
+            <CardDescription>SLA 기한이 임박한 티켓</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {data ? (
@@ -117,9 +117,9 @@ export default function SupportDashboardPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <ArrowUpRight className="h-5 w-5 text-amber-600" />
-              <CardTitle className="text-base">Vendor Escalation</CardTitle>
+              <CardTitle className="text-base">벤더 에스컬레이션</CardTitle>
             </div>
-            <CardDescription>Escalations to Sangfor HQ / third-party</CardDescription>
+            <CardDescription>Sangfor 본사 / 서드파티 에스컬레이션</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {data ? (
@@ -134,7 +134,7 @@ export default function SupportDashboardPage() {
               <FileSearch className="h-5 w-5 text-purple-600" />
               <CardTitle className="text-base">RCA 작성 필요</CardTitle>
             </div>
-            <CardDescription>Tickets requiring Root Cause Analysis</CardDescription>
+            <CardDescription>근본 원인 분석이 필요한 티켓</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {data ? (
@@ -149,7 +149,7 @@ export default function SupportDashboardPage() {
               <Repeat className="h-5 w-5 text-indigo-600" />
               <CardTitle className="text-base">반복 장애 고객</CardTitle>
             </div>
-            <CardDescription>Customers with recurring issues</CardDescription>
+            <CardDescription>반복 장애가 발생하는 고객</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {data ? (

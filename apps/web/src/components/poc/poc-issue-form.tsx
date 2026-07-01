@@ -29,9 +29,9 @@ export function PocIssueForm({ pocId }: { pocId: string }) {
 
   return (
     <form className="flex flex-wrap gap-2" onSubmit={onSubmit}>
-      <Input aria-label="Issue title" placeholder="Issue title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+      <Input aria-label="이슈 제목" placeholder="이슈 제목" value={title} onChange={(e) => setTitle(e.target.value)} required />
       <select
-        aria-label="Severity"
+        aria-label="심각도"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={severity}
         onChange={(e) => setSeverity(e.target.value)}
@@ -40,7 +40,7 @@ export function PocIssueForm({ pocId }: { pocId: string }) {
         <option value="medium">medium</option>
         <option value="high">high</option>
       </select>
-      <Button type="submit" size="sm" disabled={loading}>Add issue</Button>
+      <Button type="submit" size="sm" disabled={loading}>이슈 추가</Button>
     </form>
   );
 }

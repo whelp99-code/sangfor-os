@@ -35,28 +35,28 @@ const MY_REVIEWS: { role: string; deal: string; deadline: string; priority: stri
 
 function StatusIcon({ status }: { status: ColorStatus }) {
   switch (status) {
-    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label="Passed" />;
-    case "pending": return <Clock className="h-4 w-4 text-amber-500" role="img" aria-label="Pending" />;
-    case "failed": return <XCircle className="h-4 w-4 text-red-500" role="img" aria-label="Failed" />;
-    case "not_required": return <MinusCircle className="h-4 w-4 text-gray-400" role="img" aria-label="Not Required" />;
+    case "passed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" role="img" aria-label="통과" />;
+    case "pending": return <Clock className="h-4 w-4 text-amber-500" role="img" aria-label="대기" />;
+    case "failed": return <XCircle className="h-4 w-4 text-red-500" role="img" aria-label="실패" />;
+    case "not_required": return <MinusCircle className="h-4 w-4 text-gray-400" role="img" aria-label="해당 없음" />;
   }
 }
 
 function StatusBadge({ status }: { status: ColorStatus }) {
   const map: Record<ColorStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-    passed: { label: "Passed", variant: "default" },
-    pending: { label: "Pending", variant: "secondary" },
-    failed: { label: "Failed", variant: "destructive" },
-    not_required: { label: "N/A", variant: "outline" },
+    passed: { label: "통과", variant: "default" },
+    pending: { label: "대기", variant: "secondary" },
+    failed: { label: "실패", variant: "destructive" },
+    not_required: { label: "해당 없음", variant: "outline" },
   };
   const { label, variant } = map[status];
   return <Badge variant={variant}>{label}</Badge>;
 }
 
 function PriorityIcon({ priority }: { priority: string }) {
-  if (priority === "critical") return <AlertTriangle className="h-3.5 w-3.5 text-red-500" role="img" aria-label="Critical priority" />;
-  if (priority === "high") return <AlertTriangle className="h-3.5 w-3.5 text-amber-500" role="img" aria-label="High priority" />;
-  return <Clock className="h-3.5 w-3.5 text-blue-500" role="img" aria-label="Medium priority" />;
+  if (priority === "critical") return <AlertTriangle className="h-3.5 w-3.5 text-red-500" role="img" aria-label="긴급 우선순위" />;
+  if (priority === "high") return <AlertTriangle className="h-3.5 w-3.5 text-amber-500" role="img" aria-label="높은 우선순위" />;
+  return <Clock className="h-3.5 w-3.5 text-blue-500" role="img" aria-label="보통 우선순위" />;
 }
 
 export default function AgentsPage() {
@@ -67,9 +67,9 @@ export default function AgentsPage() {
         <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-blue-500/10 blur-2xl" />
         <div className="relative">
           <p className="text-sm font-medium text-gray-400">Sangfor Agentic OS</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Color Agents</h1>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">컬러 에이전트</h1>
           <p className="mt-2 text-sm text-gray-400">
-            Review perspectives and Kanban handoff owners — they do not replace business personas
+            검토 관점과 칸반 핸드오프 담당자 — 비즈니스 담당자를 대체하지 않습니다
           </p>
         </div>
       </div>
@@ -90,15 +90,15 @@ export default function AgentsPage() {
               <CardContent className="space-y-2 text-sm">
                 <p className="text-xs text-muted-foreground">{c.desc}</p>
                 <div className="flex items-center justify-between rounded-lg bg-muted/30 px-2 py-1.5">
-                  <span className="text-xs text-muted-foreground">Status</span>
+                  <span className="text-xs text-muted-foreground">상태</span>
                   <StatusBadge status={agent?.status ?? "not_required"} />
                 </div>
                 <div className="flex items-center justify-between rounded-lg bg-muted/30 px-2 py-1.5">
-                  <span className="text-xs text-muted-foreground">Deal</span>
+                  <span className="text-xs text-muted-foreground">딜</span>
                   <span className="text-xs font-medium truncate ml-2">{agent?.deal ?? "—"}</span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg bg-muted/30 px-2 py-1.5">
-                  <span className="text-xs text-muted-foreground">Reviewer</span>
+                  <span className="text-xs text-muted-foreground">검토자</span>
                   <span className="text-xs font-medium">{agent?.reviewer ?? "—"}</span>
                 </div>
                 <p className="text-xs text-muted-foreground pt-1">{c.focus}</p>
@@ -115,7 +115,7 @@ export default function AgentsPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/50">
               <Activity className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             </div>
-            <CardTitle className="text-base">My Color Reviews</CardTitle>
+            <CardTitle className="text-base">내 컬러 검토</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {MY_REVIEWS.map((r) => (
@@ -140,7 +140,7 @@ export default function AgentsPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/50">
               <ArrowRight className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>
-            <CardTitle className="text-base">Handoff Activity</CardTitle>
+            <CardTitle className="text-base">핸드오프 활동</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[260px]">

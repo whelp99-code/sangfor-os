@@ -26,15 +26,15 @@ export function CustomerSearchForm() {
   return (
     <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSubmit}>
       <Input
-        aria-label="Search by name or domain"
-        placeholder="Search by name or domain…"
+        aria-label="이름 또는 도메인으로 검색"
+        placeholder="이름·도메인으로 검색…"
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />
-      <Button type="submit">Search</Button>
+      <Button type="submit">검색</Button>
       {searchParams.get("q") ? (
         <Button type="button" variant="outline" onClick={clearSearch}>
-          Clear
+          지우기
         </Button>
       ) : null}
     </form>

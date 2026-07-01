@@ -28,8 +28,8 @@ export function CreateImprovementForm() {
   return (
     <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSubmit}>
       <Input
-        aria-label="Error / failure message"
-        placeholder="Error / failure message"
+        aria-label="오류 / 실패 메시지"
+        placeholder="오류 / 실패 메시지"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         required
@@ -42,7 +42,7 @@ export function CreateImprovementForm() {
         onChange={(e) => setSourceType(e.target.value)}
       />
       <Button disabled={loading} type="submit">
-        {loading ? "Creating…" : "Create candidate"}
+        {loading ? "생성 중…" : "후보 생성"}
       </Button>
     </form>
   );

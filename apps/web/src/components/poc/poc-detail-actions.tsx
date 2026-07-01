@@ -24,8 +24,8 @@ export function PocRequirementForm({ pocId }: Props) {
 
   return (
     <form className="flex gap-2" onSubmit={onSubmit}>
-      <Input aria-label="Requirement label" placeholder="Requirement label" value={label} onChange={(e) => setLabel(e.target.value)} required />
-      <Button type="submit" size="sm" disabled={loading}>Add</Button>
+      <Input aria-label="요구사항 항목" placeholder="요구사항 항목" value={label} onChange={(e) => setLabel(e.target.value)} required />
+      <Button type="submit" size="sm" disabled={loading}>추가</Button>
     </form>
   );
 }
@@ -48,9 +48,9 @@ export function PocEventForm({ pocId }: Props) {
 
   return (
     <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSubmit}>
-      <Input aria-label="Event type" placeholder="Event type" value={eventType} onChange={(e) => setEventType(e.target.value)} />
-      <Input aria-label="Summary" placeholder="Summary" value={summary} onChange={(e) => setSummary(e.target.value)} required />
-      <Button type="submit" size="sm" disabled={loading}>Log event</Button>
+      <Input aria-label="이벤트 유형" placeholder="이벤트 유형" value={eventType} onChange={(e) => setEventType(e.target.value)} />
+      <Input aria-label="요약" placeholder="요약" value={summary} onChange={(e) => setSummary(e.target.value)} required />
+      <Button type="submit" size="sm" disabled={loading}>이벤트 기록</Button>
     </form>
   );
 }
@@ -70,7 +70,7 @@ export function GeneratePocReportButton({ pocId }: Props) {
 
   return (
     <Button size="sm" onClick={generate} disabled={loading}>
-      {loading ? "Generating..." : "Generate result report"}
+      {loading ? "생성 중..." : "결과 보고서 생성"}
     </Button>
   );
 }

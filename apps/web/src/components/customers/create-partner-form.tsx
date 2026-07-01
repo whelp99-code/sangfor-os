@@ -34,9 +34,9 @@ export function CreatePartnerForm() {
 
   return (
     <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSubmit}>
-      <Input aria-label="Partner name" placeholder="Partner name" value={name} onChange={(event) => setName(event.target.value)} required />
-      <Input aria-label="Type (reseller, SI...)" placeholder="Type (reseller, SI...)" value={partnerType} onChange={(event) => setPartnerType(event.target.value)} />
-      <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Add partner"}</Button>
+      <Input aria-label="파트너명" placeholder="파트너명" value={name} onChange={(event) => setName(event.target.value)} required />
+      <Input aria-label="유형(리셀러·SI 등)" placeholder="유형(리셀러·SI 등)" value={partnerType} onChange={(event) => setPartnerType(event.target.value)} />
+      <Button type="submit" disabled={loading}>{loading ? "저장 중..." : "파트너 추가"}</Button>
     </form>
   );
 }

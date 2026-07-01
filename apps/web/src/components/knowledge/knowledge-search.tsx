@@ -28,8 +28,8 @@ export function KnowledgeSearch() {
   return (
     <div className="space-y-3">
       <form className="flex gap-2" onSubmit={search}>
-        <Input placeholder="Search knowledge…" value={q} onChange={(e) => setQ(e.target.value)} required />
-        <Button type="submit">Search</Button>
+        <Input placeholder="지식 검색…" value={q} onChange={(e) => setQ(e.target.value)} required />
+        <Button type="submit">검색</Button>
       </form>
       {citations.length > 0 ? (
         <ul className="space-y-2 text-sm">
@@ -37,10 +37,10 @@ export function KnowledgeSearch() {
             <li key={`${c.documentId}-${c.chunkIndex}`} className="rounded-md border p-3">
               <div className="mb-1 flex items-center justify-between gap-2">
                 <p className="font-medium">{c.title}</p>
-                <Badge variant="outline">chunk {c.chunkIndex}</Badge>
+                <Badge variant="outline">조각 {c.chunkIndex}</Badge>
               </div>
               <p className="text-muted-foreground">{c.excerpt}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Source: {c.source}</p>
+              <p className="mt-1 text-xs text-muted-foreground">출처: {c.source}</p>
             </li>
           ))}
         </ul>
