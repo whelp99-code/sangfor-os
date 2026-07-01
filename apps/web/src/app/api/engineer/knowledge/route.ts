@@ -10,9 +10,8 @@ export async function GET(request: Request) {
   try {
     return Response.json(await engineerConsole.knowledge(product, type));
   } catch (error) {
-    return Response.json(
-      { items: [], error: error instanceof Error ? error.message : "knowledge_failed" },
-      { status: 502 },
-    );
+    // Sanitize: log server-side, return a stable code (no raw error.message).
+    console.error("[api] knowledge_failed:", error);
+    return Response.json({ items: [], error: "knowledge_failed" }, { status: 502 });
   }
 }

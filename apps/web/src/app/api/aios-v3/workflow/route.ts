@@ -38,9 +38,8 @@ export async function GET(request: Request) {
     const result = await getWorkflowStatus(runId);
     return NextResponse.json(result);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "workflow_status_fetch_failed";
-    return NextResponse.json({ error: message }, { status: 502 });
+    // Sanitize: don't surface upstream error.message (may leak internal detail).
+    return apiError("workflow_status_fetch_failed", error, { status: 502 });
   }
 }
 
