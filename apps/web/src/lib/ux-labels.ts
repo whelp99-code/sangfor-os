@@ -62,6 +62,21 @@ const STATUS_LABELS: Record<string, string> = {
   online: "온라인",
   offline: "오프라인",
   warning: "주의",
+  // Opportunity / CRM stages
+  LEAD: "리드",
+  PROPOSAL: "제안",
+  POC: "PoC",
+  WON: "수주",
+  LOST: "실주",
+  CLOSED: "완료",
+  // Deposit / finance
+  미수: "미수",
+  완료: "완료",
+  // Task status
+  todo: "할 일",
+  in_progress: "진행 중",
+  done: "완료",
+  cancelled: "취소",
   // Common
   active: "활성",
   inactive: "비활성",

@@ -51,3 +51,16 @@ export async function DELETE(request: Request, context: RouteContext) {
     return apiError("archive_failed", error, { status: 400 });
   }
 }
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const { id } = await context.params;
+  try {
+    const document = await archiveProposal(id);
+    return NextResponse.json({ document });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "archive_failed" },
+      { status: 400 },
+    );
+  }
+}

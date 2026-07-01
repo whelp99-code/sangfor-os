@@ -22,6 +22,7 @@
     "@sangfor/infra": "workspace:*",
     "@sangfor/mail-intelligence": "workspace:*",
     "@sangfor/shared": "workspace:*",
+    "@sangfor/ui": "workspace:*",
     "@sentry/nextjs": "^10.55.0",
     "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.1",
