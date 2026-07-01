@@ -296,7 +296,7 @@ export function ModuleDashboardClient({
         return prev.map(c => c.connectorKey === connectorKey ? { ...c, status: newMode } : c);
       } else {
         return [...prev, {
-          id: Math.random().toString(),
+          id: crypto.randomUUID(),
           connectorKey,
           displayName: connectorKey.charAt(0).toUpperCase() + connectorKey.slice(1),
           connectorType: connectorKey === "github" ? "vcs" : connectorKey === "slack" ? "im" : "email",

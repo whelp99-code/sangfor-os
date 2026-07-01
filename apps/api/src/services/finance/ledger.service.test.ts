@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { prisma } from '@sangfor/db';
 import { LedgerService } from './ledger.service';
+import { ExpensesService } from './expenses.service';
 
 const integration = process.env.CI_INTEGRATION === '1';
 const service = new LedgerService();
@@ -137,5 +138,90 @@ describe.skipIf(!integration)('LedgerService.backfillLedger (integration)', () =
     expect(await countEntries(paidExpenseId)).toBe(before.paidExp);
     // Our test docs land in skipped, never re-posted.
     expect(result.skipped).toBeGreaterThanOrEqual(4);
+  });
+});
+
+// Integration: regression for the "유령 지출분개" bug — a paid expense posts a
+// [지출]/[부가세대급] pair, but flipping isPaid true→false (or changing the amount)
+// used to leave those entries live, so the ledger over-stated expenses forever.
+// ExpensesService.update now reverses on un-pay and re-books on amount change via
+// LedgerService.reverseExpenseEntries. Rows live in a far-future period (2098) so
+// they never collide with seeded/live data.
+describe.skipIf(!integration)('LedgerService.reverseExpenseEntries + ExpensesService.update (integration)', () => {
+  const expenses = new ExpensesService();
+  const createdExpenseIds: string[] = [];
+
+  afterAll(async () => {
+    if (createdExpenseIds.length) {
+      await prisma.ledgerEntry.deleteMany({ where: { reference: { in: createdExpenseIds } } });
+      await prisma.expense.deleteMany({ where: { id: { in: createdExpenseIds } } });
+    }
+  });
+
+  // Net expense-supply footprint for one reference: 지출 debit legs minus reversal
+  // credit legs on the same expense account. 0 means fully reversed (no ghost).
+  const netExpenseSupply = async (ref: string, account: string) => {
+    const rows = await prisma.ledgerEntry.findMany({ where: { reference: ref } });
+    return rows.reduce((s, e) => {
+      if (e.referenceType === 'expense' && e.debitAccount === account) return s + e.amount;
+      if (e.referenceType === 'expense:reversal' && e.creditAccount === account) return s - e.amount;
+      return s;
+    }, 0);
+  };
+  const countByType = async (ref: string, type: string) =>
+    prisma.ledgerEntry.count({ where: { reference: ref, referenceType: type } });
+
+  it('un-paying an expense (true→false) reverses the ledger entries to zero net', async () => {
+    const created = await expenses.create({
+      expenseName: 'reverse-test-unpay',
+      amount: 1_000_000,
+      category: '판관비', // → account 410
+      isPaid: true,
+      date: new Date(2098, 5, 10).toISOString(),
+    });
+    createdExpenseIds.push(created.id);
+
+    // Paid on create → 2 entries (지출 410, 부가세대급 900), net supply = 1,000,000.
+    expect(await countByType(created.id, 'expense')).toBe(2);
+    expect(await netExpenseSupply(created.id, '410')).toBe(1_000_000);
+
+    // Un-pay → reversal entries added, net supply back to 0 (ghost eliminated).
+    await expenses.update(created.id, { isPaid: false });
+    expect(await countByType(created.id, 'expense:reversal')).toBe(2);
+    expect(await netExpenseSupply(created.id, '410')).toBe(0);
+  });
+
+  it('is idempotent — reverseExpenseEntries twice does not double-reverse', async () => {
+    const created = await expenses.create({
+      expenseName: 'reverse-test-idem',
+      amount: 500_000,
+      category: '판관비',
+      isPaid: true,
+      date: new Date(2098, 5, 11).toISOString(),
+    });
+    createdExpenseIds.push(created.id);
+
+    await service.reverseExpenseEntries(created.id);
+    const afterFirst = await countByType(created.id, 'expense:reversal');
+    // Second call is a no-op (reversals already cover all originals).
+    await service.reverseExpenseEntries(created.id);
+    expect(await countByType(created.id, 'expense:reversal')).toBe(afterFirst);
+    expect(await netExpenseSupply(created.id, '410')).toBe(0);
+  });
+
+  it('changing amount while paid re-books to the new amount (net = new supply)', async () => {
+    const created = await expenses.create({
+      expenseName: 'reverse-test-amount',
+      amount: 1_000_000,
+      category: '판관비',
+      isPaid: true,
+      date: new Date(2098, 5, 12).toISOString(),
+    });
+    createdExpenseIds.push(created.id);
+    expect(await netExpenseSupply(created.id, '410')).toBe(1_000_000);
+
+    await expenses.update(created.id, { amount: 700_000, isPaid: true });
+    // Old entries reversed, new posted → net supply reflects the new amount only.
+    expect(await netExpenseSupply(created.id, '410')).toBe(700_000);
   });
 });

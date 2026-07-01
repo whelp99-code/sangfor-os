@@ -154,10 +154,34 @@ export class DashboardService {
       }),
     ]);
 
-    // 매출·비용 윈도우 앵커를 각자의 최신 데이터일로 잡는다(둘의 최신일이 달라도 각자 최근
-    // 30일을 본다). 데이터가 아예 없으면 앵커 없음 → 근거 부족 플래그.
-    const revenueAnchor = latestInvoice?.depositDate ?? null;
-    const expenseAnchor = latestExpense?.date ?? null;
+    // 각 데이터원의 관측 최신일. 이 둘이 크게 다르면(예: 입금 4/30 vs 지출 2/27) 매출·비용
+    // run-rate를 서로 다른 기간에서 뽑아 빼게 돼 예측선이 왜곡된다(비용 과소반영). 그래서
+    // 두 윈도우 앵커를 공통 기준일 = max(입금·지급 최신일)로 정렬한다. 데이터가 아예 없으면
+    // 앵커 없음 → 근거 부족 플래그.
+    const rawRevenueAnchor = latestInvoice?.depositDate ?? null;
+    const rawExpenseAnchor = latestExpense?.date ?? null;
+
+    // 공통 앵커: 둘 중 더 최신일. 한쪽만 있으면 그쪽. 둘 다 없으면 null.
+    const commonAnchor: Date | null =
+      rawRevenueAnchor && rawExpenseAnchor
+        ? new Date(Math.max(rawRevenueAnchor.getTime(), rawExpenseAnchor.getTime()))
+        : rawRevenueAnchor ?? rawExpenseAnchor ?? null;
+
+    // 원 앵커 간 시차(일).
+    const anchorSkewDays =
+      rawRevenueAnchor && rawExpenseAnchor
+        ? Math.round(
+            Math.abs(rawRevenueAnchor.getTime() - rawExpenseAnchor.getTime()) / 86_400_000,
+          )
+        : 0;
+    // 시차가 윈도우(30일)보다 크면 공통 앵커로 정렬 시 오래된 쪽 윈도우가 텅 비어(표본 0)
+    // 그 run-rate가 0으로 편향된다(예: 공통 앵커 4/30 → 지출 최신 2/27이 창 밖). 이 경우엔
+    // 정렬을 강제하지 않고 각 데이터원의 자기 최신 30일을 쓰되(각자 유효 표본 확보),
+    // 두 창이 다른 기간이라는 사실을 anchorSkewWarning으로 정직하게 알린다.
+    // 시차가 윈도우 이내면(창이 겹침) 공통 앵커로 정렬해 run-rate 창을 일치시킨다.
+    const anchorSkewWarning = anchorSkewDays > WINDOW_DAYS;
+    const revenueAnchor = anchorSkewWarning ? rawRevenueAnchor : commonAnchor;
+    const expenseAnchor = anchorSkewWarning ? rawExpenseAnchor : commonAnchor;
 
     const windowFrom = (anchor: Date | null): Date | null => {
       if (!anchor) return null;
@@ -221,6 +245,14 @@ export class DashboardService {
         : null,
       // true면 최근 30일 무데이터 → 위 forecast는 run-rate 0(현금 평선), 예측 근거 부족.
       insufficientData,
+      // 매출·비용 run-rate 창을 정렬한 공통 앵커일(관측 최신일 중 더 최신). null이면 무데이터.
+      // 시차가 커서 정렬을 하지 않은 경우(anchorSkewWarning=true)엔 각 창이 자기 앵커를
+      // 쓰며, 이 값은 두 앵커 중 더 최신일을 참고용으로 담는다.
+      anchorDate: commonAnchor ? commonAnchor.toISOString().slice(0, 10) : null,
+      // 원 매출·비용 최신일 간 시차(일)와 그 경고. true면 두 앵커가 30일 넘게 벌어져
+      // run-rate를 서로 다른 기간에서 뽑았음을 뜻한다(예측선 해석 시 주의).
+      anchorSkewDays,
+      anchorSkewWarning,
       forecast,
       trend: insufficientData
         ? 'unknown'

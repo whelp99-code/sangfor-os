@@ -83,6 +83,8 @@ export class ExpensesService {
     const existing = await this.get(id);
     const supply = dto.amount ?? existing.amount ?? 0;
     const vat = this.calcVat(supply);
+    // 공급가(amount)가 실제로 바뀌면 기존 원장 분개가 낡는다 → 역분개 후 재기표한다.
+    const amountChanged = dto.amount !== undefined && dto.amount !== (existing.amount ?? 0);
     const updated = await prisma.expense.update({
       where: { id },
       data: {
@@ -100,8 +102,22 @@ export class ExpensesService {
       },
       include: { project: true },
     });
-    if (dto.isPaid === true && !existing.isPaid) {
-      await this.ledger.postExpense(id).catch(() => null);
+
+    // 원장 정합(현금주의 지출 분개 기준). 지출 분개는 isPaid=true인 동안만 살아 있어야
+    // 한다. 실패는 지출 저장을 되돌리지 않는다(원장은 보조 장부 — best-effort).
+    // NOTE(oma-deferred): 원장 P&L 전면 백필은 범위 밖.
+    const nowPaid = updated.isPaid === true;
+    const wasPaid = existing.isPaid === true;
+    if (wasPaid && !nowPaid) {
+      // 지급취소(true→false): 기존 지출 분개를 역분개해 유령 지출분개를 제거한다.
+      await this.ledger.reverseExpenseEntries(id).catch(() => null);
+    } else if (nowPaid && !wasPaid) {
+      // 미지급→지급 전환: 지출 분개 기표(금액>0).
+      if (supply > 0) await this.ledger.postExpense(id).catch(() => null);
+    } else if (nowPaid && wasPaid && amountChanged) {
+      // 지급 상태 유지 + 금액 변경: 역분개 후 새 금액으로 재기표.
+      await this.ledger.reverseExpenseEntries(id).catch(() => null);
+      if (supply > 0) await this.ledger.postExpense(id).catch(() => null);
     }
     return updated;
   }

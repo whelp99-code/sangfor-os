@@ -51,8 +51,9 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "dest
 /**
  * Stage ① (제안) work surface.
  *
- * Shows proposals already linked to this opportunity (matched by opportunityId)
- * and falls back to showing all proposals when none are linked.
+ * Shows only proposals already linked to this opportunity (matched by
+ * opportunityId). When none are linked, renders an empty state — it never
+ * falls back to unrelated proposals from other deals.
  * Surfaces a link to the existing /proposals generate flow — does NOT
  * rebuild generation logic.
  */
@@ -61,10 +62,9 @@ export function ProposalWorkPanel({
   opportunityTitle,
   proposals,
 }: ProposalWorkPanelProps) {
-  // Filter to this opportunity's proposals first; show all with note if none.
+  // Only show proposals linked to THIS opportunity — no cross-deal fallback.
   const linked = proposals.filter((p) => p.opportunityId === opportunityId);
-  const displayDocs = linked.length > 0 ? linked : proposals;
-  const showingAll = linked.length === 0 && proposals.length > 0;
+  const displayDocs = linked;
 
   return (
     <div className="space-y-4">
@@ -106,11 +106,6 @@ export function ProposalWorkPanel({
         </Card>
       ) : (
         <div className="space-y-2">
-          {showingAll && (
-            <p className="text-xs text-muted-foreground">
-              이 딜에 직접 연결된 제안서가 없습니다 — 전체 제안서 목록을 표시합니다.
-            </p>
-          )}
           {displayDocs.map((doc) => (
             <ProposalDocCard key={doc.id} doc={doc} />
           ))}

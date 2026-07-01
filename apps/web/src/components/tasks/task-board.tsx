@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,7 @@ type Task = {
 
 export function TaskBoard({ tasks }: { tasks: Task[] }) {
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
 
   if (tasks.length === 0) {
     return <p className="text-sm text-muted-foreground">작업이 없습니다.</p>;
@@ -28,16 +30,33 @@ export function TaskBoard({ tasks }: { tasks: Task[] }) {
   async function advance(id: string, status: string) {
     const next = nextTaskStatus(status);
     if (!next) return;
-    await fetch(`/api/tasks/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: next }),
-    });
-    router.refresh();
+    setError(null);
+    try {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      });
+      if (!res.ok) {
+        setError("작업 상태를 변경하지 못했습니다. 잠시 후 다시 시도하세요.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("작업 상태를 변경하지 못했습니다. 네트워크 연결을 확인하세요.");
+    }
   }
 
   return (
     <div className="space-y-2">
+      {error && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      )}
       {tasks.map((task) => {
         const due = formatDueAt(task.dueAt);
         return (

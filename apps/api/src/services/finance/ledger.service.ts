@@ -117,6 +117,44 @@ export class LedgerService {
     );
   }
 
+  /**
+   * 특정 지출이 참조하는 원장 분개를 역분개(reversal)한다.
+   *
+   * reverseInvoiceEntries의 대칭. 지출이 지급취소(isPaid true→false)되거나 금액이
+   * 바뀌면 postExpense로 기표한 [지출]/[부가세대급] 분개가 낡는다. 원 분개를 지우는
+   * 대신 차·대변을 뒤집은 반대 분개를 추가해 감사추적을 남긴 채 순효과를 0으로 만든다
+   * (회계 원칙: 기표 취소는 삭제가 아니라 역분개). 이후 필요 시 호출측이 재기표한다.
+   *
+   * 역분개된 분개는 referenceType='expense:reversal'로 남으므로 backfillLedger는
+   * 이미 기표된 것으로 보고 재기표하지 않는다(reference set 판정).
+   */
+  async reverseExpenseEntries(expenseId: string) {
+    const all = await prisma.ledgerEntry.findMany({
+      where: { reference: expenseId, referenceType: { in: ['expense', 'expense:reversal'] } },
+    });
+    const originals = all.filter((e) => e.referenceType === 'expense');
+    const reversals = all.filter((e) => e.referenceType === 'expense:reversal');
+    // 이미 원 분개 수만큼 역분개가 존재하면 재역분개하지 않는다(멱등성). 반복 update로
+    // 역분개가 중복 누적돼 순효과가 다시 어긋나는 것을 막는다.
+    const entries = originals.slice(reversals.length);
+    if (entries.length === 0) return null;
+    return prisma.$transaction(
+      entries.map((e) =>
+        prisma.ledgerEntry.create({
+          data: {
+            date: new Date(),
+            description: `[역분개] ${e.description}`,
+            debitAccount: e.creditAccount, // 차·대변 반전
+            creditAccount: e.debitAccount,
+            amount: e.amount,
+            reference: expenseId,
+            referenceType: 'expense:reversal',
+          },
+        }),
+      ),
+    );
+  }
+
   async postExpense(expenseId: string) {
     const e = await prisma.expense.findUnique({ where: { id: expenseId } });
     if (!e) return null;
