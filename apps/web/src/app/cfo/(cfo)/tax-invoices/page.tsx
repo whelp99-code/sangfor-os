@@ -371,6 +371,7 @@ function SalesSection() {
   const [issuing, setIssuing] = useState(false);
   const [issueError, setIssueError] = useState<string | null>(null);
   const [issueSuccess, setIssueSuccess] = useState(false);
+  const [markError, setMarkError] = useState<string | null>(null);
 
   const fetchSales = useCallback(async () => {
     try {
@@ -468,13 +469,15 @@ function SalesSection() {
   };
 
   const handleMarkTransmitted = async (id: string) => {
+    setMarkError(null);
     try {
-      await fetch(`/api/finance/tax-invoices/${id}/transmitted`, {
+      const res = await fetch(`/api/finance/tax-invoices/${id}/transmitted`, {
         method: "POST",
       });
+      if (!res.ok) throw new Error("전송완료 표시 실패");
       void fetchSales();
-    } catch {
-      alert("전송완료 표시 실패");
+    } catch (e: unknown) {
+      setMarkError(e instanceof Error ? e.message : "전송완료 표시 실패");
     }
   };
 
@@ -670,6 +673,11 @@ function SalesSection() {
       <p className="text-xs" style={{ color: CFO.muted }}>
         국세청 전송은 홈택스에서 수동 발급 후 아래 &quot;전송완료 표시&quot; 버튼으로 상태를 갱신하세요.
       </p>
+      {markError && (
+        <p className="text-sm" role="alert" style={{ color: CFO.outflow }}>
+          {markError}
+        </p>
+      )}
       <TaxTable
         rows={rows}
         cols={SALES_COLS}

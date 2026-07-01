@@ -191,7 +191,7 @@ export default async function HomePage() {
               {FUNNEL_STAGES.map((s) => (
                 <div
                   key={s.idx}
-                  className="flex-1 text-center text-[11px] font-semibold text-muted-foreground"
+                  className="flex-1 text-center text-xs font-semibold text-muted-foreground"
                 >
                   {s.label}
                 </div>
@@ -292,7 +292,7 @@ export default async function HomePage() {
                               {deal.title}
                             </div>
                             {deal.customer?.name && (
-                              <div className="text-[11px] text-muted-foreground mt-0.5">
+                              <div className="text-xs text-muted-foreground mt-0.5">
                                 {deal.customer.name}
                               </div>
                             )}
@@ -372,13 +372,13 @@ export default async function HomePage() {
                         {opp.code && (
                           <Link
                             href={`/deals/${opp.id}`}
-                            className="font-mono text-[11px] text-primary hover:underline"
+                            className="font-mono text-xs text-primary hover:underline"
                           >
                             {opp.code}
                           </Link>
                         )}
                         {opp.customer?.name && (
-                          <span className="text-[11px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             {opp.customer.name}
                           </span>
                         )}
