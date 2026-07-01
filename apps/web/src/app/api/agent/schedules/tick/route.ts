@@ -49,8 +49,10 @@ export async function POST(request: Request) {
       agentRunStore.finish(record.id, result);
       triggered.push({ scheduleId: schedule.id, playbookId: playbook.id, runId: record.id, status: result.status });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      agentRunStore.finish(record.id, { status: "error", error: message });
+      // Sanitize: log the real cause server-side, persist only a stable code
+      // (the run record's error is client-readable via /api/agent/runs).
+      console.error("[api] schedule_run_failed:", error instanceof Error ? error.stack ?? error.message : error);
+      agentRunStore.finish(record.id, { status: "error", error: "schedule_run_failed" });
       triggered.push({ scheduleId: schedule.id, playbookId: playbook.id, runId: record.id, status: "error" });
     }
 

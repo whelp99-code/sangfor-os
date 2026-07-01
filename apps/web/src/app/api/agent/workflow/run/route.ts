@@ -53,7 +53,10 @@ export async function POST(request: Request) {
           awaitingApproval: result.awaitingApproval,
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        // Sanitize: log the real cause server-side, surface only a stable code
+        // (raw error.message can leak internal/upstream detail to the browser).
+        console.error("[api] workflow_run_failed:", error instanceof Error ? error.stack ?? error.message : error);
+        const message = "workflow_run_failed";
         workflowRunStore.finish(record.id, { status: "error", error: message });
         send("error", { id: record.id, message });
       } finally {

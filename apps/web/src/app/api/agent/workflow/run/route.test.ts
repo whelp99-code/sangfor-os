@@ -67,6 +67,9 @@ describe("POST /api/agent/workflow/run", () => {
     const res = await POST(req({ requirements: "x" }));
     const text = await res.text();
     expect(text).toContain("event: error");
-    expect(text).toContain("console down");
+    // The raw error.message ("console down") is sanitized out of the client-facing
+    // SSE payload; only a stable code is surfaced (server logs the real cause).
+    expect(text).not.toContain("console down");
+    expect(text).toContain("workflow_run_failed");
   });
 });

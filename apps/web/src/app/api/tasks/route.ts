@@ -1,6 +1,6 @@
 import { createWorkTask, createWorkTaskSchema, listTodayTasks, listWorkTasks } from "@sangfor/business";
 import { NextResponse } from "next/server";
-import { assertApiAccess } from "@/lib/api-auth";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -10,10 +10,7 @@ export async function GET(request: Request) {
       view === "today" ? await listTodayTasks() : await listWorkTasks();
     return NextResponse.json({ tasks });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "list_failed" },
-      { status: 500 },
-    );
+    return apiError("list_failed", error, { status: 500 });
   }
 }
 
@@ -50,9 +47,6 @@ export async function POST(request: Request) {
     const task = await createWorkTask(result.data);
     return NextResponse.json({ task }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "create_failed" },
-      { status: 400 },
-    );
+    return apiError("create_failed", error, { status: 400 });
   }
 }

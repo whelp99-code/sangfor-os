@@ -1,6 +1,7 @@
 import { normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
 import { NextResponse } from "next/server";
 import { prisma } from "@sangfor/db";
+import { apiError } from "@/lib/api-auth";
 
 async function salesData() {
   const opportunities = await prisma.opportunity.findMany({ include: { customer: true } });
@@ -151,9 +152,6 @@ export async function GET(
     const data = await handler();
     return NextResponse.json(data);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : `${role}_dashboard_failed` },
-      { status: 500 },
-    );
+    return apiError(`${role}_dashboard_failed`, error, { status: 500 });
   }
 }

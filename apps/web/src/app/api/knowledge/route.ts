@@ -38,9 +38,11 @@ export async function GET(request: Request) {
           }
           fallbackReason = "lightrag_not_configured_or_empty";
         } catch (error) {
-          fallbackReason =
-            error instanceof Error ? error.message : "lightrag_failed";
           // LightRAG is optional; keep the existing database search as the reliable fallback.
+          // Sanitize: log the real cause server-side, return a stable reason code
+          // (raw error.message can leak upstream/backend detail).
+          console.error("[api] lightrag_failed:", error instanceof Error ? error.stack ?? error.message : error);
+          fallbackReason = "lightrag_failed";
         }
       }
 

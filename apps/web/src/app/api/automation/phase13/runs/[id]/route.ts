@@ -1,5 +1,6 @@
 import { getPhase13RunDetail } from "@sangfor/business/skills";
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-auth";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -12,9 +13,6 @@ export async function GET(_request: Request, context: RouteContext) {
     }
     return NextResponse.json({ run });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "fetch_failed" },
-      { status: 500 },
-    );
+    return apiError("fetch_failed", error, { status: 500 });
   }
 }
