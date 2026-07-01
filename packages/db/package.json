@@ -20,7 +20,8 @@
     "cfo:restore": "tsx scripts/cfo-restore.ts",
     "cfo:reconcile": "tsx scripts/cfo-deal-reconcile.ts",
     "cfo:backfill": "tsx scripts/cfo-deal-backfill.ts",
-    "cfo:ledger-backfill": "tsx scripts/cfo-ledger-backfill.ts"
+    "cfo:ledger-backfill": "tsx scripts/cfo-ledger-backfill.ts",
+    "berllo:import": "tsx scripts/berllo-crm-import.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
