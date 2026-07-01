@@ -86,14 +86,14 @@ export default function DeliveryDashboardPage() {
               <Calendar className="h-5 w-5 text-blue-600" />
               <CardTitle className="text-base">구축 예정</CardTitle>
             </div>
-            <CardDescription>Upcoming deployment schedules</CardDescription>
+            <CardDescription>다가오는 구축 일정</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {data ? (
               <MetricRow label="예정 건수" value={String(data.upcomingDeployments)} />
             ) : null}
             {!data?.upcomingDeployments && (
-              <p className="py-4 text-center text-sm text-muted-foreground">예정된 구축 없음</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">기록 없음</p>
             )}
           </CardContent>
         </Card>
@@ -104,7 +104,7 @@ export default function DeliveryDashboardPage() {
               <FileSignature className="h-5 w-5 text-emerald-600" />
               <CardTitle className="text-base">SOW 확인 필요</CardTitle>
             </div>
-            <CardDescription>Statement of Work pending confirmation</CardDescription>
+            <CardDescription>확인 대기 중인 작업 명세서</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {data ? (
@@ -117,9 +117,9 @@ export default function DeliveryDashboardPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Key className="h-5 w-5 text-amber-600" />
-              <CardTitle className="text-base">License Activation 필요</CardTitle>
+              <CardTitle className="text-base">라이선스 활성화 필요</CardTitle>
             </div>
-            <CardDescription>Pending license activations</CardDescription>
+            <CardDescription>활성화 대기 중인 라이선스</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {data ? (
@@ -132,9 +132,9 @@ export default function DeliveryDashboardPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <ClipboardCheck className="h-5 w-5 text-purple-600" />
-              <CardTitle className="text-base">Acceptance Checklist</CardTitle>
+              <CardTitle className="text-base">검수 체크리스트</CardTitle>
             </div>
-            <CardDescription>Items awaiting customer sign-off</CardDescription>
+            <CardDescription>고객 승인 대기 항목</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {data ? (
@@ -147,9 +147,9 @@ export default function DeliveryDashboardPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-indigo-600" />
-              <CardTitle className="text-base">Handover 문서</CardTitle>
+              <CardTitle className="text-base">인수인계 문서</CardTitle>
             </div>
-            <CardDescription>Handover documentation status</CardDescription>
+            <CardDescription>인수인계 문서 상태</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {data ? (

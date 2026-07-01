@@ -38,16 +38,16 @@ export function CreateKnowledgeForm() {
 
   return (
     <form className="grid gap-2" onSubmit={onSubmit}>
-      <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-      <Input placeholder="Tags (comma-separated)" value={tags} onChange={(e) => setTags(e.target.value)} />
+      <Input placeholder="제목" value={title} onChange={(e) => setTitle(e.target.value)} required />
+      <Input placeholder="태그 (쉼표로 구분)" value={tags} onChange={(e) => setTags(e.target.value)} />
       <textarea
         className="min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm"
-        placeholder="Body"
+        placeholder="본문"
         value={body}
         onChange={(e) => setBody(e.target.value)}
         required
       />
-      <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Add document"}</Button>
+      <Button type="submit" disabled={loading}>{loading ? "저장 중..." : "문서 추가"}</Button>
     </form>
   );
 }

@@ -75,9 +75,9 @@ export function EditOpportunityForm({
 
   return (
     <form className="grid gap-2 sm:grid-cols-2" onSubmit={onSubmit}>
-      <Input aria-label="Opportunity title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+      <Input aria-label="기회 제목" value={title} onChange={(e) => setTitle(e.target.value)} required />
       <select
-        aria-label="Stage"
+        aria-label="단계"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={stage}
         onChange={(e) => setStage(e.target.value)}
@@ -87,33 +87,33 @@ export function EditOpportunityForm({
         ))}
       </select>
       <select
-        aria-label="Customer"
+        aria-label="고객사"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={customerId}
         onChange={(e) => setCustomerId(e.target.value)}
       >
-        <option value="">No customer</option>
+        <option value="">고객사 없음</option>
         {customers.map((c) => (
           <option key={c.id} value={c.id}>{c.label}</option>
         ))}
       </select>
       <select
-        aria-label="Partner"
+        aria-label="파트너"
         className="h-9 rounded-md border bg-background px-2 text-sm"
         value={partnerId}
         onChange={(e) => setPartnerId(e.target.value)}
       >
-        <option value="">No partner</option>
+        <option value="">파트너 없음</option>
         {partners.map((p) => (
           <option key={p.id} value={p.id}>{p.label}</option>
         ))}
       </select>
-      <Input aria-label="Amount" type="number" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
-      <Input aria-label="Probability %" type="number" min={0} max={100} value={probability} onChange={(e) => setProbability(e.target.value)} />
-      <Input aria-label="Close date" type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
-      <Input aria-label="Next action" placeholder="Next action" value={nextAction} onChange={(e) => setNextAction(e.target.value)} />
+      <Input aria-label="금액" type="number" placeholder="금액" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      <Input aria-label="확률 %" type="number" min={0} max={100} value={probability} onChange={(e) => setProbability(e.target.value)} />
+      <Input aria-label="마감일" type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
+      <Input aria-label="다음 조치" placeholder="다음 조치" value={nextAction} onChange={(e) => setNextAction(e.target.value)} />
       <Button type="submit" size="sm" disabled={loading} className="sm:col-span-2">
-        {loading ? "Saving..." : "Save opportunity"}
+        {loading ? "저장 중..." : "기회 저장"}
       </Button>
     </form>
   );

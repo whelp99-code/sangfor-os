@@ -30,9 +30,9 @@ export function CreateCustomerForm() {
 
   return (
     <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSubmit}>
-      <Input aria-label="Customer name" placeholder="Customer name" value={name} onChange={(e) => setName(e.target.value)} required />
-      <Input aria-label="Domain (optional)" placeholder="Domain (optional)" value={domain} onChange={(e) => setDomain(e.target.value)} />
-      <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Add customer"}</Button>
+      <Input aria-label="고객사명" placeholder="고객사명" value={name} onChange={(e) => setName(e.target.value)} required />
+      <Input aria-label="도메인 (선택)" placeholder="도메인 (선택)" value={domain} onChange={(e) => setDomain(e.target.value)} />
+      <Button type="submit" disabled={loading}>{loading ? "저장 중..." : "고객사 추가"}</Button>
     </form>
   );
 }

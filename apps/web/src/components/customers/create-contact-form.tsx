@@ -37,10 +37,10 @@ export function CreateContactForm({ customerId }: { customerId: string }) {
 
   return (
     <form className="grid gap-2 md:grid-cols-4" onSubmit={onSubmit}>
-      <Input aria-label="Contact name" placeholder="Contact name" value={name} onChange={(event) => setName(event.target.value)} required />
-      <Input aria-label="Email" placeholder="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-      <Input aria-label="Role" placeholder="Role" value={role} onChange={(event) => setRole(event.target.value)} />
-      <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Add contact"}</Button>
+      <Input aria-label="담당자명" placeholder="담당자명" value={name} onChange={(event) => setName(event.target.value)} required />
+      <Input aria-label="이메일" placeholder="이메일" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+      <Input aria-label="직책" placeholder="직책" value={role} onChange={(event) => setRole(event.target.value)} />
+      <Button type="submit" disabled={loading}>{loading ? "저장 중..." : "담당자 추가"}</Button>
     </form>
   );
 }

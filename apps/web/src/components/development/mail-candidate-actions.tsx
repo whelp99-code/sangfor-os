@@ -27,7 +27,7 @@ export function GenerateMailCandidatesButton() {
     });
     const data = await res.json();
     if (res.ok) {
-      setMessage(`Created ${data.created}, skipped ${data.skipped}, scanned ${data.scanned}`);
+      setMessage(`생성 ${data.created}건, 건너뜀 ${data.skipped}건, 스캔 ${data.scanned}건`);
       router.refresh();
     } else {
       setMessage(actionErrorMessage(data.error, actionErrorMessage("generate_failed")));
@@ -38,7 +38,7 @@ export function GenerateMailCandidatesButton() {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button disabled={loading} onClick={generate} type="button">
-        {loading ? "Generating…" : "Generate from mail"}
+        {loading ? "생성 중…" : "메일에서 생성"}
       </Button>
       {message ? <span className="text-xs text-muted-foreground">{message}</span> : null}
     </div>
@@ -80,7 +80,7 @@ export function MailCandidateActions({ candidateId, status, requiresAiCheck = fa
           onClick={() => patch("revalidate")}
           type="button"
         >
-          {loading === "revalidate" ? "Checking…" : "Run AI check"}
+          {loading === "revalidate" ? "확인 중…" : "AI 검증 실행"}
         </Button>
         <Button
           size="sm"
@@ -89,7 +89,7 @@ export function MailCandidateActions({ candidateId, status, requiresAiCheck = fa
           onClick={() => patch("reject")}
           type="button"
         >
-          {loading === "reject" ? "Rejecting…" : "Reject"}
+          {loading === "reject" ? "반려 중…" : "반려"}
         </Button>
         <RejectReasonSelect value={reasonCode} onChange={setReasonCode} />
         {error ? <span className="text-xs text-destructive">{error}</span> : null}
@@ -100,7 +100,7 @@ export function MailCandidateActions({ candidateId, status, requiresAiCheck = fa
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button size="sm" disabled={loading != null} onClick={() => patch("approve")} type="button">
-        {loading === "approve" ? "Creating…" : "Approve & create"}
+        {loading === "approve" ? "생성 중…" : "승인 및 생성"}
       </Button>
       <Button
         size="sm"
@@ -129,14 +129,14 @@ function RejectReasonSelect({
       className="h-8 rounded-md border bg-background px-2 text-xs"
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      aria-label="Reject reason"
+      aria-label="반려 사유"
     >
-      <option value="weak_evidence">Weak evidence</option>
-      <option value="internal_company">Internal company</option>
-      <option value="system_sender">System sender</option>
-      <option value="duplicate">Duplicate</option>
-      <option value="wrong_entity_role">Wrong entity role</option>
-      <option value="not_actionable">Not actionable</option>
+      <option value="weak_evidence">근거 부족</option>
+      <option value="internal_company">내부 회사</option>
+      <option value="system_sender">시스템 발신자</option>
+      <option value="duplicate">중복</option>
+      <option value="wrong_entity_role">엔티티 역할 오류</option>
+      <option value="not_actionable">조치 불가</option>
     </select>
   );
 }

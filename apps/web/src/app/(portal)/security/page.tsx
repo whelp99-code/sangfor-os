@@ -39,6 +39,8 @@ const securityStats = [
   { label: 'AI 위반', value: '0건', type: 'success' as const },
 ]
 
+const auditMismatchLabel = (v?: string) => (v === 'verified' ? '검증됨' : v ? '불일치' : '-')
+
 export default function SecurityPage() {
   const [data, setData] = useState<SecurityData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -63,23 +65,23 @@ export default function SecurityPage() {
       {!loading && (
         <div className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Unsafe actions</CardTitle></CardHeader>
+            <CardHeader><CardTitle>위험 작업</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <p>send, export, share, delete, deploy, real-upstream-write, production-db-mutation, release-tag</p>
-              <p>All unsafe actions require approval before external or irreversible execution.</p>
+              <p>모든 위험 작업은 외부 실행 또는 되돌릴 수 없는 실행 전에 승인이 필요합니다.</p>
             </CardContent>
           </Card>
           <div className="grid grid-cols-3 gap-4">
         {/* Restricted Data Access */}
-        <Card className="col-span-2"><CardHeader><CardTitle>Restricted Data Access</CardTitle></CardHeader>
+        <Card className="col-span-2"><CardHeader><CardTitle>제한 데이터 접근</CardTitle></CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Resource</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Time</TableHead>
+                  <TableHead>사용자</TableHead>
+                  <TableHead>리소스</TableHead>
+                  <TableHead>사유</TableHead>
+                  <TableHead>시각</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -93,9 +95,10 @@ export default function SecurityPage() {
                 ))}
               </TableBody>
             </Table>
+            {!data?.restrictedAccess.length && <p className="text-sm text-muted-foreground py-2">기록 없음</p>}
           </CardContent></Card>
         {/* Role Changes */}
-        <Card><CardHeader><CardTitle>Role Changes</CardTitle></CardHeader>
+        <Card><CardHeader><CardTitle>권한 변경</CardTitle></CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{data?.roleChanges.total || 0}</p>
             <div className="mt-4 space-y-2">
@@ -105,29 +108,31 @@ export default function SecurityPage() {
                   <p className="text-muted-foreground">{rc.time}</p>
                 </div>
               ))}
+              {!data?.roleChanges.recent.length && <p className="text-xs text-muted-foreground">최근 변경 없음</p>}
             </div>
           </CardContent></Card>
         {/* Privileged Access */}
-        <Card><CardHeader><CardTitle>Privileged Access</CardTitle></CardHeader>
+        <Card><CardHeader><CardTitle>특권 접근</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-sm font-medium mb-2">Active Sessions</p>
+            <p className="text-sm font-medium mb-2">활성 세션</p>
             {data?.privilegedAccess.map((pa, i) => (
               <div key={i} className="flex justify-between text-xs py-1">
                 <span>{pa.user}</span>
                 <span className="text-muted-foreground">{pa.session}</span>
               </div>
             ))}
+            {!data?.privilegedAccess.length && <p className="text-xs text-muted-foreground">활성 세션 없음</p>}
           </CardContent></Card>
         {/* Audit Mismatch */}
-        <Card><CardHeader><CardTitle>Audit Integrity</CardTitle></CardHeader>
+        <Card><CardHeader><CardTitle>감사 무결성</CardTitle></CardHeader>
           <CardContent>
-            <Badge variant={data?.auditMismatch === 'verified' ? 'default' : 'destructive'}>{data?.auditMismatch}</Badge>
+            <Badge variant={data?.auditMismatch === 'verified' ? 'default' : 'destructive'}>{auditMismatchLabel(data?.auditMismatch)}</Badge>
           </CardContent></Card>
         {/* AI Policy Violations */}
-        <Card><CardHeader><CardTitle>AI Policy Violations</CardTitle></CardHeader>
+        <Card><CardHeader><CardTitle>AI 정책 위반</CardTitle></CardHeader>
           <CardContent><p className="text-3xl font-bold text-red-500">{data?.aiPolicyViolations || 0}</p></CardContent></Card>
         {/* Export Events */}
-        <Card><CardHeader><CardTitle>Export Events</CardTitle></CardHeader>
+        <Card><CardHeader><CardTitle>내보내기 이벤트</CardTitle></CardHeader>
           <CardContent>
             {data?.exportEvents.slice(0, 4).map((ev, i) => (
               <div key={i} className="flex justify-between text-xs py-1 border-b last:border-0">
@@ -135,9 +140,10 @@ export default function SecurityPage() {
                 <span className="text-muted-foreground">{ev.time}</span>
               </div>
             ))}
+            {!data?.exportEvents.length && <p className="text-xs text-muted-foreground">기록 없음</p>}
           </CardContent></Card>
         {/* Workflow Definition Changes */}
-        <Card><CardHeader><CardTitle>Workflow Definition Changes</CardTitle></CardHeader>
+        <Card><CardHeader><CardTitle>워크플로 정의 변경</CardTitle></CardHeader>
           <CardContent><p className="text-3xl font-bold">{data?.workflowDefChanges || 0}</p></CardContent></Card>
           </div>
         </div>

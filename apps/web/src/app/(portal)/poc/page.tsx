@@ -36,7 +36,7 @@ export default async function PocPage() {
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">{p.status}</Badge>
                   <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={`/poc/${p.id}`}>
-                    Open
+                    열기
                   </Link>
                 </div>
               </CardHeader>
@@ -44,9 +44,9 @@ export default async function PocPage() {
                 {p.productName ?? "—"}
                 {p.productLine ? ` · ${p.productLine}` : ""}
                 {" · "}
-                {p.customer?.name ?? "No customer"}
+                {p.customer?.name ?? "고객사 없음"}
                 {" · "}
-                {p._count.checklistItems} checklist · {p._count.requirementRows} requirements
+                {p._count.checklistItems}개 체크리스트 · {p._count.requirementRows}개 요구사항
               </CardContent>
             </Card>
           ))

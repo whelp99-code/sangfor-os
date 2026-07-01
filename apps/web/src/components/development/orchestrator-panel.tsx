@@ -135,7 +135,7 @@ export function OrchestratorPanel() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Feature request</CardTitle>
+          <CardTitle>기능 요청</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -151,7 +151,7 @@ export function OrchestratorPanel() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="templateKey">
-                Template Key
+                템플릿 키
               </label>
               <select
                 id="templateKey"
@@ -159,12 +159,12 @@ export function OrchestratorPanel() {
                 onChange={(event) => setTemplateKey(event.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="">None (Deterministic default)</option>
-                <option value="proposal-prd">Proposal PRD</option>
-                <option value="poc-experiment-plan">PoC experiment plan</option>
-                <option value="dev-implementation-plan">Development implementation plan</option>
-                <option value="bugfix-improvement-plan">Bugfix / improvement plan</option>
-                <option value="release-closeout-plan">Release closeout plan</option>
+                <option value="">없음 (기본 결정론적)</option>
+                <option value="proposal-prd">제안 PRD</option>
+                <option value="poc-experiment-plan">PoC 실험 계획</option>
+                <option value="dev-implementation-plan">개발 구현 계획</option>
+                <option value="bugfix-improvement-plan">버그 수정 / 개선 계획</option>
+                <option value="release-closeout-plan">릴리스 마무리 계획</option>
               </select>
             </div>
             <div className="flex items-end pb-2">
@@ -177,29 +177,29 @@ export function OrchestratorPanel() {
                   className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
                 />
                 <label className="text-sm font-medium" htmlFor="includeContextPack">
-                  Include Context Pack
+                  컨텍스트 팩 포함
                 </label>
               </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button disabled={loading} onClick={handleRecommend} type="button" variant="outline">
-              Recommend skills
+              스킬 추천
             </Button>
             <Button disabled={loading} onClick={handlePreviewPlan} type="button" variant="outline">
-              Preview plan
+              계획 미리보기
             </Button>
             <Button disabled={loading} onClick={handleRun} type="button">
-              Run Phase 13 pipeline
+              Phase 13 파이프라인 실행
             </Button>
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           {commandRunId ? (
-            <p className="text-sm text-muted-foreground">Command run: {commandRunId}</p>
+            <p className="text-sm text-muted-foreground">커맨드 실행: {commandRunId}</p>
           ) : null}
           {performance ? (
             <p className="text-sm text-muted-foreground">
-              Runtime: {Math.round((performance.totalDurationMs ?? 0) / 1000)}s
+              실행 시간: {Math.round((performance.totalDurationMs ?? 0) / 1000)}s
               {" · "}
               llm={performance.llmCallCount ?? 0}
               {" · "}
@@ -224,7 +224,7 @@ export function OrchestratorPanel() {
       {skillKeys.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Recommended skills</CardTitle>
+            <CardTitle>추천 스킬</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {skillKeys.map((key) => (
@@ -239,7 +239,7 @@ export function OrchestratorPanel() {
       {skillRuns.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Skill run timeline</CardTitle>
+            <CardTitle>스킬 실행 타임라인</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {skillRuns.map((run) => (
@@ -268,17 +268,17 @@ export function OrchestratorPanel() {
       {breakdown.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Work breakdown</CardTitle>
+            <CardTitle>작업 분해</CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left">
-                  <th className="py-2 pr-4">Title</th>
-                  <th className="py-2 pr-4">Area</th>
-                  <th className="py-2 pr-4">Agent</th>
-                  <th className="py-2 pr-4">Risk</th>
-                  <th className="py-2">Hours</th>
+                  <th className="py-2 pr-4">제목</th>
+                  <th className="py-2 pr-4">영역</th>
+                  <th className="py-2 pr-4">에이전트</th>
+                  <th className="py-2 pr-4">위험도</th>
+                  <th className="py-2">시간</th>
                 </tr>
               </thead>
               <tbody>
