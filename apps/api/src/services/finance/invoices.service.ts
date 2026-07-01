@@ -30,10 +30,18 @@ export class InvoicesService {
     return Math.round(supply * 0.1);
   }
 
-  list(filters: { depositStatus?: string; projectId?: string; limit: number }) {
+  list(filters: { depositStatus?: string; projectId?: string; limit: number; excludeEmpty?: boolean }) {
     const where: any = {};
     if (filters.depositStatus) where.depositStatus = filters.depositStatus;
     if (filters.projectId) where.projectId = filters.projectId;
+    // Placeholder "ghost" invoices (blank buyer AND zero total) are structurally
+    // empty rows that render as 0원 blank lines in the /cfo/invoices table while
+    // the 미수금 SSOT already excludes them. Hide them from the list on request;
+    // a legitimate 0원 invoice (buyer present) is NOT suppressed. Data is left
+    // untouched — this is a display-only filter.
+    if (filters.excludeEmpty) {
+      where.NOT = { AND: [{ OR: [{ buyer: null }, { buyer: '' }] }, { total: 0 }] };
+    }
     return prisma.invoice.findMany({
       where,
       include: { project: true },

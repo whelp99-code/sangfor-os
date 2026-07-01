@@ -98,7 +98,9 @@ export function RedesignedDashboard() {
           health: health || { overall: "ok", services: [] },
         });
       } catch (err) {
-        console.error("Dashboard data fetch error:", err);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Dashboard data fetch error:", err);
+        }
         // Set default empty data even on error (no fabricated figures).
         setData({
           summary: {

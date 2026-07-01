@@ -90,6 +90,9 @@ router.get('/dashboard/project-pnl', ok((req: any) => dashboard.getProjectPnl(nu
 // Invoices
 router.get('/invoices', ok((req: any) => invoices.list({
   depositStatus: q(req, 'depositStatus'), projectId: q(req, 'projectId'), limit: num(q(req, 'limit')) ?? 100,
+  // Hide placeholder ghost rows (blank buyer + 0원 total) from the ledger view by
+  // default; pass ?includeEmpty=1 to opt back in (e.g. data-repair tooling).
+  excludeEmpty: q(req, 'includeEmpty') !== '1',
 })));
 router.get('/invoices/:id', ok((req: any) => invoices.get(req.params.id)));
 router.post('/invoices', ok((req: any) => invoices.create(req.body)));
