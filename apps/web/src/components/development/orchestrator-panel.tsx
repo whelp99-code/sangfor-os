@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AutomationPreviewCards } from "@/components/automation/automation-preview-cards";
 import { ContextPackSummaryCard } from "@/components/phase13/context-pack-summary-card";
+import { actionErrorMessage } from "@/lib/action-error-labels";
 
 type SkillRun = {
   id: string;
@@ -74,7 +75,7 @@ export function OrchestratorPanel() {
       if (!res.ok) throw new Error(data.error ?? "recommend_failed");
       setSkillKeys(data.skillKeys ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "recommend_failed");
+      setError(actionErrorMessage(err instanceof Error ? err.message : "recommend_failed"));
     } finally {
       setLoading(false);
     }
@@ -105,7 +106,7 @@ export function OrchestratorPanel() {
       setHandoffContextSummary(data.handoffDraft?.contextPackSummary ?? null);
       setPerformance(data.performance ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "run_failed");
+      setError(actionErrorMessage(err instanceof Error ? err.message : "run_failed"));
     } finally {
       setLoading(false);
     }
@@ -124,7 +125,7 @@ export function OrchestratorPanel() {
       if (!res.ok) throw new Error(data.error ?? "preview_failed");
       setPreviewResult(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "preview_failed");
+      setError(actionErrorMessage(err instanceof Error ? err.message : "preview_failed"));
     } finally {
       setLoading(false);
     }

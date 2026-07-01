@@ -37,7 +37,7 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-12 text-center dark:border-red-900/50 dark:bg-red-950/20">
       <AlertTriangle className="h-10 w-10 text-red-500" />
-      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">Failed to load dashboard</h2>
+      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">대시보드를 불러오지 못했습니다</h2>
       <p className="text-sm text-red-600 dark:text-red-300">{message}</p>
     </div>
   );
@@ -62,7 +62,7 @@ export default function SalesDashboardPage() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setData(await res.json());
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(err instanceof Error ? err.message : "알 수 없는 오류");
       } finally {
         setLoading(false);
       }
@@ -74,7 +74,7 @@ export default function SalesDashboardPage() {
 
   return (
     <AIWorkspaceLayout
-      title="Sales"
+      title="영업"
       subtitle="AI가 파이프라인을 자동 관리합니다"
       activities={SALES_ACTIVITIES}
       stats={SALES_STATS}
@@ -93,17 +93,17 @@ export default function SalesDashboardPage() {
                   <DollarSign className="h-5 w-5 text-blue-600" />
                   <CardTitle className="text-base">내 Pipeline</CardTitle>
                 </div>
-                <CardDescription>Sales pipeline by stage and weighted forecast</CardDescription>
+                <CardDescription>단계별 영업 파이프라인 및 가중 예측</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data?.pipeline.length ? (
                   <>
                     <MetricRow label="열린 기회" value={String(data.pipeline.length)} />
-                    <MetricRow label="가중 예상 매출" value={`$${(totalPipeline * 0.4).toLocaleString()}`} />
-                    <MetricRow label="Pipeline total" value={`$${totalPipeline.toLocaleString()}`} />
+                    <MetricRow label="가중 예상 매출" value={`₩${Math.round(totalPipeline * 0.4).toLocaleString("ko-KR")}`} />
+                    <MetricRow label="파이프라인 합계" value={`₩${totalPipeline.toLocaleString("ko-KR")}`} />
                   </>
                 ) : (
-                  <p className="py-4 text-center text-sm text-muted-foreground">No pipeline data</p>
+                  <p className="py-4 text-center text-sm text-muted-foreground">파이프라인 데이터 없음</p>
                 )}
               </CardContent>
             </Card>
@@ -184,8 +184,8 @@ export default function SalesDashboardPage() {
               <CardContent className="space-y-2">
                 {data ? (
                   <>
-                    <MetricRow label="$50K+ quote deals" value={String(data.riskDeals)} />
-                    <MetricRow label="Stage changes" value={String(data.pipeline.filter((o) => o.stage === "quote").length)} />
+                    <MetricRow label="$50K+ 견적 딜" value={String(data.riskDeals)} />
+                    <MetricRow label="단계 변경" value={String(data.pipeline.filter((o) => o.stage === "quote").length)} />
                   </>
                 ) : null}
               </CardContent>

@@ -39,8 +39,8 @@ export default function OperatorPage() {
 
   return (
     <AIWorkspaceLayout
-      title="Operator workspace"
-      subtitle="W1-W2 stabilization readiness and role-based operational dashboard"
+      title="운영자 워크스페이스"
+      subtitle="W1-W2 안정화 준비 상태 및 역할 기반 운영 대시보드"
       activities={operatorActivities}
       stats={operatorStats}
       onCommand={handleCommand}

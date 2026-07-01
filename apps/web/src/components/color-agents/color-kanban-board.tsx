@@ -33,6 +33,22 @@ const INITIAL_COLUMNS: KanbanColumn[] = [
   { name: "Escalated", cards: [] },
 ];
 
+// Display labels. Keys stay English (used as internal pipeline identifiers in
+// handleAdvance/handleEscalate); only the rendered text is localized.
+const COLUMN_LABELS: Record<string, string> = {
+  "To Blue": "블루로",
+  "To Red": "레드로",
+  "To Orange": "오렌지로",
+  "To Gray": "그레이로",
+  "To Teal": "틸로",
+  Resolved: "해결됨",
+  Escalated: "에스컬레이션",
+};
+
+function columnLabel(name: string): string {
+  return COLUMN_LABELS[name] ?? name;
+}
+
 function PriorityIndicator({ priority }: { priority: KanbanCard["priority"] }) {
   if (priority === "critical") return <AlertTriangle className="h-3 w-3 text-red-500" role="img" aria-label="Critical priority" />;
   if (priority === "high") return <AlertTriangle className="h-3 w-3 text-amber-500" role="img" aria-label="High priority" />;
@@ -42,10 +58,10 @@ function PriorityIndicator({ priority }: { priority: KanbanCard["priority"] }) {
 
 function StatusBadge({ status }: { status: KanbanCard["status"] }) {
   const map: Record<KanbanCard["status"], { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-    pending: { label: "Pending", variant: "outline" },
-    in_review: { label: "In Review", variant: "secondary" },
-    done: { label: "Done", variant: "default" },
-    blocked: { label: "Blocked", variant: "destructive" },
+    pending: { label: "대기", variant: "outline" },
+    in_review: { label: "검토 중", variant: "secondary" },
+    done: { label: "완료", variant: "default" },
+    blocked: { label: "차단됨", variant: "destructive" },
   };
   const { label, variant } = map[status];
   return <Badge variant={variant} className="text-xs">{label}</Badge>;
@@ -105,7 +121,7 @@ export function ColorKanbanBoard() {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/50">
           <GripVertical className="h-4 w-4 text-purple-600 dark:text-purple-400" />
         </div>
-        <CardTitle className="text-base">Kanban Board — Color Review Pipeline</CardTitle>
+        <CardTitle className="text-base">칸반 보드 — 컬러 검토 파이프라인</CardTitle>
       </CardHeader>
       <CardContent>
         <ScrollArea className="pb-2">
@@ -116,12 +132,12 @@ export function ColorKanbanBoard() {
                 className="flex w-56 shrink-0 flex-col rounded-lg border bg-muted/20"
               >
                 <div className="flex items-center justify-between border-b px-3 py-2">
-                  <h3 className="text-xs font-semibold">{col.name}</h3>
+                  <h3 className="text-xs font-semibold">{columnLabel(col.name)}</h3>
                   <Badge variant="outline" className="text-xs">{col.cards.length}</Badge>
                 </div>
                 <div className="flex flex-col gap-2 p-2 min-h-[100px]">
                   {col.cards.length === 0 ? (
-                    <p className="py-6 text-center text-xs text-muted-foreground">—</p>
+                    <p className="py-6 text-center text-xs text-muted-foreground">항목 없음</p>
                   ) : (
                     col.cards.map((card) => (
                       <div
@@ -136,12 +152,12 @@ export function ColorKanbanBoard() {
                           <StatusBadge status={card.status} />
                         </div>
                         <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
-                          <Badge variant="outline" className="text-xs px-1">{card.fromColor}</Badge>
+                          <Badge variant="outline" className="text-xs px-1">{columnLabel(card.fromColor)}</Badge>
                           <ArrowRight className="h-2.5 w-2.5 shrink-0" />
-                          <Badge variant="outline" className="text-xs px-1">{card.toColor}</Badge>
+                          <Badge variant="outline" className="text-xs px-1">{columnLabel(card.toColor)}</Badge>
                         </div>
                         <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
-                          <span>Due: {card.dueDate}</span>
+                          <span>마감: {card.dueDate}</span>
                           <span>{card.linkedArtifact}</span>
                         </div>
                         {col.name !== "Resolved" && col.name !== "Escalated" && (
@@ -150,13 +166,13 @@ export function ColorKanbanBoard() {
                               onClick={() => handleAdvance(card.id)}
                               className="flex-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-brand-500"
                             >
-                              Advance
+                              다음 단계
                             </button>
                             <button
                               onClick={() => handleEscalate(card.id)}
                               className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive hover:bg-destructive/20 focus-visible:ring-2 focus-visible:ring-brand-500"
                             >
-                              Escalate
+                              에스컬레이션
                             </button>
                           </div>
                         )}

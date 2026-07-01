@@ -18,8 +18,8 @@ export default async function PocPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">PoC Projects</h1>
-        <p className="text-muted-foreground">Sangfor proof-of-concept lifecycle management.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">PoC 프로젝트</h1>
+        <p className="text-muted-foreground">Sangfor 개념검증(PoC) 라이프사이클 관리.</p>
       </div>
       <CreatePocForm
         customers={customers.map((c) => ({ id: c.id, label: c.name }))}
@@ -27,7 +27,7 @@ export default async function PocPage() {
       />
       <div className="grid gap-3">
         {projects.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No PoC projects yet.</p>
+          <p className="text-sm text-muted-foreground">아직 PoC 프로젝트가 없습니다.</p>
         ) : (
           projects.map((p) => (
             <Card key={p.id}>

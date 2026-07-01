@@ -119,7 +119,7 @@ export default function MailIntelligencePage() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setReport(await res.json());
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(err instanceof Error ? err.message : "알 수 없는 오류");
       } finally {
         setLoading(false);
       }
@@ -147,7 +147,7 @@ export default function MailIntelligencePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Mail Intelligence</h1>
+          <h1 className="text-3xl font-bold">메일 인텔리전스</h1>
           <p className="text-muted-foreground">
             AI 기반 메일 분석 및 비즈니스 인사이트 추출
           </p>

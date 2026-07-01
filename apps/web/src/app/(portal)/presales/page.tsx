@@ -34,7 +34,7 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-12 text-center dark:border-red-900/50 dark:bg-red-950/20">
       <AlertTriangle className="h-10 w-10 text-red-500" />
-      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">Failed to load dashboard</h2>
+      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">대시보드를 불러오지 못했습니다</h2>
       <p className="text-sm text-red-600 dark:text-red-300">{message}</p>
     </div>
   );
@@ -54,7 +54,7 @@ export default function PresalesDashboardPage() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setData(await res.json());
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(err instanceof Error ? err.message : "알 수 없는 오류");
       } finally {
         setLoading(false);
       }
@@ -75,8 +75,8 @@ export default function PresalesDashboardPage() {
 
   return (
     <AIWorkspaceLayout
-      title="Presales Engineer"
-      subtitle="Role-based operational dashboard"
+      title="프리세일즈"
+      subtitle="역할 기반 운영 대시보드"
       activities={MOCK_ACTIVITIES}
       stats={stats}
       onCommand={handleCommand}
@@ -90,8 +90,8 @@ export default function PresalesDashboardPage() {
             <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-blue-500/10 blur-2xl" />
             <div className="relative">
               <p className="text-sm font-medium text-gray-400">Sangfor Agentic OS</p>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Presales Engineer</h1>
-              <p className="mt-2 text-sm text-gray-400">Role-based operational dashboard</p>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">프리세일즈</h1>
+              <p className="mt-2 text-sm text-gray-400">역할 기반 운영 대시보드</p>
             </div>
           </div>
 

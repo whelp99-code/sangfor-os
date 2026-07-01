@@ -42,7 +42,7 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-12 text-center dark:border-red-900/50 dark:bg-red-950/20">
       <AlertTriangle className="h-10 w-10 text-red-500" />
-      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">Failed to load dashboard</h2>
+      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">대시보드를 불러오지 못했습니다</h2>
       <p className="text-sm text-red-600 dark:text-red-300">{message}</p>
     </div>
   );
@@ -67,7 +67,7 @@ export default function FinanceDashboardPage() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setData(await res.json());
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(err instanceof Error ? err.message : "알 수 없는 오류");
       } finally {
         setLoading(false);
       }
@@ -77,7 +77,7 @@ export default function FinanceDashboardPage() {
 
   return (
     <AIWorkspaceLayout
-      title="Finance"
+      title="재무"
       subtitle="AI가 재무 정산 및 송장 검증을 자동 관리합니다"
       activities={FINANCE_ACTIVITIES}
       stats={FINANCE_STATS}

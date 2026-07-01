@@ -36,7 +36,7 @@ export function CustomersDataTable({ customers, searchQuery }: Props) {
     () => [
       {
         id: "name",
-        label: "Name",
+        label: "고객사",
         sortable: true,
         filterable: true,
         render: (item) => (
@@ -50,7 +50,7 @@ export function CustomersDataTable({ customers, searchQuery }: Props) {
       },
       {
         id: "domain",
-        label: "Domain",
+        label: "도메인",
         sortable: true,
         render: (item) => (
           <span className="text-muted-foreground">{item.domain ?? "—"}</span>
@@ -58,13 +58,13 @@ export function CustomersDataTable({ customers, searchQuery }: Props) {
       },
       {
         id: "status",
-        label: "Status",
+        label: "상태",
         sortable: true,
         render: (item) => <Badge variant="outline">{item.status}</Badge>,
       },
       {
         id: "partners",
-        label: "Partners",
+        label: "파트너",
         sortable: false,
         render: (item) => (
           <span className="text-muted-foreground">
@@ -74,7 +74,7 @@ export function CustomersDataTable({ customers, searchQuery }: Props) {
       },
       {
         id: "tasks",
-        label: "Tasks",
+        label: "작업",
         sortable: true,
         render: (item) => (
           <span className="text-muted-foreground">{item._count.workTasks}</span>
@@ -90,7 +90,7 @@ export function CustomersDataTable({ customers, searchQuery }: Props) {
             href={`/customers/${item.id}`}
             className="text-xs text-primary hover:underline"
           >
-            Open
+            열기
           </Link>
         ),
       },
@@ -102,14 +102,14 @@ export function CustomersDataTable({ customers, searchQuery }: Props) {
     <DataTable
       columns={columns}
       data={filtered}
-      searchPlaceholder="Search customers..."
+      searchPlaceholder="고객사 검색..."
       searchValue={search}
       onSearch={setSearch}
-      emptyMessage="No customers found"
+      emptyMessage="고객사가 없습니다"
       emptyGuidance={
         searchQuery
-          ? `No results for "${searchQuery}". Try a different search term.`
-          : "No customers yet. Create one to get started."
+          ? `"${searchQuery}"에 대한 결과가 없습니다. 다른 검색어를 입력해 보세요.`
+          : "첫 고객사를 추가해 시작하세요."
       }
     />
   )

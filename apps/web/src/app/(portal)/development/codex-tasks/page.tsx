@@ -14,16 +14,16 @@ export default async function CodexTasksPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Codex Tasks</h1>
-          <p className="text-muted-foreground">Tracked Codex agent work linked to command runs.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Codex 작업</h1>
+          <p className="text-muted-foreground">커맨드 실행에 연결된 Codex 에이전트 작업 추적.</p>
         </div>
         <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/development">
-          Back to Development
+          개발 센터로 돌아가기
         </Link>
       </div>
       <div className="grid gap-3">
         {tasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No Codex tasks yet.</p>
+          <p className="text-sm text-muted-foreground">아직 Codex 작업이 없습니다.</p>
         ) : (
           tasks.map((task) => (
             <Card key={task.id}>
