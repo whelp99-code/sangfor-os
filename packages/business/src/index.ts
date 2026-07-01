@@ -81,3 +81,4 @@ export * from "./deal-registration";
 export * from "./ai-decision-policy";
 export * from "./ai-decision";
 export * from "./ai-decision-analytics";
+export * from "./ai-decision-commercial";

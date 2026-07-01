@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AiDecisionPanel } from "@/components/domain-pipeline/ai-decision-panel";
 
 interface OutcomeBreakdown {
   approved: number;
@@ -266,6 +267,9 @@ export default function DomainPipelinePage() {
           </div>
         </>
       )}
+
+      {/* S1: AI 의사결정 현황 — 자체 read-model 조회(파이프라인 스냅샷과 독립). */}
+      <AiDecisionPanel />
     </div>
   );
 }
