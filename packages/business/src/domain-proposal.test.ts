@@ -6,6 +6,16 @@ vi.mock('./domain-memory', () => ({
   loadDomainMemories: vi.fn().mockResolvedValue([]),
   recallDomainMemories: vi.fn().mockReturnValue([]),
   recordDomainDecision: vi.fn().mockResolvedValue({ id: 'mock-id' }),
+  // Real (pure) impl: generateDomainProposal now builds recall query tags via
+  // buildMemoryTags (Step 8), so the mock must export it or module load fails.
+  buildMemoryTags: (input: { domain: string; entityType?: string; intentTag?: string }) =>
+    [
+      `domain:${input.domain}`,
+      input.entityType ? `entity:${input.entityType}` : undefined,
+      input.intentTag ? `intent:${input.intentTag}` : undefined,
+    ]
+      .filter((t): t is string => Boolean(t))
+      .map((t) => t.toLowerCase()),
 }));
 
 
