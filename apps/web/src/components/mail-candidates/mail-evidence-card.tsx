@@ -28,11 +28,11 @@ export function MailEvidenceCard({ evidence }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Mail evidence</CardTitle>
+        <CardTitle>메일 근거</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {evidence.length === 0 ? (
-          <p className="text-muted-foreground">No mail evidence linked yet.</p>
+          <p className="text-muted-foreground">아직 연결된 메일 근거가 없습니다.</p>
         ) : (
           evidence.map((item) => (
             <div key={item.linkId} className="space-y-2 rounded-md border p-3">
@@ -49,12 +49,12 @@ export function MailEvidenceCard({ evidence }: Props) {
               </div>
               <p className="break-words text-muted-foreground">{item.candidate.summary}</p>
               <div className="grid gap-2 md:grid-cols-3">
-                <EvidenceList title="Evidence" items={item.candidate.evidenceItems} />
-                <EvidenceList title="Next actions" items={item.candidate.nextActions} />
-                <EvidenceList title="AI evidence" items={item.candidate.aiEvidence} />
+                <EvidenceList title="근거" items={item.candidate.evidenceItems} />
+                <EvidenceList title="다음 조치" items={item.candidate.nextActions} />
+                <EvidenceList title="AI 근거" items={item.candidate.aiEvidence} />
               </div>
               <p className="text-xs text-muted-foreground">
-                Source: {item.candidate.sourceTitle ?? "mail"} · Sender: {item.candidate.sourceSender ?? "unknown"}
+                출처: {item.candidate.sourceTitle ?? "메일"} · 발신자: {item.candidate.sourceSender ?? "알 수 없음"}
               </p>
             </div>
           ))
@@ -69,7 +69,7 @@ function EvidenceList({ title, items }: { title: string; items: string[] }) {
     <div className="rounded-md bg-muted/30 p-2">
       <p className="mb-1 text-xs font-medium text-muted-foreground">{title}</p>
       {items.length === 0 ? (
-        <p className="text-xs text-muted-foreground">None</p>
+        <p className="text-xs text-muted-foreground">없음</p>
       ) : (
         <ul className="space-y-1 text-xs">
           {items.map((item, index) => (

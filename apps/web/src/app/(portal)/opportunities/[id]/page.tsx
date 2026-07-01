@@ -68,15 +68,15 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
       />
       <DealStagePath stage={stage} />
       <PortalOrchestratorRunPanel
-        title="Phase 13 orchestrator"
-        buttonLabel="Run orchestrator"
+        title="Phase 13 오케스트레이터"
+        buttonLabel="오케스트레이터 실행"
         inputSummary={buildOpportunityOrchestratorSummary(opportunity)}
         sourceEntityType="opportunity"
         sourceEntityId={opportunity.id}
       />
       <MailEvidenceCard evidence={mailEvidence} />
       <Card>
-        <CardHeader><CardTitle>Edit opportunity</CardTitle></CardHeader>
+        <CardHeader><CardTitle>기회 편집</CardTitle></CardHeader>
         <CardContent>
           <EditOpportunityForm
             opportunityId={opportunity.id}
@@ -97,7 +97,7 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
       </Card>
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle>Stage history</CardTitle></CardHeader>
+          <CardHeader><CardTitle>단계 이력</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             {opportunity.stageEvents.map((e) => (
               <div key={e.id} className="flex justify-between">
@@ -108,7 +108,7 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Linked entities</CardTitle></CardHeader>
+          <CardHeader><CardTitle>연결 항목</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <AddOpportunityLinkForm
               opportunityId={opportunity.id}
@@ -121,7 +121,7 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
             />
             <div className="space-y-2 text-sm">
               {enrichedLinks.length === 0 ? (
-                <p className="text-muted-foreground">No links yet.</p>
+                <p className="text-muted-foreground">아직 연결된 항목이 없습니다.</p>
               ) : (
                 enrichedLinks.map((link) => (
                   <div key={link.id} className="flex items-center justify-between gap-2">

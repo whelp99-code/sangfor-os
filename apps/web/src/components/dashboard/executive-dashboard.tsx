@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Clock,
@@ -176,14 +176,25 @@ export function ExecutiveDashboard() {
     fetchData();
   }, []);
 
+  // Aggregate the forecast rows once per data change (single pass) instead of
+  // recomputing two reduces on every render. Hook must run before the early
+  // returns below to respect the Rules of Hooks.
+  const { totalForecast, totalWeighted } = useMemo(() => {
+    const rows = data?.productForecast ?? [];
+    let forecast = 0;
+    let weighted = 0;
+    for (const r of rows) {
+      forecast += r.forecast;
+      weighted += r.weighted;
+    }
+    return { totalForecast: forecast, totalWeighted: weighted };
+  }, [data]);
+
   if (loading) return <LoadingSkeleton />;
 
   if (error) return <ErrorState message={error} />;
 
   if (!data) return <ErrorState message="반환된 데이터가 없습니다" />;
-
-  const totalForecast = data.productForecast.reduce((s, r) => s + r.forecast, 0);
-  const totalWeighted = data.productForecast.reduce((s, r) => s + r.weighted, 0);
 
   // Distinguish "no data collected yet" from genuine zero values: when every
   // data source is empty and the pipeline totals are zero, the 0s and empty

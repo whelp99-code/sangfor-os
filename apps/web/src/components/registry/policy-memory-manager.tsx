@@ -54,9 +54,9 @@ export function PolicyMemoryManager({
       <div className="rounded-md border border-border bg-card shadow-sm">
         <div className="p-4 border-b border-border flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h3 className="text-sm font-semibold tracking-tight">Mail Intelligence Policies</h3>
+            <h3 className="text-sm font-semibold tracking-tight">메일 인텔리전스 정책</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Manage custom rules (internal companies, partners, system senders) derived from operations.
+              운영에서 도출된 사용자 정의 규칙(내부 회사, 파트너, 시스템 발신자)을 관리합니다.
             </p>
           </div>
           {error && <span className="text-xs text-destructive">{error}</span>}
@@ -64,10 +64,10 @@ export function PolicyMemoryManager({
         <div className="p-4 space-y-4">
           <div className="space-y-2">
             <span className="font-semibold text-muted-foreground uppercase tracking-wider text-xs">
-              Proposed Filters ({proposed.length})
+              제안된 필터 ({proposed.length})
             </span>
             {proposed.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">No proposed policies pending review.</p>
+              <p className="text-xs text-muted-foreground italic">검토 대기 중인 제안 정책이 없습니다.</p>
             ) : (
               <div className="space-y-2">
                 {proposed.map((policy) => (
@@ -83,7 +83,7 @@ export function PolicyMemoryManager({
                         <span className="font-medium text-foreground break-all">{policy.label}</span>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Source: {policy.source} · Confidence: {policy.confidence}% · Key: {policy.key}
+                        출처: {policy.source} · 신뢰도: {policy.confidence}% · 키: {policy.key}
                       </p>
                     </div>
                     <button
@@ -92,7 +92,7 @@ export function PolicyMemoryManager({
                       type="button"
                       className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-medium text-[11px] disabled:opacity-50 transition-colors"
                     >
-                      {loadingId === policy.id ? "Promoting..." : "Activate"}
+                      {loadingId === policy.id ? "활성화 중..." : "활성화"}
                     </button>
                   </div>
                 ))}
@@ -102,10 +102,10 @@ export function PolicyMemoryManager({
 
           <div className="space-y-2 pt-2 border-t border-border">
             <span className="font-semibold text-muted-foreground uppercase tracking-wider text-xs">
-              Active Filters ({active.length})
+              활성 필터 ({active.length})
             </span>
             {active.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">No active policy filters loaded.</p>
+              <p className="text-xs text-muted-foreground italic">로드된 활성 정책 필터가 없습니다.</p>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {active.map((policy) => (
@@ -122,7 +122,7 @@ export function PolicyMemoryManager({
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Source: {policy.source} · Confidence: {policy.confidence}%
+                      출처: {policy.source} · 신뢰도: {policy.confidence}%
                     </p>
                   </div>
                 ))}
