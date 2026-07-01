@@ -175,7 +175,7 @@ export default async function MyWorkPage() {
                   >
                     <div>
                       <p className="font-medium">
-                        {doc.title ?? doc.template?.name ?? "제목 없음"}
+                        {doc.title ?? "제목 없음"}
                       </p>
                       {doc.customer?.name && (
                         <p className="text-xs text-muted-foreground">{doc.customer.name}</p>
@@ -216,7 +216,7 @@ export default async function MyWorkPage() {
                     className="group hover:bg-muted/30 rounded px-1 -mx-1 flex items-center justify-between gap-2 py-1.5 border-b last:border-0 text-sm"
                   >
                     <div>
-                      <p className="font-medium">{poc.name}</p>
+                      <p className="font-medium">{poc.title}</p>
                       {poc.customer?.name && (
                         <p className="text-xs text-muted-foreground">{poc.customer.name}</p>
                       )}
