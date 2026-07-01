@@ -7,10 +7,13 @@ import {
 import { listActionDefinitions } from "@sangfor/business/action-connector-runtime";
 import { prisma } from "@sangfor/db";
 import { NextResponse } from "next/server";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 type RouteContext = { params: Promise<{ moduleKey: string }> };
 
 export async function POST(request: Request, context: RouteContext) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   try {
     const { moduleKey } = await context.params;
     const body = await request.json().catch(() => ({}));
@@ -109,9 +112,6 @@ export async function POST(request: Request, context: RouteContext) {
       { status },
     );
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "validate_module_failed" },
-      { status: 500 },
-    );
+    return apiError("validate_module_failed", error, { status: 500 });
   }
 }

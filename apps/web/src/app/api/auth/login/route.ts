@@ -1,4 +1,5 @@
 import { createSessionToken, isAuthConfigured } from "@/lib/auth/session";
+import { checkRateLimit, clientIp } from "@/lib/api-auth";
 import { NextResponse } from "next/server";
 
 const DEMO_EMAIL = "operator@demo.local";
@@ -9,7 +10,29 @@ function demoPassword(): string | null {
 }
 
 export async function POST(request: Request) {
+  // IP-based rate limit to blunt credential stuffing / brute force.
+  const { allowed, retryAfterSec } = checkRateLimit(`login:${clientIp(request)}`, {
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "too_many_requests", message: "Too many login attempts. Try again later." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } },
+    );
+  }
+
   const body = await request.json().catch(() => ({}));
+
+  // WARNING: when JWT_SECRET is unset the service runs in "mock" mode and issues
+  // an unauthenticated **admin** token to any caller. This is intended for
+  // dev/demo only — a prod deploy that forgets to set JWT_SECRET would expose
+  // admin access. `isAuthConfigured()` gates the real credential check below.
+  if (!isAuthConfigured()) {
+    console.warn(
+      "[auth] JWT_SECRET not configured — issuing mock admin token (dev/demo only, unsafe for prod)",
+    );
+  }
 
   if (isAuthConfigured()) {
     const expected = demoPassword();

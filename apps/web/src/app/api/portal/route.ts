@@ -5,6 +5,7 @@ import {
   syncMockMail,
 } from "@sangfor/business";
 import { NextResponse } from "next/server";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 export async function GET() {
   try {
@@ -14,14 +15,13 @@ export async function GET() {
     ]);
     return NextResponse.json({ overview, tasks });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "portal_failed" },
-      { status: 500 },
-    );
+    return apiError("portal_failed", error, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   try {
     const body = await request.json();
     const action = body.action as string;
@@ -35,9 +35,6 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: "unknown_action" }, { status: 400 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "portal_action_failed" },
-      { status: 400 },
-    );
+    return apiError("portal_action_failed", error, { status: 400 });
   }
 }

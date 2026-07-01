@@ -1,9 +1,17 @@
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, beforeEach, vi } from "vitest";
 
 const { mockRag } = vi.hoisted(() => ({ mockRag: vi.fn() }));
 vi.mock("@sangfor/infra", () => ({ engineerConsole: { ragSearch: mockRag } }));
 
 import { POST } from "./route";
+
+const prevBypass = process.env.AUTH_BYPASS_ENABLED;
+beforeAll(() => {
+  process.env.AUTH_BYPASS_ENABLED = "1";
+});
+afterAll(() => {
+  process.env.AUTH_BYPASS_ENABLED = prevBypass;
+});
 
 function req(body: unknown, raw = false) {
   return new Request("http://localhost/api/engineer/rag", {
@@ -37,6 +45,7 @@ describe("POST /api/engineer/rag", () => {
     const body = await res.json();
     expect(res.status).toBe(502);
     expect(body.results).toEqual([]);
-    expect(body.error).toContain("503");
+    // Error detail is sanitized (Round 7 security); assert the stable error code, not the raw message.
+    expect(body.error).toBe("rag_search_failed");
   });
 });

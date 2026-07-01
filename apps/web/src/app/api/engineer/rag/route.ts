@@ -1,9 +1,12 @@
 import { engineerConsole } from "@sangfor/infra";
+import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
 /** POST /api/engineer/rag — RAG search via engineer console. Body: { query, product?, limit? } */
 export async function POST(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return denied;
   let body: { query?: unknown; product?: unknown; limit?: unknown };
   try {
     body = await request.json();
@@ -21,9 +24,9 @@ export async function POST(request: Request) {
     });
     return Response.json(result);
   } catch (error) {
-    return Response.json(
-      { results: [], error: error instanceof Error ? error.message : "rag_search_failed" },
-      { status: 502 },
-    );
+    return apiError("rag_search_failed", error, {
+      status: 502,
+      extra: { results: [] },
+    });
   }
 }
