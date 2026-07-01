@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from './trpc';
 import { prisma } from '@sangfor/db';
-import { calculateBantScore, calculateQuote, normalizeOpportunityStage, routeColorAgents, submitCommercialApproval, validateOpportunityStageOrder, validateRegistrationGate } from '@sangfor/business';
+import { calculateBantScore, calculateQuote, normalizeOpportunityStage, recordCommercialApprovalDecision, routeColorAgents, submitCommercialApproval, validateOpportunityStageOrder, validateRegistrationGate } from '@sangfor/business';
 import { evaluateQuality, releaseGatePassed } from '@sangfor/business';
 
 export const businessRouter = router({
@@ -39,7 +39,18 @@ export const businessRouter = router({
     .input(z.object({ quoteId: z.string(), opportunityId: z.string(), reason: z.string() }))
     .mutation(async ({ ctx, input }) => {
       if (!ctx.companyId) throw new Error('Authenticated company scope is required');
-      return submitCommercialApproval({ quoteId: input.quoteId, opportunityId: input.opportunityId, companyId: ctx.companyId, reason: input.reason });
+      const result = await submitCommercialApproval({ quoteId: input.quoteId, opportunityId: input.opportunityId, companyId: ctx.companyId, reason: input.reason });
+
+      // S1: unified decision instrumentation (best-effort, outside txn, never throws).
+      // 상업승인이 실제로 제기된 직후 통일 로그에 기록한다(커버리지 갭 해소).
+      await recordCommercialApprovalDecision({
+        projectId: ctx.companyId,
+        quoteId: input.quoteId,
+        opportunityId: input.opportunityId,
+        reason: input.reason,
+      });
+
+      return result;
     }),
 
   getDealQualification: protectedProcedure
