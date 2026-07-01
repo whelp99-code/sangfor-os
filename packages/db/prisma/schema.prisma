@@ -1448,6 +1448,26 @@ model DomainMemory {
   @@map("domain_memories")
 }
 
+enum DecisionActor {
+  sales
+  presales
+  cfo
+  marketing
+  engineer
+  commercial_approval
+  deal_registration
+
+  @@map("decision_actor")
+}
+
+enum RiskTier {
+  T0
+  T1
+  T2
+
+  @@map("risk_tier")
+}
+
 model DomainDecisionLog {
   id            String   @id @default(cuid())
   projectId     String   @map("project_id")
@@ -1461,10 +1481,23 @@ model DomainDecisionLog {
   outcome       String? // approved | rejected | corrected
   createdAt     DateTime @default(now()) @map("created_at")
 
+  // ── S1 신규(전부 nullable, 순수 추가) ──
+  actor               DecisionActor? // 결정 주체(도메인 레인/횡단 게이트)
+  actionType          String?        @map("action_type") // 레지스트리 상수로 통제(enum 아님)
+  riskTier            RiskTier?      @map("risk_tier") // 결정 시점 티어 스냅샷
+  policyVersion       String?        @map("policy_version") // riskTier 근거 정책 버전
+  predictedConfidence Float?         @map("predicted_confidence")
+  modelVersion        String?        @map("model_version")
+  cost                Decimal?       @db.Decimal(10, 4)
+  rollbackOf          String?        @map("rollback_of") // 되돌림/소급취소 신호
+  resolvedAt          DateTime?      @map("resolved_at")
+  resolvedBy          String?        @map("resolved_by")
+
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, domain, decisionType, createdAt])
   @@index([domain, caseRef])
+  @@index([actor, actionType, createdAt]) // S1: 캘리브레이션 groupBy
   @@map("domain_decision_logs")
 }
 
