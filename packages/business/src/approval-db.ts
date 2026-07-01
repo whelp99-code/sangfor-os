@@ -1,6 +1,18 @@
 import { prisma } from "@sangfor/db";
 
+import { recordCommercialApprovalResolution } from "./ai-decision-commercial-resolution";
 import { logStateTransition } from "./audit";
+
+/**
+ * Commercial approvals encode `commercial:<quoteId>:<reason>` in the reason
+ * field (see submitCommercialApproval). Extract the quoteId so a resolution
+ * can be instrumented as a commercial_approval_resolution decision.
+ */
+function extractCommercialQuoteId(reason: string | null | undefined): string | null {
+  if (!reason) return null;
+  const match = /^commercial:([^:]+)/.exec(reason);
+  return match ? match[1]! : null;
+}
 
 const RISK_LEVELS_REQUIRING_APPROVAL = new Set(["medium", "high"]);
 
@@ -90,6 +102,17 @@ export async function approveRequest(approvalId: string, actorId?: string) {
         eventType: "approval.approved",
         payloadJson: { commandRunId: approval.commandRunId, message: "Command run approved — workflow may proceed" },
       },
+    });
+  }
+
+  // S1: instrument commercial-approval resolutions (best-effort, outside txn,
+  // never throws). Only commercial approvals carry a quoteId in their reason.
+  const quoteId = extractCommercialQuoteId(approval.reason);
+  if (quoteId) {
+    await recordCommercialApprovalResolution({
+      quoteId,
+      outcome: "approved",
+      actorId,
     });
   }
 

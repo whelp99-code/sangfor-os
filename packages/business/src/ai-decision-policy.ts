@@ -34,6 +34,22 @@ export const ACTION_TIER_REGISTRY: Record<string, "T0" | "T1"> = {
 };
 
 /**
+ * S1 커버리지 확대: 계약/재무/등록 관련 결정은 fail-closed 원칙(스펙 §5)에 따라
+ * 낮은 티어를 부여하지 않는다. 아래 액션들은 의도적으로 레지스트리에 등록하지
+ * 않으므로 gateDecision이 미등록=T2(항상 사람)로 스냅샷한다.
+ *
+ *  - deal_registration               (딜 등록 승인/거절 — 등록/채널보호 관련)
+ *  - commercial_approval_resolution  (상업승인 사람 resolution — 재무/계약 관련)
+ *
+ * 이 상수는 "왜 등록하지 않았는가"를 문서화하고 회귀 테스트가 T2 스냅샷을
+ * 검증하는 근거가 된다. 런타임 로직에는 관여하지 않는다.
+ */
+export const FAIL_CLOSED_T2_ACTIONS = [
+  "deal_registration",
+  "commercial_approval_resolution",
+] as const;
+
+/**
  * riskTier 근거 정책 버전. 정책이 바뀌면 이 상수를 올리고,
  * 과거 로그는 자신이 기록된 시점의 policyVersion 스냅샷을 유지한다.
  */

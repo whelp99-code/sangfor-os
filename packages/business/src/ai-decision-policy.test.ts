@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ACTION_TIER_REGISTRY,
+  FAIL_CLOSED_T2_ACTIONS,
   POLICY_VERSION,
   gateDecision,
 } from "./ai-decision-policy";
@@ -15,6 +16,29 @@ describe("ACTION_TIER_REGISTRY", () => {
   it("exposes a POLICY_VERSION string", () => {
     expect(typeof POLICY_VERSION).toBe("string");
     expect(POLICY_VERSION.length).toBeGreaterThan(0);
+  });
+
+  it("does NOT register the S1-coverage contract/registration actions (fail-closed → T2)", () => {
+    // 계약/재무/등록 관련 결정은 낮은 티어를 주지 않는다(스펙 §5).
+    for (const action of FAIL_CLOSED_T2_ACTIONS) {
+      expect(action in ACTION_TIER_REGISTRY).toBe(false);
+    }
+  });
+});
+
+describe("FAIL_CLOSED_T2_ACTIONS", () => {
+  it("lists the newly instrumented coverage actions", () => {
+    expect(FAIL_CLOSED_T2_ACTIONS).toContain("deal_registration");
+    expect(FAIL_CLOSED_T2_ACTIONS).toContain("commercial_approval_resolution");
+  });
+
+  it("every listed action gates to T2 (requiresHuman, not auto)", () => {
+    for (const action of FAIL_CLOSED_T2_ACTIONS) {
+      const g = gateDecision("deal_registration", action);
+      expect(g.tier).toBe("T2");
+      expect(g.requiresHuman).toBe(true);
+      expect(g.autoAllowed).toBe(false);
+    }
   });
 });
 

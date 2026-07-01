@@ -82,3 +82,5 @@ export * from "./ai-decision-policy";
 export * from "./ai-decision";
 export * from "./ai-decision-analytics";
 export * from "./ai-decision-commercial";
+export * from "./ai-decision-commercial-resolution";
+export * from "./ai-decision-deal-registration";
