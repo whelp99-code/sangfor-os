@@ -9,6 +9,8 @@ import {
   BookOpen,
   Bot,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Code2,
   DollarSign,
   FileText,
@@ -21,6 +23,7 @@ import {
   Headphones,
   Inbox,
   LayoutDashboard,
+  LayoutGrid,
   ListChecks,
   Mail,
   Palette,
@@ -76,6 +79,7 @@ const ICONS = {
   palette: Palette,
   "bar-chart": BarChart3,
   "layout-dashboard": LayoutDashboard,
+  "layout-grid": LayoutGrid,
   flask: FlaskConical,
   "dollar-sign": DollarSign,
   "file-text": FileText,
@@ -96,7 +100,7 @@ const ICONS = {
   building: Building2,
 } as const;
 
-const GROUP_ORDER = ["Business", "Finance", "Intelligence", "Development", "System"];
+const GROUP_ORDER = ["홈", "CRM", "프로젝트", "재무", "지식", "시스템"];
 
 const NAV_BADGES: Record<string, number> = {
   "/approvals": 3,
@@ -153,21 +157,34 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const navItems = getVisibleNavItems();
   const [query, setQuery] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const normalized = query.trim().toLowerCase();
   const filtered = normalized
     ? navItems.filter((item) => item.title.toLowerCase().includes(normalized))
     : navItems;
 
-  // Flat, grouped navigation (no tier split): group every visible item by
-  // `group` and render groups in canonical order. Search narrows the same view.
-  const groups = filtered.reduce<Record<string, NavItem[]>>((acc, item) => {
-    const groupName = item.group ?? "System";
-    acc[groupName] ??= [];
-    acc[groupName].push(item);
-    return acc;
-  }, {});
-  const visibleGroups = GROUP_ORDER.filter((g) => groups[g]?.length);
+  // When searching, ignore tier split and show all matching items grouped.
+  // When not searching, split by tier: primary items always visible, rest under 더보기.
+  const isSearching = normalized.length > 0;
+
+  const primaryItems = isSearching ? [] : filtered.filter((i) => i.tier === "primary");
+  const moreItems = isSearching ? [] : filtered.filter((i) => i.tier !== "primary");
+
+  // For search results and the 더보기 expanded view, group by `group`
+  const buildGroups = (items: NavItem[]) =>
+    items.reduce<Record<string, NavItem[]>>((acc, item) => {
+      const groupName = item.group ?? "시스템";
+      acc[groupName] ??= [];
+      acc[groupName].push(item);
+      return acc;
+    }, {});
+
+  const searchGroups = isSearching ? buildGroups(filtered) : {};
+  const searchVisibleGroups = GROUP_ORDER.filter((g) => searchGroups[g]?.length);
+
+  const moreGroups = buildGroups(moreItems);
+  const moreVisibleGroups = GROUP_ORDER.filter((g) => moreGroups[g]?.length);
 
   const handleAiCommand = () => {
     document.dispatchEvent(
@@ -201,23 +218,89 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           </div>
         </SidebarHeader>
         <SidebarContent className="scrollbar-thin">
-          {visibleGroups.length === 0 ? (
-            <p className="px-4 py-6 text-center text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-              &quot;{query}&quot;에 해당하는 메뉴가 없습니다.
-            </p>
-          ) : (
-            visibleGroups.map((groupName) => (
-              <SidebarGroup key={groupName}>
-                <SidebarGroupLabel>{groupName}</SidebarGroupLabel>
+          {/* ── Search mode: show all matching items across all tiers ── */}
+          {isSearching && (
+            <>
+              {searchVisibleGroups.length === 0 ? (
+                <p className="px-4 py-6 text-center text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+                  &quot;{query}&quot;에 해당하는 메뉴가 없습니다.
+                </p>
+              ) : (
+                searchVisibleGroups.map((groupName) => (
+                  <SidebarGroup key={groupName}>
+                    <SidebarGroupLabel>{groupName}</SidebarGroupLabel>
+                    <SidebarGroupContent>
+                      <SidebarMenu>
+                        {searchGroups[groupName].map((item) => (
+                          <NavMenuButton key={item.href} item={item} pathname={pathname} />
+                        ))}
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </SidebarGroup>
+                ))
+              )}
+            </>
+          )}
+
+          {/* ── Normal mode: primary items always visible ── */}
+          {!isSearching && (
+            <>
+              <SidebarGroup>
+                <SidebarGroupLabel>핵심</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {groups[groupName].map((item) => (
+                    {primaryItems.map((item) => (
                       <NavMenuButton key={item.href} item={item} pathname={pathname} />
                     ))}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
-            ))
+
+              {/* ── 더보기 collapsible section ── */}
+              {moreItems.length > 0 && (
+                <SidebarGroup>
+                  <button
+                    type="button"
+                    aria-expanded={moreOpen}
+                    onClick={() => setMoreOpen((prev) => !prev)}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium",
+                      "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      "transition-colors group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+                    )}
+                  >
+                    {moreOpen ? (
+                      <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
+                    )}
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      더보기 ({moreItems.length})
+                    </span>
+                  </button>
+
+                  {moreOpen && (
+                    <>
+                      <p className="mt-1 mb-1 px-2 text-[10px] text-muted-foreground group-data-[collapsible=icon]:hidden">
+                        재무·지식·AI·시스템 — 정렬 후순위
+                      </p>
+                      {moreVisibleGroups.map((groupName) => (
+                        <SidebarGroup key={groupName} className="pt-0">
+                          <SidebarGroupLabel>{groupName}</SidebarGroupLabel>
+                          <SidebarGroupContent>
+                            <SidebarMenu>
+                              {moreGroups[groupName].map((item) => (
+                                <NavMenuButton key={item.href} item={item} pathname={pathname} />
+                              ))}
+                            </SidebarMenu>
+                          </SidebarGroupContent>
+                        </SidebarGroup>
+                      ))}
+                    </>
+                  )}
+                </SidebarGroup>
+              )}
+            </>
           )}
         </SidebarContent>
         <SidebarFooter className="border-t border-sidebar-border p-3">
