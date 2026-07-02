@@ -18,3 +18,4 @@ __pycache__
 
 # Derived mail-learning snapshots (redacted but mail-derived; not for VCS history)
 memory/mail-learning/
+.understand-anything/
