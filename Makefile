@@ -26,5 +26,5 @@ logs: ## Tail engineer-mcp container logs
 app: ## Start the app stack: api/web/postgres/redis (scripts/start-system.sh)
 	@bash scripts/start-system.sh
 
-integration: ## Start the full integration stack: upstreams + portal (scripts/start-integration-stack.sh)
-	@bash scripts/start-integration-stack.sh start
+integration: ## Start the full integration stack: upstreams + portal (scripts/start-integration-stack.mjs)
+	@node scripts/start-integration-stack.mjs start

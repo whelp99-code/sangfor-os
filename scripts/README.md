@@ -8,7 +8,7 @@ is the source of truth for "which one do I run".
 |---|---|---|---|
 | **MCP / console runtime** | `make up` / `make status` / `make down` | `stack.sh` | bridge 3600, operator console 3502, mock 3400 (containers) + workflow console 3500 (host) |
 | **App stack** | `make app` | `start-system.sh` | postgres + redis + api + web (docker compose) |
-| **Full integration** | `make integration` | `start-integration-stack.sh` → `start-integration-stack.mjs` | upstream services + AIOSv2 portal, for live verification |
+| **Full integration** | `make integration` | `start-integration-stack.mjs` | upstream services + AIOSv2 portal, for live verification |
 | **External AIOS v1** | `scripts/launch-aios-v1-stack.sh` | — | the separate `AIOS v1` project + standalone mail-intelligence (paths via `AIOS_V1_DIR` / `MAIL_INTELLIGENCE_DIR`) |
 | **One-time dev setup** | `scripts/setup-dev.sh` | — | copies `.env`, installs deps, etc. |
 | **Health probe** | `make status` | `stack.sh status` / `health-check.sh` | deep check: endpoint 200s + pg/redis/MCP mode |

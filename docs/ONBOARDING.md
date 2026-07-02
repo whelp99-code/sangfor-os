@@ -393,7 +393,7 @@ The following 12 steps are the recommended learning path for new team members.
 | `mock-upstreams.mjs` | Start mock external services |
 | `start-system.sh` | Start full system stack |
 | `deploy-production.sh` | Production deployment |
-| `daily-report.sh` | Daily report generation |
+| `daily-report.py` | Daily report generation |
 | `run-all-checks.sh` | Run all verification checks |
 | `reset-db.sh` | Reset database |
 | `seed-db.sh` | Seed database with test data |
