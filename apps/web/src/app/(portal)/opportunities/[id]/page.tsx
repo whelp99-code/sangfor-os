@@ -22,7 +22,6 @@ import { AdvanceOpportunityButton } from "@/components/opportunities/advance-but
 import { ConvertToProjectButton } from "@/components/opportunities/convert-to-project-button";
 import { DealRecordHeader, DealStagePath } from "@/components/deals/deal-record-header";
 import { EditOpportunityForm } from "@/components/opportunities/edit-opportunity-form";
-import { DeleteEntityButton } from "@/components/common/delete-entity-button";
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +66,8 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
             <Badge variant="outline">{opportunity.probability}%</Badge>
             <AdvanceOpportunityButton id={opportunity.id} stage={opportunity.stage} />
             <ConvertToProjectButton id={opportunity.id} engagementId={existingEngagement?.id} />
-            <DeleteEntityButton endpoint={`/api/opportunities/${opportunity.id}`} redirectTo="/opportunities" />
+            {/* Delete button intentionally absent: archiveOpportunity is still a
+                hard prisma.delete — delete UX returns with soft-delete (PLAN §7). */}
           </>
         }
       />

@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntityEditSheet } from "@/components/common/entity-edit-sheet";
-import { DeleteEntityButton } from "@/components/common/delete-entity-button";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -44,7 +43,8 @@ export default async function TaskDetailPage({ params }: PageProps) {
               ]}
               initial={{ title: task.title, status: task.status, priority: task.priority }}
             />
-            <DeleteEntityButton endpoint={`/api/tasks/${task.id}`} redirectTo="/tasks" />
+            {/* Delete button intentionally absent: archiveWorkTask is still a
+                hard prisma.delete — delete UX returns with soft-delete (PLAN §7). */}
           </div>
         </div>
       </div>
