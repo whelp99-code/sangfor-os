@@ -31,6 +31,4 @@ export async function cfoFetch<T = unknown>(
   return res.json() as Promise<T>;
 }
 
-export function formatKrw(n: number) {
-  return `${Math.round(n).toLocaleString("ko-KR")}원`;
-}
+

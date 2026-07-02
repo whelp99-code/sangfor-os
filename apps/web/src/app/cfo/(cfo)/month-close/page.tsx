@@ -1,4 +1,5 @@
-import { cfoFetch, formatKrw } from "@/lib/cfo-client";
+import { cfoFetch } from "@/lib/cfo-client";
+import { formatKRW } from "@sangfor/shared";
 
 type Checklist = {
   year: number;
@@ -51,16 +52,16 @@ export default async function MonthClosePage() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-xl border bg-white p-4">
               <p className="text-xs font-medium text-zinc-500">매출 <span className="font-normal text-zinc-400">(입금 기준)</span></p>
-              <p className="mt-1 text-xl font-semibold text-blue-600">{formatKrw(data.summary.totalRevenue)}</p>
+              <p className="mt-1 text-xl font-semibold text-blue-600">{formatKRW(data.summary.totalRevenue)}</p>
             </div>
             <div className="rounded-xl border bg-white p-4">
               <p className="text-xs font-medium text-zinc-500">지출</p>
-              <p className="mt-1 text-xl font-semibold text-orange-600">{formatKrw(data.summary.totalExpense)}</p>
+              <p className="mt-1 text-xl font-semibold text-orange-600">{formatKRW(data.summary.totalExpense)}</p>
             </div>
             <div className="rounded-xl border bg-white p-4">
               <p className="text-xs font-medium text-zinc-500">순이익</p>
               <p className={`mt-1 text-xl font-semibold ${data.summary.netIncome >= 0 ? "text-green-600" : "text-red-600"}`}>
-                {formatKrw(data.summary.netIncome)}
+                {formatKRW(data.summary.netIncome)}
               </p>
             </div>
           </div>

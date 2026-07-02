@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { cfoFetch, formatKrw } from "@/lib/cfo-client";
+import { cfoFetch } from "@/lib/cfo-client";
+import { formatKRW } from "@sangfor/shared";
 import { CfoPageHeading } from "@/components/cfo/page-heading";
 import { CFO } from "@/lib/cfo-theme";
 
@@ -118,11 +119,11 @@ export default async function ProjectsPage() {
                   </td>
                   <td className="px-3 py-2 text-zinc-600">{r.customer ?? "-"}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-zinc-500">{r.invoiceCount}/{r.expenseCount}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatKrw(r.revenue)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatKrw(r.cost)}</td>
-                  <td className={`px-3 py-2 text-right tabular-nums ${r.profit >= 0 ? "text-green-600" : "text-red-600"}`}>{formatKrw(r.profit)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatKRW(r.revenue)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatKRW(r.cost)}</td>
+                  <td className={`px-3 py-2 text-right tabular-nums ${r.profit >= 0 ? "text-green-600" : "text-red-600"}`}>{formatKRW(r.profit)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-zinc-500">{r.revenue > 0 ? `${margin}%` : "-"}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatKrw(r.deposited)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatKRW(r.deposited)}</td>
                 </tr>
               );
             })}
@@ -135,11 +136,11 @@ export default async function ProjectsPage() {
           <tfoot>
             <tr className="border-t-2 bg-zinc-50 font-semibold">
               <td className="px-3 py-2" colSpan={3}>합계</td>
-              <td className="px-3 py-2 text-right tabular-nums">{formatKrw(totals.revenue)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{formatKrw(totals.cost)}</td>
-              <td className={`px-3 py-2 text-right tabular-nums ${totals.profit >= 0 ? "text-green-600" : "text-red-600"}`}>{formatKrw(totals.profit)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{formatKRW(totals.revenue)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{formatKRW(totals.cost)}</td>
+              <td className={`px-3 py-2 text-right tabular-nums ${totals.profit >= 0 ? "text-green-600" : "text-red-600"}`}>{formatKRW(totals.profit)}</td>
               <td className="px-3 py-2 text-right tabular-nums text-zinc-500">{totals.revenue > 0 ? `${Math.round((totals.profit / totals.revenue) * 100)}%` : "-"}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{formatKrw(totals.deposited)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{formatKRW(totals.deposited)}</td>
             </tr>
           </tfoot>
         </table>

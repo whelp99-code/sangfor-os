@@ -1,4 +1,5 @@
-import { cfoFetch, formatKrw } from "@/lib/cfo-client";
+import { cfoFetch } from "@/lib/cfo-client";
+import { formatKRW } from "@sangfor/shared";
 import { CfoPageHeading } from "@/components/cfo/page-heading";
 import { CFO } from "@/lib/cfo-theme";
 
@@ -34,7 +35,7 @@ export default async function SubscriptionsPage() {
         right={
           monthly ? (
             <span className="text-sm" style={{ color: CFO.muted }}>
-              활성 {monthly.count}건 · 월 환산 {formatKrw(monthly.monthlyTotal)}
+              활성 {monthly.count}건 · 월 환산 {formatKRW(monthly.monthlyTotal)}
             </span>
           ) : undefined
         }
@@ -60,7 +61,7 @@ export default async function SubscriptionsPage() {
                 <tr key={s.id} className="border-b last:border-0 hover:bg-zinc-50">
                   <td className="px-3 py-2 font-medium text-zinc-700">{s.name}</td>
                   <td className="px-3 py-2 text-zinc-600">{s.vendor ?? "-"}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatKrw(s.amount)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatKRW(s.amount)}</td>
                   <td className="px-3 py-2">{s.cycle}</td>
                   <td className="px-3 py-2 tabular-nums">{new Date(s.nextBillingDate).toLocaleDateString("ko-KR")}</td>
                   <td className="px-3 py-2">

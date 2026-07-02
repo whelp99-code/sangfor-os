@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
+import { formatKRW } from "@sangfor/shared";
 
 type Row = {
   date: string;
@@ -117,7 +118,7 @@ function detect(all: string[][]): { rows: Row[]; mapping: string } {
   return { rows: out, mapping: cols || "컬럼 자동 인식 실패 — 헤더를 확인하세요" };
 }
 
-const krw = (n: number) => `₩${n.toLocaleString("ko-KR")}`;
+
 
 export function BankCsvImport() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -204,7 +205,7 @@ export function BankCsvImport() {
                   <tr key={i} className="border-t">
                     <td className="px-3 py-1.5 tabular-nums">{r.date || "-"}</td>
                     <td className="px-3 py-1.5">{r.counterparty || "-"}</td>
-                    <td className={`px-3 py-1.5 text-right tabular-nums ${r.cashChange < 0 ? "text-red-600" : "text-green-600"}`}>{krw(r.cashChange)}</td>
+                    <td className={`px-3 py-1.5 text-right tabular-nums ${r.cashChange < 0 ? "text-red-600" : "text-green-600"}`}>{formatKRW(r.cashChange)}</td>
                     <td className="px-3 py-1.5 text-zinc-500">{r.memo || "-"}</td>
                   </tr>
                 ))}

@@ -89,17 +89,4 @@ export function stageLabel(stage: string): string {
   return STAGE_LABELS[stage.toUpperCase()] ?? stage;
 }
 
-export function formatKRW(amount: number): string {
-  return new Intl.NumberFormat("ko-KR", {
-    style: "currency",
-    currency: "KRW",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-export function formatKRWCompact(amount: number): string {
-  return new Intl.NumberFormat("ko-KR", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(amount);
-}
+export { formatKRW, formatKRWCompact } from "@sangfor/shared";

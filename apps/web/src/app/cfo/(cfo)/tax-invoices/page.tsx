@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { CfoPageHeading } from "@/components/cfo/page-heading";
 import { CFO } from "@/lib/cfo-theme";
 
+import { formatKRW } from "@sangfor/shared";
+
 /* ── helpers ─────────────────────────────────────────── */
-const won = (v: number | null | undefined) =>
-  `₩${(v ?? 0).toLocaleString()}`;
 
 const koDate = (v: string | null | undefined) =>
   v ? new Date(v).toLocaleDateString("ko-KR") : "-";
@@ -266,13 +266,13 @@ function PurchaseSection() {
     {
       key: "supplyAmount",
       label: "공급가액",
-      format: (v) => won(v as number),
+      format: (v) => formatKRW(v as number),
     },
-    { key: "vatAmount", label: "세액", format: (v) => won(v as number) },
+    { key: "vatAmount", label: "세액", format: (v) => formatKRW(v as number) },
     {
       key: "totalAmount",
       label: "합계",
-      format: (v) => won(v as number),
+      format: (v) => formatKRW(v as number),
     },
     {
       key: "status",
@@ -492,13 +492,13 @@ function SalesSection() {
     {
       key: "supplyAmount",
       label: "공급가액",
-      format: (v) => won(v as number),
+      format: (v) => formatKRW(v as number),
     },
-    { key: "vatAmount", label: "세액", format: (v) => won(v as number) },
+    { key: "vatAmount", label: "세액", format: (v) => formatKRW(v as number) },
     {
       key: "totalAmount",
       label: "합계",
-      format: (v) => won(v as number),
+      format: (v) => formatKRW(v as number),
     },
     {
       key: "status",
@@ -637,11 +637,11 @@ function SalesSection() {
         >
           <span style={{ color: CFO.muted }}>공급가액 합계 </span>
           <span className="font-semibold tabular-nums" style={{ color: CFO.ink }}>
-            {won(supplyTotal)}
+            {formatKRW(supplyTotal)}
           </span>
           <span style={{ color: CFO.muted }}> · VAT(10%) 포함 예상 합계 </span>
           <span className="font-semibold tabular-nums" style={{ color: CFO.inflow }}>
-            {won(previewTotal)}
+            {formatKRW(previewTotal)}
           </span>
           <span
             className="ml-2 text-xs"

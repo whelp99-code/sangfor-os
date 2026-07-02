@@ -1,4 +1,5 @@
-import { cfoFetch, formatKrw } from "@/lib/cfo-client";
+import { cfoFetch } from "@/lib/cfo-client";
+import { formatKRW } from "@sangfor/shared";
 import { CfoPageHeading } from "@/components/cfo/page-heading";
 import { CFO } from "@/lib/cfo-theme";
 
@@ -67,7 +68,7 @@ export default async function VatPage() {
           <div className="rounded-xl border bg-white p-5">
             <p className="text-xs font-medium text-zinc-500">{vat.year}년 {vat.half}기 납부 예상</p>
             <p className="mt-1 text-3xl font-semibold tabular-nums" style={{ color: vat.payableVat >= 0 ? CFO.outflow : CFO.inflow }}>
-              {formatKrw(vat.payableVat)}
+              {formatKRW(vat.payableVat)}
             </p>
             <p className="mt-1 text-xs text-zinc-400">
               신고기한 {new Date(vat.filingDeadline).toLocaleDateString("ko-KR")}
@@ -76,11 +77,11 @@ export default async function VatPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-xl border bg-white p-4">
               <p className="text-xs font-medium text-zinc-500">매출세액</p>
-              <p className="mt-1 text-xl font-semibold text-blue-600">{formatKrw(vat.salesVat)}</p>
+              <p className="mt-1 text-xl font-semibold text-blue-600">{formatKRW(vat.salesVat)}</p>
             </div>
             <div className="rounded-xl border bg-white p-4">
               <p className="text-xs font-medium text-zinc-500">매입세액</p>
-              <p className="mt-1 text-xl font-semibold text-orange-600">{formatKrw(vat.purchaseVat)}</p>
+              <p className="mt-1 text-xl font-semibold text-orange-600">{formatKRW(vat.purchaseVat)}</p>
             </div>
           </div>
         </>
