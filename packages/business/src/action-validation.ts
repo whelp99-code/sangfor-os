@@ -1,33 +1,29 @@
-// packages/business/src/action-validation.ts
 import { prisma } from "@sangfor/db";
-
-export interface ValidationResult {
-  isValid: boolean;
-  errors?: string[];
-  action?: any;
-}
+import {
+  validateAction,
+  type ActionValidationResult,
+} from "./action-connector-runtime";
 
 /**
- * Validate an action and persist result to DB.
+ * Validate an action against connector registry status.
  * Extracted from apps/web route to decouple presentation from persistence.
  */
-export async function validateActionWithDb(actionKey: string): Promise<ValidationResult> {
-  // 1. Fetch existing action from DB
-  const existing = await prisma.action.findUnique({
-    where: { key: actionKey }
-  });
-  
-  if (!existing) {
-    return { isValid: false, errors: ["Action not found"] };
+export async function validateActionWithDb(
+  actionKey: string,
+): Promise<ActionValidationResult> {
+  const decodedKey = decodeURIComponent(actionKey);
+
+  let registryStatusByConnector: Record<string, string | null> = {};
+  try {
+    const rows = await prisma.connectorRegistry.findMany({
+      select: { connectorKey: true, status: true },
+    });
+    registryStatusByConnector = Object.fromEntries(
+      rows.map((row) => [row.connectorKey, row.status]),
+    );
+  } catch {
+    registryStatusByConnector = {};
   }
-  
-  // 2. Validate (business logic)
-  const isValid = existing.status !== 'DISABLED';
-  
-  // 3. Persist validation result
-  await prisma.actionValidationLog.create({
-    data: { actionKey, isValid, timestamp: new Date() }
-  });
-  
-  return { isValid, action: existing };
+
+  return validateAction(decodedKey, { registryStatusByConnector });
 }
