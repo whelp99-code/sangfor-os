@@ -27,6 +27,7 @@ import {
 } from "./openai-config";
 import { createPocProject } from "./poc-center";
 import { createWorkTask, linkTaskToEntity } from "./task-center";
+import { SELF_DOMAINS, SYSTEM_SENDER_DOMAINS, KNOWN_PARTNER_DOMAINS } from './mail-domain-registry';
 
 export const mailCandidateTypeSchema = z.enum([
   "customer",
@@ -158,20 +159,9 @@ const KEYWORDS = {
   partner: ["partner", "파트너", "총판", "reseller", "distributor", "msp", "유통"],
 } as const;
 
-const INTERNAL_DOMAINS = new Set([
-  "sangfor.com",
-  "sangfor.co.kr",
-  "blro.co.kr",
-  "ai-portal.local",
-  "microsoft.com",
-]);
-
-const SYSTEM_SENDER_DOMAINS = new Set(["bill36524.com"]);
-
 const INTERNAL_COMPANY_NAMES = new Set(["베를로", "blro"]);
 
 const KNOWN_PARTNER_NAMES = new Set(["넥시아스", "nexias"]);
-const KNOWN_PARTNER_DOMAINS = new Set(["nexias.co.kr"]);
 const STATIC_POLICY_LOOKUP = buildStaticMailPolicyLookup();
 
 function normalizeCompanyName(value: string) {
@@ -224,7 +214,7 @@ function domainMatches(domain: string | undefined, domains: Set<string>) {
 function isInternalDomain(domain: string | undefined, policy: MailPolicyLookup = STATIC_POLICY_LOOKUP) {
   if (!domain) return false;
   const normalized = normalizePolicyKey(domain);
-  return INTERNAL_DOMAINS.has(normalized) || domainMatches(normalized, policy.internalDomains);
+  return SELF_DOMAINS.has(normalized) || domainMatches(normalized, policy.internalDomains);
 }
 
 function isSystemSenderDomain(domain: string | undefined, policy: MailPolicyLookup = STATIC_POLICY_LOOKUP) {
