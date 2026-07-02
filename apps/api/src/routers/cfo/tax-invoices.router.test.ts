@@ -57,6 +57,19 @@ describe.skipIf(!integration)('taxInvoices + companySettings router (integration
     expect(found).toBeDefined();
   });
 
+  it('list omits rawXml and rawResponse (P4 — parity with the REST list)', async () => {
+    const list = await caller.taxInvoices.list({ direction: 'purchase' });
+    const found = list.find((ti) => ti.issueId === TEST_ISSUE_ID) as Record<string, unknown>;
+    expect(found).toBeDefined();
+    // uploadHtml persists rawXml on ingest (tax-invoice-inbound.service.ts),
+    // so this is a real field being omitted, not a vacuous pass on an
+    // already-null column.
+    const raw = await prisma.taxInvoice.findUnique({ where: { issueId: TEST_ISSUE_ID } });
+    expect(raw?.rawXml).toBeTruthy();
+    expect(found).not.toHaveProperty('rawXml');
+    expect(found).not.toHaveProperty('rawResponse');
+  });
+
   it('companySettings.get returns the configured businessNumber', async () => {
     const settings = await caller.companySettings.get();
     expect(settings.businessNumber).toBe(TEST_BIZ);
