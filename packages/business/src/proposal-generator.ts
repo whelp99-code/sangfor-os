@@ -1,10 +1,26 @@
-import { prisma } from "@sangfor/db";
+import { prisma as realPrisma } from "@sangfor/db";
 import { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey } from "@sangfor/shared";
 import { z } from "zod";
 
 import { loadLlmConfigFromDb } from "./llm-settings";
 
 export { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey };
+
+/** Structural prisma type covering only what `buildVariables` reads — mirrors
+ * domain-persistence.ts:38's DI seam pattern. Test-only injection point. */
+export interface ProposalVariablesPrisma {
+  customer: { findUnique: (args: { where: { id: string } }) => Promise<{ name: string } | null> };
+  pocProject: {
+    findUnique: (args: { where: { id: string } }) => Promise<{
+      title: string;
+      productName: string | null;
+      deploymentType: string | null;
+      hwSpec: string | null;
+      swSpec: string | null;
+      requirements: string | null;
+    } | null>;
+  };
+}
 
 const CUSTOMER_FACING_PROPOSAL_ACTIONS = ["send", "export", "share"] as const;
 
@@ -42,7 +58,7 @@ const TEMPLATE_BODIES: Record<(typeof PROPOSAL_TEMPLATE_KEYS)[number], string> =
 };
 
 async function resolveProjectId(slug: string) {
-  const project = await prisma.project.findUniqueOrThrow({ where: { slug } });
+  const project = await realPrisma.project.findUniqueOrThrow({ where: { slug } });
   return project.id;
 }
 
@@ -56,7 +72,7 @@ function applyTemplate(body: string, variables: Record<string, string>) {
 export async function ensureProposalTemplates(projectSlug = "demo-project") {
   const projectId = await resolveProjectId(projectSlug);
   for (const templateKey of PROPOSAL_TEMPLATE_KEYS) {
-    await prisma.documentTemplate.upsert({
+    await realPrisma.documentTemplate.upsert({
       where: { projectId_templateKey: { projectId, templateKey } },
       update: {},
       create: {
@@ -69,14 +85,16 @@ export async function ensureProposalTemplates(projectSlug = "demo-project") {
   }
 }
 
-async function buildVariables(
+export async function buildVariables(
   customerId?: string,
   pocProjectId?: string,
   extra: Record<string, string> = {},
+  deps: { prisma?: ProposalVariablesPrisma } = {},
 ) {
+  const db = deps.prisma ?? (realPrisma as unknown as ProposalVariablesPrisma);
   let customerName = "Customer";
   if (customerId) {
-    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    const customer = await db.customer.findUnique({ where: { id: customerId } });
     customerName = customer?.name ?? customerName;
   }
 
@@ -94,7 +112,7 @@ async function buildVariables(
   };
 
   if (pocProjectId) {
-    const poc = await prisma.pocProject.findUnique({ where: { id: pocProjectId } });
+    const poc = await db.pocProject.findUnique({ where: { id: pocProjectId } });
     if (poc) {
       vars.poc_title = poc.title;
       vars.product_name = poc.productName ?? "—";
@@ -108,12 +126,16 @@ async function buildVariables(
   return vars;
 }
 
-async function maybeEnhanceWithLlm(body: string, title: string): Promise<string> {
+export async function maybeEnhanceWithLlm(
+  body: string,
+  title: string,
+  deps: { buildContextPack?: (title: string) => Promise<string | null | undefined> } = {},
+): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) return body;
 
   try {
-    const { buildContextPack } = await import("./knowledge-search");
+    const buildContextPack = deps.buildContextPack ?? (await import("./knowledge-search")).buildContextPack;
     const context = await buildContextPack(title);
     if (!context) return body;
     return `${body}\n\n## Knowledge context\n\n${context}`;
@@ -128,7 +150,7 @@ export async function generateProposal(input: z.infer<typeof generateProposalSch
   await ensureProposalTemplates(parsed.projectSlug);
   const projectId = await resolveProjectId(parsed.projectSlug);
 
-  const template = await prisma.documentTemplate.findUniqueOrThrow({
+  const template = await realPrisma.documentTemplate.findUniqueOrThrow({
     where: {
       projectId_templateKey: { projectId, templateKey: parsed.templateKey },
     },
@@ -143,7 +165,7 @@ export async function generateProposal(input: z.infer<typeof generateProposalSch
   const bodyMarkdown = applyTemplate(template.bodyMarkdown, variables);
   const finalBody = await maybeEnhanceWithLlm(bodyMarkdown, parsed.title);
 
-  const doc = await prisma.generatedDocument.create({
+  const doc = await realPrisma.generatedDocument.create({
     data: {
       templateId: template.id,
       customerId: parsed.customerId,
@@ -155,7 +177,7 @@ export async function generateProposal(input: z.infer<typeof generateProposalSch
     },
   });
 
-  await prisma.documentVersion.create({
+  await realPrisma.documentVersion.create({
     data: {
       generatedDocumentId: doc.id,
       version: 1,
@@ -187,7 +209,7 @@ export async function saveDocumentVersion(
   const MAX_ATTEMPTS = 5;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
-      await prisma.$transaction(async (tx) => {
+      await realPrisma.$transaction(async (tx) => {
         await tx.generatedDocument.findUniqueOrThrow({ where: { id: documentId } });
         const last = await tx.documentVersion.findFirst({
           where: { generatedDocumentId: documentId },
@@ -220,7 +242,7 @@ export async function saveDocumentVersion(
 }
 
 export async function getGeneratedDocumentDetail(id: string) {
-  return prisma.generatedDocument.findUnique({
+  return realPrisma.generatedDocument.findUnique({
     where: { id },
     include: {
       customer: true,
@@ -233,12 +255,12 @@ export async function getGeneratedDocumentDetail(id: string) {
 
 export async function listGeneratedDocuments(projectSlug = "demo-project") {
   const projectId = await resolveProjectId(projectSlug);
-  const templates = await prisma.documentTemplate.findMany({
+  const templates = await realPrisma.documentTemplate.findMany({
     where: { projectId },
     select: { id: true },
   });
   const templateIds = templates.map((t) => t.id);
-  return prisma.generatedDocument.findMany({
+  return realPrisma.generatedDocument.findMany({
     where: { templateId: { in: templateIds } },
     orderBy: { createdAt: "desc" },
     include: { customer: true, template: true, pocProject: true },
@@ -246,13 +268,13 @@ export async function listGeneratedDocuments(projectSlug = "demo-project") {
 }
 
 export async function archiveProposal(id: string) {
-  return prisma.generatedDocument.update({ where: { id }, data: { status: "archived" } });
+  return realPrisma.generatedDocument.update({ where: { id }, data: { status: "archived" } });
 }
 
 export async function listProposalTemplates(projectSlug = "demo-project") {
   await ensureProposalTemplates(projectSlug);
   const projectId = await resolveProjectId(projectSlug);
-  return prisma.documentTemplate.findMany({
+  return realPrisma.documentTemplate.findMany({
     where: { projectId },
     orderBy: { templateKey: "asc" },
   });
