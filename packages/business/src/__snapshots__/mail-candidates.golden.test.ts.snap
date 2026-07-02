@@ -1,0 +1,2317 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`classifyMailCandidateDocument golden master > PoC compatibility-test mail 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "poc",
+      "confidence": 92,
+      "matchedKeywords": [
+        "poc",
+        "검증",
+        "테스트",
+        "호환성",
+        "compatibility",
+      ],
+      "summary": "PoC compatibility 테스트 일정 확인 요청",
+      "title": "PoC: PoC 호환성 검증 일정 문의",
+    },
+    {
+      "candidateType": "task",
+      "confidence": 90,
+      "matchedKeywords": [
+        "요청",
+        "확인",
+        "poc",
+        "검증",
+        "테스트",
+        "호환성",
+        "compatibility",
+      ],
+      "summary": "PoC compatibility 테스트 일정 확인 요청",
+      "title": "Follow up: PoC 호환성 검증 일정 문의",
+    },
+    {
+      "candidateType": "customer",
+      "confidence": 70,
+      "matchedKeywords": [
+        "sender-domain",
+      ],
+      "summary": "Example inferred from imported mail intelligence. PoC compatibility 테스트 일정 확인 요청",
+      "title": "Customer: Example",
+    },
+  ],
+  "excluded": [],
+  "header": {
+    "attachments": undefined,
+    "email": "eng@example.com",
+    "from": "Engineer <eng@example.com>",
+    "messageId": undefined,
+    "receivedAt": 2026-06-02T10:00:00.000Z,
+  },
+}
+`;
+
+exports[`classifyMailCandidateDocument golden master > billing/tax-invoice system-sender mail is excluded 1`] = `
+{
+  "candidates": [],
+  "excluded": [
+    {
+      "candidateName": "Bill36524 <billmanager@bill36524.com>",
+      "decision": "exclude",
+      "entityRole": "system_sender",
+      "matchedPolicyMemories": [
+        {
+          "key": "bill36524.com",
+          "label": "Bill36524 billing system",
+          "memoryType": "system_sender_domain",
+        },
+      ],
+      "participantDomains": [
+        "bill36524.com",
+      ],
+      "reason": "raw mail sender domain is a system sender",
+    },
+  ],
+  "header": {
+    "attachments": undefined,
+    "email": "billmanager@bill36524.com",
+    "from": "Bill36524 <billmanager@bill36524.com>",
+    "messageId": undefined,
+    "receivedAt": 2026-06-06T07:00:00.000Z,
+  },
+}
+`;
+
+exports[`classifyMailCandidateDocument golden master > customer inquiry with bracketed company name 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "opportunity",
+      "confidence": 69,
+      "matchedKeywords": [
+        "견적",
+      ],
+      "summary": "Sangfor 방화벽 도입 검토 중입니다. 견적 부탁드립니다.",
+      "title": "Opportunity: [SamsungSDS] 방화벽 도입 문의",
+    },
+    {
+      "candidateType": "task",
+      "confidence": 63,
+      "matchedKeywords": [
+        "견적",
+      ],
+      "summary": "Sangfor 방화벽 도입 검토 중입니다. 견적 부탁드립니다.",
+      "title": "Follow up: [SamsungSDS] 방화벽 도입 문의",
+    },
+    {
+      "candidateType": "customer",
+      "confidence": 70,
+      "matchedKeywords": [
+        "sender-domain",
+      ],
+      "summary": "SamsungSDS inferred from imported mail intelligence. Sangfor 방화벽 도입 검토 중입니다. 견적 부탁드립니다.",
+      "title": "Customer: SamsungSDS",
+    },
+  ],
+  "excluded": [],
+  "header": {
+    "attachments": undefined,
+    "email": "buyer@samsungsds.com",
+    "from": "Kim Buyer <buyer@samsungsds.com>",
+    "messageId": undefined,
+    "receivedAt": 2026-06-07T09:30:00.000Z,
+  },
+}
+`;
+
+exports[`classifyMailCandidateDocument golden master > free-mail-domain (gmail) sender 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "opportunity",
+      "confidence": 69,
+      "matchedKeywords": [
+        "견적",
+      ],
+      "summary": "Sangfor 제품 견적 부탁드립니다.",
+      "title": "Opportunity: 견적 문의드립니다",
+    },
+    {
+      "candidateType": "task",
+      "confidence": 63,
+      "matchedKeywords": [
+        "견적",
+      ],
+      "summary": "Sangfor 제품 견적 부탁드립니다.",
+      "title": "Follow up: 견적 문의드립니다",
+    },
+  ],
+  "excluded": [],
+  "header": {
+    "attachments": undefined,
+    "email": "someone@gmail.com",
+    "from": "개인 <someone@gmail.com>",
+    "messageId": undefined,
+    "receivedAt": 2026-06-10T13:00:00.000Z,
+  },
+}
+`;
+
+exports[`classifyMailCandidateDocument golden master > generic task-only mail with no company signal 1`] = `
+{
+  "candidates": [],
+  "excluded": [],
+  "header": {
+    "attachments": undefined,
+    "email": undefined,
+    "from": "익명",
+    "messageId": undefined,
+    "receivedAt": 2026-06-09T12:00:00.000Z,
+  },
+}
+`;
+
+exports[`classifyMailCandidateDocument golden master > internal-company mail is excluded 1`] = `
+{
+  "candidates": [],
+  "excluded": [
+    {
+      "candidateName": "박 재민 <jm.park@blro.co.kr>",
+      "decision": "exclude",
+      "entityRole": "internal_company",
+      "matchedPolicyMemories": [
+        {
+          "key": "blro.co.kr",
+          "label": "BLRO internal domain",
+          "memoryType": "internal_domain",
+        },
+      ],
+      "participantDomains": [
+        "blro.co.kr",
+      ],
+      "reason": "raw mail sender domain matches internal company policy",
+    },
+  ],
+  "header": {
+    "attachments": undefined,
+    "email": "jm.park@blro.co.kr",
+    "from": "박 재민 <jm.park@blro.co.kr>",
+    "messageId": undefined,
+    "receivedAt": 2026-06-04T11:00:00.000Z,
+  },
+}
+`;
+
+exports[`classifyMailCandidateDocument golden master > known-partner-domain case 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "opportunity",
+      "confidence": 69,
+      "matchedKeywords": [
+        "라이선스",
+      ],
+      "summary": "라이선스 전달",
+      "title": "Opportunity: [넥시아스] 베를로 - 고객사 라이선스 전달",
+    },
+    {
+      "candidateType": "task",
+      "confidence": 63,
+      "matchedKeywords": [
+        "라이선스",
+      ],
+      "summary": "라이선스 전달",
+      "title": "Follow up: [넥시아스] 베를로 - 고객사 라이선스 전달",
+    },
+    {
+      "candidateType": "partner",
+      "confidence": 76,
+      "matchedKeywords": [
+        "sender-domain",
+      ],
+      "summary": "넥시아스 inferred from imported mail intelligence. 라이선스 전달",
+      "title": "Partner: 넥시아스",
+    },
+  ],
+  "excluded": [],
+  "header": {
+    "attachments": undefined,
+    "email": "hgyang@nexias.co.kr",
+    "from": "양해광 <hgyang@nexias.co.kr>",
+    "messageId": undefined,
+    "receivedAt": 2026-06-11T14:00:00.000Z,
+  },
+}
+`;
+
+exports[`classifyMailCandidateDocument golden master > mail with attachments and a Received timestamp header 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "opportunity",
+      "confidence": 69,
+      "matchedKeywords": [
+        "proposal",
+      ],
+      "summary": "Email: client@samsung.com Great demo! We want to proceed with 200 units. Can you send proposal?",
+      "title": "Opportunity: Mail: RE: Product demo feedback",
+    },
+    {
+      "candidateType": "task",
+      "confidence": 63,
+      "matchedKeywords": [
+        "proposal",
+      ],
+      "summary": "Email: client@samsung.com Great demo! We want to proceed with 200 units. Can you send proposal?",
+      "title": "Follow up: Mail: RE: Product demo feedback",
+    },
+    {
+      "candidateType": "customer",
+      "confidence": 70,
+      "matchedKeywords": [
+        "sender-domain",
+      ],
+      "summary": "Samsung inferred from imported mail intelligence. Email: client@samsung.com Great demo! We want to proceed with 200 units. Can you send proposal?",
+      "title": "Customer: Samsung",
+    },
+  ],
+  "excluded": [],
+  "header": {
+    "attachments": [
+      "demo-feedback.pdf",
+      "pricing.xlsx",
+    ],
+    "email": "client@samsung.com",
+    "from": "Choi Client",
+    "messageId": "msg200",
+    "receivedAt": 2026-06-12T06:00:00.000Z,
+  },
+}
+`;
+
+exports[`classifyMailCandidateDocument golden master > multiple keyword matches across opportunity+poc+task 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "opportunity",
+      "confidence": 76,
+      "matchedKeywords": [
+        "견적",
+        "계약",
+      ],
+      "summary": "PoC compatibility 테스트 완료 후 견적과 계약 조건, 후속 조치 확인 부탁드립니다.",
+      "title": "Opportunity: [Acme] PoC 검증 및 견적 후속 조치",
+    },
+    {
+      "candidateType": "poc",
+      "confidence": 92,
+      "matchedKeywords": [
+        "poc",
+        "검증",
+        "테스트",
+        "compatibility",
+      ],
+      "summary": "PoC compatibility 테스트 완료 후 견적과 계약 조건, 후속 조치 확인 부탁드립니다.",
+      "title": "PoC: [Acme] PoC 검증 및 견적 후속 조치",
+    },
+    {
+      "candidateType": "task",
+      "confidence": 90,
+      "matchedKeywords": [
+        "확인",
+        "견적",
+        "계약",
+        "poc",
+        "검증",
+        "테스트",
+        "compatibility",
+      ],
+      "summary": "PoC compatibility 테스트 완료 후 견적과 계약 조건, 후속 조치 확인 부탁드립니다.",
+      "title": "Follow up: [Acme] PoC 검증 및 견적 후속 조치",
+    },
+    {
+      "candidateType": "customer",
+      "confidence": 70,
+      "matchedKeywords": [
+        "sender-domain",
+      ],
+      "summary": "Acme inferred from imported mail intelligence. PoC compatibility 테스트 완료 후 견적과 계약 조건, 후속 조치 확인 부탁드립니다.",
+      "title": "Customer: Acme",
+    },
+  ],
+  "excluded": [],
+  "header": {
+    "attachments": undefined,
+    "email": "buyer@acme.example",
+    "from": "Buyer <buyer@acme.example>",
+    "messageId": undefined,
+    "receivedAt": 2026-06-08T10:00:00.000Z,
+  },
+}
+`;
+
+exports[`classifyMailCandidateDocument golden master > newsletter/promotional mail is excluded 1`] = `
+{
+  "candidates": [],
+  "excluded": [
+    {
+      "candidateName": "Industry News",
+      "decision": "exclude",
+      "entityRole": "unknown",
+      "matchedPolicyMemories": [],
+      "participantDomains": [
+        "industry.com",
+      ],
+      "reason": "newsletter or promotional mail is not an AIOS business candidate",
+    },
+  ],
+  "header": {
+    "attachments": undefined,
+    "email": "newsletter@industry.com",
+    "from": "Industry News",
+    "messageId": "msg100",
+    "receivedAt": 2026-06-05T06:30:00.000Z,
+  },
+}
+`;
+
+exports[`classifyMailCandidateDocument golden master > opportunity quote-request mail 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "opportunity",
+      "confidence": 83,
+      "matchedKeywords": [
+        "견적",
+        "계약",
+        "라이선스",
+      ],
+      "summary": "Sangfor 라이선스 견적과 계약 조건 확인 부탁드립니다.",
+      "title": "Opportunity: [Acme] Sangfor 라이선스 견적 요청",
+    },
+    {
+      "candidateType": "task",
+      "confidence": 83,
+      "matchedKeywords": [
+        "요청",
+        "확인",
+        "견적",
+        "계약",
+        "라이선스",
+      ],
+      "summary": "Sangfor 라이선스 견적과 계약 조건 확인 부탁드립니다.",
+      "title": "Follow up: [Acme] Sangfor 라이선스 견적 요청",
+    },
+    {
+      "candidateType": "customer",
+      "confidence": 70,
+      "matchedKeywords": [
+        "sender-domain",
+      ],
+      "summary": "Acme inferred from imported mail intelligence. Sangfor 라이선스 견적과 계약 조건 확인 부탁드립니다.",
+      "title": "Customer: Acme",
+    },
+  ],
+  "excluded": [],
+  "header": {
+    "attachments": [
+      "requirements.pdf",
+    ],
+    "email": "buyer@acme.example",
+    "from": "Buyer <buyer@acme.example>",
+    "messageId": undefined,
+    "receivedAt": 2026-06-01T09:00:00.000Z,
+  },
+}
+`;
+
+exports[`classifyMailCandidateDocument golden master > partner/reseller mail 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "opportunity",
+      "confidence": 69,
+      "matchedKeywords": [
+        "제안",
+      ],
+      "summary": "Sangfor reseller partner 협업 제안",
+      "title": "Opportunity: [ChannelOne] 파트너 총판 협업 문의",
+    },
+    {
+      "candidateType": "task",
+      "confidence": 63,
+      "matchedKeywords": [
+        "제안",
+      ],
+      "summary": "Sangfor reseller partner 협업 제안",
+      "title": "Follow up: [ChannelOne] 파트너 총판 협업 문의",
+    },
+    {
+      "candidateType": "partner",
+      "confidence": 76,
+      "matchedKeywords": [
+        "sender-domain",
+        "partner",
+        "파트너",
+        "총판",
+        "reseller",
+      ],
+      "summary": "ChannelOne inferred from imported mail intelligence. Sangfor reseller partner 협업 제안",
+      "title": "Partner: ChannelOne",
+    },
+  ],
+  "excluded": [],
+  "header": {
+    "attachments": undefined,
+    "email": "sales@channelone.example",
+    "from": "Channel <sales@channelone.example>",
+    "messageId": undefined,
+    "receivedAt": 2026-06-03T08:30:00.000Z,
+  },
+}
+`;
+
+exports[`classifyMailInsightThread golden master > PoC verification thread 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "poc",
+      "confidence": 94,
+      "confidenceBreakdown": {
+        "aiEnhanced": 8,
+        "evidence": 8,
+        "keywordSignal": 18,
+      },
+      "evidenceItems": [
+        "PoC 검증 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "PoC 검증 요청",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "PoC 일정 확정",
+          },
+        ],
+        "participantDomains": [
+          "acme.example",
+        ],
+        "revenueOpsTags": [
+          "PoC/검증",
+        ],
+        "status": "active",
+        "summary": "고객사가 SASE PoC 검증 일정을 협의하고자 합니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-poc-1",
+        "threadTitle": "[Acme] SASE PoC 검증 일정 협의",
+      },
+      "matchedKeywords": [
+        "poc",
+        "검증",
+        "poc검증",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "PoC 일정 확정",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "Acme",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "acme.example",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 SASE PoC 검증 일정을 협의하고자 합니다.",
+      "title": "PoC: [Acme] SASE PoC 검증 일정 협의",
+    },
+    {
+      "candidateType": "task",
+      "confidence": 78,
+      "confidenceBreakdown": {
+        "actionSignal": 8,
+        "aiEnhanced": 8,
+        "evidence": 8,
+      },
+      "evidenceItems": [
+        "PoC 검증 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "PoC 검증 요청",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "PoC 일정 확정",
+          },
+        ],
+        "participantDomains": [
+          "acme.example",
+        ],
+        "revenueOpsTags": [
+          "PoC/검증",
+        ],
+        "status": "active",
+        "summary": "고객사가 SASE PoC 검증 일정을 협의하고자 합니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-poc-1",
+        "threadTitle": "[Acme] SASE PoC 검증 일정 협의",
+      },
+      "matchedKeywords": [
+        "요청",
+        "poc일정확정",
+        "poc",
+        "검증",
+        "poc검증",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "PoC 일정 확정",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "Acme",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "acme.example",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 SASE PoC 검증 일정을 협의하고자 합니다.",
+      "title": "Follow up: [Acme] SASE PoC 검증 일정 협의",
+    },
+    {
+      "candidateType": "customer",
+      "confidence": 74,
+      "confidenceBreakdown": {
+        "aiEnhanced": 6,
+        "policySignal": 10,
+      },
+      "evidenceItems": [
+        "PoC 검증 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "PoC 검증 요청",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "PoC 일정 확정",
+          },
+        ],
+        "participantDomains": [
+          "acme.example",
+        ],
+        "revenueOpsTags": [
+          "PoC/검증",
+        ],
+        "status": "active",
+        "summary": "고객사가 SASE PoC 검증 일정을 협의하고자 합니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-poc-1",
+        "threadTitle": "[Acme] SASE PoC 검증 일정 협의",
+      },
+      "matchedKeywords": [
+        "external bracket company inferred from Mail Intelligence thread title",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "PoC 일정 확정",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "Acme",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "acme.example",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "Acme inferred from Mail Intelligence thread. 고객사가 SASE PoC 검증 일정을 협의하고자 합니다.",
+      "title": "Customer: Acme",
+    },
+  ],
+  "excluded": [],
+}
+`;
+
+exports[`classifyMailInsightThread golden master > bracketed customer name in thread title with no evidence 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "customer",
+      "confidence": 74,
+      "confidenceBreakdown": {
+        "aiEnhanced": 0,
+        "policySignal": 10,
+      },
+      "evidenceItems": [],
+      "mailIntelligence": {
+        "aiEnhanced": false,
+        "effectiveStatus": undefined,
+        "evidenceItems": [],
+        "nextActions": [],
+        "participantDomains": [
+          "quietcorp.example",
+        ],
+        "revenueOpsTags": [],
+        "status": "reference",
+        "summary": "짧은 인사",
+        "threadInsightId": undefined,
+        "threadKey": "conv-bracket-no-evidence",
+        "threadTitle": "[QuietCorp] 안녕하세요",
+      },
+      "matchedKeywords": [
+        "external bracket company inferred from Mail Intelligence thread title",
+      ],
+      "nextActions": [],
+      "policyDecision": {
+        "candidateName": "QuietCorp",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "quietcorp.example",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "QuietCorp inferred from Mail Intelligence thread. 짧은 인사",
+      "title": "Customer: QuietCorp",
+    },
+  ],
+  "excluded": [],
+}
+`;
+
+exports[`classifyMailInsightThread golden master > external customer domain thread with a display name in fromName 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "task",
+      "confidence": 70,
+      "confidenceBreakdown": {
+        "actionSignal": 8,
+        "aiEnhanced": 0,
+        "evidence": 8,
+      },
+      "evidenceItems": [
+        "도입 검토 중",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": false,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "도입 검토 중",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "후속 미팅 일정 협의",
+          },
+        ],
+        "participantDomains": [
+          "other-corp.example",
+        ],
+        "revenueOpsTags": [],
+        "status": "active",
+        "summary": "고객사 담당자가 방화벽 도입을 위한 후속 논의를 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-external-display-name",
+        "threadTitle": "방화벽 도입 후속 논의",
+      },
+      "matchedKeywords": [
+        "요청",
+        "후속미팅일정협의",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "후속 미팅 일정 협의",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "Kim Manager",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "other-corp.example",
+        ],
+        "reason": "external participant domain inferred",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사 담당자가 방화벽 도입을 위한 후속 논의를 요청했습니다.",
+      "title": "Follow up: 방화벽 도입 후속 논의",
+    },
+    {
+      "candidateType": "customer",
+      "confidence": 74,
+      "confidenceBreakdown": {
+        "aiEnhanced": 0,
+        "policySignal": 10,
+      },
+      "evidenceItems": [
+        "도입 검토 중",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": false,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "도입 검토 중",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "후속 미팅 일정 협의",
+          },
+        ],
+        "participantDomains": [
+          "other-corp.example",
+        ],
+        "revenueOpsTags": [],
+        "status": "active",
+        "summary": "고객사 담당자가 방화벽 도입을 위한 후속 논의를 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-external-display-name",
+        "threadTitle": "방화벽 도입 후속 논의",
+      },
+      "matchedKeywords": [
+        "external participant domain inferred",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "후속 미팅 일정 협의",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "Kim Manager",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "other-corp.example",
+        ],
+        "reason": "external participant domain inferred",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "Kim Manager inferred from Mail Intelligence thread. 고객사 담당자가 방화벽 도입을 위한 후속 논의를 요청했습니다.",
+      "title": "Customer: Kim Manager",
+    },
+  ],
+  "excluded": [],
+}
+`;
+
+exports[`classifyMailInsightThread golden master > known partner domain thread 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "opportunity",
+      "confidence": 92,
+      "confidenceBreakdown": {
+        "aiEnhanced": 8,
+        "evidence": 8,
+        "keywordSignal": 18,
+      },
+      "evidenceItems": [
+        "PoC 검증 요청",
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "PoC 검증 요청",
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "evidence": "검증 요청",
+            "recommendedAction": "PoC 범위와 견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "revenueOpsTags": [
+          "PoC/검증",
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-partner-poc",
+        "threadTitle": "[넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+      },
+      "matchedKeywords": [
+        "견적",
+        "계약",
+        "견적계약",
+      ],
+      "nextActions": [
+        {
+          "evidence": "검증 요청",
+          "recommendedAction": "PoC 범위와 견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "넥시아스",
+        "decision": "candidate",
+        "entityRole": "partner",
+        "matchedPolicyMemories": [
+          {
+            "key": "nexias.co.kr",
+            "label": "Nexias partner domain",
+            "memoryType": "known_partner_domain",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "reason": "known partner domain matched",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+      "title": "Opportunity: [넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+    },
+    {
+      "candidateType": "poc",
+      "confidence": 94,
+      "confidenceBreakdown": {
+        "aiEnhanced": 8,
+        "evidence": 8,
+        "keywordSignal": 18,
+      },
+      "evidenceItems": [
+        "PoC 검증 요청",
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "PoC 검증 요청",
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "evidence": "검증 요청",
+            "recommendedAction": "PoC 범위와 견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "revenueOpsTags": [
+          "PoC/검증",
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-partner-poc",
+        "threadTitle": "[넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+      },
+      "matchedKeywords": [
+        "poc",
+        "검증",
+        "poc검증",
+      ],
+      "nextActions": [
+        {
+          "evidence": "검증 요청",
+          "recommendedAction": "PoC 범위와 견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "넥시아스",
+        "decision": "candidate",
+        "entityRole": "partner",
+        "matchedPolicyMemories": [
+          {
+            "key": "nexias.co.kr",
+            "label": "Nexias partner domain",
+            "memoryType": "known_partner_domain",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "reason": "known partner domain matched",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+      "title": "PoC: [넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+    },
+    {
+      "candidateType": "task",
+      "confidence": 82,
+      "confidenceBreakdown": {
+        "actionSignal": 12,
+        "aiEnhanced": 8,
+        "evidence": 8,
+      },
+      "evidenceItems": [
+        "PoC 검증 요청",
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "PoC 검증 요청",
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "evidence": "검증 요청",
+            "recommendedAction": "PoC 범위와 견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "revenueOpsTags": [
+          "PoC/검증",
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-partner-poc",
+        "threadTitle": "[넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+      },
+      "matchedKeywords": [
+        "요청",
+        "회신",
+        "poc범위와견적회신",
+        "견적",
+        "계약",
+        "견적계약",
+        "poc",
+        "검증",
+        "poc검증",
+      ],
+      "nextActions": [
+        {
+          "evidence": "검증 요청",
+          "recommendedAction": "PoC 범위와 견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "넥시아스",
+        "decision": "candidate",
+        "entityRole": "partner",
+        "matchedPolicyMemories": [
+          {
+            "key": "nexias.co.kr",
+            "label": "Nexias partner domain",
+            "memoryType": "known_partner_domain",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "reason": "known partner domain matched",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+      "title": "Follow up: [넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+    },
+    {
+      "candidateType": "partner",
+      "confidence": 82,
+      "confidenceBreakdown": {
+        "aiEnhanced": 6,
+        "policySignal": 18,
+      },
+      "evidenceItems": [
+        "PoC 검증 요청",
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "PoC 검증 요청",
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "evidence": "검증 요청",
+            "recommendedAction": "PoC 범위와 견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "revenueOpsTags": [
+          "PoC/검증",
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-partner-poc",
+        "threadTitle": "[넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+      },
+      "matchedKeywords": [
+        "known partner domain matched",
+      ],
+      "nextActions": [
+        {
+          "evidence": "검증 요청",
+          "recommendedAction": "PoC 범위와 견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "넥시아스",
+        "decision": "candidate",
+        "entityRole": "partner",
+        "matchedPolicyMemories": [
+          {
+            "key": "nexias.co.kr",
+            "label": "Nexias partner domain",
+            "memoryType": "known_partner_domain",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "reason": "known partner domain matched",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "넥시아스 inferred from Mail Intelligence thread. 고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+      "title": "Partner: 넥시아스",
+    },
+  ],
+  "excluded": [],
+}
+`;
+
+exports[`classifyMailInsightThread golden master > promotional/newsletter thread is excluded 1`] = `
+{
+  "candidates": [],
+  "excluded": [
+    {
+      "decision": "exclude",
+      "entityRole": "unknown",
+      "matchedPolicyMemories": [],
+      "participantDomains": [
+        "crew.you",
+        "blro.co.kr",
+      ],
+      "reason": "promotional or newsletter thread is not an AIOS business candidate",
+    },
+  ],
+}
+`;
+
+exports[`classifyMailInsightThread golden master > qualified opportunity thread with evidence + AI-enhanced flag 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "opportunity",
+      "confidence": 94,
+      "confidenceBreakdown": {
+        "aiEnhanced": 8,
+        "evidence": 8,
+        "keywordSignal": 24,
+      },
+      "evidenceItems": [
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "revenueOpsTags": [
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-opp-1",
+        "threadTitle": "[SamsungSDS] Sangfor 라이선스 견적 요청",
+      },
+      "matchedKeywords": [
+        "견적",
+        "계약",
+        "라이선스",
+        "견적계약",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "SamsungSDS",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+      "title": "Opportunity: [SamsungSDS] Sangfor 라이선스 견적 요청",
+    },
+    {
+      "candidateType": "task",
+      "confidence": 82,
+      "confidenceBreakdown": {
+        "actionSignal": 12,
+        "aiEnhanced": 8,
+        "evidence": 8,
+      },
+      "evidenceItems": [
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "revenueOpsTags": [
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-opp-1",
+        "threadTitle": "[SamsungSDS] Sangfor 라이선스 견적 요청",
+      },
+      "matchedKeywords": [
+        "요청",
+        "회신",
+        "견적회신",
+        "견적",
+        "계약",
+        "라이선스",
+        "견적계약",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "SamsungSDS",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+      "title": "Follow up: [SamsungSDS] Sangfor 라이선스 견적 요청",
+    },
+    {
+      "candidateType": "customer",
+      "confidence": 74,
+      "confidenceBreakdown": {
+        "aiEnhanced": 6,
+        "policySignal": 10,
+      },
+      "evidenceItems": [
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "revenueOpsTags": [
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-opp-1",
+        "threadTitle": "[SamsungSDS] Sangfor 라이선스 견적 요청",
+      },
+      "matchedKeywords": [
+        "external bracket company inferred from Mail Intelligence thread title",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "SamsungSDS",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "SamsungSDS inferred from Mail Intelligence thread. 고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+      "title": "Customer: SamsungSDS",
+    },
+  ],
+  "excluded": [],
+}
+`;
+
+exports[`classifyMailInsightThread golden master > thread with only an internal domain participant is excluded 1`] = `
+{
+  "candidates": [],
+  "excluded": [
+    {
+      "candidateName": "blro.co.kr",
+      "decision": "exclude",
+      "entityRole": "internal_company",
+      "matchedPolicyMemories": [
+        {
+          "key": "blro.co.kr",
+          "label": "BLRO internal domain",
+          "memoryType": "internal_domain",
+        },
+      ],
+      "participantDomains": [
+        "blro.co.kr",
+      ],
+      "reason": "only internal participant domains are present",
+    },
+  ],
+}
+`;
+
+exports[`classifyMailInsightThread golden master > vendor tech-support thread (bypass path) 1`] = `
+{
+  "candidates": [
+    {
+      "candidateType": "task",
+      "confidence": 74,
+      "confidenceBreakdown": {
+        "actionSignal": 4,
+        "aiEnhanced": 8,
+        "evidence": 8,
+      },
+      "evidenceItems": [
+        "disk error",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "disk error",
+        ],
+        "nextActions": [],
+        "participantDomains": [
+          "sangfor.com",
+          "blro.co.kr",
+        ],
+        "revenueOpsTags": [],
+        "status": "done",
+        "summary": "장애 확인 및 복구 완료 보고",
+        "threadInsightId": undefined,
+        "threadKey": "conv-sangfor-support",
+        "threadTitle": "[Sangfor Tech Support] critical HCI disk error resolved",
+      },
+      "matchedKeywords": [
+        "확인",
+      ],
+      "nextActions": [],
+      "policyDecision": {
+        "candidateName": "Sangfor Tech Support",
+        "decision": "candidate",
+        "entityRole": "partner",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "sangfor.com",
+          "blro.co.kr",
+        ],
+        "reason": "vendor tech support center email matched",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "장애 확인 및 복구 완료 보고",
+      "title": "Follow up: [Sangfor Tech Support] critical HCI disk error resolved",
+    },
+    {
+      "candidateType": "partner",
+      "confidence": 82,
+      "confidenceBreakdown": {
+        "aiEnhanced": 6,
+        "policySignal": 18,
+      },
+      "evidenceItems": [
+        "disk error",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "disk error",
+        ],
+        "nextActions": [],
+        "participantDomains": [
+          "sangfor.com",
+          "blro.co.kr",
+        ],
+        "revenueOpsTags": [],
+        "status": "done",
+        "summary": "장애 확인 및 복구 완료 보고",
+        "threadInsightId": undefined,
+        "threadKey": "conv-sangfor-support",
+        "threadTitle": "[Sangfor Tech Support] critical HCI disk error resolved",
+      },
+      "matchedKeywords": [
+        "vendor tech support center email matched",
+      ],
+      "nextActions": [],
+      "policyDecision": {
+        "candidateName": "Sangfor Tech Support",
+        "decision": "candidate",
+        "entityRole": "partner",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "sangfor.com",
+          "blro.co.kr",
+        ],
+        "reason": "vendor tech support center email matched",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "Sangfor Tech Support inferred from Mail Intelligence thread. 장애 확인 및 복구 완료 보고",
+      "title": "Partner: Sangfor Tech Support",
+    },
+  ],
+  "excluded": [],
+}
+`;
+
+exports[`combineHybridClassification golden master > AI customer correction (confidence >= 70) relabels a partner candidate 1`] = `
+{
+  "aiClassification": {
+    "category": "customer",
+    "confidence": 85,
+    "reasoning": "confirmed direct customer, not a reseller",
+    "sentiment": "neutral",
+    "urgency": "medium",
+  },
+  "candidates": [
+    {
+      "aiClassification": {
+        "category": "customer",
+        "confidence": 85,
+        "reasoning": "confirmed direct customer, not a reseller",
+        "sentiment": "neutral",
+        "urgency": "medium",
+      },
+      "candidateType": "opportunity",
+      "confidence": 87,
+      "confidenceBreakdown": {
+        "aiClassification": 85,
+        "aiEnhanced": 8,
+        "evidence": 8,
+        "keywordSignal": 18,
+      },
+      "evidenceItems": [
+        "PoC 검증 요청",
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "PoC 검증 요청",
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "evidence": "검증 요청",
+            "recommendedAction": "PoC 범위와 견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "revenueOpsTags": [
+          "PoC/검증",
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-partner-poc",
+        "threadTitle": "[넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+      },
+      "matchedKeywords": [
+        "견적",
+        "계약",
+        "견적계약",
+      ],
+      "nextActions": [
+        {
+          "evidence": "검증 요청",
+          "recommendedAction": "PoC 범위와 견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "넥시아스",
+        "decision": "candidate",
+        "entityRole": "partner",
+        "matchedPolicyMemories": [
+          {
+            "key": "nexias.co.kr",
+            "label": "Nexias partner domain",
+            "memoryType": "known_partner_domain",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "reason": "known partner domain matched",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+      "title": "Opportunity: [넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+    },
+    {
+      "aiClassification": {
+        "category": "customer",
+        "confidence": 85,
+        "reasoning": "confirmed direct customer, not a reseller",
+        "sentiment": "neutral",
+        "urgency": "medium",
+      },
+      "candidateType": "poc",
+      "confidence": 88,
+      "confidenceBreakdown": {
+        "aiClassification": 85,
+        "aiEnhanced": 8,
+        "evidence": 8,
+        "keywordSignal": 18,
+      },
+      "evidenceItems": [
+        "PoC 검증 요청",
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "PoC 검증 요청",
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "evidence": "검증 요청",
+            "recommendedAction": "PoC 범위와 견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "revenueOpsTags": [
+          "PoC/검증",
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-partner-poc",
+        "threadTitle": "[넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+      },
+      "matchedKeywords": [
+        "poc",
+        "검증",
+        "poc검증",
+      ],
+      "nextActions": [
+        {
+          "evidence": "검증 요청",
+          "recommendedAction": "PoC 범위와 견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "넥시아스",
+        "decision": "candidate",
+        "entityRole": "partner",
+        "matchedPolicyMemories": [
+          {
+            "key": "nexias.co.kr",
+            "label": "Nexias partner domain",
+            "memoryType": "known_partner_domain",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "reason": "known partner domain matched",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+      "title": "PoC: [넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+    },
+    {
+      "aiClassification": {
+        "category": "customer",
+        "confidence": 85,
+        "reasoning": "confirmed direct customer, not a reseller",
+        "sentiment": "neutral",
+        "urgency": "medium",
+      },
+      "candidateType": "task",
+      "confidence": 84,
+      "confidenceBreakdown": {
+        "actionSignal": 12,
+        "aiClassification": 85,
+        "aiEnhanced": 8,
+        "evidence": 8,
+      },
+      "evidenceItems": [
+        "PoC 검증 요청",
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "PoC 검증 요청",
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "evidence": "검증 요청",
+            "recommendedAction": "PoC 범위와 견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "revenueOpsTags": [
+          "PoC/검증",
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-partner-poc",
+        "threadTitle": "[넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+      },
+      "matchedKeywords": [
+        "요청",
+        "회신",
+        "poc범위와견적회신",
+        "견적",
+        "계약",
+        "견적계약",
+        "poc",
+        "검증",
+        "poc검증",
+      ],
+      "nextActions": [
+        {
+          "evidence": "검증 요청",
+          "recommendedAction": "PoC 범위와 견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "넥시아스",
+        "decision": "candidate",
+        "entityRole": "partner",
+        "matchedPolicyMemories": [
+          {
+            "key": "nexias.co.kr",
+            "label": "Nexias partner domain",
+            "memoryType": "known_partner_domain",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "reason": "known partner domain matched",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+      "title": "Follow up: [넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+    },
+    {
+      "aiClassification": {
+        "category": "customer",
+        "confidence": 85,
+        "reasoning": "confirmed direct customer, not a reseller",
+        "sentiment": "neutral",
+        "urgency": "medium",
+      },
+      "candidateType": "customer",
+      "confidence": 84,
+      "confidenceBreakdown": {
+        "aiClassification": 85,
+        "aiEnhanced": 6,
+        "policySignal": 18,
+      },
+      "evidenceItems": [
+        "PoC 검증 요청",
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "PoC 검증 요청",
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "evidence": "검증 요청",
+            "recommendedAction": "PoC 범위와 견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "revenueOpsTags": [
+          "PoC/검증",
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-partner-poc",
+        "threadTitle": "[넥시아스] 고객사 SASE PoC 견적 및 검증 요청",
+      },
+      "matchedKeywords": [
+        "known partner domain matched",
+      ],
+      "nextActions": [
+        {
+          "evidence": "검증 요청",
+          "recommendedAction": "PoC 범위와 견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "넥시아스",
+        "decision": "candidate",
+        "entityRole": "partner",
+        "matchedPolicyMemories": [
+          {
+            "key": "nexias.co.kr",
+            "label": "Nexias partner domain",
+            "memoryType": "known_partner_domain",
+          },
+        ],
+        "participantDomains": [
+          "nexias.co.kr",
+          "customer.example",
+        ],
+        "reason": "known partner domain matched",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "넥시아스 inferred from Mail Intelligence thread. 고객사가 SASE PoC 검증과 견적을 요청했습니다.",
+      "title": "Customer: 넥시아스",
+    },
+  ],
+  "excluded": [],
+}
+`;
+
+exports[`combineHybridClassification golden master > AI exclude classification moves candidates to excluded 1`] = `
+{
+  "aiClassification": {
+    "category": "exclude",
+    "confidence": 80,
+    "reasoning": "irrelevant to sales pipeline",
+    "sentiment": "neutral",
+    "urgency": "medium",
+  },
+  "candidates": [],
+  "excluded": [
+    {
+      "candidateName": "Opportunity: [SamsungSDS] Sangfor 라이선스 견적 요청",
+      "decision": "exclude",
+      "entityRole": "unknown",
+      "matchedPolicyMemories": [],
+      "participantDomains": [
+        "samsungsds.com",
+      ],
+      "reason": "AI classified as exclude: irrelevant to sales pipeline",
+    },
+    {
+      "candidateName": "Follow up: [SamsungSDS] Sangfor 라이선스 견적 요청",
+      "decision": "exclude",
+      "entityRole": "unknown",
+      "matchedPolicyMemories": [],
+      "participantDomains": [
+        "samsungsds.com",
+      ],
+      "reason": "AI classified as exclude: irrelevant to sales pipeline",
+    },
+    {
+      "candidateName": "Customer: SamsungSDS",
+      "decision": "exclude",
+      "entityRole": "unknown",
+      "matchedPolicyMemories": [],
+      "participantDomains": [
+        "samsungsds.com",
+      ],
+      "reason": "AI classified as exclude: irrelevant to sales pipeline",
+    },
+  ],
+}
+`;
+
+exports[`combineHybridClassification golden master > AI opportunity classification below the correction threshold blends confidence 1`] = `
+{
+  "aiClassification": {
+    "category": "opportunity",
+    "confidence": 60,
+    "reasoning": "weak signal, low confidence",
+    "sentiment": "neutral",
+    "urgency": "medium",
+  },
+  "candidates": [
+    {
+      "aiClassification": {
+        "category": "opportunity",
+        "confidence": 60,
+        "reasoning": "weak signal, low confidence",
+        "sentiment": "neutral",
+        "urgency": "medium",
+      },
+      "candidateType": "opportunity",
+      "confidence": 70,
+      "confidenceBreakdown": {
+        "aiClassification": 60,
+        "aiEnhanced": 8,
+        "evidence": 8,
+        "keywordSignal": 24,
+      },
+      "evidenceItems": [
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "revenueOpsTags": [
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-opp-1",
+        "threadTitle": "[SamsungSDS] Sangfor 라이선스 견적 요청",
+      },
+      "matchedKeywords": [
+        "견적",
+        "계약",
+        "라이선스",
+        "견적계약",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "SamsungSDS",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+      "title": "Opportunity: [SamsungSDS] Sangfor 라이선스 견적 요청",
+    },
+    {
+      "aiClassification": {
+        "category": "opportunity",
+        "confidence": 60,
+        "reasoning": "weak signal, low confidence",
+        "sentiment": "neutral",
+        "urgency": "medium",
+      },
+      "candidateType": "task",
+      "confidence": 67,
+      "confidenceBreakdown": {
+        "actionSignal": 12,
+        "aiClassification": 60,
+        "aiEnhanced": 8,
+        "evidence": 8,
+      },
+      "evidenceItems": [
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "revenueOpsTags": [
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-opp-1",
+        "threadTitle": "[SamsungSDS] Sangfor 라이선스 견적 요청",
+      },
+      "matchedKeywords": [
+        "요청",
+        "회신",
+        "견적회신",
+        "견적",
+        "계약",
+        "라이선스",
+        "견적계약",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "SamsungSDS",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+      "title": "Follow up: [SamsungSDS] Sangfor 라이선스 견적 요청",
+    },
+    {
+      "aiClassification": {
+        "category": "opportunity",
+        "confidence": 60,
+        "reasoning": "weak signal, low confidence",
+        "sentiment": "neutral",
+        "urgency": "medium",
+      },
+      "candidateType": "customer",
+      "confidence": 64,
+      "confidenceBreakdown": {
+        "aiClassification": 60,
+        "aiEnhanced": 6,
+        "policySignal": 10,
+      },
+      "evidenceItems": [
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "revenueOpsTags": [
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-opp-1",
+        "threadTitle": "[SamsungSDS] Sangfor 라이선스 견적 요청",
+      },
+      "matchedKeywords": [
+        "external bracket company inferred from Mail Intelligence thread title",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "SamsungSDS",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "SamsungSDS inferred from Mail Intelligence thread. 고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+      "title": "Customer: SamsungSDS",
+    },
+  ],
+  "excluded": [],
+}
+`;
+
+exports[`combineHybridClassification golden master > AI vendor classification moves candidates to excluded 1`] = `
+{
+  "aiClassification": {
+    "category": "vendor",
+    "confidence": 90,
+    "reasoning": "SaaS tool we use internally",
+    "sentiment": "neutral",
+    "urgency": "medium",
+  },
+  "candidates": [],
+  "excluded": [
+    {
+      "candidateName": "Opportunity: [SamsungSDS] Sangfor 라이선스 견적 요청",
+      "decision": "exclude",
+      "entityRole": "unknown",
+      "matchedPolicyMemories": [],
+      "participantDomains": [
+        "samsungsds.com",
+      ],
+      "reason": "AI classified as vendor (SaaS/tool we use): SaaS tool we use internally",
+    },
+    {
+      "candidateName": "Follow up: [SamsungSDS] Sangfor 라이선스 견적 요청",
+      "decision": "exclude",
+      "entityRole": "unknown",
+      "matchedPolicyMemories": [],
+      "participantDomains": [
+        "samsungsds.com",
+      ],
+      "reason": "AI classified as vendor (SaaS/tool we use): SaaS tool we use internally",
+    },
+    {
+      "candidateName": "Customer: SamsungSDS",
+      "decision": "exclude",
+      "entityRole": "unknown",
+      "matchedPolicyMemories": [],
+      "participantDomains": [
+        "samsungsds.com",
+      ],
+      "reason": "AI classified as vendor (SaaS/tool we use): SaaS tool we use internally",
+    },
+  ],
+}
+`;
+
+exports[`combineHybridClassification golden master > null aiResult passes the policy result through unchanged 1`] = `
+{
+  "aiClassification": null,
+  "candidates": [
+    {
+      "candidateType": "opportunity",
+      "confidence": 94,
+      "confidenceBreakdown": {
+        "aiEnhanced": 8,
+        "evidence": 8,
+        "keywordSignal": 24,
+      },
+      "evidenceItems": [
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "revenueOpsTags": [
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-opp-1",
+        "threadTitle": "[SamsungSDS] Sangfor 라이선스 견적 요청",
+      },
+      "matchedKeywords": [
+        "견적",
+        "계약",
+        "라이선스",
+        "견적계약",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "SamsungSDS",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+      "title": "Opportunity: [SamsungSDS] Sangfor 라이선스 견적 요청",
+    },
+    {
+      "candidateType": "task",
+      "confidence": 82,
+      "confidenceBreakdown": {
+        "actionSignal": 12,
+        "aiEnhanced": 8,
+        "evidence": 8,
+      },
+      "evidenceItems": [
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "revenueOpsTags": [
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-opp-1",
+        "threadTitle": "[SamsungSDS] Sangfor 라이선스 견적 요청",
+      },
+      "matchedKeywords": [
+        "요청",
+        "회신",
+        "견적회신",
+        "견적",
+        "계약",
+        "라이선스",
+        "견적계약",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "SamsungSDS",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+      "title": "Follow up: [SamsungSDS] Sangfor 라이선스 견적 요청",
+    },
+    {
+      "candidateType": "customer",
+      "confidence": 74,
+      "confidenceBreakdown": {
+        "aiEnhanced": 6,
+        "policySignal": 10,
+      },
+      "evidenceItems": [
+        "견적 요청",
+      ],
+      "mailIntelligence": {
+        "aiEnhanced": true,
+        "effectiveStatus": undefined,
+        "evidenceItems": [
+          "견적 요청",
+        ],
+        "nextActions": [
+          {
+            "recommendedAction": "견적 회신",
+          },
+        ],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "revenueOpsTags": [
+          "견적/계약",
+        ],
+        "status": "active",
+        "summary": "고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+        "threadInsightId": undefined,
+        "threadKey": "conv-opp-1",
+        "threadTitle": "[SamsungSDS] Sangfor 라이선스 견적 요청",
+      },
+      "matchedKeywords": [
+        "external bracket company inferred from Mail Intelligence thread title",
+      ],
+      "nextActions": [
+        {
+          "recommendedAction": "견적 회신",
+        },
+      ],
+      "policyDecision": {
+        "candidateName": "SamsungSDS",
+        "decision": "candidate",
+        "entityRole": "customer",
+        "matchedPolicyMemories": [],
+        "participantDomains": [
+          "samsungsds.com",
+        ],
+        "reason": "external bracket company inferred from Mail Intelligence thread title",
+      },
+      "sourceMessageIds": [
+        "m1",
+      ],
+      "summary": "SamsungSDS inferred from Mail Intelligence thread. 고객사가 라이선스 견적과 계약 조건을 요청했습니다.",
+      "title": "Customer: SamsungSDS",
+    },
+  ],
+  "excluded": [],
+}
+`;

@@ -1,4 +1,4 @@
-import { prisma } from "@sangfor/db";
+import { prisma as realPrisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { logStateTransition } from "./audit";
@@ -12,6 +12,35 @@ import {
   validateOpportunityStageOrder,
   validateRegistrationGate,
 } from "./opportunity-stage";
+
+/**
+ * Structural prisma type covering only the methods used by the list/create/
+ * stage-transition paths below (mirrors domain-persistence.ts:38's
+ * `PersistencePrisma` DI seam — real PrismaClient and test fakes both satisfy
+ * this shape). Test-only injection point; production callers always default
+ * to the real client.
+ */
+export interface OpportunityCenterPrisma {
+  project: { findUniqueOrThrow: (args: { where: { slug: string } }) => Promise<{ id: string }> };
+  opportunity: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    findMany: (args: any) => Promise<any[]>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    findUniqueOrThrow: (args: any) => Promise<any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create: (args: any) => Promise<any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update: (args: any) => Promise<any>;
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  opportunityStageEvent: { create: (args: any) => Promise<any> };
+  $queryRaw: <T = unknown>(strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>;
+  $transaction: <T>(fn: (tx: OpportunityCenterPrisma) => Promise<T>) => Promise<T>;
+}
+
+export interface OpportunityCenterDeps {
+  prisma?: OpportunityCenterPrisma;
+}
 
 const stageInput = z
   .enum([
@@ -68,16 +97,20 @@ export const addOpportunityLinkSchema = z.object({
   linkType: z.string().default("related"),
 });
 
-async function resolveProjectId(slug: string) {
-  const project = await prisma.project.findUniqueOrThrow({ where: { slug } });
+async function resolveProjectId(slug: string, db: OpportunityCenterPrisma) {
+  const project = await db.project.findUniqueOrThrow({ where: { slug } });
   return project.id;
 }
 
-export async function createOpportunity(input: z.input<typeof createOpportunitySchema>) {
+export async function createOpportunity(
+  input: z.input<typeof createOpportunitySchema>,
+  deps: OpportunityCenterDeps = {},
+) {
+  const db = deps.prisma ?? (realPrisma as unknown as OpportunityCenterPrisma);
   const parsed = createOpportunitySchema.parse(input);
-  const projectId = await resolveProjectId(parsed.projectSlug);
+  const projectId = await resolveProjectId(parsed.projectSlug, db);
 
-  const opp = await prisma.$transaction(async (tx) => {
+  const opp = await db.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('opp_code_seq')`;
     const seq = Number(rows[0].nextval);
     const code = formatDealCode(new Date().getFullYear(), seq);
@@ -120,9 +153,13 @@ export async function createOpportunity(input: z.input<typeof createOpportunityS
   return opp;
 }
 
-export async function listOpportunities(projectSlug = "demo-project") {
-  const projectId = await resolveProjectId(projectSlug);
-  return prisma.opportunity.findMany({
+export async function listOpportunities(
+  projectSlug = "demo-project",
+  deps: OpportunityCenterDeps = {},
+) {
+  const db = deps.prisma ?? (realPrisma as unknown as OpportunityCenterPrisma);
+  const projectId = await resolveProjectId(projectSlug, db);
+  return db.opportunity.findMany({
     where: { projectId },
     orderBy: { updatedAt: "desc" },
     include: {
@@ -135,7 +172,7 @@ export async function listOpportunities(projectSlug = "demo-project") {
 }
 
 export async function getOpportunityDetail(id: string) {
-  return prisma.opportunity.findUnique({
+  return realPrisma.opportunity.findUnique({
     where: { id },
     include: {
       customer: true,
@@ -152,9 +189,11 @@ export async function getOpportunityDetail(id: string) {
 export async function updateOpportunity(
   id: string,
   input: z.input<typeof updateOpportunitySchema>,
+  deps: OpportunityCenterDeps = {},
 ) {
+  const db = deps.prisma ?? (realPrisma as unknown as OpportunityCenterPrisma);
   const parsed = updateOpportunitySchema.parse(input);
-  const existing = await prisma.opportunity.findUniqueOrThrow({
+  const existing = await db.opportunity.findUniqueOrThrow({
     where: { id },
     include: { dealRegistration: { select: { regStatus: true } } },
   });
@@ -200,7 +239,7 @@ export async function updateOpportunity(
     }
 
     data.stage = newStage;
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await db.$transaction(async (tx) => {
       const result = await tx.opportunity.update({ where: { id }, data });
       await tx.opportunityStageEvent.create({
         data: {
@@ -235,7 +274,7 @@ export async function updateOpportunity(
     return updated;
   }
 
-  const updated = await prisma.opportunity.update({ where: { id }, data });
+  const updated = await db.opportunity.update({ where: { id }, data });
 
   // S1: capture the human field-edit onto the decision spine (best-effort,
   // outside txn, never throws). Pairs with a stage_transition on the same
@@ -254,7 +293,7 @@ export async function updateOpportunity(
 }
 
 export async function advanceOpportunityStage(id: string) {
-  const opp = await prisma.opportunity.findUniqueOrThrow({
+  const opp = await realPrisma.opportunity.findUniqueOrThrow({
     where: { id },
     include: { dealRegistration: { select: { regStatus: true } } },
   });
@@ -273,12 +312,12 @@ export async function advanceOpportunityStage(id: string) {
     throw new Error(`registration_gate:${gate.reason}`);
   }
 
-  const updated = await prisma.opportunity.update({
+  const updated = await realPrisma.opportunity.update({
     where: { id },
     data: { stage: next },
   });
 
-  await prisma.opportunityStageEvent.create({
+  await realPrisma.opportunityStageEvent.create({
     data: {
       opportunityId: id,
       fromStage,
@@ -313,7 +352,7 @@ export async function addOpportunityLink(
   input: z.input<typeof addOpportunityLinkSchema>,
 ) {
   const parsed = addOpportunityLinkSchema.parse(input);
-  return prisma.opportunityLink.upsert({
+  return realPrisma.opportunityLink.upsert({
     where: {
       opportunityId_entityType_entityId: {
         opportunityId,
@@ -332,11 +371,11 @@ export async function addOpportunityLink(
 }
 
 export async function removeOpportunityLink(linkId: string) {
-  return prisma.opportunityLink.delete({ where: { id: linkId } });
+  return realPrisma.opportunityLink.delete({ where: { id: linkId } });
 }
 
 export async function archiveOpportunity(id: string) {
-  return prisma.opportunity.delete({ where: { id } });
+  return realPrisma.opportunity.delete({ where: { id } });
 }
 
 export type EnrichedOpportunityLink = {
@@ -357,7 +396,7 @@ export async function enrichOpportunityLinks(
       let href: string | null = null;
 
       if (link.entityType === "poc") {
-        const row = await prisma.pocProject.findUnique({
+        const row = await realPrisma.pocProject.findUnique({
           where: { id: link.entityId },
           select: { title: true },
         });
@@ -366,7 +405,7 @@ export async function enrichOpportunityLinks(
           href = `/poc/${link.entityId}`;
         }
       } else if (link.entityType === "proposal") {
-        const row = await prisma.generatedDocument.findUnique({
+        const row = await realPrisma.generatedDocument.findUnique({
           where: { id: link.entityId },
           select: { title: true },
         });
@@ -375,7 +414,7 @@ export async function enrichOpportunityLinks(
           href = `/proposals/${link.entityId}`;
         }
       } else if (link.entityType === "partner") {
-        const row = await prisma.partner.findUnique({
+        const row = await realPrisma.partner.findUnique({
           where: { id: link.entityId },
           select: { name: true },
         });
@@ -384,7 +423,7 @@ export async function enrichOpportunityLinks(
           href = `/partners/${link.entityId}`;
         }
       } else if (link.entityType === "customer") {
-        const row = await prisma.customer.findUnique({
+        const row = await realPrisma.customer.findUnique({
           where: { id: link.entityId },
           select: { name: true },
         });
@@ -415,7 +454,7 @@ export async function getOpportunityPipelineSummary(projectSlug = "demo-project"
  * ④ 선정·입찰 work panel.
  */
 export async function listQuotesByOpportunity(opportunityId: string) {
-  return prisma.quote.findMany({
+  return realPrisma.quote.findMany({
     where: { opportunityId },
     orderBy: { createdAt: "desc" },
   });

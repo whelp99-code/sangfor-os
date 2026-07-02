@@ -3,6 +3,8 @@ dist
 .next
 .turbo
 coverage
+test-results
+allure-results
 *.tsbuildinfo
 .env
 .env.local
