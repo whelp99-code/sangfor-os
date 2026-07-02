@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
+import { router, financeProcedure } from '../trpc';
 import { prisma } from '@sangfor/db';
 import {
   getCompanyBusinessNumber,
@@ -7,7 +7,7 @@ import {
 } from '../../services/finance/company-settings.service';
 
 export const companySettingsRouter = router({
-  get: protectedProcedure.query(async () => {
+  get: financeProcedure.query(async () => {
     try {
       const businessNumber = await getCompanyBusinessNumber();
       const settings = await prisma.companySettings.findUnique({ where: { id: 'default' } });
@@ -21,7 +21,7 @@ export const companySettingsRouter = router({
     }
   }),
 
-  set: protectedProcedure
+  set: financeProcedure
     .input(
       z.object({
         businessNumber: z.string().min(10),

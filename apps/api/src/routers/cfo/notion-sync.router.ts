@@ -1,11 +1,11 @@
-import { router, protectedProcedure } from '../trpc';
+import { router, financeProcedure } from '../trpc';
 import { NotionSyncService } from '../../services/finance';
 
 const notion = new NotionSyncService();
 
 export const notionSyncRouter = router({
-  status: protectedProcedure
+  status: financeProcedure
     .query(async () => notion.status()),
-  csvImport: protectedProcedure
+  csvImport: financeProcedure
     .mutation(async () => notion.triggerCsvImport()),
 });

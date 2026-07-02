@@ -1,13 +1,13 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
+import { router, financeProcedure } from '../trpc';
 import { PopbillService } from '../../services/finance';
 
 const popbill = new PopbillService();
 
 export const popbillRouter = router({
-  status: protectedProcedure
+  status: financeProcedure
     .query(async () => popbill.checkStatus()),
-  issue: protectedProcedure
+  issue: financeProcedure
     .input(z.object({
       invoiceId: z.string().optional(), projectId: z.string().optional(),
       direction: z.enum(['sales', 'purchase']),
@@ -23,13 +23,13 @@ export const popbillRouter = router({
       items: z.array(z.object({ name: z.string(), qty: z.number(), unitPrice: z.number(), amount: z.number() })),
     }))
     .mutation(async ({ input }) => popbill.issue({ ...input, issueDate: new Date(input.issueDate) })),
-  collectPurchase: protectedProcedure
+  collectPurchase: financeProcedure
     .input(z.object({ year: z.number(), month: z.number() }))
     .mutation(async ({ input }) => popbill.collectPurchaseTaxInvoices(input.year, input.month)),
-  checkBizInfo: protectedProcedure
+  checkBizInfo: financeProcedure
     .input(z.object({ corpNum: z.string() }))
     .query(async ({ input }) => popbill.checkBizInfo(input.corpNum)),
-  history: protectedProcedure
+  history: financeProcedure
     .input(z.object({ direction: z.string().optional(), status: z.string().optional(), limit: z.number().default(50) }).optional())
     .query(async ({ input }) => popbill.listHistory(input)),
 });

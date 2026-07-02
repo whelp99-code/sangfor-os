@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
+import { router, financeProcedure } from '../trpc';
 import { prisma } from '@sangfor/db';
 import { ingestSecureMailHtml } from '../../services/finance/tax-invoice-inbound.service';
 import { issueSalesTaxInvoice, markTransmitted } from '../../services/finance/tax-invoice-issue.service';
 
 export const taxInvoicesRouter = router({
-  list: protectedProcedure
+  list: financeProcedure
     .input(z.object({ direction: z.enum(['sales', 'purchase']).optional() }).optional())
     .query(({ input }) =>
       prisma.taxInvoice.findMany({
@@ -14,11 +14,11 @@ export const taxInvoicesRouter = router({
       }),
     ),
 
-  uploadHtml: protectedProcedure
+  uploadHtml: financeProcedure
     .input(z.object({ html: z.string() }))
     .mutation(({ input }) => ingestSecureMailHtml(input.html)),
 
-  issue: protectedProcedure
+  issue: financeProcedure
     .input(
       z.object({
         buyerCorpNum: z.string(),
@@ -31,7 +31,7 @@ export const taxInvoicesRouter = router({
     )
     .mutation(({ input }) => issueSalesTaxInvoice(input)),
 
-  markTransmitted: protectedProcedure
+  markTransmitted: financeProcedure
     .input(z.object({ id: z.string() }))
     .mutation(({ input }) => markTransmitted(input.id)),
 });
