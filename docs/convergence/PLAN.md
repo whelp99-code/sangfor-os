@@ -495,6 +495,47 @@ point **here** (§7); the god-file's own section is §5.
   (`mail-candidates.ts:1746-1793`) only ADDS positive `proposed` memories; a wrong classification is
   never negatively weighted. **Philosophy gap**, not just a weighting note.
 
+### §7 Amendments (2026-07-02, Phase C red-team completion)
+
+Items below were referenced in commit messages / ADR-001 as "named in §7" but were missing from the
+register (a red-team finding), plus new gaps Phase C surfaced. They are now the register of record.
+
+- **Step 6 remainder — edit-capture for task / customer / partner / proposal / poc**: only
+  `updateOpportunity` writes `entity_edit` this pass; the other four `updateX` sites in
+  `task-center.ts`, `customer-partner.ts`, `proposal-generator.ts`, `poc-center.ts` are not wired.
+- **Step 7 — soft-delete (whole step unshipped)**: additive `archivedAt` migration + archiver rewrite
+  + `entity_archive` capture + typed confirmation payload + delete-UX. This pass REMOVED the delete
+  buttons from opportunity/task detail pages because `archiveOpportunity`/`archiveWorkTask` are still
+  hard `prisma.delete` (the auth fix from Step 1 stands; the API DELETE routes match main). The
+  customers/partners delete buttons remain live (their archivers are soft `status:"archived"`), but
+  those archives are **not spine-captured** either — wire `entity_archive` when Step 7 lands.
+- **Recall-site unification**: `domain-agent-runtime.ts:142` and `domain-embedding.ts:95` still pass
+  raw tags (internally self-symmetric, so no regression — but memories written with
+  `buildMemoryTags` vocabulary, e.g. via `recordHumanDecision`, are invisible to these two paths).
+  Step 8 migrated only `domain-proposal.ts`.
+- **Spine vocabulary deviation (recorded, was silent)**: Step 6 shipped
+  `actor:"sales"`, `outcome:"corrected"` instead of the plan's `actor:'human'`/`outcome:'human_edit'`
+  because `DecisionActor` (schema enum) has no `human` member and `DecisionOutcome` has no
+  `human_edit`. Follow-up: additive enum migration adding proper human-actor vocabulary, then migrate
+  the writer. Until then, calibration reads of `(actor, actionType)` see human edits under
+  `(sales, entity_edit)`.
+- **Stage+field co-edit capture gap**: `updateOpportunity` returns early after a stage change —
+  a payload that edits stage AND other fields records only `stage_transition`; the co-edited fields
+  are not captured as `entity_edit`.
+- **Low-confidence human-rejected recall edge**: `scoreDomainMemory` = `tagScore·outcomeWeight·conf
+  + 0.15 (human bonus)`; a human-source `rejected` memory with confidence < 50 and full tag overlap
+  scores > 0 and is recallable despite rejection.
+- **Gate-4 grep caveat**: `grep -c 'recordDecision(' mail-candidates.ts` counts 2 doc-comment hits
+  inside the `@deprecated` block; real call sites = 1. Keep the gate `>= 1`; never tighten to `>= N`
+  on this grep.
+
+**Errata (history honesty):** commit `ab143a2`'s title "repair broken learning loop … + negative
+learning for rejected" overstates its scope, violating the Step 2 honesty guard — it lands only the
+tag builder + outcome weights; the proposal-path recall fix came later (Step 8) and cross-candidate
+suppression remains unimplemented (Gate 9 `it.todo` in `domain-memory.test.ts`). The stray
+`.superpowers/sdd/learning-fix-report.md` it carried has been removed. Squash-merge this branch with
+an accurate title so the overclaim does not reach `main` history.
+
 ---
 
 ## 8. Data-safety summary
