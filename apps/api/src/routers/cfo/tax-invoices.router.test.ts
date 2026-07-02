@@ -8,7 +8,10 @@ import { cfoRouter } from './index';
 
 const integration = process.env.CI_INTEGRATION === '1';
 
-const caller = cfoRouter.createCaller({ userId: 'test-user', userRole: 'user' } as any);
+// financeProcedure (routers/trpc.ts) now requires a FINANCE_ROLES role —
+// 'user' would be FORBIDDEN post-fix, so the integration caller needs a role
+// that's actually allowed to touch CFO data.
+const caller = cfoRouter.createCaller({ userId: 'test-user', userRole: 'finance_manager' } as any);
 
 const TEST_BIZ = '4208702727';
 const TEST_ISSUE_ID = '202605291026052950358925'; // from SAMPLE_TAXINVOICE_XML
@@ -57,5 +60,29 @@ describe.skipIf(!integration)('taxInvoices + companySettings router (integration
   it('companySettings.get returns the configured businessNumber', async () => {
     const settings = await caller.companySettings.get();
     expect(settings.businessNumber).toBe(TEST_BIZ);
+  });
+});
+
+// ── Role-gate regression (no DB required — always runs) ────────────────────
+//
+// P3 fix: routers/cfo/* now require a FINANCE_ROLES role (financeProcedure),
+// not just any logged-in user. The middleware rejects before the resolver
+// ever touches Prisma, so this doesn't need CI_INTEGRATION or a live DB.
+describe('cfoRouter — finance role gate', () => {
+  it('rejects a non-finance role with FORBIDDEN', async () => {
+    const nonFinanceCaller = cfoRouter.createCaller({
+      userId: 'test-user',
+      userRole: 'account_manager',
+    } as any);
+    await expect(nonFinanceCaller.taxInvoices.list()).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+  });
+
+  it('rejects an unauthenticated caller with UNAUTHORIZED', async () => {
+    const anonCaller = cfoRouter.createCaller({ userId: null, userRole: null } as any);
+    await expect(anonCaller.taxInvoices.list()).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
   });
 });
