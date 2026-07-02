@@ -31,9 +31,11 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       # apps/web lint runs `eslint . && tsc --noEmit`, which needs the generated
-      # Prisma client and built workspace package types.
+      # Prisma client and the workspace *library* packages' built dist/types —
+      # not a full `pnpm build` (that would also run `next build` and apps/api's
+      # tsc build, which lint doesn't need).
       - run: pnpm db:generate
-      - run: pnpm build
+      - run: pnpm --filter "./packages/**" build
       - run: pnpm lint
 
   typecheck:
@@ -59,7 +61,7 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
-      - run: pnpm build
+      - run: pnpm --filter "./packages/**" build
       - run: pnpm typecheck
 
   test:
@@ -102,8 +104,24 @@ jobs:
       - run: pnpm db:generate
       - run: pnpm db:migrate:deploy
       - run: pnpm db:seed
-      - run: pnpm build
-      - run: pnpm test
+      - run: pnpm --filter "./packages/**" build
+      - run: pnpm test:coverage
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            apps/web/coverage
+            apps/api/coverage
+            packages/agent/coverage
+            packages/auth/coverage
+            packages/business/coverage
+            packages/db/coverage
+            packages/infra/coverage
+            packages/shared/coverage
+          if-no-files-found: warn
+          retention-days: 14
 
   build:
     runs-on: ubuntu-latest
@@ -118,3 +136,43 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
       - run: pnpm build
+
+  # Non-blocking until Phase 0 (refactor/phase-0-safety-net) merges its
+  # playwright.config.ts fix (testDir currently points at a stale path).
+  # Once that lands, drop continue-on-error to make this a required check.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [build]
+    continue-on-error: true
+    env:
+      DATABASE_URL: postgresql://aios:aios_password@localhost:5432/aios_v2
+      CI_INTEGRATION: '1'
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aios
+          POSTGRES_PASSWORD: aios_password
+          POSTGRES_DB: aios_v2
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm db:migrate:deploy
+      - run: pnpm db:seed
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Run e2e
+        run: pnpm test:e2e

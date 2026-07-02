@@ -1,12 +1,7 @@
 name: CD
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - '.github/workflows/cd.yml'
+  workflow_dispatch:
 
 concurrency:
   group: deploy-production
@@ -16,7 +11,7 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
 
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +20,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
