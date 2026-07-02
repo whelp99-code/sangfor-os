@@ -1,7 +1,48 @@
-import { prisma } from "@sangfor/db";
+import { prisma as realPrisma, Prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { logStateTransition } from "./audit";
+
+/** Single source of truth for getPocDetail's include shape (used both at the
+ * call site and to derive its precise return type below). */
+const POC_DETAIL_INCLUDE = {
+  customer: true,
+  partner: true,
+  checklistItems: { orderBy: { sortOrder: "asc" } },
+  issues: { orderBy: { createdAt: "desc" } },
+  requirementRows: { orderBy: { sortOrder: "asc" } },
+  events: { orderBy: { occurredAt: "desc" } },
+  resultReports: { orderBy: { createdAt: "desc" } },
+} satisfies Prisma.PocProjectInclude;
+
+/** Exact shape returned by `getPocDetail` — kept precise (not `any`) so
+ * downstream consumers (e.g. skills/portal-binding-summaries.ts's
+ * `ReturnType<typeof getPocDetail>`) keep full type inference through the DI seam. */
+export type PocDetailRow = Prisma.PocProjectGetPayload<{ include: typeof POC_DETAIL_INCLUDE }>;
+
+/**
+ * Structural prisma type covering only the methods used by `createPocProject`
+ * and `getPocDetail` (mirrors domain-persistence.ts:38's `PersistencePrisma`
+ * DI seam). Test-only injection point; production callers always default to
+ * the real client.
+ */
+export interface PocCenterPrisma {
+  project: { findUniqueOrThrow: (args: { where: { slug: string } }) => Promise<{ id: string }> };
+  pocProject: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create: (args: any) => Promise<any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    findUnique: (args: any) => Promise<any>;
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  opportunityLink: { upsert: (args: any) => Promise<any> };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  pocChecklistItem: { createMany: (args: any) => Promise<any> };
+}
+
+export interface PocCenterDeps {
+  prisma?: PocCenterPrisma;
+}
 
 export const createPocSchema = z.object({
   projectSlug: z.string().default("demo-project"),
@@ -60,16 +101,20 @@ const SANGFOR_CHECKLIST_DEFAULTS = [
   "Final result report",
 ];
 
-async function resolveProjectId(slug: string) {
-  const project = await prisma.project.findUniqueOrThrow({ where: { slug } });
+async function resolveProjectId(slug: string, db: PocCenterPrisma) {
+  const project = await db.project.findUniqueOrThrow({ where: { slug } });
   return project.id;
 }
 
-export async function createPocProject(input: z.infer<typeof createPocSchema>) {
+export async function createPocProject(
+  input: z.infer<typeof createPocSchema>,
+  deps: PocCenterDeps = {},
+) {
+  const db = deps.prisma ?? (realPrisma as unknown as PocCenterPrisma);
   const parsed = createPocSchema.parse(input);
-  const projectId = await resolveProjectId(parsed.projectSlug);
+  const projectId = await resolveProjectId(parsed.projectSlug, db);
 
-  const poc = await prisma.pocProject.create({
+  const poc = await db.pocProject.create({
     data: {
       projectId,
       title: parsed.title,
@@ -90,7 +135,7 @@ export async function createPocProject(input: z.infer<typeof createPocSchema>) {
   // P7 #6: going-forward, auto-link the POC to its opportunity (FK + audit link)
   // so engagement conversion's POC absorption works without a backfill.
   if (parsed.opportunityId) {
-    await prisma.opportunityLink.upsert({
+    await db.opportunityLink.upsert({
       where: {
         opportunityId_entityType_entityId: {
           opportunityId: parsed.opportunityId,
@@ -103,7 +148,7 @@ export async function createPocProject(input: z.infer<typeof createPocSchema>) {
     });
   }
 
-  await prisma.pocChecklistItem.createMany({
+  await db.pocChecklistItem.createMany({
     data: SANGFOR_CHECKLIST_DEFAULTS.map((label, i) => ({
       pocProjectId: poc.id,
       label,
@@ -119,12 +164,12 @@ export async function createPocProject(input: z.infer<typeof createPocSchema>) {
     actorType: "user",
   });
 
-  return getPocDetail(poc.id);
+  return getPocDetail(poc.id, deps);
 }
 
 export async function listPocProjects(projectSlug = "demo-project") {
-  const projectId = await resolveProjectId(projectSlug);
-  return prisma.pocProject.findMany({
+  const projectId = await resolveProjectId(projectSlug, realPrisma as unknown as PocCenterPrisma);
+  return realPrisma.pocProject.findMany({
     where: { projectId },
     orderBy: { updatedAt: "desc" },
     include: {
@@ -143,23 +188,19 @@ export async function listPocProjects(projectSlug = "demo-project") {
   });
 }
 
-export async function getPocDetail(id: string) {
-  return prisma.pocProject.findUnique({
+export async function getPocDetail(
+  id: string,
+  deps: PocCenterDeps = {},
+): Promise<PocDetailRow | null> {
+  const db = deps.prisma ?? (realPrisma as unknown as PocCenterPrisma);
+  return db.pocProject.findUnique({
     where: { id },
-    include: {
-      customer: true,
-      partner: true,
-      checklistItems: { orderBy: { sortOrder: "asc" } },
-      issues: { orderBy: { createdAt: "desc" } },
-      requirementRows: { orderBy: { sortOrder: "asc" } },
-      events: { orderBy: { occurredAt: "desc" } },
-      resultReports: { orderBy: { createdAt: "desc" } },
-    },
-  });
+    include: POC_DETAIL_INCLUDE,
+  }) as Promise<PocDetailRow | null>;
 }
 
 export async function togglePocChecklistItem(itemId: string, done: boolean) {
-  return prisma.pocChecklistItem.update({
+  return realPrisma.pocChecklistItem.update({
     where: { id: itemId },
     data: { done },
   });
@@ -170,7 +211,7 @@ export async function addPocIssue(
   title: string,
   severity = "medium",
 ) {
-  return prisma.pocIssue.create({
+  return realPrisma.pocIssue.create({
     data: { pocProjectId, title, severity },
   });
 }
@@ -180,7 +221,7 @@ export async function updatePocIssue(
   input: z.infer<typeof updatePocIssueSchema>,
 ) {
   const parsed = updatePocIssueSchema.parse(input);
-  return prisma.pocIssue.update({
+  return realPrisma.pocIssue.update({
     where: { id: issueId },
     data: parsed,
   });
@@ -206,7 +247,7 @@ export async function updatePocProject(
   if (parsed.scheduleAt !== undefined) {
     data.scheduleAt = parsed.scheduleAt ? new Date(parsed.scheduleAt) : null;
   }
-  return prisma.pocProject.update({ where: { id }, data });
+  return realPrisma.pocProject.update({ where: { id }, data });
 }
 
 export async function addPocRequirement(
@@ -214,8 +255,8 @@ export async function addPocRequirement(
   input: z.infer<typeof addPocRequirementSchema>,
 ) {
   const parsed = addPocRequirementSchema.parse(input);
-  const count = await prisma.pocRequirement.count({ where: { pocProjectId } });
-  return prisma.pocRequirement.create({
+  const count = await realPrisma.pocRequirement.count({ where: { pocProjectId } });
+  return realPrisma.pocRequirement.create({
     data: {
       pocProjectId,
       label: parsed.label,
@@ -230,7 +271,7 @@ export async function addPocEvent(
   input: z.infer<typeof addPocEventSchema>,
 ) {
   const parsed = addPocEventSchema.parse(input);
-  return prisma.pocEvent.create({
+  return realPrisma.pocEvent.create({
     data: {
       pocProjectId,
       eventType: parsed.eventType,
@@ -281,7 +322,7 @@ export async function generatePocResultReport(pocProjectId: string) {
       : ["- No events recorded"]),
   ];
 
-  return prisma.pocResultReport.create({
+  return realPrisma.pocResultReport.create({
     data: {
       pocProjectId,
       title: `${poc.title} Result Report`,
