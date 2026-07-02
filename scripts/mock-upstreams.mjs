@@ -14,7 +14,6 @@ const MOCKS = [
   { name: 'Vibe Coding OS', port: 4000, response: { status: 'ok', service: 'vibe-coding-os' } },
   { name: 'Mail Intelligence', port: 3010, response: { status: 'ok', service: 'mail-intelligence' } },
   { name: 'whelp99 MCP', port: 3600, response: { status: 'ok', tools: [] } },
-  { name: 'CFO AIOS', port: 4100, response: { status: 'ok', service: 'cfo-aios' } },
 ]
 
 const servers = MOCKS.map(mock => {

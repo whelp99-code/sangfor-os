@@ -146,7 +146,6 @@ function freeIntegrationPorts() {
 function preStartHook(service) {
   if (service.preStart === "vibe") {
     freePort(4000);
-    freePort(4100); // CFO-AI legacy default
   }
 }
 
