@@ -13,7 +13,7 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "test:e2e": "playwright test",
-    "test:coverage": "pnpm -r test:coverage",
+    "test:coverage": "pnpm -r --if-present test:coverage",
     "typecheck": "pnpm -r typecheck",
     "db:generate": "pnpm --filter @sangfor/db db:generate",
     "db:push": "pnpm --filter @sangfor/db db:push",

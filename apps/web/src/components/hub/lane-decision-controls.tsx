@@ -99,9 +99,9 @@ export function LaneDecisionControls({ projectId, domain }: { projectId: string;
       {showCorrect && (
         <div className="flex items-center gap-2">
           <input
+            aria-label="수정 내용"
             className="flex-1 rounded border px-2 py-1 text-xs"
             placeholder="수정 내용을 입력하세요"
-            aria-label="수정 내용"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             disabled={submitting}

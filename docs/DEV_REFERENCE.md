@@ -232,6 +232,13 @@ POC 확정 시 영업기회를 **멱등·원자적**으로 Engagement(프로젝�
 
 ## 5. 명령어 모음
 
+### 환경 변수
+루트 `.env.example`(공유 인프라: DB/Redis/LLM/커넥터)에 더해, 앱/패키지별로
+실제로 읽는 env var만 문서화한 예시 파일이 있다:
+- `apps/web/.env.example`
+- `apps/api/.env.example`
+- `packages/business/.env.example`
+
 ### 서비스 기동
 ```bash
 # MCP 런타임 전체 (브리지/콘솔/mock + 호스트 workflow console)
