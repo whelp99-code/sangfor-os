@@ -19,7 +19,7 @@
     "@sangfor/infra": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.5.4",
+    "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }
 }
