@@ -17,7 +17,9 @@ __pycache__
 # Tooling/session caches (oma, serena MCP)
 .omo/
 .serena/
+.superpowers/
 
 # Derived mail-learning snapshots (redacted but mail-derived; not for VCS history)
 memory/mail-learning/
+memory/agent-handoffs/
 .understand-anything/
