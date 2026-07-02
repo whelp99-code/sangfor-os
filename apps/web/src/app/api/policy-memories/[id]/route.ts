@@ -1,4 +1,4 @@
-import { prisma } from "@sangfor/db";
+import { updatePolicyMemory } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
 
@@ -10,11 +10,7 @@ export async function PATCH(request: Request, { params }: Params) {
   const { id } = await params;
   try {
     const body = await request.json();
-    const status = body.status ?? "active";
-    const updated = await prisma.policyMemory.update({
-      where: { id },
-      data: { status },
-    });
+    const updated = await updatePolicyMemory(id, body);
     return NextResponse.json({ policyMemory: updated });
   } catch (error) {
     return apiError("patch_failed", error, { status: 400 });
