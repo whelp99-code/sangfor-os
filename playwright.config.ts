@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
-  testDir: "./tests/playwright",
+  testDir: "./tests/e2e/playwright",
   timeout: 90_000,
   workers: 1,
   retries: 1,
@@ -17,14 +17,6 @@ export default defineConfig({
   reporter: [
     ["list"],
     [
-      "allure-playwright",
-      {
-        outputFolder: "allure-results",
-        detail: true,
-        suiteTitle: false,
-      },
-    ],
-    [
       "json",
       {
         outputFile: "test-results/results.json",
@@ -34,18 +26,4 @@ export default defineConfig({
   expect: {
     timeout: 10_000,
   },
-  projects: [
-    {
-      name: "smoke",
-      testMatch: /smoke\.spec\.ts$/,
-    },
-    {
-      name: "functional",
-      testMatch: /portal-full-functional\.spec\.ts$/,
-    },
-    {
-      name: "trace-verification",
-      testMatch: /trace-verification\.spec\.ts$/,
-    },
-  ],
 });
