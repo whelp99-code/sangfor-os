@@ -3,6 +3,7 @@ import { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey } from "@sangfor/share
 import { z } from "zod";
 
 import { loadLlmConfigFromDb } from "./llm-settings";
+import { getOpenAiApiKey } from "./openai-config";
 
 export { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey };
 
@@ -131,7 +132,7 @@ export async function maybeEnhanceWithLlm(
   title: string,
   deps: { buildContextPack?: (title: string) => Promise<string | null | undefined> } = {},
 ): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  const apiKey = getOpenAiApiKey();
   if (!apiKey) return body;
 
   try {

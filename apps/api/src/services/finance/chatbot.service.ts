@@ -1,3 +1,4 @@
+import { getOpenAiApiKey, getOpenAiModel } from '@sangfor/business/openai-config';
 import { prisma } from '@sangfor/db';
 
 export interface ChatTool {
@@ -127,7 +128,7 @@ export class ChatbotService {
   }
 
   async chat(message: string, history: { role: string; content: string }[] = []) {
-    const openAiKey = process.env.OPENAI_API_KEY?.trim();
+    const openAiKey = getOpenAiApiKey();
     if (openAiKey) {
       const ai = await this.chatWithOpenAi(message, history, openAiKey).catch((e) => {
         console.warn(`OpenAI fallback to keywords: ${e?.message}`);
@@ -191,7 +192,7 @@ export class ChatbotService {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini', messages, tools, tool_choice: 'auto' }),
+      body: JSON.stringify({ model: getOpenAiModel(), messages, tools, tool_choice: 'auto' }),
     });
     if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
     const data = (await res.json()) as any;

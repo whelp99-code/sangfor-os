@@ -1,11 +1,12 @@
 /** OpenAI-compatible LLM endpoints (OpenAI, Xiaomi MiMo, etc.) */
+import { resolveLlmConfig } from "./llm/config";
 
 const MIMO_PAYGO_BASE = "https://api.xiaomimimo.com/v1";
 const MIMO_TOKEN_PLAN_SGP_BASE = "https://token-plan-sgp.xiaomimimo.com/v1";
 const OPENAI_DEFAULT_BASE = "https://api.openai.com/v1";
 
 export function getOpenAiApiKey(): string | undefined {
-  const key = process.env.OPENAI_API_KEY?.trim();
+  const key = resolveLlmConfig("openai").apiKey.trim();
   return key || undefined;
 }
 
@@ -49,7 +50,7 @@ export function getOpenAiChatCompletionsUrl(): string {
 }
 
 export function getOpenAiModel(): string {
-  return process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+  return resolveLlmConfig("openai").model.trim();
 }
 
 /**

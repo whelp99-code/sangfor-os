@@ -1,4 +1,5 @@
 import { prisma } from "@sangfor/db";
+import { getOpenAiModel } from "./openai-config";
 
 /**
  * Purpose: Phase 8 validation & observability recording.
@@ -48,7 +49,7 @@ export async function runValidationPlan(commandRunId: string, checks: { key: str
   await prisma.llmCall.create({
     data: {
       commandRunId,
-      model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+      model: getOpenAiModel(),
       inputTokens: 1200,
       outputTokens: 400,
       latencyMs: 850,

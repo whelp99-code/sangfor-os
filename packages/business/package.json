@@ -22,7 +22,9 @@
     "./mail-candidate-connections": "./src/mail-candidate-connections.ts",
     "./phase14": "./src/phase14/index.ts",
     "./skills": "./src/skills/index.ts",
-    "./deal-registration": "./src/deal-registration.ts"
+    "./deal-registration": "./src/deal-registration.ts",
+    "./llm/config": "./src/llm/config.ts",
+    "./role-dashboard": "./src/role-dashboard.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",

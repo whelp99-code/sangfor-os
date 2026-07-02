@@ -1,3 +1,4 @@
+import { resolveLlmConfig } from "./llm/config";
 import type { GtmDomain } from "@sangfor/shared/modes";
 import { DOMAIN_DEFINITIONS } from "./domain-pipeline";
 import type { DomainGenerator } from "./domain-agent-runtime";
@@ -21,7 +22,7 @@ export type DomainModelMap = Partial<Record<GtmDomain, OpencodeModel>>;
 export function defaultOpenAiModel(): OpencodeModel {
   return {
     providerID: process.env.OPENCODE_PROVIDER ?? "openai",
-    modelID: process.env.OPENCODE_MODEL ?? "gpt-5",
+    modelID: resolveLlmConfig("opencode").model,
   };
 }
 
