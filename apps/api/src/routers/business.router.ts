@@ -1,8 +1,22 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from './trpc';
+import { router, protectedProcedure, requireRole } from './trpc';
 import { prisma } from '@sangfor/db';
 import { calculateBantScore, calculateQuote, normalizeOpportunityStage, recordCommercialApprovalDecision, routeColorAgents, submitCommercialApproval, validateOpportunityStageOrder, validateRegistrationGate } from '@sangfor/business';
 import { evaluateQuality, releaseGatePassed } from '@sangfor/business';
+
+// Commercial mutations (quotes, approvals) are sales-side actions — restrict
+// to the roles that plausibly own that workflow, not just "any logged-in
+// user" (P3 follow-on: business.router.ts had 0 role guards on any of its
+// 25 procedures).
+const commercialProcedure = protectedProcedure.use(
+  requireRole(['ceo', 'sales_manager', 'account_manager', 'system_admin']),
+);
+
+// Delivery completion also creates a customer asset and can advance an
+// opportunity to WON — restrict to delivery/solution/account roles.
+const deliveryProcedure = protectedProcedure.use(
+  requireRole(['ceo', 'delivery_engineer', 'solution_architect', 'account_manager', 'system_admin']),
+);
 
 export const businessRouter = router({
 
@@ -35,7 +49,7 @@ export const businessRouter = router({
       return qualification;
     }),
 
-  submitQuoteForApproval: protectedProcedure
+  submitQuoteForApproval: commercialProcedure
     .input(z.object({ quoteId: z.string(), opportunityId: z.string(), reason: z.string() }))
     .mutation(async ({ ctx, input }) => {
       if (!ctx.companyId) throw new Error('Authenticated company scope is required');
@@ -143,7 +157,7 @@ export const businessRouter = router({
     }),
 
   // Quotes
-  createQuote: protectedProcedure
+  createQuote: commercialProcedure
     .input(z.object({ opportunityId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       if (!ctx.companyId || !ctx.userId) throw new Error('Authenticated user and company scope are required');
@@ -271,7 +285,7 @@ export const businessRouter = router({
       return routeColorAgents(input);
     }),
 
-  completeDelivery: protectedProcedure
+  completeDelivery: deliveryProcedure
     .input(z.object({ deliveryId: z.string(), assetName: z.string(), customerId: z.string() }))
     .mutation(async ({ input }) => {
       const project = await prisma.engagement.update({

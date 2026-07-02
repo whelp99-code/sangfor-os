@@ -122,26 +122,6 @@ export function createApp(): Express {
     }
   });
 
-  // Invoke an MCP tool through the whelp99 bridge.
-  // Body: { name: string, arguments?: Record<string, unknown> }
-  app.post("/api/whelp99/tools/call", express.json(), async (req, res) => {
-    const name = typeof req.body?.name === "string" ? req.body.name : "";
-    if (!name) {
-      res.status(400).json({ error: "name is required" });
-      return;
-    }
-    try {
-      const args = (req.body?.arguments ?? req.body?.args ?? {}) as Record<string, unknown>;
-      const result = await callMcpTool(name, args);
-      res.status(result.error ? 502 : 200).json(result);
-    } catch (error) {
-      console.error("[api] whelp99 tool call failed:", error instanceof Error ? error.stack ?? error.message : error);
-      res.status(500).json({
-        error: "upstream_unavailable",
-      });
-    }
-  });
-
   // Slack status — env-based detection
   app.get("/api/slack/status", (_req, res) => {
     const hasWebhook = Boolean(process.env.SLACK_WEBHOOK_URL);
@@ -165,6 +145,28 @@ export function createApp(): Express {
 
   // Auth middleware for other /api routes
   app.use("/api", authMiddleware);
+
+  // Invoke an MCP tool through the whelp99 bridge. Arbitrary tool execution —
+  // must sit behind authMiddleware (moved here from before the auth gate,
+  // where it was reachable unauthenticated).
+  // Body: { name: string, arguments?: Record<string, unknown> }
+  app.post("/api/whelp99/tools/call", express.json(), async (req, res) => {
+    const name = typeof req.body?.name === "string" ? req.body.name : "";
+    if (!name) {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    try {
+      const args = (req.body?.arguments ?? req.body?.args ?? {}) as Record<string, unknown>;
+      const result = await callMcpTool(name, args);
+      res.status(result.error ? 502 : 200).json(result);
+    } catch (error) {
+      console.error("[api] whelp99 tool call failed:", error instanceof Error ? error.stack ?? error.message : error);
+      res.status(500).json({
+        error: "upstream_unavailable",
+      });
+    }
+  });
 
   // tRPC
   app.use(
@@ -202,7 +204,25 @@ export function createApp(): Express {
   });
 
   // POST /webhooks/outlook - notification endpoint
+  //
+  // This path can't sit behind authMiddleware (it's Azure/Graph calling us,
+  // not a logged-in user), so it must stay public. Microsoft Graph's
+  // documented authenticity check for webhook notifications is the
+  // `clientState` value echoed back on every item in the payload — it must
+  // match the value we registered when creating the subscription
+  // (WEBHOOK_CLIENT_STATE). Reject anything that doesn't match instead of
+  // blindly trusting the request body.
   app.post("/webhooks/outlook", express.json(), async (req, res) => {
+    const expectedClientState = process.env.WEBHOOK_CLIENT_STATE || "aios-webhook";
+    const notifications = Array.isArray(req.body?.value) ? req.body.value : [];
+    const allValid =
+      notifications.length > 0 &&
+      notifications.every((n: { clientState?: unknown }) => n?.clientState === expectedClientState);
+    if (!allValid) {
+      console.warn("[Webhook] rejected outlook notification: missing/mismatched clientState");
+      res.status(401).json({ error: "invalid_client_state" });
+      return;
+    }
     try {
       await outlookWebhook.handleNotification(req.body);
       res.status(202).json({ status: "accepted" });
