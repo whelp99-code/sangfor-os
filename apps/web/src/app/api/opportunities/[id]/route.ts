@@ -10,7 +10,7 @@ import {
 } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
-import { syncCalendarMeetings } from "@/lib/outlook-graph";
+import { syncCalendarMeetings } from "@/lib/outlook";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
 
 type RouteContext = { params: Promise<{ id: string }> };

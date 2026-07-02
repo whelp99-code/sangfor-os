@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { OutlookSyncService } from '@sangfor/business'
-import { getDelegatedConnection, isOutlookOAuthConfigured } from '@/lib/outlook-graph'
+import { getDelegatedConnection, isOutlookOAuthConfigured } from '@/lib/outlook'
 
 export async function GET() {
   const sync = new OutlookSyncService()

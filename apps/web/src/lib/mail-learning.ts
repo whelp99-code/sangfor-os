@@ -13,7 +13,7 @@ import {
   upsertMailInsightThreads,
 } from "@sangfor/business";
 import { getOpenAiApiKey } from "@sangfor/business/openai-config";
-import { sanitizeText } from "./outlook-graph";
+import { sanitizeText } from "./outlook";
 
 const PROJECT_SLUG = "demo-project";
 const UPSERT_BATCH = 50;
