@@ -11,6 +11,10 @@ export const taxInvoicesRouter = router({
       prisma.taxInvoice.findMany({
         where: input?.direction ? { direction: input.direction } : {},
         orderBy: { issueDate: 'desc' },
+        // Match the REST list (routes/cfo.ts): keep the payload lean and
+        // don't ship internal columns (decrypted XML, raw upstream API
+        // response) to the client (P4 — REST/tRPC exposure parity).
+        omit: { rawXml: true, rawResponse: true },
       }),
     ),
 
