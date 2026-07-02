@@ -15,22 +15,7 @@ import {
   buildMemoryTags,
 } from './domain-memory';
 import { Prisma, prisma } from '@sangfor/db';
-
-function sanitizeJsonStrings(value: unknown): unknown {
-  if (typeof value === 'string') {
-    return value
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-      .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '')
-      .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
-  }
-  if (Array.isArray(value)) return value.map(sanitizeJsonStrings);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, sanitizeJsonStrings(v)]),
-    );
-  }
-  return value;
-}
+import { sanitizeJsonStrings } from '@sangfor/shared';
 
 export interface GenerateProposalInput {
   engagementId: string;
