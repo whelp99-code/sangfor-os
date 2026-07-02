@@ -78,6 +78,17 @@ describe("scoreDomainMemory — negative learning (rejected must NOT be recommen
     ).toBeLessThanOrEqual(0);
   });
 
+  // PLAN §6 Gate 9 — suppression probe. MUST stay a todo until cross-candidate
+  // suppression is implemented (PLAN §7): recallDomainMemories scores each
+  // candidate independently and .filter(score>0)s — a rejected memory only
+  // drops ITSELF; it cannot remove or down-rank a SEPARATE positive memory for
+  // the same case. The tests above prove self-drop only. Do NOT green-light
+  // "negative learning" by injecting a lone rejected memory and asserting its
+  // own absence — that is the false sign-off this todo exists to prevent.
+  it.todo(
+    "same-case rejected memory suppresses/down-ranks a separate positive memory (cross-candidate — UNIMPLEMENTED, PLAN §7)",
+  );
+
   it("source=human approved scores >= non-human approved with same tags", () => {
     const humanScore = scoreDomainMemory(
       query,
