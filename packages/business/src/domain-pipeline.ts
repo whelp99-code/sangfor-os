@@ -1,3 +1,4 @@
+import { prisma } from "@sangfor/db";
 import {
   GTM_PIPELINE,
   nextGtmDomain,
@@ -9,6 +10,11 @@ import {
   type ColorRoutingInput,
   type ColorRoutingResult,
 } from "./color-agent";
+import {
+  buildDomainDashboardSnapshot,
+  createPrismaDomainStatsLoader,
+  type DomainDashboardSnapshot,
+} from "./domain-dashboard";
 
 /**
  * 종축(업무 도메인) × 횡축(컬러 렌즈) 2축 파이프라인.
@@ -164,6 +170,19 @@ export function pipelineOverview(): Array<DomainHandoff & { label: string; owned
     const handoff = buildDomainHandoff(domain);
     return { ...handoff, label: def.label, ownedEntities: def.ownedEntities };
   });
+}
+
+/**
+ * 도메인 파이프라인 대시보드 데이터를 추출한다.
+ * route 레이어 대신 business가 Prisma 접근을 소유하도록 추출한 진입점.
+ *
+ * @param companyId — 현재는 project slug 로 사용 (향후 멀티테넌트 scope 로 확장)
+ */
+export async function extractDomainPipeline(
+  companyId: string,
+): Promise<DomainDashboardSnapshot> {
+  const loader = createPrismaDomainStatsLoader(prisma as never, companyId);
+  return buildDomainDashboardSnapshot(loader);
 }
 
 export { GTM_PIPELINE, nextGtmDomain, type GtmDomain };
