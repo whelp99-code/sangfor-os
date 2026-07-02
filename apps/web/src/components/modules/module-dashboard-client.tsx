@@ -160,15 +160,6 @@ const SYSTEM_CONNECTORS = [
   { key: "outlook", displayName: "Outlook Mail Gateway", type: "email" }
 ];
 
-// Simulated logs strictly marked for Simulation/Demo
-const MOCK_VAL_LOGS = {
-  lint: `$ eslint . --max-warnings=0\n\n✔ ESLint: No syntax warnings or structural flaws detected in apps/web/\n✔ Semantic validation check passed.\n✔ Prettier structural checks verified.`,
-  test: `$ vitest run\n\n RUN  v3.2.4 /Users/jmpark/Documents/Playground/AIOS v1\n\n ✓ src/lib/registry/service.test.ts (2 tests)\n ✓ src/lib/permissions.test.ts (4 tests)\n ✓ src/lib/env.test.ts (1 test)\n\nTest Files  3 passed (3)\n     Tests  7 passed (7)\n  Time  184ms`,
-  build: `$ next build --webpack\n\n▲ Optimizing production bundles...\nCreating production build ...\n✓ Static routes optimized\n✓ Bundle sizes verified under 150kB budget successfully.`,
-  security: `$ npm audit --audit-level=high\n\n✔ Scanning 452 modules for security advisories...\n✔ No high or critical security pathways detected.\n✔ Credentials check: 0 environment variables exposed in Git tree.`,
-  a11y: `$ axe-core-audit --target=portal-root\n\nRunning automated accessibility diagnostics...\n✓ ARIA descriptors resolved correctly.\n✓ Contrast ratios conform to WCAG 2.1 AA requirements.\n✓ Focus outlines verified keyboard-friendly.`
-};
-
 export function ModuleDashboardClient({
   initialModules,
   initialBlocks,
@@ -967,8 +958,6 @@ export function ModuleDashboardClient({
                             check === "security" ? "보안 의존성 분석 (시뮬레이션)" :
                             "Axe 접근성 WCAG 대비 감사 (시뮬레이션)";
                           
-                          const isExpanded = expandedLog === check;
-
                           return (
                             <div key={check} className="border border-border rounded-sm bg-background overflow-hidden">
                               <div className="flex items-center justify-between p-2 flex-wrap gap-2 text-xs">
@@ -998,26 +987,8 @@ export function ModuleDashboardClient({
                                       실행 중
                                     </Badge>
                                   )}
-                                  {state === "passed" && (
-                                    <button
-                                      onClick={() => setExpandedLog(isExpanded ? null : check)}
-                                      className="text-xs text-muted-foreground hover:text-foreground font-mono flex items-center gap-0.5 border border-border rounded-xs px-1 hover:bg-muted bg-background transition-all"
-                                    >
-                                      <Terminal className="h-2.5 w-2.5" />
-                                      {isExpanded ? "로그 숨기기" : "로그 보기"}
-                                    </button>
-                                  )}
                                 </div>
                               </div>
-
-                              {isExpanded && state === "passed" && (
-                                <div className="bg-zinc-950 p-2.5 border-t border-border font-mono text-xs leading-relaxed text-emerald-400 overflow-x-auto whitespace-pre">
-                                  <div className="text-zinc-500 select-none block mb-1 font-sans font-semibold tracking-wider text-[10px] uppercase border-b border-zinc-800 pb-0.5">
-                                    [시뮬레이션된 개발 미리보기 출력 로그]
-                                  </div>
-                                  {MOCK_VAL_LOGS[check]}
-                                </div>
-                              )}
                             </div>
                           );
                         })}
