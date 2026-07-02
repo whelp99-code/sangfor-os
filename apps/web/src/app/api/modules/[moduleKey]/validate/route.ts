@@ -5,7 +5,7 @@ import {
   validateModuleManifest,
 } from "@sangfor/business/module-runtime";
 import { listActionDefinitions } from "@sangfor/business/action-connector-runtime";
-import { prisma } from "@sangfor/db";
+import { resolveModuleDependencyStatus } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
 
@@ -55,27 +55,17 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const [modules, connectors] = await Promise.all([
-      prisma.moduleRegistry.findMany({
-        select: { moduleKey: true, status: true },
-      }),
-      prisma.connectorRegistry.findMany({
-        select: { connectorKey: true, status: true },
-      }),
-    ]);
+    const {
+      dependencyStatusByKey: baseDependencyStatusByKey,
+      connectorStatusByKey,
+    } = await resolveModuleDependencyStatus();
 
     const dependencyStatusByKey = {
-      ...Object.fromEntries(
-      modules.map((module) => [module.moduleKey, module.status]),
-      ),
+      ...baseDependencyStatusByKey,
       ...(body?.dependencyStatusByKey && typeof body.dependencyStatusByKey === "object"
         ? (body.dependencyStatusByKey as Record<string, string | undefined>)
         : {}),
     } as Record<string, string | undefined>;
-
-    const connectorStatusByKey = Object.fromEntries(
-      connectors.map((connector) => [connector.connectorKey, connector.status]),
-    ) as Record<string, string | null>;
 
     const actionKeysFromBody = Array.isArray(body?.actionKeys)
       ? body.actionKeys.filter((entry: unknown): entry is string => typeof entry === "string")
