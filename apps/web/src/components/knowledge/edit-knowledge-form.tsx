@@ -50,10 +50,11 @@ export function EditKnowledgeForm({
 
   return (
     <form className="grid gap-2" onSubmit={onSubmit}>
-      <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
-      <Input placeholder="태그 (쉼표로 구분)" value={tags} onChange={(e) => setTags(e.target.value)} />
+      <Input aria-label="제목" value={title} onChange={(e) => setTitle(e.target.value)} required />
+      <Input aria-label="태그 (쉼표로 구분)" placeholder="태그 (쉼표로 구분)" value={tags} onChange={(e) => setTags(e.target.value)} />
       <p className="text-xs text-muted-foreground">출처: {initial.source}</p>
       <textarea
+        aria-label="본문"
         className="min-h-[200px] rounded-md border bg-background px-3 py-2 text-sm"
         value={body}
         onChange={(e) => setBody(e.target.value)}
