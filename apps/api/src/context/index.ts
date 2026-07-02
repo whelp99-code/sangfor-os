@@ -4,13 +4,22 @@
  */
 
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
-import type { Context } from "../context";
 import {
   createAuthContextFromTokenPayload,
   createDevelopmentAuthContext,
   getTokenManager,
   type AuthContext,
 } from "@sangfor/auth";
+
+export interface Context {
+  userId: string | null;
+  userRole: string | null;
+  sessionId: string | null;
+  authContext: AuthContext | null;
+  tenantId: string | null;
+  companyId: string | null;
+  businessRole: AuthContext["businessRole"] | null;
+}
 
 function anonymousContext(): Context {
   return {
