@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { logStateTransition } from "./audit";
 import { recordDecision } from "./ai-decision";
+import { caseRefFor } from "./case-ref";
 import { formatDealCode } from "./deal-code";
 import {
   CANONICAL_STAGES,
@@ -234,7 +235,22 @@ export async function updateOpportunity(
     return updated;
   }
 
-  return prisma.opportunity.update({ where: { id }, data });
+  const updated = await prisma.opportunity.update({ where: { id }, data });
+
+  // S1: capture the human field-edit onto the decision spine (best-effort,
+  // outside txn, never throws). Pairs with a stage_transition on the same
+  // caseRef so { caseRef } returns the full AI-decision + human-edit history.
+  await recordDecision({
+    projectId: existing.projectId,
+    domain: "sales",
+    actor: "sales",
+    actionType: "entity_edit",
+    caseRef: caseRefFor("opportunity", id),
+    outcome: "corrected",
+    humanEdit: data,
+  });
+
+  return updated;
 }
 
 export async function advanceOpportunityStage(id: string) {

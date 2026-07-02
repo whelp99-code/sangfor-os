@@ -6,7 +6,7 @@
  */
 
 /** Internal → User-facing status label mapping (consumed via displayStatus). */
-const STATUS_LABELS: Record<string, string> = {
+export const STATUS_LABELS: Record<string, string> = {
   pending: "대기",
   auto_validating: "자동 검증 중",
   auto_failed: "자동 검증 실패",
@@ -62,6 +62,23 @@ const STATUS_LABELS: Record<string, string> = {
   online: "온라인",
   offline: "오프라인",
   warning: "주의",
+  // Opportunity / CRM stages (canonical set: opportunity-stage.ts)
+  LEAD: "리드",
+  QUALIFIED: "검증",
+  PROPOSAL: "제안",
+  POC: "PoC",
+  NEGOTIATION: "협상",
+  WON: "수주",
+  LOST: "실주",
+  CLOSED: "완료",
+  // Deposit / finance
+  미수: "미수",
+  완료: "완료",
+  // Task status
+  todo: "할 일",
+  in_progress: "진행 중",
+  done: "완료",
+  cancelled: "취소",
   // Common
   active: "활성",
   inactive: "비활성",

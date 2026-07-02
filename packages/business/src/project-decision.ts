@@ -1,5 +1,5 @@
 import { Prisma, prisma } from "@sangfor/db";
-import { recordDomainDecision, upsertDomainMemory } from "./domain-memory";
+import { buildMemoryTags, recordDomainDecision, upsertDomainMemory } from "./domain-memory";
 import type { DomainKey } from "./artifact-domain-map";
 
 export type { DomainKey };
@@ -42,6 +42,8 @@ export async function recordHumanDecision(
       memoryType: "case",
       key: memoryKey,
       label: note ?? (outcome === "approved" ? "human approved" : "human corrected"),
+      // Use shared tag vocabulary so recall queries can find these memories.
+      tags: buildMemoryTags({ domain, entityType: "proposal", intentTag: outcome }),
       valueJson: (humanEdit !== undefined ? humanEdit : output) as Prisma.InputJsonValue,
       outcome,
       source: "human",

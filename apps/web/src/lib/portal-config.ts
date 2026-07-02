@@ -10,6 +10,7 @@ export type NavItem = {
 export const PORTAL_NAV: NavItem[] = [
   // ═══ 홈 ═══
   { title: "홈", href: "/home", icon: "home", group: "홈", tier: "primary" },
+  { title: "내 업무", href: "/my-work", icon: "layout-grid", group: "홈", tier: "primary" },
   { title: "Executive 대시보드", href: "/dashboard", icon: "layout-dashboard", group: "홈", tier: "more" },
 
   // ═══ CRM ═══

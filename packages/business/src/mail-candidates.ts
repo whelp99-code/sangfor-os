@@ -1042,6 +1042,12 @@ function sourceSenderFromThread(thread: ThreadLike) {
   return String(message?.fromName ?? message?.from ?? thread.participantDomains[0] ?? "mail thread");
 }
 
+/**
+ * @deprecated Writes the legacy `policy_decision_logs` audit stream, NOT the
+ * canonical decision spine (`domain_decision_logs` via `recordDecision()`).
+ * New governed decisions must flow through `recordDecision()`; this writer is
+ * kept for mail-pipeline audit continuity only (deprecate-not-drop — ADR-001).
+ */
 async function recordPolicyDecision(
   projectId: string,
   input: {

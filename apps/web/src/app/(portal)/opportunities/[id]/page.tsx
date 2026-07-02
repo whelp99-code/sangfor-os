@@ -66,6 +66,8 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
             <Badge variant="outline">{opportunity.probability}%</Badge>
             <AdvanceOpportunityButton id={opportunity.id} stage={opportunity.stage} />
             <ConvertToProjectButton id={opportunity.id} engagementId={existingEngagement?.id} />
+            {/* Delete button intentionally absent: archiveOpportunity is still a
+                hard prisma.delete — delete UX returns with soft-delete (PLAN §7). */}
           </>
         }
       />
