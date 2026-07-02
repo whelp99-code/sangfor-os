@@ -62,10 +62,12 @@ export const STATUS_LABELS: Record<string, string> = {
   online: "온라인",
   offline: "오프라인",
   warning: "주의",
-  // Opportunity / CRM stages
+  // Opportunity / CRM stages (canonical set: opportunity-stage.ts)
   LEAD: "리드",
+  QUALIFIED: "검증",
   PROPOSAL: "제안",
   POC: "PoC",
+  NEGOTIATION: "협상",
   WON: "수주",
   LOST: "실주",
   CLOSED: "완료",
