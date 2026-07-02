@@ -14,6 +14,7 @@ export * from "./task-adapter";
 export * from "./poc-center";
 export * from "./opportunity-center";
 export * from "./opportunity-stage";
+export * from "./role-dashboard";
 export * from "./knowledge-search";
 export * from "./proposal-generator";
 export * from "./executive-dashboard";

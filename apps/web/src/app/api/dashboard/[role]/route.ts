@@ -1,4 +1,12 @@
 import { normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
+import {
+  calculateSalesDashboard,
+  calculatePresalesDashboard,
+  calculateFinanceDashboard,
+  calculateSupportDashboard,
+  calculateOperatorDashboard,
+  calculateSecurityDashboard,
+} from "@sangfor/business/role-dashboard";
 import { NextResponse } from "next/server";
 import { prisma } from "@sangfor/db";
 import { apiError } from "@/lib/api-auth";
@@ -8,41 +16,17 @@ async function salesData() {
   const pendingApprovals = await prisma.approvalRequest.findMany({ where: { status: "ready_for_human_approval" } });
   const proposals = await prisma.generatedDocument.findMany({ orderBy: { createdAt: "desc" }, take: 10 });
 
-  return {
-    pipeline: opportunities.map((o) => ({
-      id: o.id,
-      customer: o.customer?.name ?? null,
-      stage: o.stage,
-      value: Number(o.amount) || 0,
-    })),
-    followUp: opportunities.filter((o) => normalizeOpportunityStage(o.stage) === "LEAD").length,
-    pendingApprovals: pendingApprovals.length,
-    proposalsInProgress: proposals.filter((p) => p.status === "draft").length,
-    renewalsDue: 0,
-    riskDeals: opportunities.filter((o) => normalizeOpportunityStage(o.stage) === "NEGOTIATION" && (Number(o.amount) || 0) > 50000).length,
-  };
+  return calculateSalesDashboard({ opportunities, pendingApprovals, proposals });
 }
 
 async function presalesData() {
   const pocProjects = await prisma.pocProject.findMany({ where: { status: "planning" } });
-  return {
-    pendingDiscovery: 0,
-    solutionFitReview: 0,
-    missingSizing: 0,
-    pocPrep: pocProjects.length,
-    aiDraftReview: 0,
-  };
+  return calculatePresalesDashboard({ pocProjects });
 }
 
 async function financeData() {
   const approvals = await prisma.approvalRequest.findMany({ where: { status: "ready_for_human_approval" } });
-  return {
-    commercialApprovalQueue: approvals.length,
-    lowMarginDeals: 0,
-    highDiscountRequests: 0,
-    quoteDiffs: 0,
-    exceptionPayments: 0,
-  };
+  return calculateFinanceDashboard({ approvals });
 }
 
 async function deliveryData() {
@@ -59,13 +43,7 @@ async function deliveryData() {
 
 async function supportData() {
   const cases = await prisma.supportCase.findMany();
-  return {
-    newTickets: cases.filter((c) => c.status === "open").length,
-    slaDeadlines: 0,
-    vendorEscalations: 0,
-    rcaRequired: 0,
-    repeatIssues: 0,
-  };
+  return calculateSupportDashboard({ cases });
 }
 
 async function executiveData() {
@@ -103,29 +81,11 @@ async function executiveData() {
 }
 
 async function operatorData() {
-  return {
-    systemHealth: { api: "ok", web: "ok", finance: "unreachable", postgres: "ok", redis: "ok" },
-    workflowQueue: 0,
-    aiUsage: { todayTokens: 0, todayCost: 0, providerCalls: 0 },
-    toolLogs: [],
-    failedJobs: 0,
-    rlsPolicyCheck: "active",
-    auditIntegrity: "verified",
-    backupStatus: "ok",
-    tenantHealth: { total: 1, healthy: 1 },
-  };
+  return calculateOperatorDashboard();
 }
 
 async function securityData() {
-  return {
-    restrictedDataAccess: [],
-    roleChanges: 0,
-    privilegedAccess: 0,
-    auditMismatch: false,
-    aiPolicyViolations: 0,
-    exportEvents: [],
-    workflowChanges: 0,
-  };
+  return calculateSecurityDashboard();
 }
 
 const handlers: Record<string, () => Promise<unknown>> = {
