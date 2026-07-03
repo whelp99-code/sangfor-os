@@ -3,8 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Sibling side-effect modules must never touch the real database in these
 // characterization tests — mock them the way domain-persistence.test.ts
 // mocks its fake prisma, but at module level since these are separate files.
-vi.mock("../audit", () => ({ logStateTransition: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("../ai-decision", () => ({ recordDecision: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("../governance/audit", () => ({ logStateTransition: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("../governance/ai-decision", () => ({ recordDecision: vi.fn().mockResolvedValue(undefined) }));
 
 import {
   createOpportunity,
@@ -12,8 +12,8 @@ import {
   updateOpportunity,
   type OpportunityCenterPrisma,
 } from "./opportunity-center";
-import { logStateTransition } from "../audit";
-import { recordDecision } from "../ai-decision";
+import { logStateTransition } from "../governance/audit";
+import { recordDecision } from "../governance/ai-decision";
 
 /** Call-recording fake, following domain-persistence.test.ts's fakePrisma() style. */
 function fakePrisma() {

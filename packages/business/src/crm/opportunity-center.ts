@@ -1,8 +1,8 @@
 import { prisma as realPrisma } from "@sangfor/db";
 import { z } from "zod";
 
-import { logStateTransition } from "../audit";
-import { recordDecision } from "../ai-decision";
+import { logStateTransition } from "../governance/audit";
+import { recordDecision } from "../governance/ai-decision";
 import { caseRefFor } from "../case-ref";
 import { formatDealCode } from "./deal-code";
 import {

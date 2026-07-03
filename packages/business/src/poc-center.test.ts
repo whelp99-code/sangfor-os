@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("./audit", () => ({ logStateTransition: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("./governance/audit", () => ({ logStateTransition: vi.fn().mockResolvedValue(undefined) }));
 
 import { createPocProject, getPocDetail, type PocCenterPrisma } from "./poc-center";
-import { logStateTransition } from "./audit";
+import { logStateTransition } from "./governance/audit";
 
 /** Call-recording fake, following domain-persistence.test.ts's fakePrisma() style. */
 function fakePrisma() {

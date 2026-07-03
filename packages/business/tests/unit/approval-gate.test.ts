@@ -6,7 +6,7 @@ import {
   autoTransition,
   type ApprovalState,
   type GateCheckData,
-} from "../../src/approval-gate";
+} from "../../src/governance/approval-gate";
 
 describe("ApprovalStateMachine", () => {
   const ALL_STATES: ApprovalState[] = [

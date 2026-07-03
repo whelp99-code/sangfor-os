@@ -1,7 +1,7 @@
 import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
-import { logStateTransition } from "./audit";
+import { logStateTransition } from "./governance/audit";
 
 export const TASK_STATUSES = ["todo", "doing", "waiting", "done"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];

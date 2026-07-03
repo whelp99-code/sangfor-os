@@ -1,7 +1,7 @@
 import { prisma as realPrisma, Prisma } from "@sangfor/db";
 import { z } from "zod";
 
-import { logStateTransition } from "./audit";
+import { logStateTransition } from "./governance/audit";
 
 /** Single source of truth for getPocDetail's include shape (used both at the
  * call site and to derive its precise return type below). */

@@ -1,7 +1,7 @@
 import { prisma } from "@sangfor/db";
 
 import { GROUND_TRUTH_CALIBRATION } from "../ai-classify-batch";
-import { recordDecision } from "../ai-decision";
+import { recordDecision } from "../governance/ai-decision";
 import {
   buildChatCompletionRequestBody,
   extractChatCompletionText,

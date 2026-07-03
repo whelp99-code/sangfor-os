@@ -1,6 +1,6 @@
 import { prisma } from "@sangfor/db";
 
-import { recordDealRegistrationDecision } from "../ai-decision-deal-registration";
+import { recordDealRegistrationDecision } from "../governance/ai-decision-deal-registration";
 
 export async function getDealRegistration(opportunityId: string) {
   return prisma.dealRegistration.findUnique({

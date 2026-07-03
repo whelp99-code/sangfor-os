@@ -1,7 +1,7 @@
 import { prisma } from "@sangfor/db";
 
-import { logStateTransition, processPendingOutboxEvents } from "./audit";
-import { ensureApprovalForRun } from "./approval-gate";
+import { logStateTransition, processPendingOutboxEvents } from "./governance/audit";
+import { ensureApprovalForRun } from "./governance/approval-gate";
 
 /**
  * Purpose: Phase 5 mock workflow runner — advance steps, agent messages, tool dry-runs.

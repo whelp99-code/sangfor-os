@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AuditChain } from "../../src/audit-chain";
+import { AuditChain } from "../../src/governance/audit-chain";
 
 describe("AuditChain", () => {
   it("starts with empty events and zero hash", () => {

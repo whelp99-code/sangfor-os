@@ -1,7 +1,7 @@
 import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
-import { logStateTransition } from "../audit";
+import { logStateTransition } from "../governance/audit";
 
 export const createCustomerSchema = z.object({
   projectSlug: z.string().default("demo-project"),

@@ -1,5 +1,5 @@
 import { prisma } from "@sangfor/db";
-import { getOpenAiModel } from "./openai-config";
+import { getOpenAiModel } from "../openai-config";
 
 /**
  * Purpose: Phase 8 validation & observability recording.
