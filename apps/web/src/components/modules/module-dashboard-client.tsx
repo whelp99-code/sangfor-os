@@ -26,7 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toggleModuleStatus, toggleConnectorCredentialMode } from "@/app/(portal)/modules/actions";
-import { unwrapApiResponse, ApiClientError } from "@/lib/api-client";
+import { unwrapApiResponse } from "@/lib/api-client";
 
 // DB matching Interfaces
 interface DbModule {

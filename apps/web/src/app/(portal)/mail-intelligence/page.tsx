@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { unwrapApiResponse, ApiClientError } from "@/lib/api-client";
+import { unwrapApiResponse } from "@/lib/api-client";
 
 type DailyReport = {
   date: string;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { unwrapApiResponse, ApiClientError } from "@/lib/api-client";
+import { unwrapApiResponse } from "@/lib/api-client";
 
 type Status = {
   configured: boolean;

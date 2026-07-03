@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { proposalTemplateLabel } from "@/lib/proposal-template-labels";
-import { unwrapApiResponse, ApiClientError } from "@/lib/api-client";
+import { unwrapApiResponse } from "@/lib/api-client";
 
 type Option = { id: string; label: string };
 

@@ -14,7 +14,7 @@ import {
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { unwrapApiResponse, ApiClientError } from "@/lib/api-client";
+import { unwrapApiResponse } from "@/lib/api-client";
 
 type DailyReport = {
   date: string;

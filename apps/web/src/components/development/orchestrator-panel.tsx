@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { AutomationPreviewCards } from "@/components/automation/automation-preview-cards";
 import { ContextPackSummaryCard } from "@/components/phase13/context-pack-summary-card";
 import { actionErrorMessage } from "@/lib/action-error-labels";
-import { unwrapApiResponse, ApiClientError } from "@/lib/api-client";
+import { unwrapApiResponse } from "@/lib/api-client";
 
 type SkillRun = {
   id: string;
