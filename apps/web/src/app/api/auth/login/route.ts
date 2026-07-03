@@ -53,11 +53,15 @@ export async function POST(request: Request) {
   // Clients must never be allowed to set their own role.
   const role = isAuthConfigured() ? "operator" : "admin";
 
-  const token = createSessionToken({
-    id: "user-demo",
-    email,
-    role,
-  });
+  // In mock mode createSessionToken would throw (no JWT_SECRET); issue the
+  // `mock.` token that verifySessionToken already recognizes instead of 500ing.
+  const token = isAuthConfigured()
+    ? createSessionToken({
+        id: "user-demo",
+        email,
+        role,
+      })
+    : "mock.session";
 
   const response = NextResponse.json({
     token,

@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
 
+import { isAuthConfigured } from "@/lib/auth/config";
+import { verifySessionToken } from "@/lib/auth/session";
+
 /**
  * Purpose:
  * - Shared API-access guard for Next.js route handlers (secure by default).
  *
  * Policy:
- * - Mutating routes are blocked unless authentication bypass is *explicitly*
- *   enabled for dev/demo via `AUTH_BYPASS_ENABLED=1`. This mirrors the API
- *   server's `apiKeyMiddleware` / `authMiddleware` flag (apps/api).
+ * - A request with a valid session (cookie or Bearer token, verified against
+ *   JWT_SECRET) may proceed — without this, a logged-in user is still 401'd
+ *   by every guarded route even though the outer proxy admitted them.
+ * - Otherwise mutating routes are blocked unless authentication bypass is
+ *   *explicitly* enabled for dev/demo via `AUTH_BYPASS_ENABLED=1`. This
+ *   mirrors the API server's `apiKeyMiddleware` / `authMiddleware` flag
+ *   (apps/api).
  * - An empty or whitespace flag value is treated as "off", not "present".
  *
  * Usage:
@@ -32,9 +39,18 @@ export function isAuthBypassEnabled(
  * Returning the response (instead of throwing) lets callers early-return at the
  * top of the handler without try/catch coupling.
  */
-export function assertApiAccess(_request: Request): NextResponse | null {
+export function assertApiAccess(request: Request): NextResponse | null {
   if (isAuthBypassEnabled()) {
     return null;
+  }
+  if (isAuthConfigured()) {
+    const cookie = request.headers.get("cookie") ?? "";
+    const token =
+      cookie.match(/(?:^|;\s*)session=([^;]+)/)?.[1] ??
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+    if (verifySessionToken(token)) {
+      return null;
+    }
   }
   return NextResponse.json(
     { error: "unauthorized", message: "Authentication required" },

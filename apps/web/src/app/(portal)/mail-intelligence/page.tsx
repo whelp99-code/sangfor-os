@@ -214,7 +214,7 @@ export default function MailIntelligencePage() {
               📧 메일 후보 관리
             </Link>
             <Link
-              href="/approvals/mail-candidates"
+              href="/approvals"
               className="flex items-center rounded-lg border border-border bg-background px-4 py-2 text-sm hover:bg-muted"
             >
               ✅ 메일 후보 승인
