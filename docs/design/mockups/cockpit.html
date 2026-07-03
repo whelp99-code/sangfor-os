@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>베를로 OS — 관제탑</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+:root{
+  --frame:#191B1E; --frame-2:#232529; --frame-ink:#C7C6BE; --frame-faint:#7C7E80;
+  --paper:#E7E6E0; --panel:#F8F7F3; --panel-2:#F2F0EA;
+  --ink:#191A17; --muted:#78766D; --faint:#A29F94; --line:#D4D2C9; --line2:#E5E3DB;
+  --blue:#2C5FE0; --red:#D2373C; --orange:#DE7716; --gray:#848177; --teal:#0E9784;
+  --brass:#A9822E; --brass-deep:#7C5E1E; --brass-bg:#F5EEDD; --brass-line:#E4D6B4;
+  --sans:'Pretendard',sans-serif; --disp:'IBM Plex Sans KR',sans-serif; --mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.mono{font-family:var(--mono);font-feature-settings:"tnum" 1,"zero" 1}
+.mlbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);font-weight:500}
+.tnum{font-feature-settings:"tnum" 1}
+
+/* paper grain */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:99;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");mix-blend-mode:multiply}
+
+/* ---------- LEFT: instrument frame ---------- */
+aside{background:var(--frame);color:var(--frame-ink);padding:24px 15px 18px;display:flex;flex-direction:column;gap:24px;position:sticky;top:0;height:100vh;
+  background-image:linear-gradient(180deg,#1C1E21,#171919)}
+.brand{display:flex;align-items:center;gap:10px;padding:0 7px 16px;border-bottom:1px solid #2C2E31}
+.brand .mk{width:16px;height:16px;border:1.5px solid var(--brass);border-radius:3px;position:relative;flex:0 0 16px}
+.brand .mk::after{content:"";position:absolute;inset:3px;background:var(--brass);border-radius:1px}
+.brand b{font-family:var(--disp);font-weight:700;font-size:15.5px;letter-spacing:-.01em;color:#F3F2EC}
+.brand span{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--frame-faint);margin-top:1px}
+.ng{display:flex;flex-direction:column;gap:1px}
+.ng .h{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#565859;padding:4px 9px 6px}
+.nav{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:7px;color:#B4B3AB;font-size:13px;font-weight:500;cursor:pointer;letter-spacing:-.005em}
+.nav .g{width:15px;text-align:center;color:#6E7072;font-family:var(--mono);font-size:12px}
+.nav .ct{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:#6E7072}
+.nav.on{background:linear-gradient(90deg,#2A2D31,#242629);color:#F3F2EC;box-shadow:inset 2px 0 0 var(--brass)}
+.nav.on .g,.nav.on .ct{color:var(--brass)}
+.nav:not(.on):hover{background:#212326;color:#E4E3DB}
+.status{margin-top:auto;border-top:1px solid #2C2E31;padding-top:13px;display:flex;flex-direction:column;gap:7px}
+.status .r{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;color:var(--frame-faint)}
+.status .r .d{width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 2.5px rgba(14,151,132,.22)}
+.status .r b{color:#C7C6BE;font-weight:500}
+
+/* ---------- MAIN ---------- */
+main{padding:22px 32px 64px;max-width:1180px}
+.hdr{display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid var(--line);position:relative}
+.hdr::after{content:"";position:absolute;right:0;bottom:-1px;width:26px;height:1px;background:var(--brass)}
+.hdr .l .k{margin-bottom:4px}
+.hdr h1{font-family:var(--disp);font-weight:700;font-size:25px;letter-spacing:-.025em;line-height:1}
+.hdr .clock{text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.5}
+.hdr .clock b{color:var(--ink);font-weight:600}
+
+/* AI brief — telex dispatch */
+.brief{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0;margin-bottom:22px;overflow:hidden}
+.brief .bar{display:flex;align-items:center;gap:9px;padding:11px 18px;background:linear-gradient(90deg,#F2F0EA,#F8F7F3);border-bottom:1px solid var(--line2)}
+.brief .bar .d{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 3px rgba(14,151,132,.16)}
+.brief .bar .tt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);font-weight:600}
+.brief .bar .meta{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.05em}
+.brief .body{padding:16px 18px 17px}
+.brief p{font-size:14.5px;line-height:1.72;color:#33352E;max-width:74ch}
+.brief p .k{font-weight:600;color:var(--ink)}
+.brief p .rf{color:var(--red);font-weight:600}
+.brief .chips{display:flex;gap:7px;margin-top:14px;flex-wrap:wrap}
+.chip{font-family:var(--mono);font-size:11px;padding:5px 9px 5px 8px;border-radius:7px;border:1px solid var(--line2);background:#fff;color:#3B3D36;display:flex;align-items:center;gap:7px}
+.chip i{width:5px;height:5px;border-radius:1px;flex:0 0 5px}
+.chip b{font-weight:600;color:var(--ink)} .chip s{text-decoration:none;color:var(--muted)}
+
+.cols{display:grid;grid-template-columns:1fr 314px;gap:22px}
+.sh{display:flex;align-items:center;gap:10px;margin:2px 2px 13px}
+.sh h2{font-family:var(--disp);font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+.sh .n{font-family:var(--mono);font-size:11px;font-weight:600;color:#fff;background:var(--ink);border-radius:20px;padding:1px 8px}
+.sh .flow{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--faint);text-transform:uppercase}
+
+/* dispatch slip */
+.slip{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:13px;overflow:hidden}
+.slip .top{display:flex;align-items:flex-start;gap:13px;padding:15px 17px 0}
+.rolech{width:36px;height:36px;border-radius:8px;flex:0 0 36px;display:grid;place-items:center;font-family:var(--mono);font-weight:600;font-size:11px;color:#fff;letter-spacing:.02em;position:relative}
+.rolech::after{content:"";position:absolute;inset:0;border-radius:8px;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.meta{flex:1;min-width:0}
+.meta .l1{display:flex;align-items:center;gap:9px}
+.meta .l1 b{font-family:var(--disp);font-size:15px;font-weight:600;letter-spacing:-.015em}
+.wf{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;padding:2.5px 7px;border-radius:5px;text-transform:uppercase;font-weight:500}
+.wf.n{background:rgba(44,95,224,.09);color:var(--blue)} .wf.r{background:rgba(222,119,22,.12);color:#B25C0E} .wf.s{background:rgba(14,151,132,.12);color:#0A7061}
+.meta .l2{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:4px;letter-spacing:.01em}
+.meta .l2 b{color:#3B3D36;font-weight:500}
+.amt{text-align:right;white-space:nowrap}
+.amt b{font-family:var(--mono);font-size:15px;font-weight:600;letter-spacing:-.01em}
+.amt small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-top:2px}
+.draft{margin:13px 17px 0;padding:11px 13px;background:var(--panel-2);border:1px solid var(--line2);border-radius:9px;font-size:13px;line-height:1.62;color:#3B3D36}
+
+/* ===== signature: 5-channel verification console ===== */
+.console{display:flex;align-items:center;gap:16px;padding:13px 17px 15px}
+.eq{display:flex;align-items:flex-end;gap:9px}
+.ch{display:flex;flex-direction:column;align-items:center;gap:5px}
+.ch .track{width:15px;height:30px;border-radius:3px;background:repeating-linear-gradient(0deg,var(--line2) 0 1px,transparent 1px 5px);position:relative;overflow:hidden}
+.ch .lv{position:absolute;left:0;right:0;bottom:0;border-radius:3px;transform-origin:bottom}
+.ch.pass .lv{top:0} .ch.mid .lv{top:40%} .ch.wait .lv{top:70%;opacity:.32}
+.ch.flag .track{box-shadow:0 0 0 1.5px #fff,0 0 0 2.5px var(--red)}
+.ch.flag .lv{top:0}
+.ch .lt{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.02em;color:var(--faint)}
+.ch.pass .lt,.ch.flag .lt,.ch.mid .lt{color:var(--ink)}
+.ch.b .lv{background:var(--blue)} .ch.r .lv{background:var(--red)} .ch.o .lv{background:var(--orange)} .ch.g .lv{background:var(--gray)} .ch.t .lv{background:var(--teal)}
+.verdict{font-size:12.5px;color:var(--muted);line-height:1.5}
+.verdict b{color:var(--ink);font-weight:600}
+.verdict .rf{color:var(--red);font-weight:600}
+.verdict .sub{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--faint);text-transform:uppercase;margin-top:2px}
+
+.act{display:flex;align-items:center;gap:9px;padding:12px 17px;border-top:1px solid var(--line2);background:linear-gradient(180deg,#F8F7F3,#F4F2EC)}
+.btn{font-family:var(--sans);font-size:13px;font-weight:600;padding:8px 15px;border-radius:8px;border:1px solid var(--line);background:#fff;color:#3B3D36;cursor:pointer}
+.btn.ap{background:var(--ink);color:#F3F2EC;border-color:var(--ink);position:relative;padding-bottom:9px}
+.btn.ap::after{content:"";position:absolute;left:13px;right:13px;bottom:5px;height:2px;background:var(--brass);border-radius:2px}
+.act .ago{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.02em}
+.act .ago em{font-style:normal;color:var(--brass-deep);font-weight:500}
+
+/* right rail */
+.pnl{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 15px 15px;margin-bottom:16px}
+.pnl .ph{display:flex;align-items:center;gap:8px;padding-bottom:11px;margin-bottom:4px;border-bottom:1px solid var(--line2)}
+.pnl .ph b{font-family:var(--disp);font-size:13px;font-weight:600}
+.pnl .ph .co{margin-left:auto}
+/* time ruler */
+.ruler{position:relative;padding-left:52px;margin-top:8px}
+.ruler::before{content:"";position:absolute;left:40px;top:6px;bottom:6px;width:1px;background:var(--line)}
+.tick{position:relative;padding:8px 0}
+.tick .dd{position:absolute;left:-52px;width:38px;text-align:right;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.02em;top:9px}
+.tick .dd.u{color:var(--red)} .tick .dd.s{color:var(--orange)} .tick .dd.o{color:var(--muted)}
+.tick::before{content:"";position:absolute;left:-15.5px;top:12px;width:7px;height:7px;border-radius:50%;background:#fff;border:1.5px solid var(--muted)}
+.tick.u::before{border-color:var(--red);background:var(--red)}
+.tick.s::before{border-color:var(--orange)}
+.tick b{font-size:13px;font-weight:600;display:block;letter-spacing:-.01em;font-family:var(--disp)}
+.tick span{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.01em}
+/* inbox */
+.ibx{display:flex;gap:10px;padding:11px 0;border-top:1px solid var(--line2);align-items:center}
+.ibx:first-of-type{border-top:0}
+.src{font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 6px;border-radius:4px;background:var(--panel-2);border:1px solid var(--line2);color:var(--muted);text-transform:uppercase;flex:0 0 auto;font-weight:500}
+.ibx .x{flex:1;min-width:0}
+.ibx .x b{font-size:12.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+.ibx .x span{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.ibx .x span em{font-style:normal;color:var(--blue);font-weight:600}
+.tap{font-size:11.5px;font-weight:600;color:var(--brass-deep);border:1px solid var(--brass-line);background:var(--brass-bg);padding:5px 10px;border-radius:7px;cursor:pointer;white-space:nowrap}
+
+@keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+@keyframes tick{from{transform:scaleY(0)}to{transform:none}}
+.slip,.brief,.pnl{animation:rise .5s cubic-bezier(.2,.7,.3,1) both}
+.slip:nth-of-type(2){animation-delay:.07s}.slip:nth-of-type(3){animation-delay:.14s}
+.ch .lv{animation:tick .55s cubic-bezier(.2,.7,.3,1) both}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><div class="mk"></div><div><b>베를로 OS</b><span>CONTROL&nbsp;TOWER</span></div></div>
+  <div class="ng"><div class="h">관제</div>
+    <div class="nav on"><span class="g">◎</span> 내 업무<span class="ct">7</span></div>
+    <div class="nav"><span class="g">▤</span> 인입함<span class="ct">4</span></div>
+  </div>
+  <div class="ng"><div class="h">워크플로</div>
+    <div class="nav"><span class="g">1</span> 신규영업<span class="ct">26</span></div>
+    <div class="nav"><span class="g">↻</span> 리뉴얼<span class="ct">11</span></div>
+    <div class="nav"><span class="g">⚒</span> 기술지원<span class="ct">3</span></div>
+  </div>
+  <div class="ng"><div class="h">기반</div>
+    <div class="nav"><span class="g">◱</span> 고객사<span class="ct">36</span></div>
+    <div class="nav"><span class="g">◆</span> AI 팀<span class="ct">5+5</span></div>
+    <div class="nav"><span class="g">₩</span> 재무</div>
+  </div>
+  <div class="status">
+    <div class="r"><span class="d"></span> 역할 AI <b>5/5</b> 온라인</div>
+    <div class="r"><span class="d"></span> 컬러 AI <b>5/5</b> 검증 중</div>
+  </div>
+</aside>
+
+<main>
+  <div class="hdr">
+    <div class="l"><div class="mlbl k">관제 · CONTROL</div><h1>내 업무</h1></div>
+    <div class="clock">2026·07·04 SAT<br><b>07:20</b> KST</div>
+  </div>
+
+  <section class="brief">
+    <div class="bar"><span class="d"></span><span class="tt">AI 팀 · 야간 브리핑</span><span class="meta">05:00–07:00 · AUTO · LOG 12</span></div>
+    <div class="body">
+      <p>어젯밤 인입 <span class="k">9건</span>을 분류해 <span class="k">신규 3 · 리뉴얼 5 · 지원 1</span>로 배정했습니다. <span class="k">프리세일즈 AI</span>가 제안서 초안 2건, <span class="k">영업 AI</span>가 리뉴얼 안내 5건을 작성했고, 컬러 검증을 마쳐 <span class="k">4건이 사장님 승인을 기다립니다</span>. <span class="rf">단 1건 — 성우하이텍 견적은 Red AI가 마진 12%(기준 20% 미달)로 플래그했습니다.</span></p>
+      <div class="chips">
+        <span class="chip"><i style="background:var(--gray)"></i><b>3</b><s>신규 → 영업 AI</s></span>
+        <span class="chip"><i style="background:var(--orange)"></i><b>5</b><s>리뉴얼 D-90 → 영업 AI</s></span>
+        <span class="chip"><i style="background:var(--blue)"></i><b>2</b><s>제안서 → 프리세일즈 AI</s></span>
+        <span class="chip"><i style="background:var(--red)"></i><b>1</b><s>리스크 → Red AI</s></span>
+      </div>
+    </div>
+  </section>
+
+  <div class="cols">
+    <div>
+      <div class="sh"><h2>내 승인 대기</h2><span class="n">4</span><span class="flow">초안 → 5색 검증 → 결정</span></div>
+
+      <!-- slip 1 -->
+      <div class="slip">
+        <div class="top">
+          <div class="rolech" style="background:linear-gradient(160deg,#3E6CE6,#2450C9)">PS</div>
+          <div class="meta">
+            <div class="l1"><b>제안서 초안 · SASE 전환</b><span class="wf n">신규영업</span></div>
+            <div class="l2"><b>휠라코리아</b> · 프리세일즈 AI · 페인포인트 3개 반영</div>
+          </div>
+          <div class="amt"><b>₩84,000,000</b><small>예상 규모</small></div>
+        </div>
+        <div class="draft">지사 VPN 병목·관리부하·감사대응 3개 페인을 SASE 단일화로 해소. 경쟁사(팔로알토) 대비 TCO 27%↓ 비교표 포함.</div>
+        <div class="console">
+          <div class="eq">
+            <div class="ch b pass"><div class="track"><div class="lv"></div></div><div class="lt">B</div></div>
+            <div class="ch r pass"><div class="track"><div class="lv"></div></div><div class="lt">R</div></div>
+            <div class="ch o pass"><div class="track"><div class="lv"></div></div><div class="lt">O</div></div>
+            <div class="ch g pass"><div class="track"><div class="lv"></div></div><div class="lt">G</div></div>
+            <div class="ch t pass"><div class="track"><div class="lv"></div></div><div class="lt">T</div></div>
+          </div>
+          <div class="verdict"><b>5색 전 채널 통과</b><span class="sub">전달 준비 완료 · verified 07:04</span></div>
+        </div>
+        <div class="act"><button class="btn ap">승인하고 발송</button><button class="btn">열어서 수정</button><span class="ago">2시간 전 · <em>유사 12건 무수정 승인</em></span></div>
+      </div>
+
+      <!-- slip 2: red flag -->
+      <div class="slip">
+        <div class="top">
+          <div class="rolech" style="background:linear-gradient(160deg,#E68A2E,#C96C12)">SA</div>
+          <div class="meta">
+            <div class="l1"><b>리뉴얼 견적 · NGAF 라이센스</b><span class="wf r">리뉴얼</span></div>
+            <div class="l2"><b>성우하이텍</b> · 영업 AI · 총판 견적 수신 완료</div>
+          </div>
+          <div class="amt"><b>₩19,400,000</b><small>마진 12%</small></div>
+        </div>
+        <div class="draft">총판가 ₩17.3M + 마진 12%. 3년 갱신 · 서비스레터·라이센스 파일 첨부 준비됨.</div>
+        <div class="console">
+          <div class="eq">
+            <div class="ch b pass"><div class="track"><div class="lv"></div></div><div class="lt">B</div></div>
+            <div class="ch r flag"><div class="track"><div class="lv"></div></div><div class="lt">R</div></div>
+            <div class="ch o wait"><div class="track"><div class="lv"></div></div><div class="lt">O</div></div>
+            <div class="ch g pass"><div class="track"><div class="lv"></div></div><div class="lt">G</div></div>
+            <div class="ch t pass"><div class="track"><div class="lv"></div></div><div class="lt">T</div></div>
+          </div>
+          <div class="verdict"><span class="rf">Red · 마진 12% &lt; 기준 20%</span><span class="sub">Orange 가치검토 보류 · 재검토 요청</span></div>
+        </div>
+        <div class="act"><button class="btn ap">마진 조정 후 승인</button><button class="btn">근거 보기</button><span class="ago">Red AI가 재검토 요청</span></div>
+      </div>
+
+      <!-- slip 3: inbound classify -->
+      <div class="slip">
+        <div class="top">
+          <div class="rolech" style="background:linear-gradient(160deg,#8F8C82,#6F6D64)">MK</div>
+          <div class="meta">
+            <div class="l1"><b>신규 인입 분류 확인</b><span class="wf n">신규영업</span></div>
+            <div class="l2"><b>동국대학교</b> · 마케팅 AI · 메일 유입</div>
+          </div>
+          <div class="amt"><b>VDI</b><small>추정 제품</small></div>
+        </div>
+        <div class="draft">"VDI 300석 도입 검토, 견적 요청" — 신규영업 · 담당 영업 AI 제안. 유사 사례: 이레IDS VDI.</div>
+        <div class="console">
+          <div class="eq">
+            <div class="ch b pass"><div class="track"><div class="lv"></div></div><div class="lt">B</div></div>
+            <div class="ch r pass"><div class="track"><div class="lv"></div></div><div class="lt">R</div></div>
+            <div class="ch o pass"><div class="track"><div class="lv"></div></div><div class="lt">O</div></div>
+            <div class="ch g mid"><div class="track"><div class="lv"></div></div><div class="lt">G</div></div>
+            <div class="ch t wait"><div class="track"><div class="lv"></div></div><div class="lt">T</div></div>
+          </div>
+          <div class="verdict"><b>분류 신뢰도 91%</b><span class="sub">확인 시 미팅 준비 착수</span></div>
+        </div>
+        <div class="act"><button class="btn ap">맞음 · 영업 배정</button><button class="btn">다르게 분류</button><span class="ago">6시간 전</span></div>
+      </div>
+    </div>
+
+    <!-- right rail -->
+    <div>
+      <div class="pnl">
+        <div class="ph"><b>임박</b><span class="co mlbl">시간 트리거</span></div>
+        <div class="ruler">
+          <div class="tick u"><span class="dd u">D-1</span><b>대통령경호처 PoC 시행</b><span>엔지니어 AI · 체크리스트 8/10</span></div>
+          <div class="tick u"><span class="dd u">오늘</span><b>롯데건설 설치일 확정</b><span>구축 · 총판 PO 확인됨</span></div>
+          <div class="tick s"><span class="dd s">D-12</span><b>KV메트리얼즈 리뉴얼</b><span>만료 D-90 안내 발송 예정</span></div>
+          <div class="tick o"><span class="dd o">D-30</span><b>GS건설 VDI 미팅</b><span>영업 AI 준비자료 초안 있음</span></div>
+        </div>
+      </div>
+      <div class="pnl">
+        <div class="ph"><b>인입 미분류</b><span class="co mlbl">원탭 분류</span></div>
+        <div class="ibx"><span class="src">메일</span><div class="x"><b>한라IMS · SASE 문의</b><span>추정 <em>신규 · 한라IMS</em></span></div><button class="tap">확인</button></div>
+        <div class="ibx"><span class="src">카톡</span><div class="x"><b>파트너 이레IDS 지원요청</b><span>추정 <em>기술지원 · 1일</em></span></div><button class="tap">확인</button></div>
+        <div class="ibx"><span class="src">전화</span><div class="x"><b>부산도시가스 hDR 문의</b><span>추정 <em>신규 · 부산도시가스</em></span></div><button class="tap">확인</button></div>
+        <div class="ibx"><span class="src">메일</span><div class="x"><b>진플러스 갱신 견적요청</b><span>추정 <em>리뉴얼 · 진플러스</em></span></div><button class="tap">확인</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

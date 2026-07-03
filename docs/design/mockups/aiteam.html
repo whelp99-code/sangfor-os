@@ -1,0 +1,98 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 팀</title><link rel="stylesheet" href="sys.css">
+<style>
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px}
+.role{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 14px}
+.role .rt{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.role .rt .nm{font-family:var(--disp);font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.role .rt .nm small{display:block;font-family:var(--mono);font-size:9.5px;color:var(--muted);font-weight:400}
+.stat{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;padding:4px 0;color:var(--muted)}
+.stat b{color:var(--ink);font-weight:600}
+/* autonomy dial */
+.dial{margin-top:12px;padding-top:11px;border-top:1px solid var(--line-2)}
+.dial .dl{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:7px}
+.steps{display:flex;gap:3px}
+.step{flex:1;height:24px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line-2);display:grid;place-items:center;font-family:var(--mono);font-size:8.5px;color:var(--muted);position:relative}
+.step.fill{background:var(--frame);color:#E9E8E3;border-color:var(--frame)}
+.step.cur{background:var(--commander);color:#fff;border-color:var(--commander);font-weight:600}
+.nudge{margin-top:9px;display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--commander-ink);background:var(--brass-bg);border:1px solid var(--brass-line);border-radius:6px;padding:5px 8px;line-height:1.35}
+.nudge b{font-weight:600}
+.cols{display:grid;grid-template-columns:1fr 320px;gap:20px}
+/* color AI */
+.colr{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line-2)}
+.colr:first-of-type{border-top:0}
+.colr .sw{width:10px;height:26px;border-radius:3px;flex:0 0 10px}
+.sw.b{background:var(--blue)} .sw.r{background:var(--red)} .sw.o{background:var(--orange)} .sw.g{background:var(--gray)} .sw.t{background:var(--teal)}
+.colr .x{flex:1}.colr .x b{font-family:var(--disp);font-size:13px;font-weight:600} .colr .x span{font-family:var(--mono);font-size:10.5px;color:var(--muted);display:block}
+.colr .m{font-family:var(--mono);font-size:11px;text-align:right}
+.colr .m .p{font-weight:600} .colr .m .f{color:var(--red-deep);font-weight:600}
+/* learned */
+.learn{display:flex;gap:11px;padding:11px 0;border-top:1px solid var(--line-2)}
+.learn:first-of-type{border-top:0}
+.learn .ic{width:26px;height:26px;border-radius:7px;background:var(--panel-2);border:1px solid var(--line-2);display:grid;place-items:center;font-family:var(--mono);font-size:12px;color:var(--teal-deep);flex:0 0 26px}
+.learn .x b{font-size:12.5px;font-weight:600;display:block;line-height:1.4} .learn .x span{font-family:var(--mono);font-size:10px;color:var(--muted)}
+</style></head>
+<body>
+<aside>
+  <div class="brand"><div class="mk"></div><div><b>베를로 OS</b><span>CONTROL&nbsp;TOWER</span></div></div>
+  <div class="ng"><div class="h">관제</div><div class="nav"><span class="g">◎</span> 내 업무<span class="ct">7</span></div><div class="nav"><span class="g">▤</span> 인입함<span class="ct">4</span></div></div>
+  <div class="ng"><div class="h">워크플로</div><div class="nav"><span class="g">1</span> 신규영업<span class="ct">26</span></div><div class="nav"><span class="g">↻</span> 리뉴얼<span class="ct">11</span></div><div class="nav"><span class="g">⚒</span> 기술지원<span class="ct">3</span></div></div>
+  <div class="ng"><div class="h">기반</div><div class="nav"><span class="g">◱</span> 고객사<span class="ct">36</span></div><div class="nav on"><span class="g">◆</span> AI 팀<span class="ct">5+5</span></div><div class="nav"><span class="g">₩</span> 재무</div></div>
+  <div class="status"><div class="r"><span class="d"></span> 역할 AI <b>5/5</b> 온라인</div><div class="r"><span class="d"></span> 컬러 AI <b>5/5</b> 검증 중</div></div>
+</aside>
+<main>
+  <div class="hdr">
+    <div><div class="mlbl">기반 · 내 AI 직원들</div><h1>AI 팀</h1><div class="sub">역할 AI 5 · 컬러 검증 AI 5 · 이번 주 처리 148건</div></div>
+    <div class="clock" style="text-align:right">이번 주<br><b style="font-family:var(--mono);font-size:15px">무수정 승인 78%</b></div>
+  </div>
+
+  <div class="sh"><h2>역할 AI</h2><span class="n">5</span><span class="flow">자율도 · 관찰→초안→자동→위임</span></div>
+  <div class="grid5">
+    <div class="role">
+      <div class="rt"><div class="rolech mk">MK</div><div class="nm">마케팅<small>인입·분류</small></div></div>
+      <div class="stat"><span>이번 주</span><b>32건</b></div><div class="stat"><span>무수정</span><b>94%</b></div>
+      <div class="dial"><div class="dl">자율도</div><div class="steps"><span class="step fill">관찰</span><span class="step fill">초안</span><span class="step cur">자동</span><span class="step">위임</span></div>
+        <div class="nudge"><b>▲</b> 위임 승급 제안 — 30일 무수정</div></div>
+    </div>
+    <div class="role">
+      <div class="rt"><div class="rolech sa">SA</div><div class="nm">영업<small>미팅·견적</small></div></div>
+      <div class="stat"><span>이번 주</span><b>41건</b></div><div class="stat"><span>무수정</span><b>81%</b></div>
+      <div class="dial"><div class="dl">자율도</div><div class="steps"><span class="step fill">관찰</span><span class="step cur">초안</span><span class="step">자동</span><span class="step">위임</span></div>
+        <div class="nudge"><b>▲</b> 견적을 '자동'으로? 12건 무수정</div></div>
+    </div>
+    <div class="role">
+      <div class="rt"><div class="rolech ps">PS</div><div class="nm">프리세일즈<small>제안·PoC</small></div></div>
+      <div class="stat"><span>이번 주</span><b>28건</b></div><div class="stat"><span>무수정</span><b>72%</b></div>
+      <div class="dial"><div class="dl">자율도</div><div class="steps"><span class="step fill">관찰</span><span class="step cur">초안</span><span class="step">자동</span><span class="step">위임</span></div></div>
+    </div>
+    <div class="role">
+      <div class="rt"><div class="rolech en">EN</div><div class="nm">엔지니어<small>PoC·구축</small></div></div>
+      <div class="stat"><span>이번 주</span><b>33건</b></div><div class="stat"><span>무수정</span><b>76%</b></div>
+      <div class="dial"><div class="dl">자율도</div><div class="steps"><span class="step fill">관찰</span><span class="step cur">초안</span><span class="step">자동</span><span class="step">위임</span></div></div>
+    </div>
+    <div class="role">
+      <div class="rt"><div class="rolech cf">CF</div><div class="nm">CFO<small>견적·정산</small></div></div>
+      <div class="stat"><span>이번 주</span><b>14건</b></div><div class="stat"><span>무수정</span><b>68%</b></div>
+      <div class="dial"><div class="dl">자율도</div><div class="steps"><span class="step cur">관찰</span><span class="step">초안</span><span class="step">자동</span><span class="step">위임</span></div>
+        <div class="nudge" style="background:var(--panel-2);border-color:var(--line-2);color:var(--muted)">관찰 유지 — 근거 축적 중</div></div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="pnl">
+      <div class="ph"><b>컬러 검증 AI</b><span class="co mlbl">이번 주 렌즈별</span></div>
+      <div class="colr"><span class="sw b"></span><div class="x"><b>Blue · 기술</b><span>PoC 시나리오·구축계획 타당성</span></div><div class="m"><span class="p">통과 41</span> · <span class="f">보류 3</span></div></div>
+      <div class="colr"><span class="sw r"></span><div class="x"><b>Red · 리스크</b><span>견적·계약·보안 리스크</span></div><div class="m"><span class="p">통과 38</span> · <span class="f">플래그 6</span></div></div>
+      <div class="colr"><span class="sw o"></span><div class="x"><b>Orange · 가치</b><span>페인 부합·마진</span></div><div class="m"><span class="p">통과 44</span> · <span class="f">보류 4</span></div></div>
+      <div class="colr"><span class="sw g"></span><div class="x"><b>Gray · 근거</b><span>제안서·보고서 완결성</span></div><div class="m"><span class="p">통과 47</span> · <span class="f">보류 1</span></div></div>
+      <div class="colr"><span class="sw t"></span><div class="x"><b>Teal · UX</b><span>고객 전달물 명료성</span></div><div class="m"><span class="p">통과 45</span> · <span class="f">보류 2</span></div></div>
+    </div>
+    <div class="pnl">
+      <div class="ph"><b>이번 주 AI가 배운 것</b><span class="co mlbl">학습 루프</span></div>
+      <div class="learn"><div class="ic">↗</div><div class="x"><b>제안서에 경쟁사 비교표를 3회 추가하심 → 프리세일즈 AI가 이제 자동 포함</b><span>DomainMemory · 07-03</span></div></div>
+      <div class="learn"><div class="ic">↗</div><div class="x"><b>리뉴얼 마진 기준 20%로 상향 정정 → CFO AI 반영</b><span>PolicyMemory · 07-01</span></div></div>
+      <div class="learn"><div class="ic">↗</div><div class="x"><b>대통령경호처 PoC 체크리스트에 보안인증 항목 추가 → 엔지니어 AI 학습</b><span>DomainMemory · 06-28</span></div></div>
+    </div>
+  </div>
+</main>
+</body></html>
