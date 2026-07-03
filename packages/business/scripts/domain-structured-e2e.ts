@@ -2,7 +2,7 @@
  * 실증(e2e) — 실제 opencode(format)로 CFO 도메인 구조화 산출물을 받는다.
  * 실행: npx tsx packages/business/scripts/domain-structured-e2e.ts
  */
-import { createOpencodeStructuredGenerator } from "../src/domain-structured";
+import { createOpencodeStructuredGenerator } from "../src/domain-ai/domain-structured";
 import { opencodeHealth } from "../src/opencode-client";
 
 async function main() {

@@ -1,6 +1,6 @@
 import type { Embedder } from "./domain-embedding";
 import { createHashEmbedder } from "./domain-embedder";
-import { getOpenAiApiKey, getOpenAiBaseUrl, getOpenAiAuthHeaders } from "./openai-config";
+import { getOpenAiApiKey, getOpenAiBaseUrl, getOpenAiAuthHeaders } from "../openai-config";
 
 /**
  * 실제 임베딩 제공자(OpenAI 호환). 키가 있으면 /embeddings 호출, 없으면 로컬 해시로 폴백.

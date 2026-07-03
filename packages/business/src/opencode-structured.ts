@@ -6,7 +6,7 @@ import {
   type OpencodeConfig,
   type OpencodeModel,
 } from "./opencode-client";
-import type { JsonSchema } from "./domain-artifact-schema";
+import type { JsonSchema } from "./domain-ai/domain-artifact-schema";
 
 /**
  * opencode 구조화 출력 — `format: { type:"json_schema", schema }` 로 검증된 JSON 을 받는다.

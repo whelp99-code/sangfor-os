@@ -1,4 +1,4 @@
-import { resolveLlmConfig } from "./llm/config";
+import { resolveLlmConfig } from "../llm/config";
 import type { GtmDomain } from "@sangfor/shared/modes";
 import { DOMAIN_DEFINITIONS } from "./domain-pipeline";
 import type { DomainGenerator } from "./domain-agent-runtime";
@@ -7,7 +7,7 @@ import {
   opencodePrompt,
   type OpencodeConfig,
   type OpencodeModel,
-} from "./opencode-client";
+} from "../opencode-client";
 
 /**
  * 도메인 AI 런타임의 실제 LLM 백엔드를 opencode(+OpenAI ChatGPT OAuth)로 연결한다.

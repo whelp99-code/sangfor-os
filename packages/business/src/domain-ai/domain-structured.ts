@@ -2,8 +2,8 @@ import type { GtmDomain } from "@sangfor/shared/modes";
 import { DOMAIN_DEFINITIONS } from "./domain-pipeline";
 import type { DomainGenerator } from "./domain-agent-runtime";
 import { resolveDomainModel, type DomainModelMap } from "./domain-llm";
-import { createOpencodeSession, type OpencodeConfig } from "./opencode-client";
-import { opencodePromptStructured } from "./opencode-structured";
+import { createOpencodeSession, type OpencodeConfig } from "../opencode-client";
+import { opencodePromptStructured } from "../opencode-structured";
 import { schemaForDomain } from "./domain-artifact-schema";
 
 /**

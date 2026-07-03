@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { extractJsonObject } from "./opencode-structured";
+import { extractJsonObject } from "../opencode-structured";
 import { createOpencodeStructuredGenerator, summarizeStructured } from "./domain-structured";
 import { schemaForDomain } from "./domain-artifact-schema";
 import { createResilientDomainGenerator } from "./domain-llm-fallback";

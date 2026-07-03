@@ -2,7 +2,7 @@ import type { DomainGenerator } from "./domain-agent-runtime";
 import { createOpencodeStructuredGenerator } from "./domain-structured";
 import { createOpencodeDomainGenerator, type DomainModelMap } from "./domain-llm";
 import { createResilientDomainGenerator } from "./domain-llm-fallback";
-import { opencodeHealth, type OpencodeConfig } from "./opencode-client";
+import { opencodeHealth, type OpencodeConfig } from "../opencode-client";
 
 /**
  * 권장 기본 DomainGenerator — 구조화(②) + 폴백체인(①)을 한 번에 묶는다.
