@@ -23,10 +23,10 @@
     "./phase14": "./src/phase14/index.ts",
     "./skills": "./src/skills/index.ts",
     "./deal-registration": "./src/deal-registration.ts",
-    "./llm/config": "./src/llm/config.ts",
+    "./llm/config": "./src/platform/llm/config.ts",
     "./role-dashboard": "./src/role-dashboard.ts",
     "./cfo-client": "./src/cfo-client.ts",
-    "./outlook": "./src/outlook/index.ts"
+    "./outlook": "./src/mail/outlook/index.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",

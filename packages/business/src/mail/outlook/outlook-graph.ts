@@ -8,7 +8,7 @@
  * when a user clicks "Connect Outlook".
  */
 import { prisma } from "@sangfor/db";
-import { cfoFetch } from "../cfo-client";
+import { cfoFetch } from "../../cfo-client";
 
 const AUTH_HOST = "https://login.microsoftonline.com";
 const GRAPH = "https://graph.microsoft.com/v1.0";

@@ -1,4 +1,4 @@
-import { resolveLlmConfig } from "../llm/config";
+import { resolveLlmConfig } from "../platform/llm/config";
 import type { GtmDomain } from "@sangfor/shared/modes";
 import { DOMAIN_DEFINITIONS } from "./domain-pipeline";
 import type { DomainGenerator } from "./domain-agent-runtime";
