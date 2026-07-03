@@ -238,6 +238,11 @@ POC 확정 시 영업기회를 **멱등·원자적**으로 Engagement(프로젝�
 - `apps/web/.env.example`
 - `apps/api/.env.example`
 - `packages/business/.env.example`
+- `packages/db/.env.example`
+- `services/sangfor-engineer-mcp/.env.example`
+- `services/sangfor-mcp-workflow/.env.example`
+
+코드가 참조하는 고유 env 변수는 web 29 / api 18 / business 36 (합집합 73)개로 example 파일들이 전부를 덮지는 않음 — 신규 변수 추가 시 해당 example 파일에 같이 추가할 것.
 
 ### 서비스 기동
 ```bash
@@ -451,3 +456,4 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **2026-06-29**: 워킹트리 thrashing 손상 치유 — `origin/main`(99c69e9) 동기화 → 작업 브랜치 `dev-clean`, 손상본 `backup/worktree-thrashing-2026-06-29` 백업. thrashing 근원(동시 워크트리) 규명·기록(§8).
 - **2026-06-29**: 후속 개발 4종(브랜치 `feat-domain-followups`): D 기본 생성기 디폴트화(`bc37df1`) · A 구조화→실 DB 매핑(`0c82a31`) · B 대시보드 SSE+상세(`edeb114`) · C CFO ledger 테마 확장(`08e7550`). 전부 TDD/typecheck/lint 통과, B는 실 DB 검증.
 - **2026-06-29**: CFO 세금계산서 자동 처리 (§3.H, PR #38). 홈택스 보안메일 자체 복호화(SEED/AES, 키=MD5(사업자번호)) → 매입 완전 자동 + 발행. 31/31 테스트, 정식 마이그레이션 동봉(도메인 테이블 baseline 포함 — feat-domain-followups의 db-push 부채 해소). 메모 [db push not migrate]는 CI=migrate deploy에 맞춰 갱신됨.
+- **2026-07-03**: Phase 8 — CI static-checks 통합, services CI 신설, env example 정비.
