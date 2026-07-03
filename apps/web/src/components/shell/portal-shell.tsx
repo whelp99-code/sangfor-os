@@ -55,7 +55,6 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PROJECT_NAME } from "@sangfor/shared";
@@ -133,6 +132,10 @@ function NavMenuButton({
       <SidebarMenuButton
         isActive={isActive}
         tooltip={item.title}
+        className={cn(
+          isActive &&
+            "border-l-2 border-l-[#a9822e] rounded-l-none [&>svg]:text-[#c9a34e] font-semibold"
+        )}
         render={<Link href={item.href} aria-current={isActive ? "page" : undefined} />}
       >
         <Icon aria-hidden="true" />
@@ -197,11 +200,13 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
       <Sidebar collapsible="icon">
         <SidebarHeader className="gap-2 border-b border-sidebar-border px-3 py-3">
           <div className="px-1 group-data-[collapsible=icon]:hidden">
-            <p className="text-xs font-medium text-muted-foreground">{PROJECT_NAME}</p>
-            <p className="text-sm font-semibold">SANGFOR Partner OS</p>
-            <Badge variant="secondary" className="mt-1 w-fit text-[10px] font-medium">
-              통합 CRM · 프로젝트
-            </Badge>
+            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-sidebar-foreground/45">
+              {PROJECT_NAME}
+            </p>
+            <p className="text-sm font-semibold text-sidebar-foreground">SANGFOR Partner OS</p>
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/40">
+              Control Tower
+            </p>
           </div>
           <div className="relative group-data-[collapsible=icon]:hidden">
             <Search
@@ -306,12 +311,12 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
         <SidebarFooter className="border-t border-sidebar-border p-3">
           <Button
             variant="outline"
-            className="w-full justify-start gap-2 text-xs"
+            className="w-full justify-start gap-2 border-sidebar-border bg-transparent text-xs text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             onClick={handleAiCommand}
           >
-            <Sparkles className="h-3.5 w-3.5" />
+            <Sparkles className="h-3.5 w-3.5 text-[#c9a34e]" />
             <span className="group-data-[collapsible=icon]:hidden">AI 어시스턴트</span>
-            <kbd className="ml-auto inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground group-data-[collapsible=icon]:hidden">
+            <kbd className="ml-auto inline-flex h-5 items-center gap-1 rounded border border-sidebar-border bg-sidebar-accent px-1.5 font-mono text-[10px] font-medium text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
               <span className="text-xs">⌘</span>K
             </kbd>
           </Button>

@@ -78,14 +78,15 @@
   --chart-4: oklch(0.55 0.12 280);
   --chart-5: oklch(0.65 0.15 75);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0.002 247);
-  --sidebar-foreground: oklch(0.145 0.005 247);
-  --sidebar-primary: oklch(0.37 0.12 265);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.96 0.005 247);
-  --sidebar-accent-foreground: oklch(0.205 0.005 247);
-  --sidebar-border: oklch(0.91 0.005 247);
-  --sidebar-ring: oklch(0.37 0.12 265);
+  /* 계기판(Instrument) — 레일은 어두운 계기 하우징, 사람의 활성 표시는 브라스 */
+  --sidebar: #1b1d20;
+  --sidebar-foreground: #c7c6be;
+  --sidebar-primary: #a9822e;
+  --sidebar-primary-foreground: #f3f2ec;
+  --sidebar-accent: #26282c;
+  --sidebar-accent-foreground: #ece9e0;
+  --sidebar-border: #2c2e31;
+  --sidebar-ring: #a9822e;
 
   /* ── Success tokens ── */
   --success: oklch(0.45 0.13 155);

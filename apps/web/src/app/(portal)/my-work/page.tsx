@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { listOpportunities } from "@sangfor/business";
 import { prisma } from "@sangfor/db";
+import { SlipActions } from "@/components/cockpit/slip-actions";
 
 // ── 계기판 매핑 헬퍼 ────────────────────────────────────────────────
 // 메일 파생 후보의 유형 → 담당 역할 AI (도메인 에이전트)
@@ -37,21 +38,95 @@ function won(fmt: number): string {
   return "₩" + Math.round(fmt).toLocaleString("ko-KR");
 }
 
-// 5색 검증 콘솔 — 정직성: 후보별 컬러 검증 데이터는 아직 백엔드 미연동.
-// 신뢰도를 균일 레벨로 표시하고, verdict 라벨로 "신뢰도이지 5채널 검증 아님"을 명시.
-function consoleLevel(confidence: number): "pass" | "mid" | "wait" {
-  if (confidence >= 80) return "pass";
-  if (confidence >= 60) return "mid";
-  return "wait";
+// 재검증 결정값 추출 (실 백엔드 신호: metadata.aiRevalidation.decision)
+type Reval = "approve_candidate" | "needs_human_review" | "reject" | "knowledge_only";
+function revalOf(metadata: unknown): Reval | null {
+  if (metadata && typeof metadata === "object") {
+    const r = (metadata as Record<string, unknown>).aiRevalidation;
+    if (r && typeof r === "object") {
+      const d = (r as Record<string, unknown>).decision;
+      if (typeof d === "string") return d as Reval;
+    }
+  }
+  return null;
 }
-function Console({ confidence }: { confidence: number }) {
-  const lv = consoleLevel(confidence);
+
+// 5색 검증 콘솔 — 실 AI 재검증 결정 + 신뢰도를 반영. 정직 표기:
+// 후보별 완전한 5-렌즈 컬러 게이트(도메인 에이전트)는 별도 백엔드로 연동 예정.
+function consoleState(
+  reval: Reval | null,
+  confidence: number
+): { levels: Record<string, "pass" | "mid" | "wait" | "flag">; verdict: React.ReactNode } {
+  const all = (s: "pass" | "mid" | "wait" | "flag") => ({ b: s, r: s, o: s, g: s, t: s });
+  switch (reval) {
+    case "approve_candidate":
+      return {
+        levels: all("pass"),
+        verdict: (
+          <>
+            <b>AI 재검증 통과</b>
+            <span className="sub">사람 승인 대기 · 컬러 게이트 연동 예정</span>
+          </>
+        ),
+      };
+    case "needs_human_review":
+      return {
+        levels: all("mid"),
+        verdict: (
+          <>
+            <b>AI 재검증: 사람 검토 필요</b>
+            <span className="sub">신뢰도 {confidence}% · 컬러 게이트 연동 예정</span>
+          </>
+        ),
+      };
+    case "reject":
+      return {
+        levels: { ...all("wait"), r: "flag" },
+        verdict: (
+          <>
+            <span className="rf">AI 재검증: 거부 권고</span>
+            <span className="sub">근거 약함 · 사람 확인 필요</span>
+          </>
+        ),
+      };
+    case "knowledge_only":
+      return {
+        levels: all("wait"),
+        verdict: (
+          <>
+            <b>지식 보관용</b>
+            <span className="sub">엔티티 전환 대상 아님</span>
+          </>
+        ),
+      };
+    default: {
+      const s = confidence >= 80 ? "pass" : confidence >= 60 ? "mid" : "wait";
+      return {
+        levels: all(s),
+        verdict: (
+          <>
+            <b>AI 신뢰도 {confidence}%</b>
+            <span className="sub">재검증 미실행 · 컬러 게이트 연동 예정</span>
+          </>
+        ),
+      };
+    }
+  }
+}
+function Console({
+  confidence,
+  reval,
+}: {
+  confidence: number;
+  reval: Reval | null;
+}) {
+  const { levels, verdict } = consoleState(reval, confidence);
   const chans = ["b", "r", "o", "g", "t"] as const;
   return (
     <div className="console">
       <div className="eq" aria-hidden>
         {chans.map((c) => (
-          <div key={c} className={`ch ${c} ${lv}`}>
+          <div key={c} className={`ch ${c} ${levels[c]}`}>
             <div className="track">
               <div className="lv" />
             </div>
@@ -59,10 +134,7 @@ function Console({ confidence }: { confidence: number }) {
           </div>
         ))}
       </div>
-      <div className="verdict">
-        <b>AI 신뢰도 {confidence}%</b>
-        <span className="sub">5색 컬러 검증 연동 예정</span>
-      </div>
+      <div className="verdict">{verdict}</div>
     </div>
   );
 }
@@ -204,30 +276,14 @@ export default async function MyWorkPage() {
                     </div>
                   </div>
                   {c.summary ? <div className="draft">{c.summary}</div> : null}
-                  <Console confidence={c.confidence} />
-                  <div className="act">
-                    <Link
-                      href={`/approvals/mail-candidates/${c.id}`}
-                      className="btn ap"
-                    >
-                      열어서 결정
-                    </Link>
-                    <Link href="/approvals" className="btn">
-                      전체 승인함
-                    </Link>
-                    <span className="ago mono">
-                      {c.sourceReceivedAt
-                        ? new Date(c.sourceReceivedAt).toLocaleDateString(
-                            "ko-KR"
-                          )
-                        : "메일 파생"}
-                    </span>
-                  </div>
+                  <Console confidence={c.confidence} reval={revalOf(c.metadata)} />
+                  <SlipActions candidateId={c.id} detailHref={`/approvals/mail-candidates/${c.id}`} />
                 </div>
               );
             })
           )}
         </div>
+
 
         {/* 우측 계기 레일 */}
         <div>
