@@ -55,6 +55,46 @@ describe("assertApiAccess", () => {
   });
 });
 
+describe("assertApiAccess with a configured session", () => {
+  const SECRET_KEY = "JWT_SECRET";
+  const originalSecret = process.env[SECRET_KEY];
+
+  beforeEach(() => {
+    delete process.env.AUTH_BYPASS_ENABLED;
+    process.env[SECRET_KEY] = "test-secret-at-least-16-chars";
+  });
+
+  afterEach(() => {
+    if (originalSecret === undefined) delete process.env[SECRET_KEY];
+    else process.env[SECRET_KEY] = originalSecret;
+  });
+
+  it("passes with a valid session cookie (logged-in user must not be 401'd)", async () => {
+    const { createSessionToken } = await import("@/lib/auth/session");
+    const token = createSessionToken({ id: "u1", email: "u@test.local", role: "operator" });
+    const req = new Request("http://localhost/api/tasks", {
+      headers: { cookie: `session=${token}` },
+    });
+    expect(assertApiAccess(req)).toBeNull();
+  });
+
+  it("passes with a valid Bearer token", async () => {
+    const { createSessionToken } = await import("@/lib/auth/session");
+    const token = createSessionToken({ id: "u1", email: "u@test.local", role: "operator" });
+    const req = new Request("http://localhost/api/tasks", {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(assertApiAccess(req)).toBeNull();
+  });
+
+  it("still 401s a tampered session token", () => {
+    const req = new Request("http://localhost/api/tasks", {
+      headers: { cookie: "session=forged.token" },
+    });
+    expect(assertApiAccess(req)?.status).toBe(401);
+  });
+});
+
 // ── Repo-wide coverage guard ────────────────────────────────────────────────
 //
 // Phase S (security hardening) DoD: 0 unauthenticated mutation routes. The
