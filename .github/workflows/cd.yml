@@ -1,5 +1,8 @@
-name: CD
+name: Production Build Check
 
+# NOTE: This repo has no real deployment target yet. This workflow only
+# verifies that a production build succeeds on main. When a real deploy
+# target exists, add the deploy/notify steps back with real actions.
 on:
   workflow_dispatch:
 
@@ -8,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    name: Deploy
+  build-check:
+    name: Production build check
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
 
@@ -29,31 +32,3 @@ jobs:
         run: pnpm build
         env:
           NODE_ENV: production
-
-      - name: Deploy to Production
-        run: |
-          echo "=== 배포 시작 ==="
-          echo "커밋: ${{ github.sha }}"
-          echo "브랜치: ${{ github.ref_name }}"
-          echo "시간: $(date)"
-          echo ""
-          echo "=== 배포 단계 ==="
-          echo "1. 빌드 완료 확인 ✅"
-          echo "2. 아티팩트 업로드 ✅"
-          echo "3. 프로덕션 배포 ✅"
-          echo ""
-          echo "=== 배포 완료 ==="
-
-      - name: Notify Deployment
-        if: success()
-        run: |
-          echo "✅ 배포 성공"
-          echo "커밋: ${{ github.sha }}"
-          echo "시간: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-
-      - name: Notify Failure
-        if: failure()
-        run: |
-          echo "❌ 배포 실패"
-          echo "커밋: ${{ github.sha }}"
-          echo "시간: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"

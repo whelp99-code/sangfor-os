@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Sangfor Engineer MCP Workflow Automation — 3대 핵심 워크플로우 자동화",
-  "packageManager": "pnpm@10.12.4",
+  "packageManager": "pnpm@10.28.1",
   "scripts": {
     "dev:mcp": "tsx apps/mcp-server/src/index.ts",
     "dev:web": "tsx -r dotenv/config apps/operator-console/src/server.ts",
@@ -30,9 +30,9 @@
     "eslint": "^9.0.0",
     "globals": "^17.6.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.61.1",
-    "vitest": "^3.0.0"
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=22"
