@@ -26,7 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ColorReviewBadge } from "@/components/ui/color-review-badge";
-import { krw } from "@/lib/cfo-theme";
+import { formatKRW } from "@sangfor/shared";
 
 type ColorReviewStatus = "passed" | "pending" | "failed" | "not_required";
 
@@ -224,9 +224,9 @@ export function ExecutiveDashboard() {
           <CardTitle className="text-base">매출 파이프라인 — 제품군별 예측</CardTitle>
           <div className="ml-auto flex items-center gap-3 text-sm">
             <span className="text-muted-foreground">합계: </span>
-            <span className="font-semibold">{krw(totalForecast)}</span>
+            <span className="font-semibold">{formatKRW(totalForecast)}</span>
             <span className="text-muted-foreground">가중치 적용: </span>
-            <span className="font-semibold">{krw(totalWeighted)}</span>
+            <span className="font-semibold">{formatKRW(totalWeighted)}</span>
           </div>
         </CardHeader>
         <CardContent>
@@ -246,8 +246,8 @@ export function ExecutiveDashboard() {
                 {data.productForecast.map((row) => (
                   <TableRow key={row.family}>
                     <TableCell className="font-medium">{row.family}</TableCell>
-                    <TableCell className="text-right">{krw(row.forecast)}</TableCell>
-                    <TableCell className="text-right">{krw(row.weighted)}</TableCell>
+                    <TableCell className="text-right">{formatKRW(row.forecast)}</TableCell>
+                    <TableCell className="text-right">{formatKRW(row.weighted)}</TableCell>
                     <TableCell className="text-right">{row.deals}</TableCell>
                   </TableRow>
                 ))}

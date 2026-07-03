@@ -179,7 +179,7 @@ if [[ -n "$opp_id" ]]; then
   fi
 fi
 
-proposal_id=$(curl --connect-timeout 2 --max-time 5 -sf "${BASE_URL}/api/proposals" 2>/dev/null | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);console.log(j.documents?.[0]?.id||'');}catch{console.log('');}})" || true)
+proposal_id=$(curl --connect-timeout 2 --max-time 5 -sf "${BASE_URL}/api/proposals" 2>/dev/null | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);console.log(j.data?.documents?.[0]?.id||'');}catch{console.log('');}})" || true)
 if [[ -n "$proposal_id" ]]; then
   check_route "/proposals/${proposal_id}"
   check_route "/api/proposals/${proposal_id}"
@@ -196,7 +196,7 @@ if [[ -n "$module_key" ]]; then
     fail=1
   else
     echo "OK   POST /api/modules/${module_key}/validate -> ${validate_code}"
-    if ! node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('/tmp/module-validate.json','utf8'));if(typeof j.valid!=='boolean')process.exit(1);" 2>/dev/null; then
+    if ! node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('/tmp/module-validate.json','utf8'));if(typeof j.data?.valid!=='boolean')process.exit(1);" 2>/dev/null; then
       echo "FAIL POST /api/modules/${module_key}/validate payload check"
       fail=1
     fi
@@ -255,7 +255,7 @@ if [[ "$action_validate_code" == "000" || "$action_validate_code" =~ ^5 ]]; then
   fail=1
 else
   echo "OK   POST /api/actions/github.sync-pr/validate -> ${action_validate_code}"
-  if ! node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('/tmp/action-validate.json','utf8'));if(typeof j.valid!=='boolean')process.exit(1);" 2>/dev/null; then
+  if ! node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('/tmp/action-validate.json','utf8'));if(typeof j.data?.valid!=='boolean')process.exit(1);" 2>/dev/null; then
     echo "FAIL POST /api/actions/github.sync-pr/validate payload check"
     fail=1
   fi
@@ -290,7 +290,7 @@ automation_preview_post() {
     return
   fi
   echo "OK   POST ${route} (${label}) -> ${code}"
-  if ! node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(j.previewOnly!==true)process.exit(1);" "$output" 2>/dev/null; then
+  if ! node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(j.previewOnly!==true&&(!j.data||j.data.previewOnly!==true))process.exit(1);" "$output" 2>/dev/null; then
     echo "FAIL POST ${route} (${label}) previewOnly payload check"
     fail=1
   fi

@@ -1,6 +1,6 @@
 import { prisma } from "@sangfor/db";
 
-import { logStateTransition } from "./audit";
+import { logStateTransition } from "./governance/audit";
 import { createCodeChangeForRun } from "./dev-engine";
 
 /**

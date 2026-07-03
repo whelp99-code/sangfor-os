@@ -1,14 +1,16 @@
-import { NextResponse } from "next/server";
 import { getLlmSettingsStatus, saveLlmSettings } from "@sangfor/business";
-import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertApiAccess } from "@/lib/api-auth";
+import { createApiResponse, createApiErrorResponse } from "../../_lib/api-response";
+import { API_ERRORS } from "../../_lib/api-error";
 
 // Web-managed OpenAI-compatible LLM credentials (no OAuth for OpenAI APIs).
 // GET returns a masked status; the full key is never returned.
 export async function GET() {
   try {
-    return NextResponse.json(await getLlmSettingsStatus());
+    return createApiResponse(await getLlmSettingsStatus());
   } catch (error) {
-    return apiError("status_failed", error, { status: 500 });
+    console.error("[api] status_failed:", error instanceof Error ? error.stack ?? error.message : error);
+    return createApiErrorResponse(API_ERRORS.INTERNAL_ERROR());
   }
 }
 
@@ -22,8 +24,9 @@ export async function POST(request: Request) {
       baseUrl: typeof body.baseUrl === "string" ? body.baseUrl : undefined,
       model: typeof body.model === "string" ? body.model : undefined,
     });
-    return NextResponse.json({ success: true, ...(await getLlmSettingsStatus()) });
+    return createApiResponse(await getLlmSettingsStatus());
   } catch (error) {
-    return apiError("save_failed", error, { status: 400, extra: { success: false } });
+    console.error("[api] save_failed:", error instanceof Error ? error.stack ?? error.message : error);
+    return createApiErrorResponse(API_ERRORS.INTERNAL_ERROR());
   }
 }

@@ -1,7 +1,7 @@
 import { prisma } from "@sangfor/db";
 
-import { createWorkTask, linkTaskToEntity } from "./task-center";
-import { countUnifiedPortalTasks, listUnifiedPortalTasks } from "./task-adapter";
+import { createWorkTask, linkTaskToEntity } from "./orchestration/task-center";
+import { countUnifiedPortalTasks, listUnifiedPortalTasks } from "./orchestration/task-adapter";
 
 /**
  * Purpose: Phase 9 portal MVP — mock Outlook mail (real OAuth when OUTLOOK_* env set).

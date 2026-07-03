@@ -7,14 +7,14 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./opportunity-stage": "./src/opportunity-stage.ts",
+    "./opportunity-stage": "./src/crm/opportunity-stage.ts",
     "./openai-config": "./src/openai-config.ts",
     "./improvement-loop": "./src/improvement-loop.ts",
     "./module-runtime": "./src/module-runtime.ts",
     "./module-admin": "./src/module-admin.ts",
     "./action-connector-runtime": "./src/action-connector-runtime.ts",
     "./langfuse-observability": "./src/langfuse-observability.ts",
-    "./automation-preview": "./src/automation-preview.ts",
+    "./automation-preview": "./src/orchestration/automation-preview.ts",
     "./knowledge-search": "./src/knowledge-search.ts",
     "./mail-insight-threads": "./src/mail-insight-threads.ts",
     "./mail-policy-memory": "./src/mail-policy-memory.ts",
@@ -22,7 +22,11 @@
     "./mail-candidate-connections": "./src/mail-candidate-connections.ts",
     "./phase14": "./src/phase14/index.ts",
     "./skills": "./src/skills/index.ts",
-    "./deal-registration": "./src/deal-registration.ts"
+    "./deal-registration": "./src/crm/deal-registration.ts",
+    "./llm/config": "./src/platform/llm/config.ts",
+    "./role-dashboard": "./src/role-dashboard.ts",
+    "./cfo-client": "./src/cfo-client.ts",
+    "./outlook": "./src/mail/outlook/index.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",

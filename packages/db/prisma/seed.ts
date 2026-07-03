@@ -106,6 +106,8 @@ async function main() {
           name: "Demo Customer",
           status: "active",
           notes: "Synthetic W1-W2 demo customer. No private data.",
+          segment: "SMB",
+          riskScore: 0.3,
         },
       })
     : await prisma.customer.create({
@@ -115,6 +117,8 @@ async function main() {
           domain: "demo-customer.example.com",
           status: "active",
           notes: "Synthetic W1-W2 demo customer. No private data.",
+          segment: "SMB",
+          riskScore: 0.3,
         },
       });
 

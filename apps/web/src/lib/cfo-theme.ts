@@ -10,4 +10,4 @@ export const CFO = {
   brass: "#C8A24B", // signature accent — used with restraint
 } as const;
 
-export const krw = (n: number) => `₩${Math.round(n ?? 0).toLocaleString("ko-KR")}`;
+

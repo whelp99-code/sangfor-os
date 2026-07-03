@@ -1,19 +1,15 @@
-import { prisma } from "@sangfor/db";
-import {
-  buildDomainDashboardSnapshot,
-  createPrismaDomainStatsLoader,
-} from "@sangfor/business";
-import { NextResponse } from "next/server";
-import { apiError } from "@/lib/api-auth";
+import { extractDomainPipeline } from "@sangfor/business";
+import { createApiResponse, createApiErrorResponse } from "../_lib/api-response";
+import { API_ERRORS } from "../_lib/api-error";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const loader = createPrismaDomainStatsLoader(prisma as never, "demo-project");
-    const snapshot = await buildDomainDashboardSnapshot(loader);
-    return NextResponse.json(snapshot);
+    const snapshot = await extractDomainPipeline("demo-project");
+    return createApiResponse(snapshot);
   } catch (error) {
-    return apiError("domain_pipeline_failed", error, { status: 400 });
+    console.error("[api] domain_pipeline_failed:", error instanceof Error ? error.stack ?? error.message : error);
+    return createApiErrorResponse(API_ERRORS.INTERNAL_ERROR());
   }
 }

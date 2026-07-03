@@ -6,8 +6,8 @@
  * 운영 임베딩으로 바꾸려면 createHashEmbedder 대신 실제 Embedder 를 주입.
  */
 import { prisma } from "@sangfor/db";
-import { embeddingTextFor } from "../src/domain-embedder";
-import { resolveEmbedder, describeEmbedder } from "../src/domain-embedder-openai";
+import { embeddingTextFor } from "../src/domain-ai/domain-embedder";
+import { resolveEmbedder, describeEmbedder } from "../src/domain-ai/domain-embedder-openai";
 
 async function main() {
   const embed = resolveEmbedder({ dim: 256 });

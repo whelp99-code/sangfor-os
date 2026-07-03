@@ -652,6 +652,8 @@ model Customer {
   industry  String?
   status    String   @default("active")
   notes     String?
+  segment   String? @default("UNCLASSIFIED")           // expand phase (2026-07-03): customer segmentation
+  riskScore Float?  @default(0.5) @map("risk_score")   // expand phase (2026-07-03): risk assessment score (0-1)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -667,6 +669,7 @@ model Customer {
   supportCases         SupportCase[]
 
   @@index([projectId, name])
+  @@index([segment, riskScore])
   @@map("customers")
 }
 
@@ -917,6 +920,8 @@ model Opportunity {
   probability Int       @default(20)
   closeDate   DateTime? @map("close_date")
   nextAction  String?   @map("next_action")
+  stageEnteredAt      DateTime? @map("stage_entered_at")      // expand phase (2026-07-03): when current stage was entered
+  probabilityOverride Float?    @map("probability_override")  // expand phase (2026-07-03): manual win-probability override, null = no override
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
@@ -936,6 +941,8 @@ model Opportunity {
   @@index([projectId, stage])
   @@index([ownerId])
   @@index([dealStatus])
+  @@index([customerId, stage])
+  @@index([stage, stageEnteredAt])
   @@map("opportunities")
 }
 

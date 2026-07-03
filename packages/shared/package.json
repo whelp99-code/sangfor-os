@@ -20,6 +20,11 @@
       "types": "./src/modes.ts",
       "import": "./src/modes.ts",
       "default": "./src/modes.ts"
+    },
+    "./types/*": {
+      "types": "./types/*.ts",
+      "import": "./types/*.ts",
+      "default": "./types/*.ts"
     }
   },
   "scripts": {

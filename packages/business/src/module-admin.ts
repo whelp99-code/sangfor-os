@@ -1,7 +1,7 @@
 import { prisma } from "@sangfor/db";
 
-import { logStateTransition } from "./audit";
-import { recordAuditEvent } from "./audit-db";
+import { logStateTransition } from "./governance/audit";
+import { recordAuditEvent } from "./governance/audit-db";
 
 export async function setModuleRegistryStatus(input: {
   moduleKey: string;

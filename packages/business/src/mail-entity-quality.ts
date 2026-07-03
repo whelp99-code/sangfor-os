@@ -4,37 +4,13 @@
  * No IO, no DB — all functions are pure.
  */
 
+import { SELF_DOMAINS, FREE_MAIL_DOMAINS, SYSTEM_SENDER_DOMAINS, KNOWN_DOMAIN_MAP } from './mail-domain-registry';
+
 // ---------------------------------------------------------------------------
 // Domain blocklists
 // ---------------------------------------------------------------------------
 
-const SELF_DOMAINS = new Set([
-  'blro.co.kr',
-  'berlo.co.kr',
-  'sangfor.com',
-  'sangfor.co.kr',
-  'sangforsecurity.com',
-  'ai-portal.local',
-]);
-
 const MICROSOFT_DOMAINS = new Set(['microsoft.com']);
-
-const SYSTEM_DOMAINS = new Set(['bill36524.com']);
-
-const FREE_MAIL_DOMAINS = new Set([
-  'gmail.com',
-  'googlemail.com',
-  'naver.com',
-  'daum.net',
-  'hanmail.net',
-  'nate.com',
-  'kakao.com',
-  'outlook.com',
-  'hotmail.com',
-  'live.com',
-  'yahoo.com',
-  'icloud.com',
-]);
 
 const PLACEHOLDER_DOMAINS = new Set([
   'example.com',
@@ -43,14 +19,6 @@ const PLACEHOLDER_DOMAINS = new Set([
   'test.com',
   'localhost',
 ]);
-
-// Known domain -> company name map (takes priority over SLD derivation)
-const KNOWN_DOMAIN_MAP: Record<string, string> = {
-  'nexias.co.kr': '넥시아스',
-  'nexias.com': '넥시아스',
-  'gsitm.com': '지에스아이티엠',
-  'gsenc.com': 'GS E&C',
-};
 
 // ---------------------------------------------------------------------------
 // Vendor/SaaS deny-list
@@ -173,7 +141,7 @@ export function isBusinessEntityDomain(domain: string): boolean {
 
   if (isBlockedBySet(domain, SELF_DOMAINS)) return false;
   if (isBlockedBySet(domain, MICROSOFT_DOMAINS)) return false;
-  if (isBlockedBySet(domain, SYSTEM_DOMAINS)) return false;
+  if (isBlockedBySet(domain, SYSTEM_SENDER_DOMAINS)) return false;
   if (isBlockedBySet(domain, FREE_MAIL_DOMAINS)) return false;
   if (isBlockedBySet(domain, PLACEHOLDER_DOMAINS)) return false;
   if (isBlockedBySet(domain, VENDOR_SAAS_DOMAINS)) return false;

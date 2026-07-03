@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { proposalTemplateLabel } from "@/lib/proposal-template-labels";
+import { unwrapApiResponse } from "@/lib/api-client";
 
 type Option = { id: string; label: string };
 
@@ -49,13 +50,14 @@ export function GenerateProposalForm({
         variables,
       }),
     });
-    const data = await res.json();
+    const body = await res.json();
     setLoading(false);
     if (res.ok) {
-      router.push(`/proposals/${data.document.id}`);
+      const payload = unwrapApiResponse<{ document: { id: string } }>(body);
+      router.push(`/proposals/${payload.document.id}`);
       router.refresh();
     } else {
-      setMessage(data.error ?? "제안서 생성에 실패했습니다.");
+      setMessage(body.error?.message ?? "제안서 생성에 실패했습니다.");
     }
   }
 

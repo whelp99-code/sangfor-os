@@ -22,18 +22,6 @@ This note records the command paths that are available from this workspace when 
 - `cursor` is the editor launcher CLI here, not a code-generation agent interface.
 - If a workflow needs code generation, the implementation path is `opencode run ...` or `agent --print --trust --workspace <path> "<prompt>"`.
 
-## Repo Hooks
-
-| Script                                        | File                                              |
-| --------------------------------------------- | ------------------------------------------------- |
-| `pnpm collaboration:run`                      | `scripts/run-collaboration-contract.ts`           |
-| `pnpm collaboration:continue`                 | `scripts/continue-collaboration-queue.ts`         |
-| `pnpm collaboration:dispatch-cursor-agent`    | `scripts/dispatch-cursor-agent.ts`                |
-| `pnpm collaboration:dispatch-opencode`        | `scripts/dispatch-opencode-phase5.ts`             |
-| `pnpm collaboration:dispatch-opencode-phase6` | `scripts/dispatch-opencode-phase6.ts`             |
-| `pnpm collaboration:dispatch-opencode-fix`    | `scripts/dispatch-opencode-fix-directive.ts`      |
-| `pnpm collaboration:dispatch-opencode-phase7` | `scripts/dispatch-opencode-phase7-remediation.ts` |
-
 ## Environment Variables
 
 - `OPENCODE_COMMAND`: overrides the command used for opencode dispatch.

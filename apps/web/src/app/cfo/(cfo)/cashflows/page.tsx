@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import CrudTable from "@/components/cfo/crud-table";
 import { BankCsvImport } from "@/components/cfo/bank-csv-import";
-import { won } from "@/lib/format-krw";
+import { formatKRW } from "@sangfor/shared";
 
 const CASHFLOW_FIELDS = [
   { name: "counterparty", label: "거래처", type: "text" as const, required: true },
@@ -73,11 +73,11 @@ const CASHFLOW_COLUMNS = [
     label: "일자",
     format: (v: string) => (v ? new Date(v).toLocaleDateString("ko-KR") : "-"),
   },
-  { key: "amount", label: "금액", format: won },
+  { key: "amount", label: "금액", format: formatKRW },
   {
     key: "cashChange",
     label: "현금변동",
-    format: (v: number) => <span className={(v ?? 0) < 0 ? "text-red-600" : "text-green-600"}>{won(v)}</span>,
+    format: (v: number) => <span className={(v ?? 0) < 0 ? "text-red-600" : "text-green-600"}>{formatKRW(v)}</span>,
   },
   { key: "inAccount", label: "입금계좌", format: (v: string) => v || "-" },
   { key: "outAccount", label: "출금계좌", format: (v: string) => v || "-" },

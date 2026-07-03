@@ -56,6 +56,9 @@ export async function saveLlmSettings(input: LlmSettings): Promise<{ configured:
   return { configured: Boolean(next.apiKey) };
 }
 
+// FIXME: This file intentionally mutates process.env directly. Migrating to
+// LlmConfig/resolveLlmConfig is deferred (see §11-F) because changing the
+// hydration contract here would be a behaviour change, not a pure refactor.
 function applyToEnv(s: LlmSettings) {
   if (s.apiKey !== undefined) process.env.OPENAI_API_KEY = s.apiKey ?? "";
   if (s.baseUrl !== undefined) process.env.OPENAI_BASE_URL = s.baseUrl ?? "";

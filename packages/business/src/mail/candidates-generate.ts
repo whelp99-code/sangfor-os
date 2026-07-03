@@ -1,0 +1,648 @@
+import { prisma } from "@sangfor/db";
+import { z } from "zod";
+
+import { loadLlmConfigFromDb } from "../llm-settings";
+import {
+  MailPolicyLookup,
+  buildMailPolicyLookup,
+  resolveProjectId,
+  seedDefaultMailPolicyMemory,
+} from "../mail-policy-memory";
+
+import {
+  PolicyDecision,
+  ThreadLike,
+  asRecord,
+  asStringArray,
+  classifyMailCandidateDocument,
+  classifyMailInsightThread,
+  domainFromEmail,
+  extractThreadMessages,
+  isInternalCompanyName,
+  isInternalDomain,
+  isKnownPartner,
+  isKnownPartnerDomain,
+  isProjectCandidateType,
+  isSystemSenderDomain,
+  matchedPolicyMemories,
+  toInputJson,
+} from "./classify-rules";
+import { classifyMailInsightThreadHybrid, revalidateMailDerivedCandidate } from "./classify-ai";
+import { listMailDerivedCandidates } from "./candidates-update";
+import { recordPolicyDecision } from "./policy-decision-log";
+
+const generateMailCandidatesSchema = z.object({
+  projectSlug: z.string().default("demo-project"),
+  limit: z.number().int().min(1).max(2_000).default(50),
+  legacyKnowledgeFallback: z.boolean().default(false),
+});
+
+function sourceSenderFromThread(thread: ThreadLike) {
+  const message = extractThreadMessages(thread)[0];
+  return String(message?.fromName ?? message?.from ?? thread.participantDomains[0] ?? "mail thread");
+}
+
+function candidateLooksPolicyExcluded(
+  candidate: {
+    candidateType: string;
+    title: string;
+    summary: string;
+    sourceSender: string | null;
+    metadata: unknown;
+  },
+  policy: MailPolicyLookup,
+) {
+  if (candidate.candidateType !== "customer" && candidate.candidateType !== "partner") return null;
+  const metadata = asRecord(candidate.metadata);
+  const emailStr = String(metadata.email ?? metadata.sourceSender ?? candidate.sourceSender ?? "").toLowerCase();
+  const participantDomains = asStringArray(metadata.participantDomains);
+  const isVendor = emailStr.includes("tech.support@sangfor.com") ||
+                   participantDomains.some(d => d.toLowerCase().includes("tech.support@sangfor.com"));
+  if (isVendor) {
+    return null;
+  }
+  const entityName = candidate.title.replace(/^(Customer|Partner):\s*/i, "").trim();
+  const mailIntelligence = asRecord(metadata.mailIntelligence);
+  const candidateText = `${candidate.title}\n${candidate.summary}\n${String(mailIntelligence.summary ?? "")}`.toLowerCase();
+  const explicitBusinessSignal = /고객사|견적\s*요청|계약\s*조건|검증\s*요청|quote\s+request|please\s+send\s+(a\s+)?quote|proposal\s+request/i.test(candidateText);
+  const promotionalSignal = /\b(unsubscribe|newsletter|promo|promotion|marketing)\b|뉴스레터|홍보/.test(candidateText);
+  const autopilotMarketing =
+    /\bautopilot\b/.test(candidateText) &&
+    /\bcrew\b|wallet|\$\d|shipped/.test(candidateText);
+  if ((promotionalSignal || autopilotMarketing) && !explicitBusinessSignal) {
+    return {
+      decision: "exclude",
+      entityRole: "unknown",
+      reason: "promotional or newsletter candidate is not a customer or partner candidate",
+      candidateName: entityName,
+      matchedPolicyMemories: [],
+      participantDomains: asStringArray(metadata.participantDomains),
+    } satisfies PolicyDecision;
+  }
+  const email = String(metadata.email ?? metadata.sourceSender ?? candidate.sourceSender ?? "");
+  const externalParticipantDomains = participantDomains.filter(
+    (item) => !isInternalDomain(item, policy) && !isSystemSenderDomain(item, policy),
+  );
+  const domain =
+    domainFromEmail(email) ??
+    domainFromEmail(candidate.sourceSender) ??
+    participantDomains.find((item) => isSystemSenderDomain(item, policy)) ??
+    externalParticipantDomains[0] ??
+    participantDomains.find((item) => isInternalDomain(item, policy)) ??
+    participantDomains[0];
+  if (isInternalCompanyName(entityName, policy)) {
+    return {
+      decision: "exclude",
+      entityRole: "internal_company",
+      reason: "existing candidate title matches internal company policy",
+      candidateName: entityName,
+      matchedPolicyMemories: matchedPolicyMemories(policy, [
+        { memoryType: "internal_company_name", key: entityName },
+      ]),
+      participantDomains: domain ? [domain] : [],
+    } satisfies PolicyDecision;
+  }
+  if (isInternalDomain(domain, policy) && externalParticipantDomains.length === 0) {
+    return {
+      decision: "exclude",
+      entityRole: "internal_company",
+      reason: "existing candidate sender domain matches internal policy",
+      candidateName: entityName,
+      matchedPolicyMemories: matchedPolicyMemories(policy, [{ memoryType: "internal_domain", key: domain ?? "" }]),
+      participantDomains: domain ? [domain] : [],
+    } satisfies PolicyDecision;
+  }
+  if (isSystemSenderDomain(domain, policy)) {
+    return {
+      decision: "exclude",
+      entityRole: "system_sender",
+      reason: "existing candidate sender domain is a system sender",
+      candidateName: entityName,
+      matchedPolicyMemories: matchedPolicyMemories(policy, [
+        { memoryType: "system_sender_domain", key: domain ?? "" },
+      ]),
+      participantDomains: domain ? [domain] : [],
+    } satisfies PolicyDecision;
+  }
+  return null;
+}
+
+async function suppressPolicyExcludedCandidates(projectId: string, policy: MailPolicyLookup) {
+  const candidates = await prisma.mailDerivedCandidate.findMany({
+    where: {
+      status: { in: ["proposed", "needs_revalidation"] },
+      candidateType: { in: ["customer", "partner"] },
+    },
+    select: {
+      id: true,
+      candidateType: true,
+      title: true,
+      summary: true,
+      sourceSender: true,
+      metadata: true,
+    },
+  });
+  let suppressed = 0;
+  for (const candidate of candidates) {
+    const policyDecision = candidateLooksPolicyExcluded(candidate, policy);
+    if (!policyDecision) continue;
+    await prisma.mailDerivedCandidate.update({
+      where: { id: candidate.id },
+      data: {
+        status: "knowledge_only",
+        metadata: toInputJson({
+          ...asRecord(candidate.metadata),
+          policyDecision,
+          suppressedAt: new Date().toISOString(),
+        }),
+      },
+    });
+    await recordPolicyDecision(projectId, {
+      entityType: "mail_derived_candidate",
+      entityId: candidate.id,
+      decisionType: "candidate_suppressed",
+      inputJson: toInputJson({ title: candidate.title, candidateType: candidate.candidateType }),
+      outputJson: toInputJson(policyDecision),
+    });
+    suppressed += 1;
+  }
+  return suppressed;
+}
+
+function projectCandidateLooksWeak(candidate: {
+  candidateType: string;
+  title: string;
+  summary: string;
+  metadata: unknown;
+}) {
+  if (!isProjectCandidateType(candidate.candidateType)) return null;
+  const metadata = asRecord(candidate.metadata);
+  const revalidation = asRecord(metadata.aiRevalidation);
+  const riskFlags = asStringArray(revalidation.riskFlags).join(" ").toLowerCase();
+  const reasoning = String(revalidation.reasoningSummary ?? "").toLowerCase();
+  const text = `${candidate.title}\n${candidate.summary}\n${riskFlags}\n${reasoning}`.toLowerCase();
+  const marketingRisk =
+    /external_marketing|marketing content|newsletter|promo|no actual customer|마케팅|홍보/.test(text);
+  const autopilotFalsePoc =
+    /\bautopilot\b/.test(text) &&
+    candidate.candidateType === "poc" &&
+    !/proof of concept|고객사.*검증|검증\s*요청/.test(text);
+  const autopilotMarketing =
+    /\bautopilot\b/.test(text) &&
+    /\bcrew\b|wallet|\$\d|shipped/.test(text) &&
+    !/고객사|견적\s*요청|계약\s*조건|검증\s*요청|quote\s+request/.test(text);
+  if (!marketingRisk && !autopilotFalsePoc && !autopilotMarketing) return null;
+  return {
+    decision: "exclude",
+    entityRole: "unknown",
+    reason: marketingRisk
+      ? "AI revalidation identified marketing/newsletter content"
+      : autopilotMarketing
+        ? "Autopilot marketing content is not actionable AIOS project work"
+        : "pilot keyword matched inside Autopilot, not a PoC signal",
+    matchedPolicyMemories: [],
+    participantDomains: asStringArray(metadata.participantDomains),
+  } satisfies PolicyDecision;
+}
+
+async function suppressWeakProjectCandidates(projectId: string) {
+  const candidates = await prisma.mailDerivedCandidate.findMany({
+    where: {
+      status: "proposed",
+      candidateType: { in: ["task", "opportunity", "poc"] },
+    },
+    select: {
+      id: true,
+      candidateType: true,
+      title: true,
+      summary: true,
+      metadata: true,
+    },
+  });
+  let suppressed = 0;
+  for (const candidate of candidates) {
+    const policyDecision = projectCandidateLooksWeak(candidate);
+    if (!policyDecision) continue;
+    await prisma.mailDerivedCandidate.update({
+      where: { id: candidate.id },
+      data: {
+        status: "knowledge_only",
+        metadata: toInputJson({
+          ...asRecord(candidate.metadata),
+          policyDecision,
+          suppressedAt: new Date().toISOString(),
+        }),
+      },
+    });
+    await recordPolicyDecision(projectId, {
+      entityType: "mail_derived_candidate",
+      entityId: candidate.id,
+      decisionType: "project_candidate_suppressed",
+      inputJson: toInputJson({ title: candidate.title, candidateType: candidate.candidateType }),
+      outputJson: toInputJson(policyDecision),
+    });
+    suppressed += 1;
+  }
+  return suppressed;
+}
+
+async function restoreKnownPartnerCandidates(projectId: string, policy: MailPolicyLookup) {
+  const candidates = await prisma.mailDerivedCandidate.findMany({
+    where: { status: "knowledge_only", candidateType: "partner" },
+    select: {
+      id: true,
+      title: true,
+      metadata: true,
+    },
+  });
+  let restored = 0;
+  for (const candidate of candidates) {
+    const name = candidate.title.replace(/^Partner:\s*/i, "");
+    const metadata = asRecord(candidate.metadata);
+    const participantDomains = asStringArray(metadata.participantDomains);
+    const isKnown =
+      isKnownPartner(name, policy) ||
+      participantDomains.some((domain) => isKnownPartnerDomain(domain, policy));
+    if (!isKnown) continue;
+    await prisma.mailDerivedCandidate.update({
+      where: { id: candidate.id },
+      data: {
+        status: "proposed",
+        metadata: toInputJson({
+          ...metadata,
+          restoredAt: new Date().toISOString(),
+          restoreReason: "known_partner_policy_match",
+        }),
+      },
+    });
+    await recordPolicyDecision(projectId, {
+      entityType: "mail_derived_candidate",
+      entityId: candidate.id,
+      decisionType: "candidate_restored",
+      inputJson: toInputJson({ title: candidate.title, status: "knowledge_only" }),
+      outputJson: toInputJson({ status: "proposed", reason: "known_partner_policy_match" }),
+    });
+    restored += 1;
+  }
+  return restored;
+}
+
+async function generateLegacyKnowledgeCandidates(
+  projectId: string,
+  limit: number,
+  policy: MailPolicyLookup,
+) {
+  const documents = await prisma.knowledgeDocument.findMany({
+    where: { projectId, source: "mail-intelligence" },
+    orderBy: { updatedAt: "desc" },
+    take: limit,
+    select: { id: true, title: true, body: true, tags: true },
+  });
+  let created = 0;
+  let skipped = 0;
+  for (const document of documents) {
+    const classified = classifyMailCandidateDocument(document, policy);
+    for (const candidate of classified.candidates) {
+      const existing = await prisma.mailDerivedCandidate.findUnique({
+        where: {
+          knowledgeDocumentId_candidateType: {
+            knowledgeDocumentId: document.id,
+            candidateType: candidate.candidateType,
+          },
+        },
+      });
+      if (existing) {
+        skipped += 1;
+        continue;
+      }
+
+      await prisma.mailDerivedCandidate.create({
+        data: {
+          knowledgeDocumentId: document.id,
+          candidateType: candidate.candidateType,
+          title: candidate.title,
+          summary: candidate.summary,
+          sourceTitle: document.title,
+          sourceSender: classified.header.from ?? classified.header.email,
+          sourceReceivedAt: classified.header.receivedAt,
+          confidence: candidate.confidence,
+          status: isProjectCandidateType(candidate.candidateType) ? "needs_revalidation" : "proposed",
+          metadata: toInputJson({
+            messageId: classified.header.messageId,
+            email: classified.header.email,
+            attachments: classified.header.attachments ?? [],
+            tags: document.tags,
+            matchedKeywords: candidate.matchedKeywords,
+            sourcePolicy:
+              candidate.candidateType === "customer" || candidate.candidateType === "partner"
+                ? "auto_candidate_final_approval"
+                : "requires_ai_revalidation_before_approval",
+            legacyKnowledgeFallback: true,
+          }),
+        },
+      });
+      created += 1;
+    }
+  }
+  return { created, skipped };
+}
+
+export async function generateMailDerivedCandidates(
+  input: z.input<typeof generateMailCandidatesSchema> = {},
+) {
+  const parsed = generateMailCandidatesSchema.parse(input);
+  await loadLlmConfigFromDb(); // pick up web-saved OpenAI key for AI revalidation
+  await seedDefaultMailPolicyMemory(parsed.projectSlug);
+  const projectId = await resolveProjectId(parsed.projectSlug);
+  const policy = await buildMailPolicyLookup(parsed.projectSlug);
+  const suppressed =
+    (await suppressPolicyExcludedCandidates(projectId, policy)) +
+    (await suppressWeakProjectCandidates(projectId));
+  const restored = await restoreKnownPartnerCandidates(projectId, policy);
+  const threads = await prisma.mailInsightThread.findMany({
+    where: { projectId },
+    orderBy: [{ latestReceivedAt: "desc" }, { updatedAt: "desc" }],
+    take: parsed.limit,
+  });
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const thread of threads) {
+    const classified = classifyMailInsightThread(thread, policy);
+    for (const excluded of classified.excluded) {
+      await recordPolicyDecision(projectId, {
+        entityType: "mail_insight_thread",
+        entityId: thread.id,
+        decisionType: "candidate_excluded",
+        inputJson: toInputJson({
+          threadKey: thread.threadKey,
+          threadTitle: thread.threadTitle,
+        }),
+        outputJson: toInputJson(excluded),
+      });
+    }
+
+    for (const candidate of classified.candidates) {
+      const existing = await prisma.mailDerivedCandidate.findFirst({
+        where: {
+          candidateType: candidate.candidateType,
+          OR: [
+            { mailInsightThreadId: thread.id },
+            ...(thread.knowledgeDocumentId ? [{ knowledgeDocumentId: thread.knowledgeDocumentId }] : []),
+          ],
+        },
+      });
+      if (existing) {
+        if (!existing.mailInsightThreadId) {
+          await prisma.mailDerivedCandidate.update({
+            where: { id: existing.id },
+            data: {
+              mailInsightThreadId: thread.id,
+              metadata: toInputJson({
+                ...asRecord(existing.metadata),
+                threadInsightId: thread.id,
+                threadKey: thread.threadKey,
+                mailIntelligence: candidate.mailIntelligence,
+                policyDecision: candidate.policyDecision,
+              }),
+            },
+          });
+        }
+        skipped += 1;
+        continue;
+      }
+
+      const createdCandidate = await prisma.mailDerivedCandidate.create({
+        data: {
+          knowledgeDocumentId: thread.knowledgeDocumentId,
+          mailInsightThreadId: thread.id,
+          candidateType: candidate.candidateType,
+          title: candidate.title,
+          summary: candidate.summary,
+          sourceTitle: thread.threadTitle,
+          sourceSender: sourceSenderFromThread(thread),
+          sourceReceivedAt: thread.latestReceivedAt,
+          confidence: candidate.confidence,
+          status: isProjectCandidateType(candidate.candidateType) ? "needs_revalidation" : "proposed",
+          metadata: toInputJson({
+            threadInsightId: thread.id,
+            threadKey: thread.threadKey,
+            sourceMessageIds: candidate.sourceMessageIds ?? asStringArray(thread.messageIds),
+            messageId: candidate.sourceMessageIds?.[0] ?? asStringArray(thread.messageIds)[0],
+            participantDomains: thread.participantDomains,
+            revenueOpsTags: thread.revenueOpsTags,
+            matchedKeywords: candidate.matchedKeywords,
+            evidenceItems: candidate.evidenceItems ?? [],
+            nextActions: candidate.nextActions ?? [],
+            mailIntelligence: candidate.mailIntelligence,
+            policyDecision: candidate.policyDecision,
+            confidenceBreakdown: candidate.confidenceBreakdown,
+            sourcePolicy:
+              candidate.candidateType === "customer" || candidate.candidateType === "partner"
+                ? "auto_candidate_final_approval"
+                : "requires_ai_revalidation_before_approval",
+          }),
+        },
+      });
+      await recordPolicyDecision(projectId, {
+        entityType: "mail_derived_candidate",
+        entityId: createdCandidate.id,
+        decisionType: "candidate_created",
+        inputJson: toInputJson({
+          threadId: thread.id,
+          threadKey: thread.threadKey,
+          candidateType: candidate.candidateType,
+        }),
+        outputJson: toInputJson({
+          title: candidate.title,
+          confidence: candidate.confidence,
+          policyDecision: candidate.policyDecision,
+        }),
+      });
+      created += 1;
+    }
+  }
+
+  if (parsed.legacyKnowledgeFallback || process.env.MAIL_CANDIDATES_LEGACY_KNOWLEDGE_FALLBACK === "1") {
+    const legacy = await generateLegacyKnowledgeCandidates(projectId, parsed.limit, policy);
+    created += legacy.created;
+    skipped += legacy.skipped;
+  }
+
+  const projectCandidates = await prisma.mailDerivedCandidate.findMany({
+    where: { status: "needs_revalidation" },
+    orderBy: { createdAt: "desc" },
+    take: parsed.limit,
+  });
+  for (const candidate of projectCandidates) {
+    await revalidateMailDerivedCandidate(candidate.id);
+  }
+
+  const candidates = await listMailDerivedCandidates({
+    limit: Math.min(Math.max(created, 20), 2_000),
+  });
+  return { created, skipped, scanned: threads.length, suppressed, restored, candidates };
+}
+
+/**
+ * 하이브리드 AI 분류를 사용하는 메일 후보 생성
+ * 정책 기반 분류 + AI 분류를 통합하여 더 정확한 분류 결과 제공
+ */
+export async function generateMailDerivedCandidatesHybrid(
+  input: z.input<typeof generateMailCandidatesSchema> = {},
+) {
+  const parsed = generateMailCandidatesSchema.parse(input);
+  await seedDefaultMailPolicyMemory(parsed.projectSlug);
+  const projectId = await resolveProjectId(parsed.projectSlug);
+  const policy = await buildMailPolicyLookup(parsed.projectSlug);
+  const suppressed =
+    (await suppressPolicyExcludedCandidates(projectId, policy)) +
+    (await suppressWeakProjectCandidates(projectId));
+  const restored = await restoreKnownPartnerCandidates(projectId, policy);
+  const threads = await prisma.mailInsightThread.findMany({
+    where: { projectId },
+    orderBy: [{ latestReceivedAt: "desc" }, { updatedAt: "desc" }],
+    take: parsed.limit,
+  });
+
+  let created = 0;
+  let skipped = 0;
+  let aiClassified = 0;
+
+  for (const thread of threads) {
+    // 하이브리드 분류 사용 (정책 + AI)
+    const classified = await classifyMailInsightThreadHybrid(thread, policy);
+
+    if (classified.aiClassification) {
+      aiClassified++;
+    }
+
+    for (const excluded of classified.excluded) {
+      await recordPolicyDecision(projectId, {
+        entityType: "mail_insight_thread",
+        entityId: thread.id,
+        decisionType: "candidate_excluded",
+        inputJson: toInputJson({
+          threadKey: thread.threadKey,
+          threadTitle: thread.threadTitle,
+        }),
+        outputJson: toInputJson(excluded),
+      });
+    }
+
+    for (const candidate of classified.candidates) {
+      const existing = await prisma.mailDerivedCandidate.findFirst({
+        where: {
+          candidateType: candidate.candidateType,
+          OR: [
+            { mailInsightThreadId: thread.id },
+            ...(thread.knowledgeDocumentId ? [{ knowledgeDocumentId: thread.knowledgeDocumentId }] : []),
+          ],
+        },
+      });
+      if (existing) {
+        if (!existing.mailInsightThreadId) {
+          await prisma.mailDerivedCandidate.update({
+            where: { id: existing.id },
+            data: {
+              mailInsightThreadId: thread.id,
+              metadata: toInputJson({
+                ...asRecord(existing.metadata),
+                threadInsightId: thread.id,
+                threadKey: thread.threadKey,
+                mailIntelligence: candidate.mailIntelligence,
+                policyDecision: candidate.policyDecision,
+                aiClassification: (candidate as Record<string, unknown>).aiClassification,
+              }),
+            },
+          });
+        }
+        skipped += 1;
+        continue;
+      }
+
+      const createdCandidate = await prisma.mailDerivedCandidate.create({
+        data: {
+          knowledgeDocumentId: thread.knowledgeDocumentId,
+          mailInsightThreadId: thread.id,
+          candidateType: candidate.candidateType,
+          title: candidate.title,
+          summary: candidate.summary,
+          sourceTitle: thread.threadTitle,
+          sourceSender: sourceSenderFromThread(thread),
+          sourceReceivedAt: thread.latestReceivedAt,
+          confidence: candidate.confidence,
+          status: isProjectCandidateType(candidate.candidateType) ? "needs_revalidation" : "proposed",
+          metadata: toInputJson({
+            threadInsightId: thread.id,
+            threadKey: thread.threadKey,
+            sourceMessageIds: candidate.sourceMessageIds ?? asStringArray(thread.messageIds),
+            messageId: candidate.sourceMessageIds?.[0] ?? asStringArray(thread.messageIds)[0],
+            participantDomains: thread.participantDomains,
+            revenueOpsTags: thread.revenueOpsTags,
+            matchedKeywords: candidate.matchedKeywords,
+            evidenceItems: candidate.evidenceItems ?? [],
+            nextActions: candidate.nextActions ?? [],
+            mailIntelligence: candidate.mailIntelligence,
+            policyDecision: candidate.policyDecision,
+            confidenceBreakdown: candidate.confidenceBreakdown,
+            aiClassification: (candidate as Record<string, unknown>).aiClassification,
+            sourcePolicy:
+              candidate.candidateType === "customer" || candidate.candidateType === "partner"
+                ? "auto_candidate_final_approval"
+                : "requires_ai_revalidation_before_approval",
+            classificationMethod: "hybrid",
+          }),
+        },
+      });
+      await recordPolicyDecision(projectId, {
+        entityType: "mail_derived_candidate",
+        entityId: createdCandidate.id,
+        decisionType: "candidate_created",
+        inputJson: toInputJson({
+          threadId: thread.id,
+          threadKey: thread.threadKey,
+          candidateType: candidate.candidateType,
+          classificationMethod: "hybrid",
+        }),
+        outputJson: toInputJson({
+          title: candidate.title,
+          confidence: candidate.confidence,
+          policyDecision: candidate.policyDecision,
+          aiClassification: (candidate as Record<string, unknown>).aiClassification,
+        }),
+      });
+      created += 1;
+    }
+  }
+
+  if (parsed.legacyKnowledgeFallback || process.env.MAIL_CANDIDATES_LEGACY_KNOWLEDGE_FALLBACK === "1") {
+    const legacy = await generateLegacyKnowledgeCandidates(projectId, parsed.limit, policy);
+    created += legacy.created;
+    skipped += legacy.skipped;
+  }
+
+  const projectCandidates = await prisma.mailDerivedCandidate.findMany({
+    where: { status: "needs_revalidation" },
+    orderBy: { createdAt: "desc" },
+    take: parsed.limit,
+  });
+  for (const candidate of projectCandidates) {
+    await revalidateMailDerivedCandidate(candidate.id);
+  }
+
+  const candidates = await listMailDerivedCandidates({
+    limit: Math.min(Math.max(created, 20), 2_000),
+  });
+  return {
+    created,
+    skipped,
+    scanned: threads.length,
+    suppressed,
+    restored,
+    aiClassified,
+    classificationMethod: "hybrid",
+    candidates,
+  };
+}

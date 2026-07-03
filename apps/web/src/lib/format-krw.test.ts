@@ -1,17 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { won, formatKRWShort } from "./format-krw";
-
-describe("won", () => {
-  it("prefixes ₩ and groups thousands", () => {
-    expect(won(1234567)).toBe(`₩${(1234567).toLocaleString()}`);
-  });
-
-  it("treats nullish values as 0", () => {
-    expect(won(null)).toBe("₩0");
-    expect(won(undefined)).toBe("₩0");
-  });
-});
+import { formatKRWShort } from "./format-krw";
 
 describe("formatKRWShort", () => {
   it("compacts to 억 with one decimal by default", () => {

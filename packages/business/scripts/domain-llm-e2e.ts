@@ -5,8 +5,8 @@
  * 실행: npx tsx packages/business/scripts/domain-llm-e2e.ts
  */
 import { prisma } from "@sangfor/db";
-import { runDomainPipeline, type DomainCase } from "../src/domain-agent-runtime";
-import { createOpencodeDomainGenerator } from "../src/domain-llm";
+import { runDomainPipeline, type DomainCase } from "../src/domain-ai/domain-agent-runtime";
+import { createOpencodeDomainGenerator } from "../src/domain-ai/domain-llm";
 import { opencodeHealth } from "../src/opencode-client";
 
 const SLUG = "demo-project";

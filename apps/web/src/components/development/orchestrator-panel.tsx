@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { AutomationPreviewCards } from "@/components/automation/automation-preview-cards";
 import { ContextPackSummaryCard } from "@/components/phase13/context-pack-summary-card";
 import { actionErrorMessage } from "@/lib/action-error-labels";
+import { unwrapApiResponse } from "@/lib/api-client";
 
 type SkillRun = {
   id: string;
@@ -121,9 +122,9 @@ export function OrchestratorPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rawText: inputSummary }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "preview_failed");
-      setPreviewResult(data);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error?.message ?? "preview_failed");
+      setPreviewResult(unwrapApiResponse<PreviewResult>(body));
     } catch (err) {
       setError(actionErrorMessage(err instanceof Error ? err.message : "preview_failed"));
     } finally {

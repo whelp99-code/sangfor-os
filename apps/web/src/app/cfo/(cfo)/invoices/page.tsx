@@ -4,7 +4,7 @@ import CrudTable from "@/components/cfo/crud-table";
 import { useProjectOptions } from "@/components/cfo/use-project-options";
 import { CfoPageHeading } from "@/components/cfo/page-heading";
 import { CFO } from "@/lib/cfo-theme";
-import { won } from "@/lib/format-krw";
+import { formatKRW } from "@sangfor/shared";
 
 // Single source of truth for deposit-status display labels so the edit form,
 // table cell, and filter all read identically (previously the cell showed the
@@ -41,9 +41,9 @@ const INVOICE_COLUMNS = [
   { key: "project", label: "프로젝트", format: (_: unknown, row: { project?: { name?: string } }) => row.project?.name ?? "-" },
   { key: "issueDate", label: "일자", format: (v: string) => (v ? new Date(v).toLocaleDateString("ko-KR") : "-") },
   { key: "buyer", label: "거래처" },
-  { key: "amount", label: "공급가액", format: won },
-  { key: "vat", label: "VAT", format: won },
-  { key: "total", label: "합계", format: won },
+  { key: "amount", label: "공급가액", format: formatKRW },
+  { key: "vat", label: "VAT", format: formatKRW },
+  { key: "total", label: "합계", format: formatKRW },
   {
     key: "depositStatus",
     label: "입금상태",
@@ -64,7 +64,7 @@ const INVOICE_COLUMNS = [
     label: "입금일",
     format: (v: string) => (v ? new Date(v).toLocaleDateString("ko-KR") : "-"),
   },
-  { key: "depositAmount", label: "입금액", format: won },
+  { key: "depositAmount", label: "입금액", format: formatKRW },
   { key: "memo", label: "메모", format: (v: string) => v || "-" },
 ];
 

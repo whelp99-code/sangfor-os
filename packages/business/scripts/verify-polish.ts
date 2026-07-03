@@ -3,9 +3,9 @@
  * 실행: npx tsx packages/business/scripts/verify-polish.ts
  */
 import { prisma } from "@sangfor/db";
-import { loadModelPolicyFromDb, buildGatedModelMap, DOMAIN_DATA_CLASS } from "../src/domain-model-policy";
-import { buildDomainDashboardSnapshot, createPrismaDomainStatsLoader } from "../src/domain-dashboard";
-import { describeEmbedder } from "../src/domain-embedder-openai";
+import { loadModelPolicyFromDb, buildGatedModelMap, DOMAIN_DATA_CLASS } from "../src/domain-ai/domain-model-policy";
+import { buildDomainDashboardSnapshot, createPrismaDomainStatsLoader } from "../src/domain-ai/domain-dashboard";
+import { describeEmbedder } from "../src/domain-ai/domain-embedder-openai";
 
 async function main() {
   console.log("=== ② AiModel 레지스트리 게이팅 (실 DB) ===");

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { syncCalendarMeetings } from '@/lib/outlook-graph'
+import { syncCalendarMeetings } from '@/lib/outlook'
 import { apiError, assertApiAccess } from '@/lib/api-auth'
 
 // P7 #5: pull Outlook calendar meetings and attach them to opportunities matched

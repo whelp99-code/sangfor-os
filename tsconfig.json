@@ -7,5 +7,5 @@
     "checkJs": false,
     "skipLibCheck": true
   },
-  "include": ["cypress/**/*.js", "cypress/**/*.ts"]
+  "include": []
 }

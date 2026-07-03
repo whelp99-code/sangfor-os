@@ -281,7 +281,7 @@ async function verifyModulesAndGuardrails() {
     record(
       "Modules runtime",
       `validate ${key}`,
-      typeof v.json?.valid === "boolean" ? "PASS" : "FAIL",
+      typeof v.json?.data?.valid === "boolean" ? "PASS" : "FAIL",
       `HTTP ${v.status}`,
     );
   }

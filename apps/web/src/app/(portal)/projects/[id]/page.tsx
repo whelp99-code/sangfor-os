@@ -7,7 +7,7 @@ import { LaneDecisionControls } from "@/components/hub/lane-decision-controls";
 import { LaneGenerateButton } from "@/components/hub/lane-generate-button";
 import { CreateTaskForm } from "@/components/tasks/create-task-form";
 import { TaskBoard } from "@/components/tasks/task-board";
-import { won } from "@/lib/format-krw";
+import { formatKRW } from "@sangfor/shared";
 
 type PageProps = { params: Promise<{ id: string }> };
 const DOMAIN_LABEL: Record<string, string> = { marketing: "마케팅", sales: "세일즈", presales: "프리세일즈", engineer: "엔지니어", cfo: "CFO" };
@@ -42,10 +42,10 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         <CardHeader><CardTitle>딜 손익</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-4 gap-4 tabular-nums">
-            <div><div className="text-xs text-muted-foreground">매출</div><div style={{ color: CFO.inflow }}>{won(pnl.revenue)}</div></div>
-            <div><div className="text-xs text-muted-foreground">매입</div><div style={{ color: CFO.outflow }}>{won(pnl.purchase)}</div></div>
-            <div><div className="text-xs text-muted-foreground">비용</div><div style={{ color: CFO.outflow }}>{won(pnl.expense)}</div></div>
-            <div><div className="text-xs text-muted-foreground">마진</div><div style={{ color: pnl.margin >= 0 ? CFO.inflow : CFO.outflow }}>{won(pnl.margin)} ({pnl.marginPct}%)</div></div>
+            <div><div className="text-xs text-muted-foreground">매출</div><div style={{ color: CFO.inflow }}>{formatKRW(pnl.revenue)}</div></div>
+            <div><div className="text-xs text-muted-foreground">매입</div><div style={{ color: CFO.outflow }}>{formatKRW(pnl.purchase)}</div></div>
+            <div><div className="text-xs text-muted-foreground">비용</div><div style={{ color: CFO.outflow }}>{formatKRW(pnl.expense)}</div></div>
+            <div><div className="text-xs text-muted-foreground">마진</div><div style={{ color: pnl.margin >= 0 ? CFO.inflow : CFO.outflow }}>{formatKRW(pnl.margin)} ({pnl.marginPct}%)</div></div>
           </div>
         </CardContent>
       </Card>

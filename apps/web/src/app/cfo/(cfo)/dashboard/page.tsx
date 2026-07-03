@@ -1,5 +1,7 @@
 import { cfoFetch } from "@/lib/cfo-client";
-import { CFO, krw } from "@/lib/cfo-theme";
+import { formatKRW } from "@sangfor/shared";
+import { CFO } from "@/lib/cfo-theme";
+
 import { CashflowForecastChart, MonthlyPnlChart } from "@/components/cfo/dashboard-charts";
 import { RunwayGauge } from "@/components/cfo/runway-gauge";
 
@@ -135,12 +137,12 @@ export default async function DashboardPage() {
 
       {/* Ledger KPI strip — hairline-divided, monospaced figures */}
       <section className="grid grid-cols-2 gap-px overflow-hidden rounded-xl md:grid-cols-3 lg:grid-cols-6" style={{ background: CFO.hairline }}>
-        <LedgerCell label="미수금 잔액" value={krw(kpi.outstandingAmount)} note={`${kpi.outstandingCount}건 미회수`} tone="outflow" />
-        <LedgerCell label="누적매출 12M" value={krw(ytdRevenue)} note="입금 기준" tone="inflow" />
-        <LedgerCell label="누적순이익 12M" value={krw(ytdNet)} note={`비용 ${krw(ytdExpense)}`} tone={ytdNet >= 0 ? "inflow" : "outflow"} />
-        <LedgerCell label="이번 달 매출" value={krw(kpi.totalRevenue)} note={`${month}월`} />
-        <LedgerCell label="예상 부가세" value={krw(kpi.estimatedVat)} note="매입 VAT 기준" />
-        <LedgerCell label="월 구독비" value={krw(kpi.monthlySubscription)} note="정기 결제" />
+        <LedgerCell label="미수금 잔액" value={formatKRW(kpi.outstandingAmount)} note={`${kpi.outstandingCount}건 미회수`} tone="outflow" />
+        <LedgerCell label="누적매출 12M" value={formatKRW(ytdRevenue)} note="입금 기준" tone="inflow" />
+        <LedgerCell label="누적순이익 12M" value={formatKRW(ytdNet)} note={`비용 ${formatKRW(ytdExpense)}`} tone={ytdNet >= 0 ? "inflow" : "outflow"} />
+        <LedgerCell label="이번 달 매출" value={formatKRW(kpi.totalRevenue)} note={`${month}월`} />
+        <LedgerCell label="예상 부가세" value={formatKRW(kpi.estimatedVat)} note="매입 VAT 기준" />
+        <LedgerCell label="월 구독비" value={formatKRW(kpi.monthlySubscription)} note="정기 결제" />
       </section>
 
       {/* Charts */}
@@ -148,14 +150,14 @@ export default async function DashboardPage() {
         <Panel title="월별 매출 · 비용 · 순이익" className="lg:col-span-2">
           <MonthlyPnlChart data={trend} />
         </Panel>
-        <Panel title="자금흐름 예측 (90일)" subtitle={`현재 ${krw(forecast.currentCash ?? 0)}`}>
+        <Panel title="자금흐름 예측 (90일)" subtitle={`현재 ${formatKRW(forecast.currentCash ?? 0)}`}>
           <CashflowForecastChart data={forecast.forecast} />
         </Panel>
       </section>
 
       {/* Ledgers */}
       <section className="grid gap-5 lg:grid-cols-2">
-        <Panel title="미수금 현황" headerRight={<span className="font-mono text-sm" style={{ color: CFO.outflow }}>{krw(receivablesTotal)}</span>}>
+        <Panel title="미수금 현황" headerRight={<span className="font-mono text-sm" style={{ color: CFO.outflow }}>{formatKRW(receivablesTotal)}</span>}>
           <Ledger
             head={["거래처", "상태", "잔액"]}
             rows={receivables.slice(0, 8).map((r, i) => [
@@ -234,7 +236,7 @@ function Ledger({ head, rows, empty }: { head: string[]; rows: React.ReactNode[]
 }
 
 function Num({ v, tone }: { v: number; tone?: "inflow" | "outflow" }) {
-  return <span className="font-mono tabular-nums" style={{ color: tone ? CFO[tone] : CFO.ink }}>{krw(v)}</span>;
+  return <span className="font-mono tabular-nums" style={{ color: tone ? CFO[tone] : CFO.ink }}>{formatKRW(v)}</span>;
 }
 
 function StatusTag({ status }: { status: string }) {

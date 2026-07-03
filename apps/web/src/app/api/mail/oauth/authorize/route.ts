@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildAuthorizationUrl, isOutlookOAuthConfigured } from "@/lib/outlook-graph";
+import { buildAuthorizationUrl, isOutlookOAuthConfigured } from "@/lib/outlook";
 
 // Kick off the delegated OAuth flow: set a CSRF state cookie and redirect the
 // user to the Microsoft sign-in page.

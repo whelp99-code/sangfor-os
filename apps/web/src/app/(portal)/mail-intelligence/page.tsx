@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
+import { unwrapApiResponse } from "@/lib/api-client";
 
 type DailyReport = {
   date: string;
@@ -116,8 +117,9 @@ export default function MailIntelligencePage() {
         setLoading(true);
         setError(null);
         const res = await fetch("/api/daily-report");
+        const body = await res.json();
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setReport(await res.json());
+        setReport(unwrapApiResponse<DailyReport>(body));
       } catch (err) {
         setError(err instanceof Error ? err.message : "알 수 없는 오류");
       } finally {

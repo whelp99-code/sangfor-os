@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { connectOutlookAccount, exchangeCodeForToken } from "@/lib/outlook-graph";
+import { connectOutlookAccount, exchangeCodeForToken } from "@/lib/outlook";
 
 // Microsoft redirects here with ?code & ?state. Validate state, exchange the code
 // for tokens, persist them on the MailAccount, then return to the connection page.

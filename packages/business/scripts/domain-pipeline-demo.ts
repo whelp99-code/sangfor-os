@@ -10,13 +10,13 @@ import {
   DOMAIN_DEFINITIONS,
   lensesForDomain,
   buildDomainHandoff,
-} from "../src/domain-pipeline";
+} from "../src/domain-ai/domain-pipeline";
 import { checkColorGate } from "../src/color-agent";
 import {
   upsertDomainMemory,
   recordDomainDecision,
   recallFromDb,
-} from "../src/domain-memory";
+} from "../src/domain-ai/domain-memory";
 
 const SLUG = "demo-project";
 

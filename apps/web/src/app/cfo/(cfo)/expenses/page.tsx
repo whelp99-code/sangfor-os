@@ -3,7 +3,7 @@
 import CrudTable from "@/components/cfo/crud-table";
 import { useProjectOptions } from "@/components/cfo/use-project-options";
 import { CfoPageHeading } from "@/components/cfo/page-heading";
-import { won } from "@/lib/format-krw";
+import { formatKRW } from "@sangfor/shared";
 
 const EXPENSE_FIELDS = [
   { name: "expenseName", label: "지출명", type: "text" as const, required: true },
@@ -58,9 +58,9 @@ const EXPENSE_COLUMNS = [
   { key: "vendor", label: "매입처" },
   { key: "date", label: "일자", format: (v: string) => (v ? new Date(v).toLocaleDateString("ko-KR") : "-") },
   { key: "category", label: "구분" },
-  { key: "amount", label: "공급가액", format: won },
-  { key: "vat", label: "VAT", format: won },
-  { key: "total", label: "합계", format: won },
+  { key: "amount", label: "공급가액", format: formatKRW },
+  { key: "vat", label: "VAT", format: formatKRW },
+  { key: "total", label: "합계", format: formatKRW },
   { key: "paymentMethod", label: "결재수단", format: (v: string) => v || "-" },
   { key: "proofType", label: "증빙", format: (v: string) => v || "-" },
   { key: "isPaid", label: "납입여부", format: (v: boolean) => (v ? "✅" : "⬜") },

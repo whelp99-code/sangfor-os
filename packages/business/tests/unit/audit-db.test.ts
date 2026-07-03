@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { AUDIT_CHAIN_ZERO_HASH, AuditChain } from "../../src/audit-chain";
-import { verifyPersistedAuditLogs } from "../../src/audit-db";
+import { AUDIT_CHAIN_ZERO_HASH, AuditChain } from "../../src/governance/audit-chain";
+import { verifyPersistedAuditLogs } from "../../src/governance/audit-db";
 
 describe("audit DB integrity helpers", () => {
   it("verifies persisted hash-chain logs in timestamp order", () => {

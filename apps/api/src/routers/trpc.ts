@@ -5,7 +5,7 @@
 
 import { initTRPC, TRPCError } from '@trpc/server';
 import { assertNoUntrustedScopeFields } from '@sangfor/auth';
-import type { Context } from '../context';
+import type { Context } from '../context/index';
 import { FINANCE_ROLES } from '../middleware/finance-access';
 
 const t = initTRPC.context<Context>().create();

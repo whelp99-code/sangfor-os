@@ -2,7 +2,7 @@ import { prisma, Prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { createCommandRun, phase13SourceEntityTypeSchema } from "../command-center";
-import { createApprovalIfNeeded } from "../approval-gate";
+import { createApprovalIfNeeded } from "../governance/approval-gate";
 import { mapWithConcurrency } from "../map-with-concurrency";
 import { normalizeSkillOutput } from "./skill-output-normalizer";
 import { recommendSkills } from "./skill-router";
