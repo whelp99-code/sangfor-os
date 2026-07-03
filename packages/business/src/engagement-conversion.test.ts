@@ -11,7 +11,7 @@ const integrationEnabled = process.env.CI_INTEGRATION === "1";
 describe.skipIf(!integrationEnabled)("Opportunity → Engagement conversion", () => {
   it("converts idempotently and absorbs proposals/poc/quote/meetings", async () => {
     const { prisma } = await import("@sangfor/db");
-    const { generateProposal } = await import("./proposal-generator");
+    const { generateProposal } = await import("./crm/proposal-generator");
     const { convertOpportunityToProject } = await import("./engagement-center");
 
     const unique = Date.now();

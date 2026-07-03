@@ -1,10 +1,10 @@
 import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
-import { createCustomer, createPartner } from "../customer-partner";
+import { createCustomer, createPartner } from "../crm/customer-partner";
 import { createImprovementCandidateFromError } from "../improvement-loop";
 import { resolveProjectId, upsertPolicyMemory } from "../mail-policy-memory";
-import { createOpportunity } from "../opportunity-center";
+import { createOpportunity } from "../crm/opportunity-center";
 import { createPocProject } from "../poc-center";
 import { createWorkTask, linkTaskToEntity } from "../task-center";
 

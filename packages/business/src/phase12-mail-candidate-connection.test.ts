@@ -84,7 +84,7 @@ describe.skipIf(!integrationEnabled)("Phase 12 mail candidate connection", () =>
   it("does not create a customer when an existing contact belongs to another customer", async () => {
     const { prisma } = await import("@sangfor/db");
     const { approveAndConnectMailCandidate } = await import("./mail-candidate-connections");
-    const { createContact, createCustomer } = await import("./customer-partner");
+    const { createContact, createCustomer } = await import("./crm/customer-partner");
 
     const unique = Date.now();
     const otherCustomer = await createCustomer({

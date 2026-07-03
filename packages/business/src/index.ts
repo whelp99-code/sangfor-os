@@ -8,15 +8,12 @@ export * from "./dev-engine";
 export * from "./github-connector";
 export * from "./validation-engine";
 export * from "./portal-mvp";
-export * from "./customer-partner";
+export * from "./crm/index";
 export * from "./task-center";
 export * from "./task-adapter";
 export * from "./poc-center";
-export * from "./opportunity-center";
-export * from "./opportunity-stage";
 export * from "./role-dashboard";
 export * from "./knowledge-search";
-export * from "./proposal-generator";
 export * from "./executive-dashboard";
 export * from "./codex-task-flow";
 export * from "./cursor-session-flow";
@@ -32,34 +29,9 @@ export * from "./policy-memory-handler";
 export * from "./mail-candidates";
 export * from "./mail-candidate-connections";
 export * from "./color-agent";
-export * from "./domain-pipeline";
-export * from "./domain-memory";
-export {
-  type DomainCase,
-  type DomainArtifact,
-  type DomainGenerator,
-  type ColorGateEvaluator,
-  type DomainRuntimeDeps,
-  type DomainStageResult,
-  resolveDomainGenerator,
-  runDomainStage,
-  runDomainPipeline,
-  createStubGenerator,
-} from "./domain-agent-runtime";
-export * from "./domain-embedding";
+export * from "./domain-ai/index";
 export * from "./opencode-client";
-export * from "./domain-llm";
-export * from "./domain-model-policy";
-export * from "./domain-artifact-schema";
 export * from "./opencode-structured";
-export * from "./domain-structured";
-export * from "./domain-llm-fallback";
-export * from "./domain-dashboard";
-export * from "./domain-embedder";
-export * from "./domain-default-generator";
-export * from "./domain-embedder-openai";
-export * from "./domain-persistence";
-export * from "./quote-engine";
 export * from "./revenue-core";
 export * from "./commercial-approval";
 export * from "./stabilization-readiness";
@@ -73,13 +45,10 @@ export * from "./engagement-center";
 export * from "./meeting-promotion";
 export * from "./llm-settings";
 export * from "./mail-entity-quality";
-export * from "./domain-pnl";
 export * from "./artifact-domain-map";
 export * from "./project-hub";
 export * from "./ai-classify-batch";
 export * from "./project-decision";
-export * from "./domain-proposal";
-export * from "./deal-registration";
 export * from "./ai-decision-policy";
 export * from "./ai-decision";
 export * from "./case-ref";

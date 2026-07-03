@@ -14,7 +14,7 @@ const integrationEnabled = process.env.CI_INTEGRATION === "1";
 describe.skipIf(!integrationEnabled)("Phase 12 proposal generator", () => {
   it("generates multi-template proposal with versions", async () => {
     const { generateProposal, saveDocumentVersion, getGeneratedDocumentDetail } =
-      await import("./proposal-generator");
+      await import("./crm/proposal-generator");
 
     const doc = await generateProposal({
       projectSlug: "demo-project",

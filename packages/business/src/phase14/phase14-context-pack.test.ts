@@ -79,7 +79,7 @@ describe.skipIf(!dbIntegrationEnabled)("phase14 context pack integration", () =>
   }, 30_000);
 
   it("builds opportunity context pack with non-empty opportunity section", async () => {
-    const { createOpportunity } = await import("../opportunity-center");
+    const { createOpportunity } = await import("../crm/opportunity-center");
     const { buildContextPack } = await import("./context-pack-builder");
     const opp = await createOpportunity({
       title: "Phase 14 context pack test opp",
@@ -113,7 +113,7 @@ describe.skipIf(!dbIntegrationEnabled)("phase14 context pack integration", () =>
   }, 30_000);
 
   it("builds proposal context pack", async () => {
-    const { generateProposal } = await import("../proposal-generator");
+    const { generateProposal } = await import("../crm/proposal-generator");
     const { buildContextPack } = await import("./context-pack-builder");
     const doc = await generateProposal({
       projectSlug: "demo-project",
@@ -132,7 +132,7 @@ describe.skipIf(!dbIntegrationEnabled)("phase14 context pack integration", () =>
   }, 30_000);
 
   it("handles missing task links with empty linkedTasks section", async () => {
-    const { createOpportunity } = await import("../opportunity-center");
+    const { createOpportunity } = await import("../crm/opportunity-center");
     const { buildContextPack } = await import("./context-pack-builder");
     const opp = await createOpportunity({ title: "No links opp" });
     const pack = await buildContextPack({
@@ -145,7 +145,7 @@ describe.skipIf(!dbIntegrationEnabled)("phase14 context pack integration", () =>
   }, 30_000);
 
   it("enriches phase13 run with contextPack in response", async () => {
-    const { createOpportunity } = await import("../opportunity-center");
+    const { createOpportunity } = await import("../crm/opportunity-center");
     const { runPhase13Orchestrator } = await import("../skills/phase13-orchestrator");
     const opp = await createOpportunity({ title: "Phase 14 orchestrator enrich" });
     const result = await runPhase13Orchestrator({

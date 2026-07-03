@@ -19,7 +19,7 @@ describe.skipIf(!integrationEnabled)("Phase 12 customer / partner core", () => {
       linkCustomerPartner,
       createContact,
       getCustomerDetail,
-    } = await import("./customer-partner");
+    } = await import("./crm/customer-partner");
 
     const customer = await createCustomer({
       projectSlug: "demo-project",
@@ -45,7 +45,7 @@ describe.skipIf(!integrationEnabled)("Phase 12 customer / partner core", () => {
 
   it("searches and archives customers", async () => {
     const { createCustomer, searchCustomers, archiveCustomer } = await import(
-      "./customer-partner"
+      "./crm/customer-partner"
     );
     const unique = `SearchCo ${Date.now()}`;
     await createCustomer({
@@ -63,7 +63,7 @@ describe.skipIf(!integrationEnabled)("Phase 12 customer / partner core", () => {
 
   it("finds connection candidates by email domain", async () => {
     const { createCustomer, findConnectionCandidatesByEmail } = await import(
-      "./customer-partner"
+      "./crm/customer-partner"
     );
     await createCustomer({
       projectSlug: "demo-project",
@@ -79,7 +79,7 @@ describe.skipIf(!integrationEnabled)("Phase 12 customer / partner core", () => {
 
 describe.skipIf(!integrationEnabled)("Phase 12 task center", () => {
   it("creates and advances work task", async () => {
-    const { createCustomer } = await import("./customer-partner");
+    const { createCustomer } = await import("./crm/customer-partner");
     const { createWorkTask, updateWorkTaskStatus, listWorkTasks } =
       await import("./task-center");
 
@@ -106,7 +106,7 @@ describe.skipIf(!integrationEnabled)("Phase 12 task center", () => {
   }, 20_000);
 
   it("updates task fields and links entities", async () => {
-    const { createCustomer } = await import("./customer-partner");
+    const { createCustomer } = await import("./crm/customer-partner");
     const { createWorkTask, updateWorkTask, linkTaskToEntity, getWorkTaskDetail } =
       await import("./task-center");
 

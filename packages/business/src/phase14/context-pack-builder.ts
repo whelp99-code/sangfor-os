@@ -1,11 +1,11 @@
 import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
-import { getCustomerDetail, getPartnerDetail } from "../customer-partner";
+import { getCustomerDetail, getPartnerDetail } from "../crm/customer-partner";
 import { searchKnowledgeWithCitations } from "../knowledge-search";
-import { getOpportunityDetail } from "../opportunity-center";
+import { getOpportunityDetail } from "../crm/opportunity-center";
 import { getPocDetail } from "../poc-center";
-import { getGeneratedDocumentDetail } from "../proposal-generator";
+import { getGeneratedDocumentDetail } from "../crm/proposal-generator";
 import {
   buildOpportunityOrchestratorSummary,
   buildPocOrchestratorSummary,

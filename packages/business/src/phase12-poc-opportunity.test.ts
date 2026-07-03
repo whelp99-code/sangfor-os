@@ -13,7 +13,7 @@ const integrationEnabled = process.env.CI_INTEGRATION === "1";
 
 describe.skipIf(!integrationEnabled)("Phase 12 PoC center", () => {
   it("creates PoC with Sangfor checklist and requirements", async () => {
-    const { createCustomer } = await import("./customer-partner");
+    const { createCustomer } = await import("./crm/customer-partner");
     const {
       createPocProject,
       getPocDetail,
@@ -64,14 +64,14 @@ describe.skipIf(!integrationEnabled)("Phase 12 PoC center", () => {
 
 describe.skipIf(!integrationEnabled)("Phase 12 opportunity center", () => {
   it("maps legacy stages and advances through canonical pipeline", async () => {
-    const { createCustomer } = await import("./customer-partner");
-    const { normalizeOpportunityStage } = await import("./opportunity-stage");
+    const { createCustomer } = await import("./crm/customer-partner");
+    const { normalizeOpportunityStage } = await import("./crm/opportunity-stage");
     const {
       createOpportunity,
       advanceOpportunityStage,
       getOpportunityDetail,
       addOpportunityLink,
-    } = await import("./opportunity-center");
+    } = await import("./crm/opportunity-center");
     const { createPocProject } = await import("./poc-center");
 
     const customer = await createCustomer({
@@ -108,8 +108,8 @@ describe.skipIf(!integrationEnabled)("Phase 12 opportunity center", () => {
   }, 20_000);
 
   it("summarizes pipeline by canonical stage", async () => {
-    const { getOpportunityPipelineSummary } = await import("./opportunity-center");
-    const { CANONICAL_STAGES } = await import("./opportunity-stage");
+    const { getOpportunityPipelineSummary } = await import("./crm/opportunity-center");
+    const { CANONICAL_STAGES } = await import("./crm/opportunity-stage");
     const summary = await getOpportunityPipelineSummary();
     expect(summary.total).toBeGreaterThanOrEqual(0);
     for (const stage of CANONICAL_STAGES) {
