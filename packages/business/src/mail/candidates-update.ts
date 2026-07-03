@@ -6,7 +6,7 @@ import { createImprovementCandidateFromError } from "../improvement-loop";
 import { resolveProjectId, upsertPolicyMemory } from "../mail-policy-memory";
 import { createOpportunity } from "../crm/opportunity-center";
 import { createPocProject } from "../poc-center";
-import { createWorkTask, linkTaskToEntity } from "../task-center";
+import { createWorkTask, linkTaskToEntity } from "../orchestration/task-center";
 
 import { mailCandidateStatusSchema, mailCandidateTypeSchema } from "./constants";
 import {

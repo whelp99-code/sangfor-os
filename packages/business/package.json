@@ -14,7 +14,7 @@
     "./module-admin": "./src/module-admin.ts",
     "./action-connector-runtime": "./src/action-connector-runtime.ts",
     "./langfuse-observability": "./src/langfuse-observability.ts",
-    "./automation-preview": "./src/automation-preview.ts",
+    "./automation-preview": "./src/orchestration/automation-preview.ts",
     "./knowledge-search": "./src/knowledge-search.ts",
     "./mail-insight-threads": "./src/mail-insight-threads.ts",
     "./mail-policy-memory": "./src/mail-policy-memory.ts",

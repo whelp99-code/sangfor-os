@@ -81,7 +81,7 @@ describe.skipIf(!integrationEnabled)("Phase 12 task center", () => {
   it("creates and advances work task", async () => {
     const { createCustomer } = await import("./crm/customer-partner");
     const { createWorkTask, updateWorkTaskStatus, listWorkTasks } =
-      await import("./task-center");
+      await import("./orchestration/task-center");
 
     const customer = await createCustomer({
       projectSlug: "demo-project",
@@ -108,7 +108,7 @@ describe.skipIf(!integrationEnabled)("Phase 12 task center", () => {
   it("updates task fields and links entities", async () => {
     const { createCustomer } = await import("./crm/customer-partner");
     const { createWorkTask, updateWorkTask, linkTaskToEntity, getWorkTaskDetail } =
-      await import("./task-center");
+      await import("./orchestration/task-center");
 
     const customer = await createCustomer({
       projectSlug: "demo-project",
@@ -144,7 +144,7 @@ describe.skipIf(!integrationEnabled)("Wave 1 task unification", () => {
   it("migrates portal_tasks to work_tasks and lists unified portal tasks", async () => {
     const { prisma } = await import("@sangfor/db");
     const { migratePortalTasksToWorkTasks, listUnifiedPortalTasks } = await import(
-      "./task-adapter"
+      "./orchestration/task-adapter"
     );
 
     const project = await prisma.project.findUniqueOrThrow({

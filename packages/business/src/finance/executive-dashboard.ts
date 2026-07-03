@@ -1,7 +1,7 @@
 import { prisma } from "@sangfor/db";
 
 import { getOpportunityPipelineSummary } from "../crm/opportunity-center";
-import { listTodayTasks, listWorkTasks } from "../task-center";
+import { listTodayTasks, listWorkTasks } from "../orchestration/task-center";
 
 export type ExecutiveSummary = {
   customers: number;

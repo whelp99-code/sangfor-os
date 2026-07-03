@@ -26,7 +26,7 @@ describe.skipIf(!integrationEnabled)("Phase 11 DB relations", () => {
 describe.skipIf(!integrationEnabled)("Phase 11 command run E2E", () => {
   it("runs full command → workflow → report chain", async () => {
     const { createCommandRun, getCommandRunDetail } = await import("./command-center");
-    const { runWorkflowMock } = await import("./workflow-runner");
+    const { runWorkflowMock } = await import("./orchestration/workflow-runner");
     const { syncRunTimeline } = await import("./observability");
 
     const run = await createCommandRun({
@@ -52,7 +52,7 @@ describe.skipIf(!integrationEnabled)("Phase 11 command run E2E", () => {
 describe.skipIf(!integrationEnabled)("Phase 11 approval / validation flow", () => {
   it("blocks medium-risk workflow until approved", async () => {
     const { createCommandRun } = await import("./command-center");
-    const { runWorkflowMock } = await import("./workflow-runner");
+    const { runWorkflowMock } = await import("./orchestration/workflow-runner");
     const { approveRequest } = await import("./governance/approval-gate");
     const { runValidationPlan } = await import("./governance/validation-engine");
     const { prisma } = await import("@sangfor/db");
