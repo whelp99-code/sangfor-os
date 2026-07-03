@@ -1,175 +1,102 @@
-"use client";
+export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
-import { Ticket, Timer, ArrowUpRight, FileSearch, Repeat, AlertTriangle } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AIWorkspaceLayout } from "@/components/ai-workspace";
-import { ActivityItem } from "@/components/ai-workspace/ai-activity-feed";
+import { prisma } from "@sangfor/db";
 
-type SupportData = {
-  newTickets: number;
-  slaDeadlines: number;
-  vendorEscalations: number;
-  rcaRequired: number;
-  repeatIssues: number;
-};
-
-const supportActivities: ActivityItem[] = [];
-
-const supportStats: { label: string; value: string; type: "success" | "warning" | "error" | "default" }[] = [];
-
-function LoadingSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="h-32 animate-pulse rounded-2xl bg-muted" />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-40 animate-pulse rounded-xl bg-muted" />
-        ))}
-      </div>
-    </div>
-  );
+const STAGES = [
+  { key: "received", nm: "요청 접수", sub: "파트너사" },
+  { key: "scheduling", nm: "일정 조율", sub: "고객사" },
+  { key: "visiting", nm: "방문·확인", sub: "요청사항" },
+  { key: "confirmed", nm: "일정 확정", sub: "파트너 논의" },
+  { key: "supporting", nm: "설치 지원", sub: "1일 / 2일" },
+];
+// 자유형 status → 5단계 컬럼
+function stageOf(status: string): number {
+  const s = status.toLowerCase();
+  if (/(schedul|일정조율)/.test(s)) return 1;
+  if (/(visit|onsite|방문)/.test(s)) return 2;
+  if (/(confirm|확정)/.test(s)) return 3;
+  if (/(support|install|resolv|설치|완료|done)/.test(s)) return 4;
+  return 0; // open/new/기타 → 요청 접수
 }
 
-function ErrorState({ message }: { message: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-12 text-center dark:border-red-900/50 dark:bg-red-950/20">
-      <AlertTriangle className="h-10 w-10 text-red-500" />
-      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">대시보드를 불러오지 못했습니다</h2>
-      <p className="text-sm text-red-600 dark:text-red-300">{message}</p>
-    </div>
-  );
-}
+export default async function SupportPage() {
+  const cases = await prisma.supportCase.findMany({
+    include: { customer: { select: { name: true } }, vendorEscalations: true },
+    orderBy: { id: "desc" },
+    take: 60,
+  });
 
-export default function SupportDashboardPage() {
-  const [data, setData] = useState<SupportData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const columns: (typeof cases)[] = [[], [], [], [], []];
+  for (const c of cases) columns[stageOf(c.status)].push(c);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await fetch("/api/dashboard/support");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setData(await res.json());
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "알 수 없는 오류");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, []);
-
-  async function handleCommand(_cmd: string) {
-    // TODO(oma-deferred): wire the support AI assistant when the endpoint is provisioned.
-    return "AI 어시스턴트는 준비 중입니다";
-  }
+  const active = cases.filter((c) => !/(resolv|closed|done|완료)/i.test(c.status)).length;
 
   return (
-    <AIWorkspaceLayout
-      title="기술지원"
-      subtitle="역할 기반 운영 대시보드"
-      activities={supportActivities}
-      stats={supportStats}
-      onCommand={handleCommand}
-    >
-      {loading && <LoadingSkeleton />}
-      {error && <ErrorState message={error} />}
-      {!loading && !error && (
-        <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Ticket className="h-5 w-5 text-blue-600" />
-              <CardTitle className="text-base">신규 티켓</CardTitle>
-            </div>
-            <CardDescription>오늘 접수된 신규 지원 티켓</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {data && data.newTickets > 0 ? (
-              <MetricRow label="열린 티켓" value={String(data.newTickets)} />
-            ) : null}
-            {data && !data.newTickets && (
-              <p className="py-4 text-center text-sm text-muted-foreground">기록 없음</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Timer className="h-5 w-5 text-red-600" />
-              <CardTitle className="text-base">SLA 임박</CardTitle>
-            </div>
-            <CardDescription>SLA 기한이 임박한 티켓</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {data ? (
-              <MetricRow label="임박 건수" value={String(data.slaDeadlines)} />
-            ) : null}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <ArrowUpRight className="h-5 w-5 text-amber-600" />
-              <CardTitle className="text-base">벤더 에스컬레이션</CardTitle>
-            </div>
-            <CardDescription>Sangfor 본사 / 서드파티 에스컬레이션</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {data ? (
-              <MetricRow label="에스컬레이션" value={String(data.vendorEscalations)} />
-            ) : null}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <FileSearch className="h-5 w-5 text-purple-600" />
-              <CardTitle className="text-base">RCA 작성 필요</CardTitle>
-            </div>
-            <CardDescription>근본 원인 분석이 필요한 티켓</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {data ? (
-              <MetricRow label="미작성" value={String(data.rcaRequired)} />
-            ) : null}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Repeat className="h-5 w-5 text-indigo-600" />
-              <CardTitle className="text-base">반복 장애 고객</CardTitle>
-            </div>
-            <CardDescription>반복 장애가 발생하는 고객</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {data ? (
-              <MetricRow label="3회 이상" value={String(data.repeatIssues)} />
-            ) : null}
-          </CardContent>
-        </Card>
+    <div className="cockpit ck-grain">
+      <div className="ck-hdr">
+        <div>
+          <div className="mlbl">워크플로 · 파트너 트리거</div>
+          <h1>기술지원</h1>
+          <div className="mono" style={{ fontSize: 11, color: "var(--ck-muted)", marginTop: 5 }}>
+            파트너사 프로젝트·제품 설치지원 · 진행 {active} · 담당 엔지니어 AI
           </div>
         </div>
-      )}
-    </AIWorkspaceLayout>
-  );
-}
+        <div className="big-r">
+          전체 케이스
+          <br />
+          <b>{cases.length}</b>
+        </div>
+      </div>
 
-function MetricRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-semibold">{value}</span>
+      <div className="flow-note">
+        {STAGES.map((s) => (
+          <div className="fn" key={s.key}>
+            <b>{s.nm}</b>
+            {s.sub}
+          </div>
+        ))}
+      </div>
+
+      {cases.length === 0 ? (
+        <p className="empty">
+          접수된 기술지원 케이스가 없습니다. 파트너사 지원요청이 인입되면 여기에
+          단계별로 나타납니다.
+        </p>
+      ) : (
+        <div className="board">
+          {STAGES.map((s, i) => (
+            <div className="col" key={s.key}>
+              <div className="ch2">
+                <b>{s.nm}</b>
+                <span className="c">{columns[i].length}</span>
+              </div>
+              {columns[i].length === 0 ? (
+                <div className="empty" style={{ textAlign: "center", paddingTop: 24 }}>
+                  —
+                </div>
+              ) : (
+                columns[i].map((c) => (
+                  <div className="scard" key={c.id}>
+                    <b>{c.subject}</b>
+                    <span className="pt">{c.customer?.name ?? "고객 미지정"}</span>
+                    <div className="bt">
+                      <span className={`dur ${c.severity === "high" ? "d2" : ""}`}>
+                        {c.severity}
+                      </span>
+                      <span className="en">엔지니어 AI</span>
+                    </div>
+                    {c.slaDeadline ? (
+                      <span className="dt">
+                        SLA {new Date(c.slaDeadline).toLocaleDateString("ko-KR")}
+                      </span>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
