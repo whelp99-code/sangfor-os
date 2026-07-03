@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+/* 계기판(Instrument) fonts loaded via <link> in layout.tsx (Pretendard, IBM Plex Sans KR, IBM Plex Mono) */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -193,3 +194,122 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   계기판(Instrument) — 관제탑 내 업무 코크핏 (DESIGN.md 스코프)
+   모든 스타일은 .cockpit 아래로 스코프. 5색은 기존 agent 토큰 재사용.
+   ═══════════════════════════════════════════════════════════════ */
+.cockpit{
+  --ck-paper:#E7E6E0; --ck-panel:#F8F7F3; --ck-panel-2:#F2F0EA;
+  --ck-ink:#191A17; --ck-muted:#605E55; --ck-faint:#8C897E; --ck-line:#D4D2C9; --ck-line-2:#E5E3DB;
+  --ck-blue:#2C5FE0; --ck-blue-deep:#1E44A8; --ck-red:#D2373C; --ck-red-deep:#B02226;
+  --ck-orange:#DE7716; --ck-orange-deep:#A9530A; --ck-gray:#848177; --ck-teal:#0E9784; --ck-teal-deep:#0A6B5E;
+  --ck-brass:#A9822E; --ck-brass-ink:#7C5E1E; --ck-brass-bg:#F5EEDD; --ck-brass-line:#E4D6B4;
+  --ck-sans:"Pretendard Variable",Pretendard,system-ui,sans-serif;
+  --ck-disp:"IBM Plex Sans KR","Pretendard Variable",sans-serif;
+  --ck-mono:"IBM Plex Mono",ui-monospace,monospace;
+  background:var(--ck-paper); color:var(--ck-ink); font-family:var(--ck-sans);
+  margin:-1.5rem; padding:22px 32px 60px; min-height:100%; position:relative;
+}
+.cockpit .mono{font-family:var(--ck-mono);font-feature-settings:"tnum" 1,"zero" 1}
+.cockpit .mlbl{font-family:var(--ck-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ck-faint);font-weight:500}
+.cockpit .ck-grain::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E")}
+
+.cockpit .ck-hdr{display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid var(--ck-line);position:relative}
+.cockpit .ck-hdr::after{content:"";position:absolute;right:0;bottom:-1px;width:26px;height:1px;background:var(--ck-brass)}
+.cockpit .ck-hdr h1{font-family:var(--ck-disp);font-weight:700;font-size:25px;letter-spacing:-.025em;line-height:1;margin-top:4px}
+.cockpit .ck-hdr .clock{text-align:right;font-family:var(--ck-mono);font-size:12px;color:var(--ck-muted);line-height:1.5}
+.cockpit .ck-hdr .clock b{color:var(--ck-ink);font-weight:600}
+
+/* brief — telex dispatch */
+.cockpit .brief{background:var(--ck-panel);border:1px solid var(--ck-line);border-radius:12px;margin-bottom:22px;overflow:hidden}
+.cockpit .brief .bar{display:flex;align-items:center;gap:9px;padding:11px 18px;background:linear-gradient(90deg,#F2F0EA,#F8F7F3);border-bottom:1px solid var(--ck-line-2)}
+.cockpit .brief .bar .d{width:7px;height:7px;border-radius:50%;background:var(--ck-teal);box-shadow:0 0 0 3px rgba(14,151,132,.16)}
+.cockpit .brief .bar .tt{font-family:var(--ck-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ck-ink);font-weight:600}
+.cockpit .brief .bar .meta{margin-left:auto;font-family:var(--ck-mono);font-size:10.5px;color:var(--ck-faint);letter-spacing:.05em}
+.cockpit .brief .body{padding:16px 18px 17px}
+.cockpit .brief p{font-size:14.5px;line-height:1.72;color:#33352E;max-width:74ch}
+.cockpit .brief p .k{font-weight:600;color:var(--ck-ink)}
+.cockpit .brief p .rf{color:var(--ck-red);font-weight:600}
+.cockpit .brief .chips{display:flex;gap:7px;margin-top:14px;flex-wrap:wrap}
+.cockpit .chip{font-family:var(--ck-mono);font-size:11px;padding:5px 9px 5px 8px;border-radius:7px;border:1px solid var(--ck-line-2);background:#fff;color:#3B3D36;display:flex;align-items:center;gap:7px}
+.cockpit .chip i{width:5px;height:5px;border-radius:1px;flex:0 0 5px}
+.cockpit .chip b{font-weight:600;color:var(--ck-ink)}
+.cockpit .chip s{text-decoration:none;color:var(--ck-muted)}
+
+.cockpit .ck-cols{display:grid;grid-template-columns:1fr 314px;gap:22px}
+@media (max-width:1024px){.cockpit .ck-cols{grid-template-columns:1fr}}
+.cockpit .sh{display:flex;align-items:center;gap:10px;margin:2px 2px 13px}
+.cockpit .sh h2{font-family:var(--ck-disp);font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+.cockpit .sh .n{font-family:var(--ck-mono);font-size:11px;font-weight:600;color:#fff;background:var(--ck-ink);border-radius:20px;padding:1px 8px}
+.cockpit .sh .flow{margin-left:auto;font-family:var(--ck-mono);font-size:10px;letter-spacing:.08em;color:var(--ck-faint);text-transform:uppercase}
+
+/* dispatch slip */
+.cockpit .slip{background:var(--ck-panel);border:1px solid var(--ck-line);border-radius:12px;margin-bottom:13px;overflow:hidden}
+.cockpit .slip .top{display:flex;align-items:flex-start;gap:13px;padding:15px 17px 0}
+.cockpit .rolech{width:36px;height:36px;border-radius:8px;flex:0 0 36px;display:grid;place-items:center;font-family:var(--ck-mono);font-weight:600;font-size:11px;color:#fff}
+.cockpit .rolech.mk{background:linear-gradient(160deg,#8F8C82,#6F6D64)} .cockpit .rolech.sa{background:linear-gradient(160deg,#E68A2E,#C96C12)}
+.cockpit .rolech.ps{background:linear-gradient(160deg,#3E6CE6,#2450C9)} .cockpit .rolech.en{background:linear-gradient(160deg,#20A896,#0E7A6B)}
+.cockpit .rolech.cf{background:linear-gradient(160deg,#B8923A,#8C6B22)}
+.cockpit .slip .meta{flex:1;min-width:0}
+.cockpit .slip .meta .l1{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.cockpit .slip .meta .l1 b{font-family:var(--ck-disp);font-size:15px;font-weight:600;letter-spacing:-.015em}
+.cockpit .wf{font-family:var(--ck-mono);font-size:9.5px;letter-spacing:.09em;padding:2.5px 7px;border-radius:5px;text-transform:uppercase;font-weight:500}
+.cockpit .wf.n{background:rgba(44,95,224,.09);color:var(--ck-blue)} .cockpit .wf.r{background:rgba(222,119,22,.12);color:#B25C0E} .cockpit .wf.s{background:rgba(14,151,132,.12);color:#0A7061}
+.cockpit .slip .meta .l2{font-family:var(--ck-mono);font-size:11.5px;color:var(--ck-muted);margin-top:4px}
+.cockpit .slip .meta .l2 b{color:#3B3D36;font-weight:500}
+.cockpit .slip .amt{text-align:right;white-space:nowrap}
+.cockpit .slip .amt b{font-family:var(--ck-mono);font-size:15px;font-weight:600;letter-spacing:-.01em}
+.cockpit .slip .amt small{display:block;font-family:var(--ck-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ck-faint);margin-top:2px}
+.cockpit .slip .draft{margin:13px 17px 0;padding:11px 13px;background:var(--ck-panel-2);border:1px solid var(--ck-line-2);border-radius:9px;font-size:13px;line-height:1.62;color:#3B3D36}
+
+/* verification console (signature) */
+.cockpit .console{display:flex;align-items:center;gap:16px;padding:13px 17px 15px}
+.cockpit .eq{display:flex;align-items:flex-end;gap:8px}
+.cockpit .ch{display:flex;flex-direction:column;align-items:center;gap:5px}
+.cockpit .ch .track{width:14px;height:28px;border-radius:3px;background:repeating-linear-gradient(0deg,var(--ck-line-2) 0 1px,transparent 1px 5px);position:relative;overflow:hidden}
+.cockpit .ch .lv{position:absolute;left:0;right:0;bottom:0;border-radius:3px}
+.cockpit .ch.pass .lv{top:0} .cockpit .ch.mid .lv{top:42%} .cockpit .ch.wait .lv{top:70%;opacity:.32}
+.cockpit .ch.flag .track{box-shadow:0 0 0 1.5px var(--ck-panel),0 0 0 2.5px var(--ck-red)} .cockpit .ch.flag .lv{top:0}
+.cockpit .ch .lt{font-family:var(--ck-mono);font-size:9px;font-weight:600;color:var(--ck-faint)}
+.cockpit .ch.pass .lt,.cockpit .ch.flag .lt,.cockpit .ch.mid .lt{color:var(--ck-ink)}
+.cockpit .ch.b .lv{background:var(--ck-blue)} .cockpit .ch.r .lv{background:var(--ck-red)} .cockpit .ch.o .lv{background:var(--ck-orange)} .cockpit .ch.g .lv{background:var(--ck-gray)} .cockpit .ch.t .lv{background:var(--ck-teal)}
+.cockpit .verdict{font-size:12.5px;color:var(--ck-muted);line-height:1.5}
+.cockpit .verdict b{color:var(--ck-ink);font-weight:600}
+.cockpit .verdict .rf{color:var(--ck-red);font-weight:600}
+.cockpit .verdict .sub{display:block;font-family:var(--ck-mono);font-size:10px;letter-spacing:.06em;color:var(--ck-faint);text-transform:uppercase;margin-top:2px}
+
+.cockpit .act{display:flex;align-items:center;gap:9px;padding:12px 17px;border-top:1px solid var(--ck-line-2);background:linear-gradient(180deg,#F8F7F3,#F4F2EC)}
+.cockpit .btn{font-family:var(--ck-sans);font-size:13px;font-weight:600;padding:8px 15px;border-radius:8px;border:1px solid var(--ck-line);background:#fff;color:#3B3D36;cursor:pointer}
+.cockpit .btn.ap{background:var(--ck-ink);color:#F3F2EC;border-color:var(--ck-ink);position:relative;padding-bottom:9px}
+.cockpit .btn.ap::after{content:"";position:absolute;left:13px;right:13px;bottom:5px;height:2px;background:var(--ck-brass);border-radius:2px}
+.cockpit .btn:focus-visible,.cockpit .tap:focus-visible{outline:2px solid var(--ck-brass);outline-offset:2px}
+.cockpit .act .ago{margin-left:auto;font-family:var(--ck-mono);font-size:10.5px;color:var(--ck-faint);letter-spacing:.02em}
+.cockpit .act .ago em{font-style:normal;color:var(--ck-brass-ink);font-weight:500}
+
+/* panels */
+.cockpit .pnl{background:var(--ck-panel);border:1px solid var(--ck-line);border-radius:12px;padding:14px 15px 15px;margin-bottom:16px}
+.cockpit .pnl .ph{display:flex;align-items:center;gap:8px;padding-bottom:11px;margin-bottom:4px;border-bottom:1px solid var(--ck-line-2)}
+.cockpit .pnl .ph b{font-family:var(--ck-disp);font-size:13px;font-weight:600}
+.cockpit .pnl .ph .co{margin-left:auto}
+/* time ruler */
+.cockpit .ruler{position:relative;padding-left:52px;margin-top:8px}
+.cockpit .ruler::before{content:"";position:absolute;left:40px;top:6px;bottom:6px;width:1px;background:var(--ck-line)}
+.cockpit .tick{position:relative;padding:8px 0}
+.cockpit .tick .dd{position:absolute;left:-52px;width:38px;text-align:right;font-family:var(--ck-mono);font-size:11px;font-weight:600;top:9px}
+.cockpit .tick .dd.u{color:var(--ck-red)} .cockpit .tick .dd.s{color:var(--ck-orange)} .cockpit .tick .dd.o{color:var(--ck-muted)}
+.cockpit .tick::before{content:"";position:absolute;left:-15.5px;top:12px;width:7px;height:7px;border-radius:50%;background:#fff;border:1.5px solid var(--ck-muted)}
+.cockpit .tick.u::before{border-color:var(--ck-red);background:var(--ck-red)} .cockpit .tick.s::before{border-color:var(--ck-orange)}
+.cockpit .tick b{font-size:13px;font-weight:600;display:block;letter-spacing:-.01em;font-family:var(--ck-disp)}
+.cockpit .tick span{font-family:var(--ck-mono);font-size:10.5px;color:var(--ck-muted)}
+/* inbox */
+.cockpit .ibx{display:flex;gap:10px;padding:11px 0;border-top:1px solid var(--ck-line-2);align-items:center}
+.cockpit .ibx:first-of-type{border-top:0}
+.cockpit .src{font-family:var(--ck-mono);font-size:9px;letter-spacing:.08em;padding:3px 6px;border-radius:4px;background:var(--ck-panel-2);border:1px solid var(--ck-line-2);color:var(--ck-muted);text-transform:uppercase;flex:0 0 auto;font-weight:500}
+.cockpit .ibx .x{flex:1;min-width:0}
+.cockpit .ibx .x b{font-size:12.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+.cockpit .ibx .x span{font-family:var(--ck-mono);font-size:10.5px;color:var(--ck-faint)}
+.cockpit .ibx .x span em{font-style:normal;color:var(--ck-blue);font-weight:600}
+.cockpit .tap{font-size:11.5px;font-weight:600;color:var(--ck-brass-ink);border:1px solid var(--ck-brass-line);background:var(--ck-brass-bg);padding:5px 10px;border-radius:7px;cursor:pointer;white-space:nowrap}
+.cockpit .empty{font-size:13px;color:var(--ck-muted);padding:6px 2px}

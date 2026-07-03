@@ -1,0 +1,127 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>딜 상세 — 편대 레인</title><link rel="stylesheet" href="sys.css">
+<style>
+/* squadron relay lanes */
+.relay{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px 18px;margin-bottom:20px;position:relative;overflow:hidden}
+.relay .rh{display:flex;align-items:center;gap:9px;margin-bottom:18px}
+.relay .rh .mlbl{color:var(--muted)}
+.relay .rh .now{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--blue-deep);font-weight:600}
+.lanes{display:flex;align-items:stretch;gap:0}
+.lane{flex:1;position:relative;padding:0 4px}
+.lane .bar{height:6px;border-radius:3px;background:var(--line-2);position:relative}
+.lane.done .bar{background:var(--teal)} .lane.now .bar{background:linear-gradient(90deg,var(--blue),#5C86F0)}
+.lane .baton{position:absolute;top:-5px;right:8px;width:16px;height:16px;border-radius:50%;background:var(--blue);border:3px solid var(--panel);box-shadow:0 0 0 1px var(--blue),0 1px 4px rgba(44,95,224,.4)}
+.lane .who{display:flex;align-items:center;gap:7px;margin-top:11px}
+.lane .who .rolech{width:24px;height:24px;flex:0 0 24px;font-size:9px;border-radius:6px}
+.lane .who .nm{font-family:var(--disp);font-size:12.5px;font-weight:600;letter-spacing:-.01em}
+.lane .who .nm small{display:block;font-family:var(--mono);font-size:10px;font-weight:400;color:var(--muted);letter-spacing:0}
+.lane.up .bar{opacity:.5} .lane.up .who{opacity:.55}
+.gate{flex:0 0 26px;display:flex;flex-direction:column;align-items:center;padding-top:-4px}
+.gate .di{width:14px;height:14px;background:var(--brass-bg);border:1.5px solid var(--commander);transform:rotate(45deg);margin-top:-4px}
+.gate.passed .di{background:var(--commander)}
+.gate .gl{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;color:var(--commander-ink);text-transform:uppercase;margin-top:12px;text-align:center;line-height:1.3;font-weight:600}
+
+.cols{display:grid;grid-template-columns:1fr 300px;gap:20px}
+/* artifact rows */
+.art{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:11px;display:flex;align-items:center;gap:14px}
+.art .rolech{flex:0 0 30px;width:30px;height:30px}
+.art .x{flex:1;min-width:0}
+.art .x b{font-family:var(--disp);font-size:14px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.art .x .st{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:1.5px 6px;border-radius:4px;font-weight:500}
+.st.rd{background:var(--brass-bg);color:var(--commander-ink)} .st.dr{background:rgba(44,95,224,.1);color:var(--blue-deep)} .st.wa{background:var(--panel-2);color:var(--muted)}
+.art .x span{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px;display:block}
+.art .eq{flex:0 0 auto}
+.art .go{font-size:12px;font-weight:600;color:var(--ink);border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 12px;cursor:pointer;flex:0 0 auto}
+/* right */
+.mini b{font-family:var(--disp);font-size:14px;font-weight:600}
+.kv{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line-2);font-size:12.5px}
+.kv:first-of-type{border-top:0} .kv .k{color:var(--muted)} .kv .v{font-family:var(--mono);font-weight:500}
+.tl{position:relative;padding-left:18px;margin-top:4px}
+.tl::before{content:"";position:absolute;left:4px;top:6px;bottom:6px;width:1px;background:var(--line)}
+.tli{position:relative;padding:6px 0}
+.tli::before{content:"";position:absolute;left:-16.5px;top:10px;width:6px;height:6px;border-radius:50%;background:var(--teal);border:1.5px solid var(--panel)}
+.tli b{font-size:12.5px;font-weight:600;display:block} .tli span{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.next{background:var(--frame);color:var(--frame-ink);border-radius:11px;padding:14px 15px}
+.next .mlbl{color:var(--frame-faint)} .next b{display:block;font-family:var(--disp);font-size:14px;color:#F3F2EC;margin:6px 0 3px} .next span{font-family:var(--mono);font-size:11px;color:var(--frame-faint)}
+</style></head>
+<body>
+<aside>
+  <div class="brand"><div class="mk"></div><div><b>베를로 OS</b><span>CONTROL&nbsp;TOWER</span></div></div>
+  <div class="ng"><div class="h">관제</div><div class="nav"><span class="g">◎</span> 내 업무<span class="ct">7</span></div><div class="nav"><span class="g">▤</span> 인입함<span class="ct">4</span></div></div>
+  <div class="ng"><div class="h">워크플로</div><div class="nav on"><span class="g">1</span> 신규영업<span class="ct">26</span></div><div class="nav"><span class="g">↻</span> 리뉴얼<span class="ct">11</span></div><div class="nav"><span class="g">⚒</span> 기술지원<span class="ct">3</span></div></div>
+  <div class="ng"><div class="h">기반</div><div class="nav"><span class="g">◱</span> 고객사<span class="ct">36</span></div><div class="nav"><span class="g">◆</span> AI 팀<span class="ct">5+5</span></div><div class="nav"><span class="g">₩</span> 재무</div></div>
+  <div class="status"><div class="r"><span class="d"></span> 역할 AI <b>5/5</b> 온라인</div><div class="r"><span class="d"></span> 컬러 AI <b>5/5</b> 검증 중</div></div>
+</aside>
+<main>
+  <div class="hdr">
+    <div><div class="mlbl">신규영업 · PRJ-2026-0031</div><h1>휠라코리아 · SASE 전환</h1><div class="sub">담당 프리세일즈 AI · 열림 32일차 · 페인포인트 3</div></div>
+    <div class="clock" style="text-align:right"><b style="font-family:var(--mono);font-size:16px">₩84,000,000</b><br>예상 규모 · 확률 62%</div>
+  </div>
+
+  <!-- SQUADRON RELAY (signature for this screen) -->
+  <section class="relay">
+    <div class="rh"><span class="mlbl">편대 레인 · 역할 AI 릴레이</span><span class="now">● 지금: 프리세일즈 AI — 제안·견적</span></div>
+    <div class="lanes">
+      <div class="lane done"><div class="bar"></div><div class="who"><div class="rolech mk">MK</div><div class="nm">마케팅<small>인입 분류</small></div></div></div>
+      <div class="lane done"><div class="bar"></div><div class="who"><div class="rolech sa">SA</div><div class="nm">영업<small>미팅·니즈</small></div></div></div>
+      <div class="lane now"><div class="bar"></div><div class="baton"></div><div class="who"><div class="rolech ps">PS</div><div class="nm">프리세일즈<small>제안·견적</small></div></div></div>
+      <div class="gate"><div class="di"></div><div class="gl">G1<br>1차승인</div></div>
+      <div class="lane up"><div class="bar"></div><div class="who"><div class="rolech en">EN</div><div class="nm">엔지니어<small>PoC·구축</small></div></div></div>
+      <div class="gate"><div class="di"></div><div class="gl">G2<br>최종승인</div></div>
+      <div class="lane up"><div class="bar"></div><div class="who"><div class="rolech cf">CF</div><div class="nm">완료<small>PO·정산</small></div></div></div>
+    </div>
+  </section>
+
+  <div class="cols">
+    <div>
+      <div class="sh"><h2>산출물</h2><span class="n">4</span><span class="flow">각 산출물 · 5색 검증</span></div>
+      <div class="art">
+        <div class="rolech ps">PS</div>
+        <div class="x"><b>제안서 초안 <span class="st rd">승인대기</span></b><span>프리세일즈 AI · 페인 3개 반영 · TCO 비교표 포함</span></div>
+        <div class="eq"><div class="ch b pass"><div class="track"><div class="lv"></div></div><div class="lt">B</div></div><div class="ch r pass"><div class="track"><div class="lv"></div></div><div class="lt">R</div></div><div class="ch o pass"><div class="track"><div class="lv"></div></div><div class="lt">O</div></div><div class="ch g pass"><div class="track"><div class="lv"></div></div><div class="lt">G</div></div><div class="ch t pass"><div class="track"><div class="lv"></div></div><div class="lt">T</div></div></div>
+        <button class="go">열기</button>
+      </div>
+      <div class="art">
+        <div class="rolech sa">SA</div>
+        <div class="x"><b>견적서 <span class="st dr">작성중</span></b><span>영업 AI · 총판 견적 대기 · 마진 목표 20%</span></div>
+        <div class="eq"><div class="ch b pass"><div class="track"><div class="lv"></div></div><div class="lt">B</div></div><div class="ch r mid"><div class="track"><div class="lv"></div></div><div class="lt">R</div></div><div class="ch o wait"><div class="track"><div class="lv"></div></div><div class="lt">O</div></div><div class="ch g pass"><div class="track"><div class="lv"></div></div><div class="lt">G</div></div><div class="ch t wait"><div class="track"><div class="lv"></div></div><div class="lt">T</div></div></div>
+        <button class="go">열기</button>
+      </div>
+      <div class="art">
+        <div class="rolech en">EN</div>
+        <div class="x"><b>PoC 체크리스트 <span class="st wa">G1 이후</span></b><span>엔지니어 AI · 기술미팅→시나리오→시행→결과보고서 · 0/5</span></div>
+        <div class="eq"><div class="ch b wait"><div class="track"><div class="lv"></div></div><div class="lt">B</div></div><div class="ch r wait"><div class="track"><div class="lv"></div></div><div class="lt">R</div></div><div class="ch o wait"><div class="track"><div class="lv"></div></div><div class="lt">O</div></div><div class="ch g wait"><div class="track"><div class="lv"></div></div><div class="lt">G</div></div><div class="ch t wait"><div class="track"><div class="lv"></div></div><div class="lt">T</div></div></div>
+        <button class="go">열기</button>
+      </div>
+      <div class="art">
+        <div class="rolech en">EN</div>
+        <div class="x"><b>구축 체크리스트 <span class="st wa">G2 이후</span></b><span>PO확인→구매요청→설치일→구축→완료보고서 · 0/5</span></div>
+        <div class="eq"><div class="ch b wait"><div class="track"><div class="lv"></div></div><div class="lt">B</div></div><div class="ch r wait"><div class="track"><div class="lv"></div></div><div class="lt">R</div></div><div class="ch o wait"><div class="track"><div class="lv"></div></div><div class="lt">O</div></div><div class="ch g wait"><div class="track"><div class="lv"></div></div><div class="lt">G</div></div><div class="ch t wait"><div class="track"><div class="lv"></div></div><div class="lt">T</div></div></div>
+        <button class="go">열기</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="pnl mini" style="margin-bottom:16px">
+        <div class="ph"><b>고객사</b><span class="co mlbl">허브</span></div>
+        <b>휠라코리아</b>
+        <div style="margin-top:10px">
+          <div class="kv"><span class="k">업종</span><span class="v">제조·유통</span></div>
+          <div class="kv"><span class="k">보유 솔루션</span><span class="v">NGAF · aSV</span></div>
+          <div class="kv"><span class="k">다음 만료</span><span class="v" style="color:var(--orange-deep)">2027-03</span></div>
+          <div class="kv"><span class="k">연락처</span><span class="v">3</span></div>
+        </div>
+      </div>
+      <div class="pnl" style="margin-bottom:16px">
+        <div class="ph"><b>이 딜 타임라인</b></div>
+        <div class="tl">
+          <div class="tli"><b>제안서 초안 완료</b><span>프리세일즈 AI · 2시간 전</span></div>
+          <div class="tli"><b>2차 기술미팅</b><span>07-01 · 페인 3개 확정</span></div>
+          <div class="tli"><b>인입 → 영업 배정</b><span>마케팅 AI · 06-02</span></div>
+        </div>
+      </div>
+      <div class="next"><span class="mlbl">다음 관문</span><b>G1 · 1차 승인</b><span>제안서·견적 확정 시 사장님 게이트</span></div>
+    </div>
+  </div>
+</main>
+</body></html>
