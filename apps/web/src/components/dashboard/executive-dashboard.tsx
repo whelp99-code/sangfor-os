@@ -142,11 +142,24 @@ function LoadingSkeleton() {
 }
 
 function ErrorState({ message }: { message: string }) {
+  const needsLogin = message.includes("401");
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-12 text-center dark:border-red-900/50 dark:bg-red-950/20">
       <XCircle className="h-10 w-10 text-red-500" />
-      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">대시보드를 불러오지 못했습니다</h2>
-      <p className="text-sm text-red-600 dark:text-red-300">{message}</p>
+      <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">
+        {needsLogin ? "로그인이 필요합니다" : "대시보드를 불러오지 못했습니다"}
+      </h2>
+      <p className="text-sm text-red-600 dark:text-red-300">
+        {needsLogin ? "세션이 없거나 만료되었습니다." : message}
+      </p>
+      {needsLogin ? (
+        <a
+          href="/login"
+          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+        >
+          로그인하러 가기
+        </a>
+      ) : null}
     </div>
   );
 }
