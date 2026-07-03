@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { unwrapApiResponse, ApiClientError } from "@/lib/api-client";
 
 type Status = {
   configured: boolean;
@@ -23,7 +24,8 @@ export function LlmSettingsCard() {
   const load = () =>
     fetch("/api/settings/llm")
       .then((r) => r.json())
-      .then((s: Status) => {
+      .then((body) => {
+        const s = unwrapApiResponse<Status>(body);
         setStatus(s);
         setBaseUrl(s.baseUrl ?? "");
         setModel(s.model ?? "");
@@ -45,11 +47,11 @@ export function LlmSettingsCard() {
         body: JSON.stringify(body),
       }).then((r) => r.json());
       if (res.success) {
-        setMsg(res.configured ? "저장됨 — LLM 활성화" : "저장됨 (키 없음)");
+        setMsg(res.data?.configured ? "저장됨 — LLM 활성화" : "저장됨 (키 없음)");
         setApiKey("");
         await load();
       } else {
-        setMsg(`오류: ${res.error}`);
+        setMsg(`오류: ${res.error?.message ?? "알 수 없는 오류"}`);
       }
     } catch {
       setMsg("저장 실패");

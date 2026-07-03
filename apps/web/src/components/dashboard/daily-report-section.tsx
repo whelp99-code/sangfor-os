@@ -14,6 +14,7 @@ import {
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { unwrapApiResponse, ApiClientError } from "@/lib/api-client";
 
 type DailyReport = {
   date: string;
@@ -52,7 +53,7 @@ export function DailyReportSection() {
           fetch("/api/mail-candidates?status=proposed"),
         ]);
         if (reportRes.ok) {
-          setReport(await reportRes.json());
+          setReport(unwrapApiResponse<DailyReport>(await reportRes.json()));
         }
         if (candidatesRes.ok) {
           const data = await candidatesRes.json();

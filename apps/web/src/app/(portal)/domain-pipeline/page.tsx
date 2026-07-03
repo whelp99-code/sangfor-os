@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AiDecisionPanel } from "@/components/domain-pipeline/ai-decision-panel";
+import { unwrapApiResponse, ApiClientError } from "@/lib/api-client";
 
 interface OutcomeBreakdown {
   approved: number;
@@ -121,12 +122,14 @@ export default function DomainPipelinePage() {
       setLive(false);
       fetch("/api/domain-pipeline")
         .then((r) => r.json())
-        .then((d) => {
+        .then((body) => {
           if (cancelled) return;
-          if (d.error) setError(d.error);
-          else {
-            setData(d);
-            setUpdatedAt(d.generatedAt ?? null);
+          try {
+            const snapshot = unwrapApiResponse<Snapshot>(body);
+            setData(snapshot);
+            setUpdatedAt(snapshot.generatedAt ?? null);
+          } catch (err) {
+            setError(err instanceof ApiClientError ? err.message : String(err));
           }
           setLoading(false);
         })

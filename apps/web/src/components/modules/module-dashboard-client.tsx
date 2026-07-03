@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toggleModuleStatus, toggleConnectorCredentialMode } from "@/app/(portal)/modules/actions";
+import { unwrapApiResponse, ApiClientError } from "@/lib/api-client";
 
 // DB matching Interfaces
 interface DbModule {
@@ -230,22 +231,14 @@ export function ModuleDashboardClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({})
       });
-      const data = await response.json();
-      if (!response.ok) {
-        setValResultsReal({
-          loading: false,
-          valid: false,
-          errors: data.errors || [],
-          errorMsg: data.error || "레지스트리 검증기가 실패 상태를 반환했습니다."
-        });
-      } else {
-        setValResultsReal({
-          loading: false,
-          valid: data.valid,
-          errors: data.errors || [],
-          errorMsg: null
-        });
-      }
+      const body = await response.json();
+      const payload = unwrapApiResponse<{ valid: boolean; errors?: string[] }>(body);
+      setValResultsReal({
+        loading: false,
+        valid: payload.valid,
+        errors: payload.errors || [],
+        errorMsg: payload.valid ? null : "레지스트리 검증기가 실패 상태를 반환했습니다."
+      });
     } catch (e) {
       setValResultsReal({
         loading: false,

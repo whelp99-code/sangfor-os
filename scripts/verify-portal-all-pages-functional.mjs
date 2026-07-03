@@ -302,11 +302,11 @@ async function verifyProposals() {
     pocProjectId: created.pocId || undefined,
     variables: { scope: "Security training materials from inbound mail", timeline: "2 weeks" },
   });
-  if (!create.json?.document?.id) {
+  if (!create.json?.data?.document?.id) {
     log("/proposals", "POST generate", "FAIL");
     return;
   }
-  created.proposalId = create.json.document.id;
+  created.proposalId = create.json.data.document.id;
   log("/proposals", "POST generate", "PASS", created.proposalId);
   await pageLoad(`/proposals/${created.proposalId}`, "Proposal");
 
@@ -471,7 +471,7 @@ async function verifyModules() {
   const mods = await fetch(`${BASE}/api/modules`).then((r) => r.json());
   const key = mods.modules?.[0]?.moduleKey || "command-center";
   const v = await api("POST", `/api/modules/${key}/validate`, {});
-  log("/modules", `POST validate ${key}`, typeof v.json?.valid === "boolean" ? "PASS" : "FAIL");
+  log("/modules", `POST validate ${key}`, typeof v.json?.data?.valid === "boolean" ? "PASS" : "FAIL");
   const forbid = await api("POST", "/api/actions/mail.send/validate", {});
   log("/modules", "mail.send blocked", forbid.status === 400 ? "PASS" : "FAIL");
   const conn = await fetch(`${BASE}/api/connectors`);
