@@ -1,13 +1,15 @@
 import { generateProposal, listGeneratedDocuments } from "@sangfor/business";
-import { NextResponse } from "next/server";
-import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertApiAccess } from "@/lib/api-auth";
+import { createApiResponse, createApiErrorResponse } from "../_lib/api-response";
+import { API_ERRORS } from "../_lib/api-error";
 
 export async function GET() {
   try {
     const documents = await listGeneratedDocuments();
-    return NextResponse.json({ documents });
+    return createApiResponse({ documents });
   } catch (error) {
-    return apiError("list_failed", error, { status: 500 });
+    console.error("[api] list_failed:", error instanceof Error ? error.stack ?? error.message : error);
+    return createApiErrorResponse(API_ERRORS.INTERNAL_ERROR());
   }
 }
 
@@ -17,8 +19,9 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const document = await generateProposal(body);
-    return NextResponse.json({ document }, { status: 201 });
+    return createApiResponse({ document }, 201);
   } catch (error) {
-    return apiError("generate_failed", error, { status: 400 });
+    console.error("[api] generate_failed:", error instanceof Error ? error.stack ?? error.message : error);
+    return createApiErrorResponse(API_ERRORS.INTERNAL_ERROR());
   }
 }

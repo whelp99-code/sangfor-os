@@ -6,8 +6,9 @@ import {
 } from "@sangfor/business/module-runtime";
 import { listActionDefinitions } from "@sangfor/business/action-connector-runtime";
 import { resolveModuleDependencyStatus } from "@sangfor/business";
-import { NextResponse } from "next/server";
-import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertApiAccess } from "@/lib/api-auth";
+import { createApiResponse, createApiErrorResponse } from "../../../_lib/api-response";
+import { API_ERRORS } from "../../../_lib/api-error";
 
 type RouteContext = { params: Promise<{ moduleKey: string }> };
 
@@ -21,12 +22,12 @@ export async function POST(request: Request, context: RouteContext) {
     const moduleManifest = (fromBody ?? (await getModuleManifest(moduleKey))) as ModuleManifest | null;
 
     if (!moduleManifest) {
-      return NextResponse.json({ error: "module_not_found" }, { status: 404 });
+      return createApiResponse({ error: "module_not_found" }, 404);
     }
 
     const manifestValidation = validateModuleManifest(moduleManifest);
     if (!manifestValidation.valid || !manifestValidation.manifest) {
-      return NextResponse.json(
+      return createApiResponse(
         {
           moduleKey,
           valid: false,
@@ -35,12 +36,12 @@ export async function POST(request: Request, context: RouteContext) {
           issues: [],
           routeSmokeTargets: [],
         },
-        { status: 400 },
+        400,
       );
     }
 
     if (manifestValidation.manifest.moduleKey !== moduleKey) {
-      return NextResponse.json(
+      return createApiResponse(
         {
           moduleKey,
           valid: false,
@@ -51,7 +52,7 @@ export async function POST(request: Request, context: RouteContext) {
           issues: [],
           routeSmokeTargets: [],
         },
-        { status: 400 },
+        400,
       );
     }
 
@@ -90,7 +91,7 @@ export async function POST(request: Request, context: RouteContext) {
     });
 
     const status = runtimeValidation.valid ? 200 : 400;
-    return NextResponse.json(
+    return createApiResponse(
       {
         moduleKey,
         valid: runtimeValidation.valid,
@@ -99,9 +100,10 @@ export async function POST(request: Request, context: RouteContext) {
         issues: runtimeValidation.issues,
         routeSmokeTargets,
       },
-      { status },
+      status,
     );
   } catch (error) {
-    return apiError("validate_module_failed", error, { status: 500 });
+    console.error("[api] validate_module_failed:", error instanceof Error ? error.stack ?? error.message : error);
+    return createApiErrorResponse(API_ERRORS.INTERNAL_ERROR());
   }
 }

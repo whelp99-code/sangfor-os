@@ -1,6 +1,7 @@
 import { generateMailInsightThreads } from "@sangfor/business";
-import { NextResponse } from "next/server";
-import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertApiAccess } from "@/lib/api-auth";
+import { createApiResponse, createApiErrorResponse } from "../../_lib/api-response";
+import { API_ERRORS } from "../../_lib/api-error";
 
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
@@ -11,14 +12,9 @@ export async function POST(request: Request) {
 
     const result = await generateMailInsightThreads(limit);
 
-    return NextResponse.json(
-      {
-        success: true,
-        ...result,
-      },
-      { status: 201 },
-    );
+    return createApiResponse(result, 201);
   } catch (error) {
-    return apiError("generate_failed", error, { status: 400 });
+    console.error("[api] generate_failed:", error instanceof Error ? error.stack ?? error.message : error);
+    return createApiErrorResponse(API_ERRORS.INTERNAL_ERROR());
   }
 }

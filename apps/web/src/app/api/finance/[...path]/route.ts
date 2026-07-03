@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildFinanceProxyUrl } from "@/lib/finance-proxy";
 import { assertApiAccess } from "@/lib/api-auth";
+import { createApiErrorResponse } from "../../_lib/api-response";
+import { API_ERRORS } from "../../_lib/api-error";
 
 async function proxy(req: NextRequest, method: string) {
   // The proxy injects a real upstream API key (FINANCE_API_KEY||API_KEY), so
@@ -30,11 +32,9 @@ async function proxy(req: NextRequest, method: string) {
     const text = await res.text();
     const data = text ? parseFinanceResponse(text) : null;
     return NextResponse.json(data, { status: res.status });
-  } catch {
-    return NextResponse.json(
-      { error: "Finance service unavailable" },
-      { status: 503 },
-    );
+  } catch (error) {
+    console.error("[api] finance_proxy_unavailable:", error instanceof Error ? error.stack ?? error.message : error);
+    return createApiErrorResponse(API_ERRORS.INTERNAL_ERROR());
   }
 }
 
