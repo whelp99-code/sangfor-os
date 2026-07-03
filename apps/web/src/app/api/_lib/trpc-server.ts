@@ -1,4 +1,5 @@
 import { initTRPC, TRPCError } from '@trpc/server';
+import type { OpenApiMeta } from 'trpc-to-openapi';
 import { NextRequest } from 'next/server';
 import { assertApiAccess } from '@/lib/api-auth';
 
@@ -15,7 +16,7 @@ export const createContext = async (opts: CreateContextOptions) => {
 
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
-export const t = initTRPC.context<Context>().create();
+export const t = initTRPC.meta<OpenApiMeta>().context<Context>().create();
 
 export const publicProcedure = t.procedure;
 
