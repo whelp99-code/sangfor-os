@@ -188,8 +188,8 @@ importers:
         specifier: ^3.6.0
         version: 3.6.0
       trpc-to-openapi:
-        specifier: ^3.3.0
-        version: 3.3.0(@trpc/server@11.18.0(typescript@5.9.3))(zod-openapi@5.4.6(zod@3.25.76))(zod@3.25.76)
+        specifier: ^2.4.0
+        version: 2.4.0(@trpc/server@11.18.0(typescript@5.9.3))(zod-openapi@4.2.4(zod@3.25.76))(zod@3.25.76)
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
@@ -200,8 +200,8 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
       zod-openapi:
-        specifier: ^5.4.6
-        version: 5.4.6(zod@3.25.76)
+        specifier: 4.2.4
+        version: 4.2.4(zod@3.25.76)
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4
@@ -3291,8 +3291,8 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  h3@1.15.11:
-    resolution: {integrity: sha512-L3THSe2MPeBwgIZVSH5zLdBBU90TOxarvhK9d04IDY2AmVS8j2Jz2LIWtwsGOU3lu2I5jCN7FNvVfY2+XyF+mg==}
+  h3@1.15.1:
+    resolution: {integrity: sha512-+ORaOBttdUm1E2Uu/obAyCguiI7MbBvsLTndc3gyK3zU+SYLoZXlyCP9Xgy0gikkGufFLTZXCXD6+4BsufnmHA==}
 
   has-bigints@1.1.0:
     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
@@ -4907,12 +4907,12 @@ packages:
   tr46@0.0.3:
     resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
 
-  trpc-to-openapi@3.3.0:
-    resolution: {integrity: sha512-PNMXq0K37Ott5ysNACYN1XLaM5xZGNJrx1QiQVTlk4hmgJomoyiAKhVrpwrK02JW3joSQmHYBOZ7pK6Hdioekw==}
+  trpc-to-openapi@2.4.0:
+    resolution: {integrity: sha512-B6xrwOC3Ab0q1BWD/QbJzK4OUpCLoT02hAzshSUXEuIZGcJZkMG/OJ4/3gd20dyr8aI+CrFirpWKRIo7JmHbMQ==}
     peerDependencies:
       '@trpc/server': ^11.1.0
-      zod: ^3.25.0 || ^4.0.0
-      zod-openapi: ^5.4.4
+      zod: ^3.23.8
+      zod-openapi: 4.2.4
 
   ts-api-utils@2.5.0:
     resolution: {integrity: sha512-OJ/ibxhPlqrMM0UiNHJ/0CKQkoKF243/AEmplt3qpRgkW8VG7IfOS41h7V8TjITqdByHzrjcS/2si+y4lIh8NA==}
@@ -5252,11 +5252,11 @@ packages:
     resolution: {integrity: sha512-CzhO+pFNo8ajLM2d2IW/R93ipy99LWjtwblvC1RsoSUMZgyLbYFr221TnSNT7GjGdYui6P459mw9JH/g/zW2ug==}
     engines: {node: '>=18'}
 
-  zod-openapi@5.4.6:
-    resolution: {integrity: sha512-P2jsOOBAq/6hCwUsMCjUATZ8szkMsV5VAwZENfyxp2Hc/XPJQpVwAgevWZc65xZauCwWB9LAn7zYeiCJFAEL+A==}
-    engines: {node: '>=20'}
+  zod-openapi@4.2.4:
+    resolution: {integrity: sha512-tsrQpbpqFCXqVXUzi3TPwFhuMtLN3oNZobOtYnK6/5VkXsNdnIgyNr4r8no4wmYluaxzN3F7iS+8xCW8BmMQ8g==}
+    engines: {node: '>=18'}
     peerDependencies:
-      zod: ^3.25.74 || ^4.0.0
+      zod: ^3.21.4
 
   zod-to-json-schema@3.25.2:
     resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
@@ -8308,7 +8308,7 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  h3@1.15.11:
+  h3@1.15.1:
     dependencies:
       cookie-es: 1.2.3
       crossws: 0.3.5
@@ -9941,14 +9941,14 @@ snapshots:
 
   tr46@0.0.3: {}
 
-  trpc-to-openapi@3.3.0(@trpc/server@11.18.0(typescript@5.9.3))(zod-openapi@5.4.6(zod@3.25.76))(zod@3.25.76):
+  trpc-to-openapi@2.4.0(@trpc/server@11.18.0(typescript@5.9.3))(zod-openapi@4.2.4(zod@3.25.76))(zod@3.25.76):
     dependencies:
       '@trpc/server': 11.18.0(typescript@5.9.3)
       co-body: 6.2.0
-      h3: 1.15.11
+      h3: 1.15.1
       openapi3-ts: 4.4.0
       zod: 3.25.76
-      zod-openapi: 5.4.6(zod@3.25.76)
+      zod-openapi: 4.2.4(zod@3.25.76)
     optionalDependencies:
       '@rollup/rollup-linux-x64-gnu': 4.6.1
 
@@ -10385,7 +10385,7 @@ snapshots:
 
   yoctocolors@2.1.2: {}
 
-  zod-openapi@5.4.6(zod@3.25.76):
+  zod-openapi@4.2.4(zod@3.25.76):
     dependencies:
       zod: 3.25.76
 
