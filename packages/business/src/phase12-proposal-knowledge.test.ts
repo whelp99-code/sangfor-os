@@ -60,7 +60,7 @@ describe.skipIf(!integrationEnabled)("Phase 12 knowledge search", () => {
 
 describe.skipIf(!integrationEnabled)("Phase 12 executive dashboard widgets", () => {
   it("returns widget lists with seed data", async () => {
-    const { getDashboardWidgets } = await import("./executive-dashboard");
+    const { getDashboardWidgets } = await import("./finance/executive-dashboard");
     const widgets = await getDashboardWidgets();
     expect(widgets.devStatus).toBeDefined();
     expect(Array.isArray(widgets.todayTasks)).toBe(true);

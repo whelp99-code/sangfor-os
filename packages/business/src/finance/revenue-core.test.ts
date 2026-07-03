@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { UNSAFE_ACTIONS, requiresApprovalForAction } from "@sangfor/shared/modes";
 
-import { evaluateProposalAction } from "./crm/proposal-generator";
+import { evaluateProposalAction } from "../crm/proposal-generator";
 import { filterRevenueApprovalQueue } from "./revenue-core";
 
 describe("revenue core approval queue", () => {

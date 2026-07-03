@@ -120,7 +120,7 @@ describe.skipIf(!integrationEnabled)("Phase 12 opportunity center", () => {
 
 describe.skipIf(!integrationEnabled)("Phase 12 executive dashboard", () => {
   it("returns summary counts", async () => {
-    const { getExecutiveSummary } = await import("./executive-dashboard");
+    const { getExecutiveSummary } = await import("./finance/executive-dashboard");
     const summary = await getExecutiveSummary();
     expect(summary.customers).toBeGreaterThan(0);
     expect(summary.opportunities.total).toBeGreaterThanOrEqual(0);
