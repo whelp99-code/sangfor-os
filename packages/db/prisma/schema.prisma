@@ -669,6 +669,7 @@ model Customer {
   supportCases         SupportCase[]
 
   @@index([projectId, name])
+  @@index([segment, riskScore])
   @@map("customers")
 }
 
@@ -940,6 +941,8 @@ model Opportunity {
   @@index([projectId, stage])
   @@index([ownerId])
   @@index([dealStatus])
+  @@index([customerId, stage])
+  @@index([stage, stageEnteredAt])
   @@map("opportunities")
 }
 
