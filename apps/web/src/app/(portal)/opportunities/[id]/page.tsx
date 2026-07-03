@@ -1,154 +1,266 @@
-import {
-  enrichOpportunityLinks,
-  getEngagementByOpportunity,
-  getOpportunityDetail,
-  listCustomers,
-  listGeneratedDocuments,
-  listMailEvidenceForEntity,
-  listPartners,
-  listPocProjects,
-  normalizeOpportunityStage,
-} from "@sangfor/business";
-import { buildOpportunityOrchestratorSummary } from "@sangfor/business/skills";
-import Link from "next/link";
+export const dynamic = "force-dynamic";
+
 import { notFound } from "next/navigation";
-
+import Link from "next/link";
 import {
-  AddOpportunityLinkForm,
-  RemoveOpportunityLinkButton,
-} from "@/components/opportunities/add-link-form";
-import { MailEvidenceCard } from "@/components/mail-candidates/mail-evidence-card";
-import { AdvanceOpportunityButton } from "@/components/opportunities/advance-button";
-import { ConvertToProjectButton } from "@/components/opportunities/convert-to-project-button";
-import { DealRecordHeader, DealStagePath } from "@/components/deals/deal-record-header";
-import { EditOpportunityForm } from "@/components/opportunities/edit-opportunity-form";
-import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+  getOpportunityDetail,
+  getEngagementByOpportunity,
+} from "@sangfor/business";
+import { won } from "@/lib/cockpit";
 
-type PageProps = { params: Promise<{ id: string }> };
+// OpportunityStage → 편대 레인 위치(0 마케팅 · 1 영업 · 2 프리세일즈 · 3 엔지니어 · 4 완료)
+const STAGE_LANE: Record<string, number> = {
+  LEAD: 1,
+  QUALIFIED: 1,
+  PROPOSAL: 2,
+  NEGOTIATION: 2,
+  POC: 3,
+  WON: 4,
+  LOST: 2,
+};
+const STAGE_KO: Record<string, string> = {
+  LEAD: "리드",
+  QUALIFIED: "검증",
+  PROPOSAL: "제안",
+  NEGOTIATION: "협상",
+  POC: "PoC",
+  WON: "수주",
+  LOST: "이탈",
+};
+const LANES = [
+  { cls: "mk", badge: "MK", nm: "마케팅", sub: "인입 분류" },
+  { cls: "sa", badge: "SA", nm: "영업", sub: "미팅·니즈" },
+  { cls: "ps", badge: "PS", nm: "프리세일즈", sub: "제안·견적" },
+  { cls: "en", badge: "EN", nm: "엔지니어", sub: "PoC·구축" },
+  { cls: "cf", badge: "CF", nm: "완료", sub: "PO·정산" },
+];
+const ROLE_LABEL = ["마케팅 AI", "영업 AI", "프리세일즈 AI", "엔지니어 AI", "CFO AI"];
 
-export default async function OpportunityDetailPage({ params }: PageProps) {
+export default async function OpportunityDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
-  // getEngagementByOpportunity depends only on `id`, so it joins the initial
-  // parallel batch instead of running as a sequential await afterwards (−1 round-trip).
-  const [opportunity, customers, partners, pocProjects, proposals, mailEvidence, existingEngagement] =
-    await Promise.all([
-      getOpportunityDetail(id),
-      listCustomers(),
-      listPartners(),
-      listPocProjects(),
-      listGeneratedDocuments(),
-      listMailEvidenceForEntity("opportunity", id),
-      getEngagementByOpportunity(id),
-    ]);
-  if (!opportunity) notFound();
+  const opp = await getOpportunityDetail(id).catch(() => null);
+  if (!opp) notFound();
+  const engagement = await getEngagementByOpportunity(id).catch(() => null);
 
-  const stage = normalizeOpportunityStage(opportunity.stage);
-  const enrichedLinks = await enrichOpportunityLinks(opportunity.links);
-  const customerOptions = customers.map((c) => ({ id: c.id, label: c.name }));
-  const partnerOptions = partners.map((p) => ({ id: p.id, label: p.name }));
+  const cur = STAGE_LANE[opp.stage] ?? 1;
+  const isLost = opp.stage === "LOST";
+  const isWon = opp.stage === "WON";
+  const nowRole = ROLE_LABEL[Math.min(cur, 4)];
+
+  const checklist = engagement?.checklistItems ?? [];
+  const deliveryDocs = engagement?.generatedDocuments ?? [];
+  const pocs = engagement?.pocProjects ?? [];
+  const stageEvents = opp.stageEvents ?? [];
 
   return (
-    <div className="space-y-6">
-      <DealRecordHeader
-        title={opportunity.title}
-        stage={stage}
-        probability={opportunity.probability}
-        amount={opportunity.amount?.toString() ?? null}
-        customer={opportunity.customer?.name ?? null}
-        partner={opportunity.partner?.name ?? null}
-        nextAction={opportunity.nextAction}
-        closeDate={opportunity.closeDate}
-        actions={
-          <>
-            <Badge>{stage}</Badge>
-            <Badge variant="outline">{opportunity.probability}%</Badge>
-            <AdvanceOpportunityButton id={opportunity.id} stage={opportunity.stage} />
-            <ConvertToProjectButton id={opportunity.id} engagementId={existingEngagement?.id} />
-            {/* Delete button intentionally absent: archiveOpportunity is still a
-                hard prisma.delete — delete UX returns with soft-delete (PLAN §7). */}
-          </>
-        }
-      />
-      <DealStagePath stage={stage} />
-      <PortalOrchestratorRunPanel
-        title="Phase 13 오케스트레이터"
-        buttonLabel="오케스트레이터 실행"
-        inputSummary={buildOpportunityOrchestratorSummary(opportunity)}
-        sourceEntityType="opportunity"
-        sourceEntityId={opportunity.id}
-      />
-      <MailEvidenceCard evidence={mailEvidence} />
-      <Card>
-        <CardHeader><CardTitle>기회 편집</CardTitle></CardHeader>
-        <CardContent>
-          <EditOpportunityForm
-            opportunityId={opportunity.id}
-            customers={customerOptions}
-            partners={partnerOptions}
-            initial={{
-              title: opportunity.title,
-              stage: opportunity.stage,
-              amount: opportunity.amount?.toString() ?? null,
-              probability: opportunity.probability,
-              closeDate: opportunity.closeDate,
-              nextAction: opportunity.nextAction,
-              customerId: opportunity.customerId,
-              partnerId: opportunity.partnerId,
-            }}
-          />
-        </CardContent>
-      </Card>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>단계 이력</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {opportunity.stageEvents.map((e) => (
-              <div key={e.id} className="flex justify-between">
-                <span>{e.fromStage ?? "—"} → {e.toStage}</span>
-                <Badge variant="outline">{e.note ?? ""}</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>연결 항목</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <AddOpportunityLinkForm
-              opportunityId={opportunity.id}
-              linkOptions={{
-                poc: pocProjects.map((p) => ({ id: p.id, label: p.title })),
-                proposal: proposals.map((d) => ({ id: d.id, label: d.title })),
-                partner: partnerOptions,
-                customer: customerOptions,
-              }}
-            />
-            <div className="space-y-2 text-sm">
-              {enrichedLinks.length === 0 ? (
-                <p className="text-muted-foreground">아직 연결된 항목이 없습니다.</p>
-              ) : (
-                enrichedLinks.map((link) => (
-                  <div key={link.id} className="flex items-center justify-between gap-2">
-                    <span>
-                      {link.href ? (
-                        <Link href={link.href} className="hover:underline">
-                          {link.entityType}: {link.label}
-                        </Link>
-                      ) : (
-                        `${link.entityType}: ${link.label}`
-                      )}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <Badge variant="secondary">{link.linkType}</Badge>
-                      <RemoveOpportunityLinkButton opportunityId={opportunity.id} linkId={link.id} />
-                    </div>
+    <div className="cockpit ck-grain">
+      <div className="ck-hdr">
+        <div>
+          <div className="mlbl">신규영업 {opp.code ? `· ${opp.code}` : ""}</div>
+          <h1>{opp.title}</h1>
+          <div className="mono" style={{ fontSize: 11, color: "var(--ck-muted)", marginTop: 5 }}>
+            담당 {nowRole} · 단계 {STAGE_KO[opp.stage] ?? opp.stage}
+            {opp.customer?.name ? ` · ${opp.customer.name}` : ""}
+          </div>
+        </div>
+        <div className="big-r">
+          <b>{won(opp.amount ? Number(opp.amount) : 0)}</b>
+          <br />
+          예상 규모 · 확률 {opp.probability}%
+        </div>
+      </div>
+
+      <section className="relay">
+        <div className="rh">
+          <span className="mlbl" style={{ color: "var(--ck-muted)" }}>
+            편대 레인 · 역할 AI 릴레이
+          </span>
+          <span className="now">
+            ● {isWon ? "완료 · 수주" : isLost ? "이탈" : `지금: ${nowRole}`}
+          </span>
+        </div>
+        <div className="lanes">
+          {LANES.map((l, i) => {
+            const state = i < cur ? "done" : i === cur ? "now" : "up";
+            const laneEl = (
+              <div className={`lane ${state}`} key={l.cls}>
+                <div className="bar" />
+                {state === "now" && !isWon ? <div className="baton" /> : null}
+                <div className="who">
+                  <div className={`rolech ${l.cls}`}>{l.badge}</div>
+                  <div className="nm">
+                    {l.nm}
+                    <small>{l.sub}</small>
                   </div>
-                ))
-              )}
+                </div>
+              </div>
+            );
+            if (i === 2) {
+              return [
+                laneEl,
+                <div className={`gate ${cur > 2 ? "passed" : ""}`} key="g1">
+                  <div className="di" />
+                  <div className="gl">
+                    G1
+                    <br />
+                    1차승인
+                  </div>
+                </div>,
+              ];
+            }
+            if (i === 3) {
+              return [
+                laneEl,
+                <div className={`gate ${isWon ? "passed" : ""}`} key="g2">
+                  <div className="di" />
+                  <div className="gl">
+                    G2
+                    <br />
+                    최종승인
+                  </div>
+                </div>,
+              ];
+            }
+            return laneEl;
+          })}
+        </div>
+      </section>
+
+      <div className="ck-cols">
+        <div>
+          <div className="sh">
+            <h2>산출물</h2>
+            <span className="flow">단계별 · 5색 검증 연동 예정</span>
+          </div>
+
+          <div className="art">
+            <div className="rolech ps">PS</div>
+            <div className="x">
+              <b>
+                제안서
+                {deliveryDocs.length > 0 ? (
+                  <span className="stt dr">{deliveryDocs.length}건</span>
+                ) : (
+                  <span className="stt wa">미생성</span>
+                )}
+              </b>
+              <span>프리세일즈 AI · 제안·견적 단계</span>
             </div>
-          </CardContent>
-        </Card>
+            <Link href="/proposals" className="go">열기</Link>
+          </div>
+
+          <div className="art">
+            <div className="rolech en">EN</div>
+            <div className="x">
+              <b>
+                PoC 체크리스트
+                {pocs.length > 0 ? (
+                  <span className="stt dr">{pocs.length}건</span>
+                ) : (
+                  <span className="stt wa">{cur >= 3 ? "진행" : "G1 이후"}</span>
+                )}
+              </b>
+              <span>엔지니어 AI · 기술미팅→시나리오→시행→결과보고서</span>
+            </div>
+            <Link href="/poc" className="go">열기</Link>
+          </div>
+
+          <div className="art">
+            <div className="rolech en">EN</div>
+            <div className="x">
+              <b>
+                구축 체크리스트
+                {checklist.length > 0 ? (
+                  <span className="stt dr">
+                    {checklist.filter((c) => c.status === "done").length}/{checklist.length}
+                  </span>
+                ) : (
+                  <span className="stt wa">{isWon ? "진행" : "G2 이후"}</span>
+                )}
+              </b>
+              <span>PO확인→구매요청→설치일→구축→완료보고서</span>
+            </div>
+            <Link href="/delivery" className="go">열기</Link>
+          </div>
+        </div>
+
+        <div>
+          <div className="pnl mini" style={{ marginBottom: 16 }}>
+            <div className="ph">
+              <b>고객사</b>
+              <span className="co mlbl">허브</span>
+            </div>
+            <b>{opp.customer?.name ?? "고객 미지정"}</b>
+            <div style={{ marginTop: 10 }}>
+              <div className="kv">
+                <span className="k">단계</span>
+                <span className="v">{STAGE_KO[opp.stage] ?? opp.stage}</span>
+              </div>
+              <div className="kv">
+                <span className="k">거래 상태</span>
+                <span className="v">{opp.dealStatus}</span>
+              </div>
+              <div className="kv">
+                <span className="k">마감일</span>
+                <span className="v">
+                  {opp.closeDate ? new Date(opp.closeDate).toLocaleDateString("ko-KR") : "—"}
+                </span>
+              </div>
+              {opp.partner?.name ? (
+                <div className="kv">
+                  <span className="k">파트너</span>
+                  <span className="v">{opp.partner.name}</span>
+                </div>
+              ) : null}
+            </div>
+            {opp.customer?.id ? (
+              <Link
+                href={`/customers/${opp.customer.id}`}
+                className="go"
+                style={{ display: "inline-block", marginTop: 12 }}
+              >
+                고객 허브 →
+              </Link>
+            ) : null}
+          </div>
+
+          <div className="pnl" style={{ marginBottom: 16 }}>
+            <div className="ph">
+              <b>단계 이력</b>
+            </div>
+            {stageEvents.length === 0 ? (
+              <p className="empty">단계 전환 기록이 없습니다.</p>
+            ) : (
+              <div className="tl">
+                {stageEvents.slice(0, 6).map((e) => (
+                  <div className="tli" key={e.id}>
+                    <b>
+                      {STAGE_KO[e.toStage] ?? e.toStage}
+                      {e.fromStage ? ` ← ${STAGE_KO[e.fromStage] ?? e.fromStage}` : ""}
+                    </b>
+                    <span>{new Date(e.createdAt).toLocaleDateString("ko-KR")}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="next">
+            <span className="mlbl">다음 관문</span>
+            <b>{isWon ? "수주 완료" : cur < 3 ? "G1 · 1차 승인" : "G2 · 최종 승인"}</b>
+            <span>
+              {isWon
+                ? "정산·완료보고서"
+                : cur < 3
+                ? "제안·견적 확정 시 사장님 게이트"
+                : "PoC 결과 확정 시 사장님 게이트"}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

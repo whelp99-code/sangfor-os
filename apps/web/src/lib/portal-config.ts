@@ -11,12 +11,15 @@ export const PORTAL_NAV: NavItem[] = [
   // ═══ 홈 ═══
   { title: "홈", href: "/home", icon: "home", group: "홈", tier: "primary" },
   { title: "내 업무", href: "/my-work", icon: "layout-grid", group: "홈", tier: "primary" },
+  { title: "인입함", href: "/inbox", icon: "inbox", group: "홈", tier: "primary" },
+  { title: "AI 팀", href: "/ai-team", icon: "bot", group: "홈", tier: "primary" },
   { title: "Executive 대시보드", href: "/dashboard", icon: "layout-dashboard", group: "홈", tier: "more" },
 
   // ═══ CRM ═══
   { title: "딜", href: "/deals", icon: "trending-up", group: "CRM", tier: "primary" },
   { title: "파이프라인", href: "/opportunities", icon: "bar-chart-2", group: "CRM", tier: "primary" },
   { title: "회사", href: "/customers", icon: "building", group: "CRM", tier: "primary" },
+  { title: "리뉴얼", href: "/renewals", icon: "refresh", group: "CRM", tier: "primary" },
   { title: "연락처", href: "/contacts", icon: "contact", group: "CRM", tier: "primary" },
   { title: "파트너", href: "/partners", icon: "handshake", group: "CRM", tier: "primary" },
   { title: "딜 등록", href: "/deals/registrations", icon: "shield-check", group: "CRM", tier: "primary" },

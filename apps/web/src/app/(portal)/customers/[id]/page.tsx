@@ -1,212 +1,213 @@
-import { getCustomerDetail, listMailEvidenceForEntity } from "@sangfor/business";
-import { normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
-import Link from "next/link";
+export const dynamic = "force-dynamic";
+
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { getCustomerDetail } from "@sangfor/business";
+import { prisma } from "@sangfor/db";
+import { daysUntil, won } from "@/lib/cockpit";
 
-import { CreateContactForm } from "@/components/customers/create-contact-form";
-import { CustomerHubHeader } from "@/components/companies/customer-hub-header";
-import { EntityEditSheet } from "@/components/common/entity-edit-sheet";
-import { DeleteEntityButton } from "@/components/common/delete-entity-button";
-import { MailEvidenceCard } from "@/components/mail-candidates/mail-evidence-card";
-import { stageLabel } from "@/components/deals/stage-meta";
-import { RecordLayout } from "@/components/views/record-layout";
-import { EmptyState } from "@/components/ui/states";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+const STAGE_KO: Record<string, string> = {
+  LEAD: "리드", QUALIFIED: "검증", PROPOSAL: "제안", NEGOTIATION: "협상",
+  POC: "PoC", WON: "수주", LOST: "이탈",
+};
 
-type PageProps = { params: Promise<{ id: string }> };
-
-export default async function CustomerDetailPage({ params }: PageProps) {
+export default async function CustomerHubPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
-  const [customer, mailEvidence] = await Promise.all([
-    getCustomerDetail(id),
-    listMailEvidenceForEntity("customer", id),
-  ]);
+  const customer = await getCustomerDetail(id).catch(() => null);
   if (!customer) notFound();
 
-  const primaryContact = customer.contacts[0] ?? null;
+  const [assets, renewals, supportCases] = await Promise.all([
+    prisma.customerAsset.findMany({
+      where: { customerId: id },
+      orderBy: { warrantyEnd: "asc" },
+    }),
+    prisma.renewalOpportunity.findMany({
+      where: { customerId: id },
+      orderBy: { expiresAt: "asc" },
+    }),
+    prisma.supportCase.findMany({ where: { customerId: id } }),
+  ]);
+
+  const opps = customer.opportunities ?? [];
+  const activeOpps = opps.filter((o) => o.stage !== "WON" && o.stage !== "LOST");
+  const wonOpps = opps.filter((o) => o.stage === "WON");
+  const totalValue = wonOpps.reduce((s, o) => s + Number(o.amount ?? 0), 0);
+  const nextRenewalD = renewals
+    .map((r) => daysUntil(r.expiresAt))
+    .filter((d): d is number => d !== null && d >= 0)
+    .sort((a, b) => a - b)[0];
+
+  // 관계 타임라인: 영업기회(n) + 리뉴얼(r), 날짜 내림차순
+  type Ev = { date: Date; kind: "n" | "r"; title: string; amount?: number; sub: string };
+  const events: Ev[] = [
+    ...opps.map((o) => ({
+      date: new Date(o.createdAt),
+      kind: "n" as const,
+      title: o.title,
+      amount: Number(o.amount ?? 0),
+      sub: `신규영업 · ${STAGE_KO[o.stage] ?? o.stage}`,
+    })),
+    ...renewals.map((r) => ({
+      date: new Date(r.createdAt),
+      kind: "r" as const,
+      title: `${r.renewalType ?? "갱신"} 리뉴얼`,
+      amount: Number(r.amount ?? 0),
+      sub: `리뉴얼 · ${r.status}`,
+    })),
+  ].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  // 연도 헤더 삽입
+  const rows: (Ev | { year: number })[] = [];
+  let lastYear = 0;
+  for (const e of events) {
+    const y = e.date.getFullYear();
+    if (y !== lastYear) {
+      rows.push({ year: y });
+      lastYear = y;
+    }
+    rows.push(e);
+  }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between gap-2">
-        <Link
-          href="/customers"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="size-3.5" /> 고객사
-        </Link>
-        <div className="flex items-center gap-2">
-          <EntityEditSheet
-            title="고객 수정"
-            endpoint={`/api/customers/${customer.id}`}
-            fields={[
-              { name: "name", label: "이름" },
-              { name: "domain", label: "도메인" },
-              { name: "industry", label: "업종" },
-              { name: "notes", label: "메모" },
-            ]}
-            initial={{ name: customer.name, domain: customer.domain ?? "", industry: customer.industry ?? "", notes: customer.notes ?? "" }}
-          />
-          <DeleteEntityButton endpoint={`/api/customers/${customer.id}`} redirectTo="/customers" />
+    <div className="cockpit ck-grain">
+      <div className="ck-hdr">
+        <div>
+          <div className="mlbl">고객사 · 허브</div>
+          <h1>{customer.name}</h1>
+          <div className="mono" style={{ fontSize: 11, color: "var(--ck-muted)", marginTop: 5 }}>
+            {customer.industry ?? "업종 미지정"} · 세그먼트 {customer.segment ?? "—"} · 담당 영업 AI
+          </div>
+        </div>
+        <div className="big-r">
+          누적 수주액
+          <br />
+          <b>{won(totalValue)}</b>
         </div>
       </div>
 
-      <CustomerHubHeader
-        title={customer.name}
-        domain={customer.domain}
-        industry={customer.industry}
-        status={customer.status}
-        contacts={customer.contacts.length}
-        partners={customer.partnerLinks.length}
-        deals={customer.opportunities.length}
-        pocProjects={customer.pocProjects.length}
-        tasks={customer.workTasks.length}
-        email={primaryContact?.email ?? null}
-        phone={primaryContact?.phone ?? null}
-      />
+      <div className="relbar">
+        <div className="rel"><div className="v">{activeOpps.length}</div><div className="k">진행 딜</div></div>
+        <div className="rel"><div className="v">{wonOpps.length}</div><div className="k">누적 계약</div></div>
+        <div className="rel"><div className={`v ${nextRenewalD !== undefined ? "o" : ""}`}>{nextRenewalD !== undefined ? `D-${nextRenewalD}` : "—"}</div><div className="k">다음 리뉴얼</div></div>
+        <div className="rel"><div className="v">{supportCases.length}</div><div className="k">지원 이력</div></div>
+        <div className="rel"><div className="v">{customer.contacts?.length ?? 0}</div><div className="k">연락처</div></div>
+      </div>
 
-      <RecordLayout
-        main={
-          <>
-            <Card>
-              <CardHeader className="flex-row items-center justify-between">
-                <CardTitle className="text-base">딜</CardTitle>
-                <Badge variant="secondary">{customer.opportunities.length}</Badge>
-              </CardHeader>
-              <CardContent className="space-y-1.5 text-sm">
-                {customer.opportunities.length === 0 ? (
-                  <EmptyState
-                    inline
-                    title="연결된 딜이 없습니다"
-                    description="영업기회에서 이 고객을 연결하면 표시됩니다."
-                  />
+      <div className="ck-cols">
+        <div>
+          <div className="sh">
+            <h2>관계 타임라인</h2>
+            <span className="flow">신규 · 리뉴얼 통합</span>
+          </div>
+          {events.length === 0 ? (
+            <p className="empty">거래 이력이 없습니다.</p>
+          ) : (
+            <div className="spine">
+              {rows.map((r, i) =>
+                "year" in r ? (
+                  <div className="ev head" key={`y${r.year}`}>
+                    <span className="yr">{r.year}</span>
+                  </div>
                 ) : (
-                  customer.opportunities.map((deal) => (
-                    <Link
-                      key={deal.id}
-                      href={`/opportunities/${deal.id}`}
-                      className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 transition-smooth hover:bg-muted/60"
-                    >
-                      <span className="font-medium">{deal.title}</span>
-                      <Badge variant="outline">{stageLabel(normalizeOpportunityStage(deal.stage))}</Badge>
-                    </Link>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex-row items-center justify-between">
-                <CardTitle className="text-base">PoC</CardTitle>
-                <Badge variant="secondary">{customer.pocProjects.length}</Badge>
-              </CardHeader>
-              <CardContent className="space-y-1.5 text-sm">
-                {customer.pocProjects.length === 0 ? (
-                  <EmptyState inline title="진행 중인 PoC가 없습니다" />
-                ) : (
-                  customer.pocProjects.map((poc) => (
-                    <Link
-                      key={poc.id}
-                      href={`/poc/${poc.id}`}
-                      className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 transition-smooth hover:bg-muted/60"
-                    >
-                      <span className="font-medium">{poc.title}</span>
-                      <Badge variant="outline">{poc.status}</Badge>
-                    </Link>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex-row items-center justify-between">
-                <CardTitle className="text-base">연결된 작업</CardTitle>
-                <Badge variant="secondary">{customer.workTasks.length}</Badge>
-              </CardHeader>
-              <CardContent className="space-y-1.5 text-sm">
-                {customer.workTasks.length === 0 ? (
-                  <EmptyState inline title="연결된 작업이 없습니다" />
-                ) : (
-                  customer.workTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5"
-                    >
-                      <span>{task.title}</span>
-                      <Badge variant="outline">{task.status}</Badge>
+                  <div className={`ev ${r.kind}`} key={i}>
+                    <div className="dt">
+                      {r.date.toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" })}
                     </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-
-            <MailEvidenceCard evidence={mailEvidence} />
-          </>
-        }
-        aside={
-          <>
-            <Card id="contacts" className="scroll-mt-20">
-              <CardHeader className="flex-row items-center justify-between">
-                <CardTitle className="text-base">연락처</CardTitle>
-                <Badge variant="secondary">{customer.contacts.length}</Badge>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <CreateContactForm customerId={customer.id} />
-                {customer.contacts.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">등록된 연락처가 없습니다.</p>
-                ) : (
-                  customer.contacts.map((contact) => (
-                    <div key={contact.id} className="rounded-md border px-2.5 py-1.5">
-                      <p className="font-medium">{contact.name}</p>
-                      <p className="text-xs text-muted-foreground">{contact.email ?? "이메일 미등록"}</p>
+                    <div className="l1">
+                      <b>{r.title}</b>
+                      {r.amount ? <span className="amt">{won(r.amount)}</span> : null}
                     </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex-row items-center justify-between">
-                <CardTitle className="text-base">파트너</CardTitle>
-                <Badge variant="secondary">{customer.partnerLinks.length}</Badge>
-              </CardHeader>
-              <CardContent className="space-y-1.5 text-sm">
-                {customer.partnerLinks.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">연결된 파트너가 없습니다.</p>
-                ) : (
-                  customer.partnerLinks.map((link) => (
-                    <div key={link.id} className="flex items-center justify-between gap-2">
-                      <span>{link.partner.name}</span>
-                      <Badge variant="outline">{link.linkType}</Badge>
+                    <div className="l2">
+                      <span className={`wf ${r.kind}`}>
+                        {r.kind === "n" ? "신규영업" : "리뉴얼"}
+                      </span>
+                      <span className="who">{r.sub}</span>
                     </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">활동 타임라인</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                {customer.activityLogs.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">기록된 활동이 없습니다.</p>
-                ) : (
-                  customer.activityLogs.map((log) => (
-                    <div key={log.id} className="flex items-start justify-between gap-2 border-l-2 border-border pl-2.5">
-                      <span className="text-muted-foreground">{log.summary}</span>
-                      <Badge variant="secondary" className="shrink-0 text-[10px]">
-                        {log.activityType}
-                      </Badge>
+        <div>
+          <div className="pnl mini" style={{ marginBottom: 16 }}>
+            <div className="ph">
+              <b>보유 솔루션</b>
+              <span className="co mlbl">리뉴얼 트리거</span>
+            </div>
+            {assets.length === 0 ? (
+              <p className="empty">등록된 보유 솔루션이 없습니다.</p>
+            ) : (
+              assets.map((a) => {
+                const d = daysUntil(a.warrantyEnd);
+                return (
+                  <div className="asset" key={a.id}>
+                    <div className="nm">
+                      {a.name}
+                      <small>{a.assetType ?? "솔루션"}</small>
                     </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          </>
-        }
-      />
+                    <div className={`ex ${d !== null && d <= 90 ? "soon" : "ok"}`}>
+                      {a.warrantyEnd
+                        ? d !== null && d <= 90
+                          ? `D-${d}`
+                          : new Date(a.warrantyEnd).toLocaleDateString("ko-KR", {
+                              year: "numeric",
+                              month: "2-digit",
+                            })
+                        : "—"}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="pnl mini" style={{ marginBottom: 16 }}>
+            <div className="ph">
+              <b>연락처</b>
+              <span className="co mlbl">{customer.contacts?.length ?? 0}</span>
+            </div>
+            {(customer.contacts ?? []).length === 0 ? (
+              <p className="empty">연락처가 없습니다.</p>
+            ) : (
+              (customer.contacts ?? []).slice(0, 5).map((c) => (
+                <div className="kv" key={c.id}>
+                  <span className="k">{c.name}</span>
+                  <span className="v">{c.role ?? c.email ?? ""}</span>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="pnl">
+            <div className="ph">
+              <b>AI 활동 이력</b>
+              <span className="co mlbl">이 고객</span>
+            </div>
+            {(customer.activityLogs ?? []).length === 0 ? (
+              <p className="empty">기록된 활동이 없습니다.</p>
+            ) : (
+              (customer.activityLogs ?? []).slice(0, 4).map((a) => (
+                <div className="aiact" key={a.id}>
+                  <div className="rolech sa">SA</div>
+                  <div className="x">
+                    <b>{a.summary}</b>
+                    <span>{a.activityType ?? "활동"}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <Link href="/customers" className="go" style={{ display: "inline-block", marginTop: 4 }}>
+            ← 고객 목록
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
