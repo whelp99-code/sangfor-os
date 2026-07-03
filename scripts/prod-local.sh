@@ -34,7 +34,10 @@ build_all() {
 
 start_api() {
   if pid_alive "$STATE/api.pid"; then echo "[api] already running (pid $(cat "$STATE/api.pid"))"; return; fi
-  (cd "$ROOT/apps/api" && load_env && nohup node dist/index.js >> "$STATE/api.log" 2>&1 & echo $! > "$STATE/api.pid")
+  # apps/api's compiled dist is not runnable under plain node (extensionless
+  # ESM directory imports, e.g. ./routers) — run via tsx like every other
+  # entry point does. Follow-up: fix the package's `start` script properly.
+  (cd "$ROOT/apps/api" && load_env && nohup npx tsx src/index.ts >> "$STATE/api.log" 2>&1 & echo $! > "$STATE/api.pid")
   echo "[api] started on :$API_PORT (pid $(cat "$STATE/api.pid"))"
 }
 
@@ -45,15 +48,24 @@ start_web() {
 }
 
 stop_one() {
-  local name="$1" pidfile="$STATE/$1.pid"
+  local name="$1" pidfile="$STATE/$1.pid" port
+  case "$name" in
+    web) port="$WEB_PORT" ;;
+    api) port="$API_PORT" ;;
+  esac
   if pid_alive "$pidfile"; then
     kill "$(cat "$pidfile")" 2>/dev/null || true
     sleep 1
     pid_alive "$pidfile" && kill -9 "$(cat "$pidfile")" 2>/dev/null || true
-    echo "[$name] stopped"
-  else
-    echo "[$name] not running"
   fi
+  # The pidfile holds the launcher (npx) pid; the actual server may be a
+  # surviving child. Sweep any remaining listener on the service port.
+  local leftover
+  leftover="$(lsof -ti "tcp:$port" 2>/dev/null || true)"
+  if [ -n "$leftover" ]; then
+    echo "$leftover" | xargs kill -9 2>/dev/null || true
+  fi
+  echo "[$name] stopped"
   rm -f "$pidfile"
 }
 
