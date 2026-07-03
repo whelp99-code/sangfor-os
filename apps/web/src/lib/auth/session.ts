@@ -27,7 +27,12 @@ export function createSessionToken(user: SessionUser): string {
 
 export function verifySessionToken(token: string | null | undefined): SessionUser | null {
   if (!token) return null;
-  if (token.startsWith("mock.")) return MOCK_USER;
+  // Mock tokens are a dev/demo convenience only. Once a real secret is
+  // configured they must be rejected — otherwise `session=mock.x` grants
+  // admin in production, bypassing the HMAC check entirely.
+  if (token.startsWith("mock.")) {
+    return isAuthConfigured() ? null : MOCK_USER;
+  }
 
   let secret: string;
   try {
