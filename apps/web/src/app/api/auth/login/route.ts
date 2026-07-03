@@ -74,6 +74,10 @@ export async function POST(request: Request) {
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
+    // Opt-in because local production runs over plain http://localhost where
+    // some browsers drop Secure cookies. Set SESSION_COOKIE_SECURE=1 when the
+    // app is served behind HTTPS.
+    secure: process.env.SESSION_COOKIE_SECURE === "1",
   });
 
   return response;
