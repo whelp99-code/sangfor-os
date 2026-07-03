@@ -919,6 +919,8 @@ model Opportunity {
   probability Int       @default(20)
   closeDate   DateTime? @map("close_date")
   nextAction  String?   @map("next_action")
+  stageEnteredAt      DateTime? @map("stage_entered_at")      // expand phase (2026-07-03): when current stage was entered
+  probabilityOverride Float?    @map("probability_override")  // expand phase (2026-07-03): manual win-probability override, null = no override
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
