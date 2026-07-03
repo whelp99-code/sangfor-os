@@ -1,6 +1,7 @@
 import { validateActionWithDb } from "@sangfor/business";
-import { NextResponse } from "next/server";
-import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertApiAccess } from "@/lib/api-auth";
+import { createApiResponse, createApiErrorResponse } from "../../../_lib/api-response";
+import { API_ERRORS } from "../../../_lib/api-error";
 
 type RouteContext = { params: Promise<{ actionKey: string }> };
 
@@ -11,11 +12,12 @@ export async function POST(request: Request, context: RouteContext) {
     const { actionKey } = await context.params;
     const validation = await validateActionWithDb(actionKey);
     if (validation.errors.includes("action_not_found")) {
-      return NextResponse.json(validation, { status: 404 });
+      return createApiResponse(validation, 404);
     }
     const status = validation.valid ? 200 : 400;
-    return NextResponse.json(validation, { status });
+    return createApiResponse(validation, status);
   } catch (error) {
-    return apiError("validate_action_failed", error, { status: 500 });
+    console.error("[api] validate_action_failed:", error instanceof Error ? error.stack ?? error.message : error);
+    return createApiErrorResponse(API_ERRORS.INTERNAL_ERROR());
   }
 }
