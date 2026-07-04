@@ -14,6 +14,7 @@ import {
   recallDomainMemories,
   buildMemoryTags,
 } from './domain-memory';
+import { verifyProposalColorGate, type ColorGateVerdict } from './color-gate-llm';
 import { Prisma, prisma } from '@sangfor/db';
 import { sanitizeJsonStrings } from '@sangfor/shared';
 
@@ -29,6 +30,7 @@ export interface DomainProposal {
   domain: DomainKey;
   title: string;
   bodyMarkdown: string;
+  colorGate?: ColorGateVerdict;
 }
 
 const DOMAIN_INTENT: Record<DomainKey, string> = {
@@ -153,25 +155,44 @@ export async function generateDomainProposal(
     projectSlug = projectRow?.slug ?? undefined;
   }
 
-  // 8. Sanitize before jsonb write
+  // 8. Color-gate LLM verification (review 모델). 비차단: 실패해도 생성은 유지.
+  let colorGate: ColorGateVerdict | undefined;
+  if (title && bodyMarkdown) {
+    try {
+      colorGate = await verifyProposalColorGate({
+        domain: input.domain,
+        title,
+        bodyMarkdown,
+        customerName: input.customerName,
+        contextNote: input.contextNote,
+      });
+    } catch {
+      // 검증 실패 시 게이트 없이 진행(사람이 그대로 검토)
+    }
+  }
+
+  // 9. Sanitize before jsonb write
   const sanitized = sanitizeJsonStrings({ title, bodyMarkdown }) as Prisma.InputJsonValue;
 
-  // 9. Persist DomainDecisionLog
+  // 10. Persist DomainDecisionLog (컬러게이트 실판정 포함)
   await recordDomainDecision({
     projectSlug,
     domain: input.domain,
     caseRef: 'eng:' + input.engagementId,
     decisionType: 'ai_proposal',
     outputJson: sanitized,
+    colorGateJson: colorGate
+      ? (sanitizeJsonStrings(colorGate) as Prisma.InputJsonValue)
+      : undefined,
   });
 
-  // 8. Return proposal
-  return { domain: input.domain, title, bodyMarkdown };
+  // 11. Return proposal
+  return { domain: input.domain, title, bodyMarkdown, colorGate };
 }
 
 export async function getPendingProposals(
   engagementId: string,
-): Promise<Array<{ id: string; domain: string; title: string; bodyMarkdown: string; createdAt: Date }>> {
+): Promise<Array<{ id: string; domain: string; title: string; bodyMarkdown: string; createdAt: Date; colorGate?: ColorGateVerdict }>> {
   const rows = await prisma.domainDecisionLog.findMany({
     where: {
       caseRef: 'eng:' + engagementId,
@@ -183,12 +204,17 @@ export async function getPendingProposals(
 
   return rows.map((row) => {
     const out = row.outputJson as { title?: string; bodyMarkdown?: string };
+    const gate = row.colorGateJson;
     return {
       id: row.id,
       domain: row.domain,
       title: out.title ?? '',
       bodyMarkdown: out.bodyMarkdown ?? '',
       createdAt: row.createdAt,
+      colorGate:
+        gate && typeof gate === 'object' && 'lenses' in (gate as object)
+          ? (gate as unknown as ColorGateVerdict)
+          : undefined,
     };
   });
 }

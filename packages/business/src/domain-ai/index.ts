@@ -32,3 +32,5 @@ export * from "./domain-embedder-openai";
 export * from "./domain-persistence";
 export * from "./domain-pnl";
 export * from "./domain-proposal";
+export * from "./color-gate-llm";
+export * from "./proposal-promote";

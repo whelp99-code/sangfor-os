@@ -1,5 +1,6 @@
 import { Prisma, prisma } from "@sangfor/db";
 import { buildMemoryTags, recordDomainDecision, upsertDomainMemory } from "./domain-ai/domain-memory";
+import { promoteDomainProposalToDocument } from "./domain-ai/proposal-promote";
 import type { DomainKey } from "./artifact-domain-map";
 
 export type { DomainKey };
@@ -15,26 +16,52 @@ export interface RecordDecisionInput {
 
 /**
  * Records a human review decision tied to the engagement
- * (caseRef='eng:'+id, decisionType='human_review'),
- * AND feeds learning: on 'approved' or 'corrected', upsertDomainMemory
- * so the domain learns the human-confirmed/edited output.
+ * (caseRef='eng:'+id, decisionType='human_review') and closes the AI-proposal
+ * loop:
+ *  1. finds the pending ai_proposal being decided on (so the real generated
+ *     content — not just a note — drives learning + promotion). Falls back to
+ *     the caller-supplied `output` when no pending row exists.
+ *  2. on approved/corrected: upsertDomainMemory (human-source) so the domain
+ *     learns, AND promotes the artifact into the unified GeneratedDocument store.
+ *  3. marks the pending ai_proposal resolved so it leaves the review queue.
  */
 export async function recordHumanDecision(
   input: RecordDecisionInput,
-): Promise<{ decisionId: string }> {
+): Promise<{ decisionId: string; documentId?: string }> {
   const { engagementId, domain, outcome, output, humanEdit, note } = input;
   const caseRef = "eng:" + engagementId;
+
+  // 1. The pending AI proposal being decided on — real content for learning/promotion.
+  const pending = await prisma.domainDecisionLog.findFirst({
+    where: { caseRef, domain, decisionType: "ai_proposal", outcome: null },
+    orderBy: { createdAt: "desc" },
+  });
+  const proposalOutput =
+    output !== undefined ? output : (pending?.outputJson as unknown);
 
   const decision = await recordDomainDecision({
     domain,
     caseRef,
     decisionType: "human_review",
-    outputJson: output !== undefined ? (output as Prisma.InputJsonValue) : undefined,
+    outputJson:
+      proposalOutput !== undefined && proposalOutput !== null
+        ? (proposalOutput as Prisma.InputJsonValue)
+        : undefined,
     humanEditJson: humanEdit !== undefined ? (humanEdit as Prisma.InputJsonValue) : undefined,
     outcome,
   });
 
-  // Feed domain learning on approved or corrected
+  // 2. Resolve the pending proposal so it leaves the queue (getPendingProposals filters outcome:null).
+  if (pending) {
+    await prisma.domainDecisionLog.update({
+      where: { id: pending.id },
+      data: { outcome, resolvedAt: new Date(), resolvedBy: "human" },
+    });
+  }
+
+  let documentId: string | undefined;
+
+  // 3. Feed domain learning + promote on approved or corrected.
   if (outcome === "approved" || outcome === "corrected") {
     const memoryKey = caseRef + ":" + domain;
     await upsertDomainMemory({
@@ -44,14 +71,32 @@ export async function recordHumanDecision(
       label: note ?? (outcome === "approved" ? "human approved" : "human corrected"),
       // Use shared tag vocabulary so recall queries can find these memories.
       tags: buildMemoryTags({ domain, entityType: "proposal", intentTag: outcome }),
-      valueJson: (humanEdit !== undefined ? humanEdit : output) as Prisma.InputJsonValue,
+      valueJson: (humanEdit !== undefined ? humanEdit : proposalOutput) as Prisma.InputJsonValue,
       outcome,
       source: "human",
       confidence: outcome === "approved" ? 90 : 85,
     });
+
+    // Promote to the unified document store (best-effort; skips when the
+    // engagement→project chain or proposal content is missing).
+    const proposal = proposalOutput as { title?: string; bodyMarkdown?: string } | null | undefined;
+    if (proposal?.title && proposal?.bodyMarkdown) {
+      try {
+        const promoted = await promoteDomainProposalToDocument({
+          engagementId,
+          domain,
+          title: proposal.title,
+          bodyMarkdown: proposal.bodyMarkdown,
+          status: outcome === "approved" ? "approved" : "draft",
+        });
+        documentId = promoted?.documentId;
+      } catch {
+        // promotion is non-blocking — the decision + learning still stand
+      }
+    }
   }
 
-  return { decisionId: decision.id };
+  return { decisionId: decision.id, documentId };
 }
 
 export interface AutonomyInput {
