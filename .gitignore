@@ -24,3 +24,8 @@ memory/mail-learning/
 memory/agent-handoffs/
 .understand-anything/
 .local-prod/
+
+# Local DB snapshots + replay run artifacts (large / mail-derived; not for VCS)
+.agents/backups/
+.agents/results/replay/
+.env.bak*
