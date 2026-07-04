@@ -97,8 +97,18 @@ async function classifyWithAI(thread: ThreadLike): Promise<AiClassificationResul
 
 ## 메일 정보
 제목: ${thread.threadTitle}
-발신자: ${thread.participantDomains.join(', ')}
+발신 도메인(분류 대상이 아닐 수 있음): ${thread.participantDomains.join(', ')}
 본문: ${thread.summary}
+
+## 발신자 vs 분류 대상 (중요)
+- '발신 도메인'은 이 메일을 보낸 곳일 뿐, 분류 대상과 다를 수 있다. 분류 대상은 "이 메일의 비즈니스가 누구에 관한 것인가"이다.
+- 우리 벤더(본사) Sangfor(sangfor.com)나 총판이 제3의 회사 문의를 대신 전달("FW:/RE: [회사] … 견적/문의/도입/라이선스")하는 경우: 그 [회사]는 제품을 도입하려는 엔드고객(customer)이다. 리셀러/SI/총판이라는 명시적 증거가 없으면 partner가 아니라 customer.
+- 다만 발신자 자신이 외부 채널/SI 회사이고 자기 이름으로 공동제안·협업·재판매를 제안하는 경우(예: "[자사] 씨젠 공동 제안"처럼 발신 회사가 곧 대괄호 회사): 그 발신 회사는 partner이고, 그 안에서 도입 주체로 언급된 최종 회사가 customer다. 대괄호 회사가 곧 발신 회사 자신이면 customer로 뒤집지 말 것.
+- sangfor.com(우리 공급 벤더/본사) 자체는 우리가 파는 고객도, 함께 파는 파트너도 아니다 — 발신이 sangfor.com이라는 사실만으로 대상 회사를 partner로 판단하지 말 것.
+
+## 노이즈(반드시 exclude)
+- 발송 실패/반송 알림(Undeliverable, Mail Delivery Failed, postmaster, MicrosoftExchange…@ 로 시작하는 발신): exclude.
+- 전자서명/전자계약·인증서 플랫폼의 단순 서명요청/완료/발급 통지(eformsign, signgate, 모두싸인, DocuSign 등): 그 자체는 영업 대상이 아니다 — exclude(순수 행정 후속이면 task). opportunity/customer로 만들지 말 것.
 
 ## 분류 기준(사용자 확정)
 ${GROUND_TRUTH_CALIBRATION}
