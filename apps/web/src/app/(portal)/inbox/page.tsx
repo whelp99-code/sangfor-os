@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@sangfor/db";
+import { evaluateCandidateColorGate } from "@sangfor/business";
 import { SlipActions } from "@/components/cockpit/slip-actions";
 import { roleFor, TYPE_KO, wfFor, WF_KO, domainOf, revalOf } from "@/lib/cockpit";
 
@@ -60,7 +61,12 @@ export default async function InboxPage() {
             items.map((c) => {
               const role = roleFor(c.candidateType);
               const wf = wfFor(c.candidateType, c.title);
-              const reval = revalOf(c.metadata);
+              const gate = evaluateCandidateColorGate({
+                candidateType: c.candidateType,
+                confidence: c.confidence,
+                revalidation: revalOf(c.metadata),
+                hasSummary: !!c.summary,
+              });
               return (
                 <div className="itm" key={c.id}>
                   <div className="t">
@@ -84,9 +90,7 @@ export default async function InboxPage() {
                       <span className="gtag ro">→ {role.label}</span>
                     </div>
                     <span className="cf">
-                      {reval === "approve_candidate"
-                        ? "재검증 통과"
-                        : `신뢰 ${c.confidence}%`}
+                      {gate.pass ? "게이트 통과" : `보류 ${gate.failed.length}렌즈`}
                     </span>
                   </div>
                   <SlipActions candidateId={c.id} detailHref={`/approvals/mail-candidates/${c.id}`} />

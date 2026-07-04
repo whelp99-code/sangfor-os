@@ -23,6 +23,7 @@ export * from "./policy-memory-handler";
 export * from "./mail-candidates";
 export * from "./mail-candidate-connections";
 export * from "./color-agent";
+export * from "./color-gate";
 export * from "./domain-ai/index";
 export * from "./opencode-client";
 export * from "./opencode-structured";
