@@ -12,6 +12,8 @@ import { formatKRW } from "@sangfor/shared";
 type PageProps = { params: Promise<{ id: string }> };
 const DOMAIN_LABEL: Record<string, string> = { marketing: "마케팅", sales: "세일즈", presales: "프리세일즈", engineer: "엔지니어", cfo: "CFO" };
 const DOT: Record<string, string> = { done: "●", active: "◐", pending: "○" };
+const LENS_KO: Record<string, string> = { blue: "기술", red: "리스크", orange: "가치", gray: "근거", teal: "UX" };
+const LENS_ORDER = ["blue", "red", "orange", "gray", "teal"] as const;
 
 export default async function ProjectDetailPage({ params }: PageProps) {
   const { id } = await params;
@@ -79,6 +81,33 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800 text-[10px]">AI 제안 · 검토대기</span>
                       </div>
                       <p className="text-muted-foreground line-clamp-2">{p.bodyMarkdown}</p>
+                      {p.colorGate && (
+                        <div className="mt-2 border-t pt-1.5">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {LENS_ORDER.map((k) => {
+                              const lens = p.colorGate!.lenses[k];
+                              return (
+                                <span
+                                  key={k}
+                                  title={`${LENS_KO[k]}: ${lens.note}`}
+                                  className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                                  style={{ background: lens.pass ? "#2E7D5B" : "#C0392B" }}
+                                >
+                                  {k[0].toUpperCase()}
+                                </span>
+                              );
+                            })}
+                            <span
+                              className={`ml-1 rounded-full px-2 py-0.5 text-[10px] ${p.colorGate.pass ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"}`}
+                            >
+                              컬러 검증 {p.colorGate.pass ? "통과" : "보류"}
+                            </span>
+                          </div>
+                          {p.colorGate.summary && (
+                            <p className="mt-1 text-[11px] text-muted-foreground">{p.colorGate.summary}</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
