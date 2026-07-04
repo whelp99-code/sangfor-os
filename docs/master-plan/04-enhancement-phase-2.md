@@ -17,7 +17,7 @@
 **브랜치:** `feat/decision-spine-p2` (태스크별 커밋, 하나의 PR)
 
 ### Task A-1: 리치 메일 컨트랙트를 스파인 vocabulary로 연결
-**Files:** Modify: `packages/business/src/mail/`(분해 후 classify 모듈), `packages/business/src/ai-decision.ts`
+**Files:** Modify: `packages/business/src/mail/`(분해 후 classify 모듈), `packages/business/src/governance/ai-decision.ts`
 - [ ] `MailClassificationDecision`/`computeMailUncertainty`/`projectMailCandidateType`의 산출을 `recordDecision()` 호출로 기록하도록 wire. decisionType은 기존 vocabulary에서 선택(신설 필요 시 ADR-001 부록에 추가 후).
 - [ ] 테스트: 분류 1건 실행 시 `domain_decision_logs`에 정확히 1행, 필드(입력 요약·uncertainty·결정) 검증.
 **Acceptance:** 메일 분류 경로에서 스파인 밖 기록 0 (`grep -rn "domainDecisionLog.create\|policyDecisionLog" packages/business/src/mail` → recordDecision 경유 외 0건).

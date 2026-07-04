@@ -138,7 +138,7 @@ CI_INTEGRATION=1 pnpm --filter @sangfor/business test    # DB 의존 통합 테�
 | **종축 도메인(GTM 파이프라인)** | `marketing → sales → presales → engineer → cfo`. 각 도메인은 단독-writer 데이터 소유 경계. `packages/shared/src/modes.ts`의 `GTM_PIPELINE`. |
 | **횡축 컬러 렌즈(5색)** | Blue(기술)·Red(리스크)·Orange(가치/마진)·Gray(근거)·Teal(전달명료성). AI 교차 검증 전용 색. 사람(지휘관)은 브라스(brass). |
 | **컬러 게이트** | 산출물 검증 관문. 결정형(`color-gate.ts`, 신호 기반) + LLM형(`color-gate-llm.ts`, review 모델 실판정) 2계층. |
-| **결정 스파인(decision spine)** | 모든 의사결정 기록의 단일 canonical write path: `recordDecision()` (`packages/business/src/ai-decision.ts`) → `domain_decision_logs`. ADR-001. |
+| **결정 스파인(decision spine)** | 모든 의사결정 기록의 단일 canonical write path: `recordDecision()` (`packages/business/src/governance/ai-decision.ts`) → `domain_decision_logs`. ADR-001. |
 | **DomainMemory / DomainDecisionLog** | 도메인별 학습 메모리(케이스/규칙/예외, recall 대상) / 결정 감사 로그(사람 수정 포함). |
 | **Engagement** | 수주 후 프로젝트 워크스페이스(물리 테이블 `delivery_projects`). Opportunity에서 멱등 전환(`opportunityId @unique`). |
 | **프로젝트 허브** | `/projects/[id]` — Engagement를 도메인 파이프라인 인스턴스로 보는 통합 뷰(레인 + 제안 + 손익 + 자율도). |
