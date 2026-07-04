@@ -1,7 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { listOpportunities } from "@sangfor/business";
+import {
+  listOpportunities,
+  evaluateCandidateColorGate,
+  type CandidateColorGate,
+} from "@sangfor/business";
 import { prisma } from "@sangfor/db";
 import { SlipActions } from "@/components/cockpit/slip-actions";
 
@@ -51,90 +55,47 @@ function revalOf(metadata: unknown): Reval | null {
   return null;
 }
 
-// 5색 검증 콘솔 — 실 AI 재검증 결정 + 신뢰도를 반영. 정직 표기:
-// 후보별 완전한 5-렌즈 컬러 게이트(도메인 에이전트)는 별도 백엔드로 연동 예정.
-function consoleState(
-  reval: Reval | null,
-  confidence: number
-): { levels: Record<string, "pass" | "mid" | "wait" | "flag">; verdict: React.ReactNode } {
-  const all = (s: "pass" | "mid" | "wait" | "flag") => ({ b: s, r: s, o: s, g: s, t: s });
-  switch (reval) {
-    case "approve_candidate":
-      return {
-        levels: all("pass"),
-        verdict: (
-          <>
-            <b>AI 재검증 통과</b>
-            <span className="sub">사람 승인 대기 · 컬러 게이트 연동 예정</span>
-          </>
-        ),
-      };
-    case "needs_human_review":
-      return {
-        levels: all("mid"),
-        verdict: (
-          <>
-            <b>AI 재검증: 사람 검토 필요</b>
-            <span className="sub">신뢰도 {confidence}% · 컬러 게이트 연동 예정</span>
-          </>
-        ),
-      };
-    case "reject":
-      return {
-        levels: { ...all("wait"), r: "flag" },
-        verdict: (
-          <>
-            <span className="rf">AI 재검증: 거부 권고</span>
-            <span className="sub">근거 약함 · 사람 확인 필요</span>
-          </>
-        ),
-      };
-    case "knowledge_only":
-      return {
-        levels: all("wait"),
-        verdict: (
-          <>
-            <b>지식 보관용</b>
-            <span className="sub">엔티티 전환 대상 아님</span>
-          </>
-        ),
-      };
-    default: {
-      const s = confidence >= 80 ? "pass" : confidence >= 60 ? "mid" : "wait";
-      return {
-        levels: all(s),
-        verdict: (
-          <>
-            <b>AI 신뢰도 {confidence}%</b>
-            <span className="sub">재검증 미실행 · 컬러 게이트 연동 예정</span>
-          </>
-        ),
-      };
-    }
-  }
-}
-function Console({
-  confidence,
-  reval,
-}: {
-  confidence: number;
-  reval: Reval | null;
-}) {
-  const { levels, verdict } = consoleState(reval, confidence);
-  const chans = ["b", "r", "o", "g", "t"] as const;
+// 5색 검증 콘솔 — 결정형 컬러 게이트(evaluateCandidateColorGate)의 실 렌즈 판정을 표시.
+const CH = ["blue", "red", "orange", "gray", "teal"] as const;
+const CH_ABBR: Record<(typeof CH)[number], string> = {
+  blue: "b", red: "r", orange: "o", gray: "g", teal: "t",
+};
+const LENS_KO: Record<(typeof CH)[number], string> = {
+  blue: "기술", red: "리스크", orange: "가치", gray: "근거", teal: "UX",
+};
+function Console({ gate }: { gate: CandidateColorGate }) {
+  const failed = CH.filter((k) => gate.lenses[k] === "fail");
   return (
     <div className="console">
       <div className="eq" aria-hidden>
-        {chans.map((c) => (
-          <div key={c} className={`ch ${c} ${levels[c]}`}>
-            <div className="track">
-              <div className="lv" />
+        {CH.map((k) => {
+          const st = gate.lenses[k];
+          const cls = st === "pass" ? "pass" : st === "fail" ? "flag" : "wait";
+          return (
+            <div key={k} className={`ch ${CH_ABBR[k]} ${cls}`}>
+              <div className="track">
+                <div className="lv" />
+              </div>
+              <div className="lt">{CH_ABBR[k].toUpperCase()}</div>
             </div>
-            <div className="lt">{c.toUpperCase()}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      <div className="verdict">{verdict}</div>
+      <div className="verdict">
+        {gate.pass ? (
+          <>
+            <b>5색 게이트 통과</b>
+            <span className="sub">필수 {gate.required.length}렌즈 검증 · 결정형</span>
+          </>
+        ) : (
+          <>
+            <span className="rf">
+              보류 — {failed.map((k) => LENS_KO[k]).join("·")}
+            </span>
+            <span className="sub">필수 렌즈 미통과 · 사람 확인 필요</span>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -276,7 +237,14 @@ export default async function MyWorkPage() {
                     </div>
                   </div>
                   {c.summary ? <div className="draft">{c.summary}</div> : null}
-                  <Console confidence={c.confidence} reval={revalOf(c.metadata)} />
+                  <Console
+                    gate={evaluateCandidateColorGate({
+                      candidateType: c.candidateType,
+                      confidence: c.confidence,
+                      revalidation: revalOf(c.metadata),
+                      hasSummary: !!c.summary,
+                    })}
+                  />
                   <SlipActions candidateId={c.id} detailHref={`/approvals/mail-candidates/${c.id}`} />
                 </div>
               );

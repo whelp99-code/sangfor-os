@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@sangfor/db";
+import { evaluateCandidateColorGate } from "@sangfor/business";
+import { revalOf } from "@/lib/cockpit";
 
 const DOMAINS = [
   { key: "marketing", cls: "mk", badge: "MK", nm: "마케팅", sub: "인입·분류" },
@@ -47,6 +49,31 @@ export default async function AiTeamPage() {
         select: { domain: true, decisionType: true, createdAt: true, outcome: true },
       }),
     ]);
+
+  // 컬러 게이트 실 집계 — 대기 후보에 결정형 5-렌즈 게이트 적용
+  const gateCandidates = await prisma.mailDerivedCandidate.findMany({
+    where: { status: "proposed" },
+    select: { candidateType: true, confidence: true, summary: true, metadata: true },
+    take: 400,
+  });
+  const lensAgg: Record<string, { pass: number; fail: number }> = {
+    blue: { pass: 0, fail: 0 }, red: { pass: 0, fail: 0 }, orange: { pass: 0, fail: 0 },
+    gray: { pass: 0, fail: 0 }, teal: { pass: 0, fail: 0 },
+  };
+  let gatePassCount = 0;
+  for (const c of gateCandidates) {
+    const g = evaluateCandidateColorGate({
+      candidateType: c.candidateType,
+      confidence: c.confidence,
+      revalidation: revalOf(c.metadata),
+      hasSummary: !!c.summary,
+    });
+    if (g.pass) gatePassCount += 1;
+    for (const k of ["blue", "red", "orange", "gray", "teal"] as const) {
+      if (g.lenses[k] === "pass") lensAgg[k].pass += 1;
+      else if (g.lenses[k] === "fail") lensAgg[k].fail += 1;
+    }
+  }
 
   const stat = (domain: string) => {
     const rows = byDomainOutcome.filter((r) => r.domain === domain);
@@ -147,23 +174,26 @@ export default async function AiTeamPage() {
             <b>컬러 검증 AI</b>
             <span className="co mlbl">5 렌즈</span>
           </div>
-          {LENSES.map((l) => (
-            <div className="colr" key={l.cls}>
-              <span className={`sw ${l.cls}`} />
-              <div className="x">
-                <b>{l.nm}</b>
-                <span>{l.sub}</span>
+          {LENSES.map((l) => {
+            const full = { b: "blue", r: "red", o: "orange", g: "gray", t: "teal" }[l.cls]!;
+            const agg = lensAgg[full];
+            return (
+              <div className="colr" key={l.cls}>
+                <span className={`sw ${l.cls}`} />
+                <div className="x">
+                  <b>{l.nm}</b>
+                  <span>{l.sub}</span>
+                </div>
+                <div className="m">
+                  <span className="p">통과 {agg.pass}</span>
+                  {agg.fail > 0 ? <> · <span className="f">보류 {agg.fail}</span></> : null}
+                </div>
               </div>
-              <div className="m">
-                <span className="p" style={{ color: "var(--ck-muted)" }}>
-                  게이트 축적 중
-                </span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           <p className="empty" style={{ paddingTop: 10 }}>
-            컬러 게이트 로그(colorGateJson)는 도메인 에이전트 실행 시 채워집니다 —
-            현재 결정 {totalDecisions}건, 게이트 기록 0건.
+            대기 후보 {gateCandidates.length}건에 결정형 5-렌즈 게이트 적용 · 전체 통과{" "}
+            {gatePassCount}건. (도메인 에이전트 LLM 게이트는 후속 연동)
           </p>
         </div>
 
