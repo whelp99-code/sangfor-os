@@ -32,3 +32,6 @@ memory/agent-handoffs/
 
 # oma docs generated artifacts
 docs/generated/
+
+# Local DB backups (real data — never commit)
+.local-backups/
