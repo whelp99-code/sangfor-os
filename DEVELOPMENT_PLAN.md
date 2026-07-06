@@ -20,7 +20,7 @@ The implementation baseline is the SANGFOR Partner OS final package:
 | Source packages/docs | Final package docs are present under `docs/` | Keep docs as product baseline |
 | AIOS v1 | Proxy/bridge scripts and adapter exist | Verify feature parity and bridge health |
 | Business modules | CRM, PoC, quote, approval, mail, asset/renewal modules exist in `packages/business` | Map to final package milestones |
-| Finance | Finance modules exist under `packages/finance` | Connect to commercial workflow and dashboards |
+| Finance | Finance lives in `packages/business/src/finance` + `apps/api` `/api/cfo` (standalone `packages/finance` was removed) | Connect to commercial workflow and dashboards |
 | SANGFOR MCP workflow | Present under `services/sangfor-mcp-workflow` | Keep wrapped service and absorb reusable logic |
 | Engineer MCP | Present under `services/sangfor-engineer-mcp` | Keep wrapped service and connect evidence/RAG |
 | UX/AI Workspace changes | In-progress uncommitted UI work exists | Triage as keep/defer/realign |

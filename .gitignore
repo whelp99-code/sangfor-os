@@ -29,3 +29,6 @@ memory/agent-handoffs/
 .agents/backups/
 .agents/results/replay/
 .env.bak*
+
+# oma docs generated artifacts
+docs/generated/

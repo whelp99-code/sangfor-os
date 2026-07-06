@@ -8,7 +8,7 @@
 |--------------|------|-----------|
 | ai-automation-work-portal | 비즈니스 코어 (66k LOC) | `apps/web`, `packages/business` |
 | AIOSv2_integration | 인프라/보안/모니터링 | `packages/auth`, `packages/infra`, Docker |
-| CFO-AIOS | 재무/회계 엔진 (NestJS) | `packages/finance` |
+| CFO-AIOS | 재무/회계 엔진 | `apps/api` (`/api/cfo`) · `packages/business/src/finance` |
 | Sangfor Package V3.2 | 설계 청사진 | `docs/` |
 | C-Stack | 서비스 오케스트레이션 | `PORT-MAPPING.yaml`, `docker-compose.yml` |
 
@@ -16,17 +16,18 @@
 
 ```
 apps/
-├── web/          Next.js 16 (Business UI)
-├── api/          Express API (Integration)
+├── web/          Next.js 16 — primary product backend (Business UI + API routes)
+├── api/          Express + tRPC — finance/CFO + webhooks/metrics/MCP edge
 packages/
-├── business/     CRM/PoC/Pipeline/Workflow/Approval (66k LOC)
-├── finance/      Invoice/Expense/VAT/Ledger (NestJS)
-├── db/           Prisma Schema (60+ models, merged)
-├── auth/         JWT/RBAC/API Key
-├── infra/        Monitoring/SSE/Metrics
-├── ui/           Shared shadcn/ui components
-├── shared/       Types, constants
-└── mail-intelligence/  Email pipeline
+├── business/     domain core: CRM/PoC/pipeline/mail/finance/governance/domain-AI
+├── db/           Prisma schema (~150 models) + RLS
+├── agent/        MCP tool-calling agent runtime
+├── infra/        metrics/logging/tracing/resilience/MCP client
+├── auth/         Graph OAuth, RBAC, API keys
+├── mail-intelligence/  read-only mail contract + repository
+├── shared/       types, status/mode vocab, tracing
+├── ui/           shared React component library
+└── config·health·persona·api-utils   env/ports · health · classify seam · webhook seam
 ```
 
 ## Quick Start
@@ -52,7 +53,6 @@ open http://localhost:3101
 |---------|------|-----|
 | Web (Next.js) | 3101 | http://localhost:3101 |
 | API (Express) | 3200 | http://localhost:3200 |
-| Finance (NestJS) | 4100 | http://localhost:4100 |
 | Sangfor MCP Workflow | 3500 | http://localhost:3500 |
 | Sangfor Engineer MCP | 3600 | http://localhost:3600 |
 | Sangfor Operator Console | 3502 | http://localhost:3502 |

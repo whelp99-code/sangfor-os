@@ -34,3 +34,4 @@ export * from "./domain-pnl";
 export * from "./domain-proposal";
 export * from "./color-gate-llm";
 export * from "./proposal-promote";
+export * from "./proposal-context";

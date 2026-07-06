@@ -39,7 +39,7 @@ TypeScript/Turborepo stack.
 | sangfor-engineer-mcp | Engineer automation, product adapters, RAG, screenshots, operator tooling | `services/sangfor-engineer-mcp`, infrastructure adapters | Wrapped service |
 | AIOS-JARVIS | Voice/assistant surface and local operator interaction | `apps/voice` or assistant adapter layer | Planned |
 | vibe-coding-os | Agent orchestration and development automation patterns | `tools`, `plugins`, workflow dispatch scripts | Planned/partial |
-| CFO/finance apps | Finance, invoice, expense, VAT, cashflow, subscriptions | `packages/finance`, finance API/UI routes | Partial |
+| CFO/finance apps | Finance, invoice, expense, VAT, cashflow, subscriptions | `packages/business/src/finance`, `apps/api` `/api/cfo` | Partial |
 | agentic_company_os_sangfor_final_package_v3_2 | Product blueprint, DB/API skeleton, UX, security, operations, acceptance tests | `docs`, `packages/db`, `packages/business`, `apps/api`, `apps/web` | Imported as docs, implementation gap remains |
 
 ## Target Repository Shape
@@ -76,6 +76,11 @@ sangfor-os/
 
 The repo does not need to reach this shape in one change. New work should move
 toward this structure and avoid adding new cross-cutting logic to ad hoc files.
+
+> **Current vs target:** the layout above is the *target*. Several names here do not
+> exist yet — `domain`, `application`, `infrastructure`, `proxy-core`, `apps/voice` — and
+> `finance` was absorbed into `packages/business` + `apps/api`. For the authoritative
+> current package graph and dependency direction, see [AGENTS.md](AGENTS.md).
 
 ## Canonical Milestone Order
 

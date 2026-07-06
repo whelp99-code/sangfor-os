@@ -38,8 +38,7 @@ packages/
   db/       → Prisma 스키마 + 클라이언트. @sangfor/db (public 스키마 단일 소스)
   shared/   → modes.ts(ROLE_MODES, GTM_PIPELINE), 공용 타입
   agent/    → @sangfor/agent (에이전트 런타임)
-  mail-intelligence/, persona/, security/, auth/, cache/, config/, infra/,
-  health/, ui/, application/, api-utils/, proxy-core/
+  mail-intelligence/, persona/, auth/, config/, infra/, health/, ui/, api-utils/
 services/
   sangfor-engineer-mcp/   → MCP 브리지(3600) + operator console(3502), 한 컨테이너
   sangfor-mcp-workflow/   → workflow console(3500), 호스트 실행(컨테이너화 보류)
@@ -367,7 +366,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 | `src/app/api/engagements/[route]` | Engagement 목록/상세 |
 | `src/app/api/opportunities/[id]/route.ts` | 전환 액션(`convert_to_project`) |
 | `src/app/api/mail-import/route.ts` | 메일 동기화(위임형 우선) |
-| `src/lib/outlook-graph.ts` | 위임형 OAuth + Graph 동기화 |
+| `packages/business/src/mail/outlook/outlook-graph.ts` | 위임형 OAuth + Graph 동기화 (구 `apps/web/src/lib`에서 이동) |
 | `src/lib/cfo-theme.ts` | CFO ledger 테마 토큰 |
 
 ### 루트 / 인프라
@@ -457,3 +456,4 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **2026-06-29**: 후속 개발 4종(브랜치 `feat-domain-followups`): D 기본 생성기 디폴트화(`bc37df1`) · A 구조화→실 DB 매핑(`0c82a31`) · B 대시보드 SSE+상세(`edeb114`) · C CFO ledger 테마 확장(`08e7550`). 전부 TDD/typecheck/lint 통과, B는 실 DB 검증.
 - **2026-06-29**: CFO 세금계산서 자동 처리 (§3.H, PR #38). 홈택스 보안메일 자체 복호화(SEED/AES, 키=MD5(사업자번호)) → 매입 완전 자동 + 발행. 31/31 테스트, 정식 마이그레이션 동봉(도메인 테이블 baseline 포함 — feat-domain-followups의 db-push 부채 해소). 메모 [db push not migrate]는 CI=migrate deploy에 맞춰 갱신됨.
 - **2026-07-03**: Phase 8 — CI static-checks 통합, services CI 신설, env example 정비.
+- **2026-07-04**: 문서 드리프트 교정(oma-docs verify 기반) — 없어진 패키지 참조 제거(finance/security/application/cache/proxy-core), §2 패키지 목록을 실제 12개로 정정, outlook-graph.ts 이동 경로(→`packages/business/src/mail/outlook`) 반영. AGENTS.md 하네스(루트+경계 14개) + `docs/CODE-REVIEW.md` 신설.

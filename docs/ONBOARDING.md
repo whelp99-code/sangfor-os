@@ -210,7 +210,7 @@ The following 12 steps are the recommended learning path for new team members.
 | 4 | **API Server (Express)** | `apps/api/package.json`, `apps/api/src/index.ts` |
 | 5 | **Core Business Logic** | `packages/business/package.json`, `packages/business/src/index.ts` |
 | 6 | **Database Layer (Prisma)** | `packages/db/package.json`, `packages/db/prisma/schema.prisma` |
-| 7 | **Authentication & Security** | `packages/auth/package.json`, `packages/security/package.json` |
+| 7 | **Authentication & Security** | `packages/auth/package.json`, `packages/business/src/governance/` |
 | 8 | **MCP Services (AI Integration)** | `services/sangfor-engineer-mcp/`, `services/sangfor-mcp-workflow/` |
 | 9 | **Infrastructure & Deployment** | Dockerfiles, `.github/workflows/`, Grafana/Prometheus configs |
 | 10 | **Database Schema Details** | `packages/db/prisma/schema.prisma`, migration files |
@@ -231,7 +231,7 @@ The following 12 steps are the recommended learning path for new team members.
 
 6. **Study the database schema** — `packages/db/prisma/schema.prisma` defines all 60+ models. Follow the migration history to understand schema evolution.
 
-7. **Review auth and security** — `packages/auth/src/` handles JWT tokens and RBAC. `packages/security/` enforces access controls.
+7. **Review auth and security** — `packages/auth/src/` handles Graph OAuth, tokens, RBAC, and API keys. Access control and audit are enforced in `packages/business/src/governance/` and per-route guards (`apps/web` `assertApiAccess`, `apps/api` `financeAccessGuard`).
 
 8. **Explore the MCP services** — The two MCP services are the AI integration layer. Start with `sangfor-engineer-mcp` (more mature, 50+ tools).
 
@@ -296,7 +296,7 @@ The following 12 steps are the recommended learning path for new team members.
 | `src/phase14/index.ts` | Phase 14 context pack logic |
 | `src/skills/index.ts` | Skill catalog management |
 | `src/skills/types.ts` | Skill type definitions |
-| `src/deal-qualification.test.ts` | Deal qualification tests |
+| `src/crm/deal-qualification.test.ts` | Deal qualification tests |
 | `src/engagement-conversion.test.ts` | Engagement conversion tests |
 
 ### Database (`packages/db/`)
@@ -309,13 +309,13 @@ The following 12 steps are the recommended learning path for new team members.
 | `prisma/sql/domain_axis_embedding.sql` | Domain axis embedding queries |
 | `prisma/sql/domain_axis_tables.sql` | Domain axis table definitions |
 
-### Auth & Security (`packages/auth/`, `packages/security/`)
+### Auth & Security (`packages/auth/`, `packages/business/src/governance/`)
 
 | File | Purpose |
 |------|---------|
-| `packages/auth/src/index.ts` | Auth package (JWT, RBAC, API keys) |
+| `packages/auth/src/index.ts` | Auth package (Graph OAuth, tokens, RBAC, API keys) |
 | `packages/auth/src/types.ts` | Auth type definitions |
-| `packages/security/src/index.ts` | Security enforcement |
+| `packages/business/src/governance/` | Approval gate, audit chain, access enforcement |
 
 ### Infrastructure (`packages/infra/`, Docker)
 

@@ -57,13 +57,19 @@ interface DealResult {
   engagementId?: string;
   documentId?: string | null;
   colorGatePass?: boolean | null;
+  attempts?: number;
+  escalated?: boolean;
   proposalTitle?: string;
 }
 
 async function main(): Promise<void> {
   const { prisma } = await import('@sangfor/db');
-  const { convertOpportunityToProject, generateDomainProposal, recordHumanDecision } =
-    await import('@sangfor/business');
+  const {
+    convertOpportunityToProject,
+    generateDomainProposal,
+    recordHumanDecision,
+    buildGroundedContext,
+  } = await import('@sangfor/business');
 
   const project = await prisma.project.findFirst({ select: { id: true, name: true } });
   if (!project) throw new Error('No project row in DB');
@@ -85,11 +91,6 @@ async function main(): Promise<void> {
       orderBy: { receivedAt: 'asc' },
       select: { subject: true, bodyPreview: true, receivedAt: true },
     });
-    const day = mail?.receivedAt ? mail.receivedAt.toISOString().slice(0, 10) : '';
-    const contextNote = mail
-      ? `[${day}] ${mail.subject ?? ''}\n${(mail.bodyPreview ?? '').slice(0, 400)}`
-      : `${deal.name} — Sangfor 도입 검토`;
-
     if (!apply) {
       console.log(
         `DRY [${deal.name}] mail=${mail ? `"${(mail.subject ?? '').slice(0, 44)}"` : '(none found)'}`,
@@ -131,26 +132,38 @@ async function main(): Promise<void> {
       const conv = await convertOpportunityToProject({ opportunityId: opp.id, force: true });
       engagementId = conv.engagement.id;
     }
-    // 4. Presales role-AI generates the proposal (grounded in real mail context)
+    // 4. Grounded context: 전 딜 메일 시간순 집약 + 라이트 KB RAG(얇은 preview 대신).
+    const contextNote = await buildGroundedContext({ match: deal.match, customerName: deal.name });
+
+    // 5. Presales role-AI generates the proposal, self-refining against the color gate.
     const proposal = await generateDomainProposal({
       engagementId,
       domain: 'presales',
       customerName: deal.name,
       contextNote,
     });
-    // 5. Critic-as-human-proxy approves → promote to GeneratedDocument + learn
-    const decision = await recordHumanDecision({ engagementId, domain: 'presales', outcome: 'approved' });
+
+    // 6. 정직한 에스컬레이션: 게이트 통과분만 승격(사람 대역 승인). 미통과면
+    //    자동승격하지 않고 pending(사람 검토 큐)으로 남긴다.
+    let documentId: string | null = null;
+    if (proposal.colorGate?.pass === true) {
+      const decision = await recordHumanDecision({ engagementId, domain: 'presales', outcome: 'approved' });
+      documentId = decision.documentId ?? null;
+    }
 
     console.log(
-      `APPLY [${deal.name}] doc=${decision.documentId ?? 'none'} gate=${proposal.colorGate?.pass ?? 'n/a'} title="${(proposal.title ?? '').slice(0, 44)}"`,
+      `APPLY [${deal.name}] gate=${proposal.colorGate?.pass ?? 'n/a'} attempts=${proposal.attempts ?? 1} ` +
+        `${proposal.escalated ? 'ESCALATED(미승격)' : `doc=${documentId ?? 'none'}`} title="${(proposal.title ?? '').slice(0, 40)}"`,
     );
     report.push({
       deal: deal.name,
       contextFound: !!mail,
       contextSubject: mail?.subject ?? undefined,
       engagementId,
-      documentId: decision.documentId ?? null,
+      documentId,
       colorGatePass: proposal.colorGate?.pass ?? null,
+      attempts: proposal.attempts,
+      escalated: proposal.escalated,
       proposalTitle: proposal.title,
     });
   }

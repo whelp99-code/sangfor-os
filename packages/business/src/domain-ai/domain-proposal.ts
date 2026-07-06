@@ -31,6 +31,10 @@ export interface DomainProposal {
   title: string;
   bodyMarkdown: string;
   colorGate?: ColorGateVerdict;
+  /** 생성 시도 수(1 = 초기, 2+ = 재작업 루프 발생). */
+  attempts?: number;
+  /** 최대 재작업 후에도 게이트 미통과 → 자동승격 금지, 사람 검토 필요. */
+  escalated?: boolean;
 }
 
 const DOMAIN_INTENT: Record<DomainKey, string> = {
@@ -144,11 +148,9 @@ export async function generateDomainProposal(
   // 4. Build prompt with memories
   const { system, user } = buildDomainPrompt(input, recalledStrings);
 
-  // 5. Call LLM
-  let rawText: string;
-  if (deps?.callLLM) {
-    rawText = await deps.callLLM(system, user);
-  } else {
+  // LLM caller (injectable for tests; default = 9router fetch).
+  const callLLM = async (sys: string, usr: string): Promise<string> => {
+    if (deps?.callLLM) return deps.callLLM(sys, usr);
     const key = getOpenAiApiKey();
     if (!key) throw new Error('no LLM key');
     const res = await withBackoff(() =>
@@ -161,8 +163,8 @@ export async function generateDomainProposal(
             jsonMode: true,
             maxCompletionTokens: 1200,
             messages: [
-              { role: 'system', content: system },
-              { role: 'user', content: user },
+              { role: 'system', content: sys },
+              { role: 'user', content: usr },
             ],
           }),
         ),
@@ -173,19 +175,74 @@ export async function generateDomainProposal(
     );
     const text = extractChatCompletionText(res);
     if (!text) throw new Error('llm_empty_response');
-    rawText = text;
+    return text;
+  };
+
+  const parseProposal = (rawText: string): { title: string; bodyMarkdown: string } => {
+    const stripped = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+    let parsed: { title?: string; bodyMarkdown?: string };
+    try {
+      parsed = JSON.parse(stripped) as { title?: string; bodyMarkdown?: string };
+    } catch {
+      throw new Error('llm_parse_error: ' + rawText.slice(0, 100));
+    }
+    return { title: parsed.title ?? '', bodyMarkdown: parsed.bodyMarkdown ?? '' };
+  };
+
+  const runGate = async (
+    title: string,
+    bodyMarkdown: string,
+  ): Promise<ColorGateVerdict | undefined> => {
+    if (!title || !bodyMarkdown) return undefined;
+    try {
+      return await verifyProposalColorGate({
+        domain: input.domain,
+        title,
+        bodyMarkdown,
+        customerName: input.customerName,
+        contextNote: input.contextNote,
+      });
+    } catch {
+      return undefined; // 게이트 호출 실패 시 검증 없이 진행
+    }
+  };
+
+  // 5. Initial generation + color gate.
+  let { title, bodyMarkdown } = parseProposal(await callLLM(system, user));
+  let colorGate = await runGate(title, bodyMarkdown);
+  let attempts = 1;
+
+  // 6. Self-refine loop: 게이트 fail이면 렌즈별 지적을 근거로 재작성 → 재검증(최대 N회).
+  //    환각(게이트 gaming) 방지를 위해 "컨텍스트에 없는 값은 지어내지 말고 확인 필요로" 지시.
+  const maxRevisions = Number(process.env.PROPOSAL_MAX_REVISIONS) || 2;
+  const lensKeys = ['blue', 'red', 'orange', 'gray', 'teal'] as const;
+  while (colorGate && !colorGate.pass && attempts <= maxRevisions) {
+    const gate = colorGate;
+    const failing = lensKeys
+      .filter((k) => !gate.lenses[k].pass)
+      .map((k) => `- ${k}: ${gate.lenses[k].note}`)
+      .join('\n');
+    const reviseUser = `아래 제안서가 컬러게이트 5렌즈 검증에서 다음 지적을 받았습니다:
+${failing}
+
+같은 섹션 템플릿과 헤딩 규칙을 유지하되, 각 지적을 아래 컨텍스트의 실제 근거로 보완해 다시 작성하세요.
+컨텍스트에 없는 수치·사실은 지어내지 말고 "확인 필요"로 남기세요.
+
+[컨텍스트]
+딜: ${input.engagementName}${input.customerName ? ' / 고객사: ' + input.customerName : ''}
+${input.contextNote ?? ''}
+
+[현재 제안서]
+${bodyMarkdown}
+
+json 형식으로 title과 bodyMarkdown(개선된 마크다운 본문)만 반환하세요.`;
+    ({ title, bodyMarkdown } = parseProposal(await callLLM(system, reviseUser)));
+    colorGate = await runGate(title, bodyMarkdown);
+    attempts++;
   }
 
-  // 6. Parse JSON response — strip markdown code fences if present
-  const stripped = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-  let parsed: { title?: string; bodyMarkdown?: string };
-  try {
-    parsed = JSON.parse(stripped) as { title?: string; bodyMarkdown?: string };
-  } catch {
-    throw new Error('llm_parse_error: ' + rawText.slice(0, 100));
-  }
-  const title = parsed.title ?? '';
-  const bodyMarkdown = parsed.bodyMarkdown ?? '';
+  // 최대 재작업 후에도 미통과면 escalated(자동승격 금지 신호).
+  const escalated = colorGate ? !colorGate.pass : false;
 
   // 7. Look up projectSlug via engagement → opportunity → project chain
   let projectSlug: string | undefined;
@@ -203,39 +260,22 @@ export async function generateDomainProposal(
     projectSlug = projectRow?.slug ?? undefined;
   }
 
-  // 8. Color-gate LLM verification (review 모델). 비차단: 실패해도 생성은 유지.
-  let colorGate: ColorGateVerdict | undefined;
-  if (title && bodyMarkdown) {
-    try {
-      colorGate = await verifyProposalColorGate({
-        domain: input.domain,
-        title,
-        bodyMarkdown,
-        customerName: input.customerName,
-        contextNote: input.contextNote,
-      });
-    } catch {
-      // 검증 실패 시 게이트 없이 진행(사람이 그대로 검토)
-    }
-  }
-
-  // 9. Sanitize before jsonb write
+  // 8. Sanitize + persist (게이트 판정 + attempts/escalated 포함).
   const sanitized = sanitizeJsonStrings({ title, bodyMarkdown }) as Prisma.InputJsonValue;
-
-  // 10. Persist DomainDecisionLog (컬러게이트 실판정 포함)
+  const gateForLog = colorGate ? { ...colorGate, attempts, escalated } : undefined;
   await recordDomainDecision({
     projectSlug,
     domain: input.domain,
     caseRef: 'eng:' + input.engagementId,
     decisionType: 'ai_proposal',
     outputJson: sanitized,
-    colorGateJson: colorGate
-      ? (sanitizeJsonStrings(colorGate) as Prisma.InputJsonValue)
+    colorGateJson: gateForLog
+      ? (sanitizeJsonStrings(gateForLog) as Prisma.InputJsonValue)
       : undefined,
   });
 
-  // 11. Return proposal
-  return { domain: input.domain, title, bodyMarkdown, colorGate };
+  // 9. Return proposal
+  return { domain: input.domain, title, bodyMarkdown, colorGate, attempts, escalated };
 }
 
 export async function getPendingProposals(
