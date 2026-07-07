@@ -12,15 +12,15 @@ interface AICommandBarProps {
   /**
    * Handle a submitted command. May return (or resolve to) a status message
    * that is surfaced in the toast; when nothing is returned a neutral default
-   * is shown. Returning a message lets callers report honest state (e.g. an
-   * "in preparation" notice) instead of a misleading "sent" confirmation.
+   * is shown. Returning a message lets callers report honest status instead of
+   * a misleading "sent" confirmation.
    */
   onSend: (command: string) => void | string | Promise<void | string>
   disabled?: boolean
   placeholder?: string
 }
 
-const DEFAULT_TOAST_MESSAGE = "AI 어시스턴트는 준비 중입니다"
+const DEFAULT_TOAST_MESSAGE = "응답 없음"
 
 function Toast({ message, visible, onClose }: { message: string; visible: boolean; onClose: () => void }) {
   React.useEffect(() => {
