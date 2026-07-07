@@ -12,7 +12,8 @@ import {
 } from "../openai-config";
 import { MailPolicyLookup, resolveProjectId } from "../mail-policy-memory";
 
-import { STATIC_POLICY_LOOKUP } from "./constants";
+import { INTERNAL_COMPANY_NAMES, STATIC_POLICY_LOOKUP } from "./constants";
+import { SELF_DOMAINS, SYSTEM_SENDER_DOMAINS } from "../mail-domain-registry";
 import {
   AiClassificationResult,
   ThreadLike,
@@ -414,9 +415,23 @@ async function callLlmRevalidation(
     }
   };
 
+  const selfDomainsStr = Array.from(SELF_DOMAINS).join(", ");
+  const internalNamesStr = Array.from(INTERNAL_COMPANY_NAMES).join(", ");
+  const systemSendersStr = Array.from(SYSTEM_SENDER_DOMAINS).join(", ");
+
   try {
     const text = await llmCaller(
-      "You validate whether mail-intelligence output should become an AIOS project or entity record. Return compact JSON only.",
+      `You validate whether mail-intelligence output should become an AIOS project or entity record. Return compact JSON only.
+
+GROUND_TRUTH: ${GROUND_TRUTH_CALIBRATION}
+
+DOMAIN KNOWLEDGE:
+- Our own company domains: ${selfDomainsStr}. Our internal company names: ${internalNamesStr}. If a customer/partner candidate IS our own company (title starts with "Customer:" or "Partner:" followed by one of these names) → decision=reject, confidence<=30.
+- System/relay sender domains: ${systemSendersStr}. Known relay/billing/vendor names that are NOT our customers: "팝빌", "eformsign", "linkhub", "모두싸인", "signgate", "DocuSign", "bill36524". These senders are RELAYS — the actual counterparty is in the title/summary, not the relay name. If the candidate title IS the relay/vendor name itself (e.g. "Customer: 팝빌") → decision=reject, confidence<=40.
+- Parser artifact / garbage entity names: "Example", "Mail", "Mails", "<1 min", "Re:", "Fw:", bare numbers-only, bare symbols-only, empty/short names (<2 chars) → decision=reject, confidence<=50.
+- approve_candidate semantics: evidence is strong, entity name is a real external company (not us, not a relay, not garbage), and no duplicate found. Safe for batch human-approved conversion (NOT auto-creation — still needs human to click convert).
+- needs_human_review = possible duplicates, weak evidence, or unsure.
+- reject = definitely not our customer/partner (junk, our own company, relay/vendor as entity).`,
       {
         requiredSchema: {
           decision: "approve_candidate | needs_human_review | reject | knowledge_only",
@@ -430,6 +445,7 @@ async function callLlmRevalidation(
           "Possible duplicates require human review.",
           "Never create objects automatically.",
           "For customer/partner candidates, confirm they are a real customer or partner of ours, not a vendor or noise.",
+          "approve_candidate = evidence is strong, entity name is a real external company, and no duplicate — safe for batch human-approved conversion (NOT auto-creation).",
         ],
         candidate: {
           type: candidate.candidateType,

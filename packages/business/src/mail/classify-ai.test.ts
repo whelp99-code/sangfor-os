@@ -565,4 +565,136 @@ describe("revalidateMailDerivedCandidate — cache behaviour", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Prompt content tests
+// ---------------------------------------------------------------------------
+
+describe("revalidation prompt content", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (prisma.customer.findFirst as any).mockResolvedValue(null);
+    (prisma.partner.findFirst as any).mockResolvedValue(null);
+    (prisma.mailDerivedCandidate.findUniqueOrThrow as any).mockResolvedValue(
+      makeCandidate(),
+    );
+    (prisma.mailDerivedCandidate.update as any).mockImplementation(
+      async (_args: unknown) => _args,
+    );
+  });
+
+  it("system prompt includes ground-truth calibration", async () => {
+    let capturedSystem = "";
+    const callLLM = vi.fn().mockImplementation((system: string, _user: string) => {
+      capturedSystem = system;
+      return Promise.resolve(
+        JSON.stringify({
+          decision: "approve_candidate",
+          reasoningSummary: "Valid",
+          missingFields: [],
+          riskFlags: [],
+          confidence: 85,
+        }),
+      );
+    });
+
+    await revalidateMailDerivedCandidate("test-id", { callLLM });
+
+    expect(capturedSystem).toContain("GROUND_TRUTH");
+    expect(capturedSystem).toContain("고객=우리가 파는");
+    expect(capturedSystem).toContain("파트너=총판");
+  });
+
+  it("system prompt includes self-domain and internal company rules", async () => {
+    let capturedSystem = "";
+    const callLLM = vi.fn().mockImplementation((system: string, _user: string) => {
+      capturedSystem = system;
+      return Promise.resolve(
+        JSON.stringify({
+          decision: "approve_candidate",
+          reasoningSummary: "Valid",
+          missingFields: [],
+          riskFlags: [],
+          confidence: 85,
+        }),
+      );
+    });
+
+    await revalidateMailDerivedCandidate("test-id", { callLLM });
+
+    expect(capturedSystem).toContain("sangfor.com");
+    expect(capturedSystem).toContain("blro.co.kr");
+    expect(capturedSystem).toContain("베를로");
+    expect(capturedSystem).toContain("decision=reject");
+  });
+
+  it("system prompt includes relay/vendor guidance", async () => {
+    let capturedSystem = "";
+    const callLLM = vi.fn().mockImplementation((system: string, _user: string) => {
+      capturedSystem = system;
+      return Promise.resolve(
+        JSON.stringify({
+          decision: "approve_candidate",
+          reasoningSummary: "Valid",
+          missingFields: [],
+          riskFlags: [],
+          confidence: 85,
+        }),
+      );
+    });
+
+    await revalidateMailDerivedCandidate("test-id", { callLLM });
+
+    expect(capturedSystem).toContain("팝빌");
+    expect(capturedSystem).toContain("eformsign");
+    expect(capturedSystem).toContain("RELAYS");
+    expect(capturedSystem).toContain("bill36524");
+  });
+
+  it("system prompt includes parser artifact / garbage entity rules", async () => {
+    let capturedSystem = "";
+    const callLLM = vi.fn().mockImplementation((system: string, _user: string) => {
+      capturedSystem = system;
+      return Promise.resolve(
+        JSON.stringify({
+          decision: "approve_candidate",
+          reasoningSummary: "Valid",
+          missingFields: [],
+          riskFlags: [],
+          confidence: 85,
+        }),
+      );
+    });
+
+    await revalidateMailDerivedCandidate("test-id", { callLLM });
+
+    expect(capturedSystem).toContain("Example");
+    expect(capturedSystem).toContain("<1 min");
+    expect(capturedSystem).toContain("decision=reject");
+    expect(capturedSystem).toContain("confidence<=50");
+  });
+
+  it("user policy clarifies approve_candidate semantics", async () => {
+    let capturedUser = "";
+    const callLLM = vi.fn().mockImplementation((_system: string, user: string) => {
+      capturedUser = user;
+      return Promise.resolve(
+        JSON.stringify({
+          decision: "approve_candidate",
+          reasoningSummary: "Valid",
+          missingFields: [],
+          riskFlags: [],
+          confidence: 85,
+        }),
+      );
+    });
+
+    await revalidateMailDerivedCandidate("test-id", { callLLM });
+
+    const parsed = JSON.parse(capturedUser);
+    const policyJoined = (parsed.policy as string[]).join(" ");
+    expect(policyJoined).toContain("approve_candidate");
+    expect(policyJoined).toContain("real external company");
+    expect(policyJoined).toContain("NOT auto-creation");
+  });
+});
 });

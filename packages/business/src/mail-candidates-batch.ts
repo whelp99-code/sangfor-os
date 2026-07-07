@@ -13,6 +13,10 @@ export interface BatchResult {
 /**
  * Batch-approve or batch-reject proposed mail candidates.
  * Extracted from apps/web route to decouple presentation from persistence.
+ *
+ * Approve double-gate: in addition to status="proposed" and confidence >= minConfidence,
+ * the candidate must have metadata.aiRevalidation.decision === "approve_candidate".
+ * This prevents junk candidates with high LLM confidence from slipping through.
  */
 export async function batchProcessMailCandidates(
   filters: BatchFilter,
@@ -20,12 +24,28 @@ export async function batchProcessMailCandidates(
   const { action, minConfidence = 85 } = filters;
 
   if (action === "approve") {
-    // 신뢰도 85% 이상 후보 승인
-    const result = await prisma.mailDerivedCandidate.updateMany({
+    const candidates = await prisma.mailDerivedCandidate.findMany({
       where: {
         status: "proposed",
         confidence: { gte: minConfidence },
       },
+      select: { id: true, metadata: true },
+    });
+
+    const approvedIds = candidates
+      .filter((c) => {
+        const meta = c.metadata as Record<string, unknown> | null;
+        const reval = (meta?.aiRevalidation ?? {}) as Record<string, unknown>;
+        return reval.decision === "approve_candidate";
+      })
+      .map((c) => c.id);
+
+    if (approvedIds.length === 0) {
+      return { action: "approve", count: 0 };
+    }
+
+    const result = await prisma.mailDerivedCandidate.updateMany({
+      where: { id: { in: approvedIds } },
       data: { status: "approved" },
     });
 
