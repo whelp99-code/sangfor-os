@@ -20,14 +20,58 @@ const LEGACY_TO_CANONICAL: Record<string, OpportunityStage> = {
   negotiation: "NEGOTIATION",
   won: "WON",
   lost: "LOST",
+  // Korean display labels (mirrors STAGE_LABELS in apps/web/src/components/deals/stage-meta.ts)
+  // so that UI-processed Korean strings normalize to canonical enum values.
+  리드: "LEAD",
+  검증: "QUALIFIED",
+  제안: "PROPOSAL",
+  협상: "NEGOTIATION",
+  수주: "WON",
+  실패: "LOST",
 };
 
-export function normalizeOpportunityStage(stage: string): OpportunityStage {
-  const upper = stage.toUpperCase() as OpportunityStage;
+export function normalizeOpportunityStage(raw: string | null | undefined): OpportunityStage {
+  if (raw == null) return "LEAD";
+  const cleaned = raw.trim();
+  const upper = cleaned.toUpperCase() as OpportunityStage;
   if (CANONICAL_STAGES.includes(upper)) return upper;
-  const mapped = LEGACY_TO_CANONICAL[stage.toLowerCase()];
+  const mapped = LEGACY_TO_CANONICAL[cleaned.toLowerCase()];
   if (mapped) return mapped;
   return "LEAD";
+}
+
+/**
+ * Canonical set of OpportunityStage values considered "in-progress / active"
+ * for deal-count metrics and pipeline filtering.
+ *
+ * WON and LOST are the only two values excluded (terminal outcomes).
+ *
+ * Rationale:
+ * 1. Real DB distribution — LEAD=27, PROPOSAL=16, WON=8, NEGOTIATION=6,
+ *    QUALIFIED=4, LOST=3, POC=0 — all 7 Prisma enum values appear.
+ * 2. Existing ad-hoc convention in the codebase
+ *    (apps/web/src/components/deals/deals-board.tsx):
+ *    `const ACTIVE_STAGES = CANONICAL_STAGES.filter(s => s !== "WON" && s !== "LOST")`.
+ * 3. The home page "진행중 딜" (in-progress deals) metric independently
+ *    describes the same WON/LOST-excluded split.
+ */
+export const ACTIVE_OPPORTUNITY_STAGES: readonly string[] = [
+  "LEAD",
+  "QUALIFIED",
+  "PROPOSAL",
+  "POC",
+  "NEGOTIATION",
+] as const;
+
+/**
+ * Returns true when the given stage normalises to a value in
+ * ACTIVE_OPPORTUNITY_STAGES (i.e. an in-progress non-terminal stage).
+ * null / undefined / terminal outcomes (WON, LOST) return false.
+ */
+export function isActiveOpportunity(stage: string | null | undefined): boolean {
+  if (stage == null) return false;
+  const normalized = normalizeOpportunityStage(stage);
+  return ACTIVE_OPPORTUNITY_STAGES.includes(normalized);
 }
 
 export function displayOpportunityStage(stage: string): string {
