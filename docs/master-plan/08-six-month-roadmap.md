@@ -55,25 +55,80 @@
 
 ---
 
+## 2.5 월별 상세화 프로토콜 (집행 에이전트 필독 — 이 규약 없이 M2~M6 구현 착수 금지)
+
+이 로드맵의 M2~M6 절은 **마일스톤 수준**이다. 지금 전부 스텝 단위로 쪼개지 않는 이유는 실증된 문서 노화 때문 — 2026-07-04 계획서의 "demo-project 18곳"이 3일 뒤 실측 **93곳**이었다(01 문서 C-2 기록). 상세화는 **집행 직전에, 실측 기반으로** 한다.
+
+**매월 착수 세션의 의무 절차**:
+1. **읽기**: 이 문서의 해당 월 절 → 그 월의 정본 문서(03~07) → `backlog.md` → `DEV_REFERENCE.md` §8 → **실측**(계획 속 수치를 믿지 말고 grep/SQL로 재확인).
+2. **생성**: `docs/master-plan/monthly/<YYYY-MM>-detail.md`를 **01 문서 표준**으로 작성 — Task마다 **Files**(정확한 경로)/**Interfaces**(시그니처)/**Steps**(체크박스+명령어)/**Acceptance**(검증 가능 기준). 실측이 로드맵과 다르면 로드맵을 고치고 변경 이력에 1줄.
+3. **승인**: 사용자에게 그 달 요약+순서 근거 제시 → 승인 후 omo-start-work로 집행 (검증 게이트는 02 준용).
+4. **마감**: 월말 §10 회고에 실적 1줄 + 다음 달 조정.
+
+M1은 아래 §3에 **이미 이 표준으로 분해돼 있다** — 첫 달은 바로 집행 가능.
+
+---
+
 ## 3. M1 — 2026년 7월: 운영 정착 + 1차 고도화(03) 착수
 
 **비즈니스 가치**: 오늘 만든 v1이 "실제로 매일 쓰이는 도구"가 된다. 승인 큐가 돌기 시작하고, 재무 손익이 프로젝트별로 보인다.
 
-### W1 (즉시, §9 인수인계와 동일)
-- [ ] **캘리브레이션 운영 마감**: 이중게이트 12건 배치 승인 → 전환 → CRM 확인 → 전후 분포 증거. 폴백 529건 재패스(시간대 분산, §9 명령).
-- [ ] **main-fork `.env` OPENAI 이중 정의 정리**: zen 블록 제거(또는 주석화)하고 9router만 남김. 프로드 재기동 후 커맨드바로 LLM 경로 라이브 확인.
-- [ ] **FP 미매핑 10건 human 매핑**: `backfill-finance-engagement.ts`의 UNMATCHED 목록(게임조선/대통령경호처/동국대/디지털조선/부산도시가스/에스씨엘/유니드/인카금융그룹/일지테크/카드사용료)을 사용자가 매핑 지정 → 매핑 파일(json) 기반 APPLY 모드 추가 → 연결률 8.3%→60%+.
-- [ ] **상류 아티팩트 필터**: candidates-generate가 "Example/Mail(s)/<1 min/빈 이름" 류를 후보로 만들지 않게 생성 단계 필터(재검증은 이미 방어하지만 상류 차단이 근본). 기존 `mail-candidates-cleanup.ts` 재활용 검토.
-- [ ] **재검증 데일리 배치**: 신규 proposed + 폴백 잔여를 매일 밤 재검증하는 cron(또는 스크립트+launchd). 9router 부하 고려 동시성 2.
+> W1 태스크는 01 문서 표준으로 분해됨. 공통 규칙: 코드 작업은 워크트리(셋업 순서 §9 하단), 커밋은 Conventional Commits, PR은 auto-merge(e2e 차단 체크 포함), DB 운영은 백업 선행.
 
-### W2~W4 (03 문서 = 정본, 여기선 순서만)
-- [ ] **Task 0 — ADR-002**: Phase 6 방향 상충(웹=BFF vs tRPC 도입) + Phase 7 내용 상충 해소. 반나절짜리 결정 문서 — **이걸 먼저 끝내야 M4가 흔들리지 않는다**.
-- [ ] **리팩토링 Phase 2 잔여** (Task 2·3·4 dedup): 25문제 문서 기준.
-- [ ] **Phase 3 — web route 레이어링**(11 라우트): 라우트→service 분리.
-- [ ] **Phase 4 — `mail-candidates.ts` God-file 분해**: 캘리브레이션으로 이 영역 지도가 가장 선명한 지금이 적기. classify-rules/classify-ai/candidates-generate 구조는 이미 분해돼 있으니 잔여 God-file 중심.
-- 게이트: 02 검증서 준용 + 특성화 테스트 유지 + e2e green.
+### Task M1-1: 캘리브레이션 운영 마감
+**Steps**: §9의 1~3을 그대로 실행 (명령어 수준으로 이미 기술됨).
+**Acceptance**: 이중게이트 12건 승인·전환 완료 + `.agents/results/2026-07-08-calib-ops.md`에 전후 분포 + boulder `classifier-calibration-2026-07-07` completed.
 
-**M1 종료 기준**: KPI 측정 체계 가동, 큐 리드타임 첫 측정치, 재무 연결률 ≥60%, 03 문서 체크박스 ≥80%.
+### Task M1-2: main-fork `.env` OPENAI 이중 정의 정리
+**Files**: `/Users/jmpark/orca/workspaces/sangfor-os/main-fork/.env` (untracked — 시크릿, 커밋 금지)
+- [ ] Step 1: `cp .env .env.bak-$(date +%m%d)` (백업 필수)
+- [ ] Step 2: 파일 앞쪽의 zen 블록(`OPENAI_API_KEY`/`OPENAI_BASE_URL="https://opencode.ai/zen/..."`/`OPENAI_MODEL="qwen3.7-plus"` 3줄)을 `#`로 주석화 — 뒤쪽 9router 블록(`http://127.0.0.1:20128/v1`, `cx/gpt-5.4-mini`)만 활성. **이유**: Next.js dotenv는 선행 정의가 이기므로 현재 프로드가 한도 소진된 zen을 볼 위험.
+- [ ] Step 3: `grep -c "^OPENAI_API_KEY" .env` → **1** 확인
+- [ ] Step 4: `bash scripts/prod-local.sh restart --build` (start만으로는 재빌드 안 됨)
+- [ ] Step 5: 라이브 확인 — /sales 커맨드바에서 명령 1회: "실행 실패"가 아닌 실답변이 오면 PASS (또는 9router 콘솔에서 호출 로그 확인)
+**Acceptance**: 프로드 LLM 호출이 9router로 감(zen 429 미발생), `.env` 백업 존재.
+
+### Task M1-3: FinanceProject 미매핑 10건 human 매핑
+**Files**: `packages/db/scripts/backfill-finance-engagement.ts`(확장) · 신규 `packages/db/scripts/fp-engagement-map.json`
+**Interfaces**: 스크립트에 `--mapping-file <path>` 모드 추가 — `{ "<fp.name>": "<engagementId>" | null }` (null = "매핑 없음" 확정)
+- [ ] Step 1: UNMATCHED 10건(게임조선/대통령경호처/동국대/디지털조선/부산도시가스/에스씨엘/유니드/인카금융그룹/일지테크/2월 카드사용료)을 engagement 후보 목록과 함께 **사용자에게 표로 제시** — 상당수는 대응 engagement가 아예 없을 수 있음(null 확정이 정답)
+- [ ] Step 2: 사용자 확정값으로 json 작성
+- [ ] Step 3: 스크립트 확장(opencode 위임 가능) — 매핑 파일 검증(존재하는 fp.name/engagementId인지) + dry-run 기본 + APPLY=1
+- [ ] Step 4: `pnpm --filter @sangfor/db cfo:snapshot` → dry-run 검토 → APPLY
+- [ ] Step 5: 연결률 SQL 전후 기록 (기준: 19/229 = 8.3%)
+**Acceptance**: 매핑 가능한 FP 전부 연결 + 나머지는 null 확정(모호 0), 연결률 ≥60% 또는 "실데이터상 상한" 명시.
+
+### Task M1-4: 상류 아티팩트 필터 (생성 단계)
+**Files**: `packages/business/src/mail/candidates-generate.ts` · `classify-rules.ts`(공유 상수) · 각 테스트
+**Interfaces**: `export function isArtifactEntityName(name: string): boolean` — 재검증 프롬프트(classify-ai.ts의 DOMAIN KNOWLEDGE 아티팩트 목록)와 **단일 소스** 공유
+- [ ] Step 1 (TDD): 실패 테스트 — "Example"/"Mail"/"Mails"/"<1 min"/2자 미만/숫자·기호만/"Re:"·"Fw:" 접두 → true; 정상 회사명(한/영) → false
+- [ ] Step 2: 구현 + 재검증 프롬프트의 하드코딩 목록을 이 상수로 치환(프롬프트-코드 동기화)
+- [ ] Step 3: candidates-generate의 customer/partner 후보 생성 직전에 필터 — 아티팩트면 후보 생성 스킵(로그만)
+- [ ] Step 4: 검증 — 최근 mail_insight_threads 30건으로 생성 함수 드라이런(테스트 또는 tsx) → 아티팩트 이름 후보 0
+**Acceptance**: 신규 생성 후보에 아티팩트 0, 기존 테스트(582) 무회귀, 프롬프트와 코드가 같은 목록 사용.
+
+### Task M1-5: 재검증 데일리 배치 상시화
+**Files**: 신규 `packages/business/scripts/revalidate-batch.ts` (wp-calib 워크트리의 `calib-run.local.ts`를 일반화해 **정식 커밋**) · launchd plist 또는 crontab 항목
+**Interfaces**: `--status proposed --concurrency 2 --max <N>` 인자, 출력 = 처리/폴백/reject 카운트 + jsonl 로그
+- [ ] Step 1: 러너 일반화(id 파일 대신 DB 쿼리로 대상 선정, 폴백은 자가치유 캐시가 자동 재시도 — force 불필요)
+- [ ] Step 2: 로그를 `.agents/results/kpi/revalidate-YYYYMMDD.log`에 적재, 폴백률 >30%면 경고 라인
+- [ ] Step 3: 스케줄 등록(사용자 승인 후 — launchd 권장, 22:30 등 9router 한가한 시간)
+- [ ] Step 4: 3일 관찰 — 폴백 잔량(현재 529) 감소 추세 확인
+**Acceptance**: 3일 연속 자동 실행 성공 + 신규 proposed가 24h 내 재검증됨.
+
+### Task M1-6: KPI 주간 측정 고정
+**Files**: 신규 `scripts/kpi-weekly.sql` + `scripts/kpi-weekly.sh`(psql 실행 → `.agents/results/kpi/kpi-YYYYMMDD.txt`)
+- [ ] Step 1: §2 표의 각 지표를 SQL로 — 큐 분포/리드타임(주의: resolved 시각 컬럼이 없으면 updated_at 근사, 한계 주석)/승인율/연결률/자동승인 비율(domain_decision_logs의 actor)
+- [ ] Step 2: 첫 실행 → **기준선(baseline) 기록**
+- [ ] Step 3: 주간 실행을 M1-5의 스케줄에 동승
+**Acceptance**: kpi/ 디렉터리에 첫 리포트 + 각 지표의 기준선 수치 확정.
+
+### W2~W4: 1차 고도화 (03 문서 + `docs/superpowers/plans/2026-07-03-phase-*.md`가 줄 단위 정본)
+- [ ] **Task 0 — ADR-002** (선행 필수, M4가 이 결정에 의존): 산출물 `docs/adr/ADR-002-api-surface.md`. 결정 인풋: ①00-INDEX §5의 상충 2건(마스터플랜 "웹=BFF, tRPC 제거" vs phase-6 문서 "tRPC 도입"; Phase 7 인덱스/FK vs 신규 컬럼) ②현 코드 관성(REST 라우트 ~95개, tRPC 일부 잔존) ③06 재구조화와의 정합. 결정 기준을 명시하고 한쪽을 채택 — 반나절 작업.
+- [ ] **리팩토링 Phase 2 잔여**(Task 2·3·4 dedup) → **Phase 3** web route 레이어링(11 라우트) → **Phase 4** `mail-candidates.ts` God-file 분해(캘리브레이션으로 이 영역 지도가 가장 선명한 지금이 적기). 각각 03 문서의 태스크 정의를 따르되, **착수 시 실측 재확인**(2.5 프로토콜).
+- 게이트: 02 검증서 + 특성화 테스트 유지 + e2e green.
+
+**M1 종료 기준**: KPI 기준선 확정, 큐 리드타임 첫 측정치, 재무 연결률 ≥60%(또는 상한 명시), 03 문서 체크박스 ≥80%, 데일리 배치 3일 연속 가동.
 
 ---
 
@@ -186,3 +241,4 @@
 
 ## 변경 이력
 - **2026-07-08**: 최초 작성 — v1 완성(#96~#104) + 분류기 캘리브레이션(#105) 직후. 기준 데이터: proposed 964, 이중게이트 12건 대기, 재무 연결 19/229.
+- **2026-07-08 (2차)**: M1 전체를 01 문서 표준(Files/Interfaces/Steps/Acceptance)으로 분해 + §2.5 월별 상세화 프로토콜 신설(M2~M6은 월초에 실측 기반 상세 계획을 생성 후 집행 — 문서 노화 방지).
