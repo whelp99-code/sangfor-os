@@ -3,7 +3,8 @@ import { z } from "zod";
 
 import { createCustomer, createPartner } from "../crm/customer-partner";
 import { createImprovementCandidateFromError } from "../improvement-loop";
-import { resolveProjectId, upsertPolicyMemory } from "../mail-policy-memory";
+import { resolveDefaultProjectId } from "../default-project";
+import { upsertPolicyMemory } from "../mail-policy-memory";
 import { createOpportunity } from "../crm/opportunity-center";
 import { createPocProject } from "../poc-center";
 import { createWorkTask, linkTaskToEntity } from "../orchestration/task-center";
@@ -55,7 +56,7 @@ export async function rejectMailDerivedCandidate(
 ) {
   const parsed = rejectMailCandidateSchema.parse(input);
   const candidate = await getMailDerivedCandidate(id);
-  const projectId = await resolveProjectId("demo-project");
+  const projectId = await resolveDefaultProjectId(prisma);
   const metadata = asRecord(candidate.metadata);
   const rejection = {
     reasonCode: parsed.reasonCode,
@@ -151,7 +152,7 @@ async function maybeProposePolicyMemoryFromRejection(
 }
 
 async function convertCustomer(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
-  const projectId = await resolveProjectId("demo-project");
+  const projectId = await resolveDefaultProjectId(prisma);
   const existing = await prisma.customer.findFirst({
     where: { projectId, name: candidate.title.replace(/^Customer:\s*/i, "") },
   });
@@ -164,7 +165,7 @@ async function convertCustomer(candidate: Awaited<ReturnType<typeof getMailDeriv
 }
 
 async function convertPartner(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
-  const projectId = await resolveProjectId("demo-project");
+  const projectId = await resolveDefaultProjectId(prisma);
   const name = candidate.title.replace(/^Partner:\s*/i, "");
   const existing = await prisma.partner.findFirst({
     where: { projectId, name },
@@ -263,7 +264,7 @@ export async function approveMailDerivedCandidate(id: string) {
       createdEntityId: created.id,
     },
   });
-  const projectId = await resolveProjectId("demo-project");
+  const projectId = await resolveDefaultProjectId(prisma);
   await recordPolicyDecision(projectId, {
     entityType: "mail_derived_candidate",
     entityId: id,

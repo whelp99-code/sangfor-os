@@ -130,27 +130,35 @@ export async function convertApprovedMailCandidates(): Promise<ConvertResult> {
 
   let opportunitiesCreated = 0;
   for (const candidate of approvedOpportunities) {
+    // Strip "Opportunity: " prefix (parity with per-record approve path)
+    const title = candidate.title.replace(/^Opportunity:\s*/i, "");
+
     const existing = await prisma.opportunity.findFirst({
-      where: { title: candidate.title, projectId: DEFAULT_PROJECT_ID },
+      where: { title, projectId: DEFAULT_PROJECT_ID },
     });
 
     if (!existing) {
-      await prisma.opportunity.create({
+      const created = await prisma.opportunity.create({
         data: {
           projectId: DEFAULT_PROJECT_ID,
-          title: candidate.title,
+          title,
           stage: "LEAD",
           probability: 20,
           nextAction: candidate.summary || null,
         },
       });
       opportunitiesCreated++;
-    }
 
-    await prisma.mailDerivedCandidate.update({
-      where: { id: candidate.id },
-      data: { status: "converted" },
-    });
+      await prisma.mailDerivedCandidate.update({
+        where: { id: candidate.id },
+        data: { status: "converted", createdEntityType: "opportunity", createdEntityId: created.id },
+      });
+    } else {
+      await prisma.mailDerivedCandidate.update({
+        where: { id: candidate.id },
+        data: { status: "converted", createdEntityType: "opportunity", createdEntityId: existing.id },
+      });
+    }
   }
 
   // 4. Approved task 후보를 work_tasks 테이블로 변환
