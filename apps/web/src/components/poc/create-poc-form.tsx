@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useDefaultProject } from "@/hooks/use-default-project";
 import { actionErrorMessage } from "@/lib/action-error-labels";
 import {
   POC_DEPLOYMENT_TYPES,
@@ -25,6 +26,7 @@ export function CreatePocForm({
   customers: Option[];
   partners: Option[];
 }) {
+  const { project } = useDefaultProject();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [productName, setProductName] = useState("Sangfor HCI");
@@ -58,7 +60,7 @@ export function CreatePocForm({
           scheduleAt: toIsoDateTime(scheduleAt),
           customerId: customerId || undefined,
           partnerId: partnerId || undefined,
-          projectSlug: "demo-project",
+          projectSlug: project!.slug,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -127,7 +129,7 @@ export function CreatePocForm({
           <option key={p.id} value={p.id}>{p.label}</option>
         ))}
       </select>
-      <Button type="submit" disabled={loading} className="sm:col-span-2 lg:col-span-1">
+      <Button type="submit" disabled={loading || !project} className="sm:col-span-2 lg:col-span-1">
         {loading ? "생성 중..." : "새 PoC"}
       </Button>
       {error && (

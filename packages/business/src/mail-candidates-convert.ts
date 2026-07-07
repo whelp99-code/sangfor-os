@@ -1,5 +1,6 @@
 import { prisma } from "@sangfor/db";
 import { deriveEntityFromCandidate, canonicalCompanyKey } from "./mail-entity-quality";
+import { resolveDefaultProjectId } from "./default-project";
 
 export interface ConvertResult {
   customersCreated: number;
@@ -12,15 +13,8 @@ export interface ConvertResult {
   tasksCreated: number;
 }
 
-// Resolve the active portal project (slug "demo-project"; fall back to the
-// first project). The previous hardcoded id was stale, so converted records
-// landed under a non-existent project and never showed in the portal.
 async function resolveProjectId(): Promise<string> {
-  const bySlug = await prisma.project.findFirst({ where: { slug: "demo-project" }, select: { id: true } });
-  if (bySlug) return bySlug.id;
-  const first = await prisma.project.findFirst({ select: { id: true } });
-  if (!first) throw new Error("no project found to attach entities to");
-  return first.id;
+  return resolveDefaultProjectId(prisma);
 }
 
 // 업종 추론
@@ -136,27 +130,35 @@ export async function convertApprovedMailCandidates(): Promise<ConvertResult> {
 
   let opportunitiesCreated = 0;
   for (const candidate of approvedOpportunities) {
+    // Strip "Opportunity: " prefix (parity with per-record approve path)
+    const title = candidate.title.replace(/^Opportunity:\s*/i, "");
+
     const existing = await prisma.opportunity.findFirst({
-      where: { title: candidate.title, projectId: DEFAULT_PROJECT_ID },
+      where: { title, projectId: DEFAULT_PROJECT_ID },
     });
 
     if (!existing) {
-      await prisma.opportunity.create({
+      const created = await prisma.opportunity.create({
         data: {
           projectId: DEFAULT_PROJECT_ID,
-          title: candidate.title,
+          title,
           stage: "LEAD",
           probability: 20,
           nextAction: candidate.summary || null,
         },
       });
       opportunitiesCreated++;
-    }
 
-    await prisma.mailDerivedCandidate.update({
-      where: { id: candidate.id },
-      data: { status: "converted" },
-    });
+      await prisma.mailDerivedCandidate.update({
+        where: { id: candidate.id },
+        data: { status: "converted", createdEntityType: "opportunity", createdEntityId: created.id },
+      });
+    } else {
+      await prisma.mailDerivedCandidate.update({
+        where: { id: candidate.id },
+        data: { status: "converted", createdEntityType: "opportunity", createdEntityId: existing.id },
+      });
+    }
   }
 
   // 4. Approved task 후보를 work_tasks 테이블로 변환

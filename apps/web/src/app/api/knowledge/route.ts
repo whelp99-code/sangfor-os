@@ -3,6 +3,7 @@ import {
   listKnowledgeDocuments,
   searchKnowledgeWithCitations,
 } from "@sangfor/business/knowledge-search";
+import { resolveDefaultProjectSlug } from "@sangfor/business";
 import { NextResponse } from "next/server";
 
 import {
@@ -23,10 +24,11 @@ export async function GET(request: Request) {
     }
 
     if (q) {
+      const slug = await resolveDefaultProjectSlug();
       const fallback = async () =>
         searchKnowledgeWithCitations({
           q,
-          projectSlug: "demo-project",
+          projectSlug: slug,
         });
       let fallbackReason: string | undefined;
 

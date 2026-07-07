@@ -1,40 +1,21 @@
 "use client";
 
-import { useState } from "react";
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { MOCK_PROJECTS } from "@/lib/portal-config";
-import { ChevronDown } from "lucide-react";
+import { useDefaultProject } from "@/hooks/use-default-project";
 
 export function ProjectSelector() {
-  const [active, setActive] = useState(MOCK_PROJECTS[0]);
+  const { project, isLoading } = useDefaultProject();
+
+  if (isLoading) {
+    return (
+      <span className="inline-flex h-9 items-center rounded-md border border-dashed px-3 text-sm text-muted-foreground">
+        ...
+      </span>
+    );
+  }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button variant="outline" className="gap-2">
-            {active.name}
-            <ChevronDown className="size-4 opacity-60" />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="start">
-        {MOCK_PROJECTS.map((project) => (
-          <DropdownMenuItem
-            key={project.id}
-            onClick={() => setActive(project)}
-          >
-            {project.name}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <span className="inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium">
+      {project?.name ?? "프로젝트"}
+    </span>
   );
 }

@@ -77,17 +77,6 @@ export const CFO_NAV: { title: string; href: string }[] = [
   { title: "재무 챗봇", href: "/cfo/chat" },
 ];
 
-export type MockProject = {
-  id: string;
-  slug: string;
-  name: string;
-};
-
-export const MOCK_PROJECTS: MockProject[] = [
-  { id: "demo", slug: "demo-project", name: "Demo Project" },
-  { id: "ops", slug: "ops-portal", name: "Ops Portal" },
-];
-
 export const MOCK_USER = {
   name: "Portal Operator",
   email: "operator@ai-portal.local",

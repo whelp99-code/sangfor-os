@@ -2,6 +2,7 @@ import { prisma } from "@sangfor/db";
 import {
   buildDomainDashboardSnapshot,
   createPrismaDomainStatsLoader,
+  resolveDefaultProjectSlug,
 } from "@sangfor/business";
 
 /**
@@ -16,7 +17,8 @@ export const dynamic = "force-dynamic";
 const INTERVAL_MS = 5000;
 
 export async function GET(request: Request) {
-  const loader = createPrismaDomainStatsLoader(prisma as never, "demo-project");
+  const slug = await resolveDefaultProjectSlug();
+  const loader = createPrismaDomainStatsLoader(prisma as never, slug);
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({

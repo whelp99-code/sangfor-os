@@ -4,6 +4,7 @@ import { PROPOSAL_TEMPLATE_KEYS } from "@sangfor/shared";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useDefaultProject } from "@/hooks/use-default-project";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { proposalTemplateLabel } from "@/lib/proposal-template-labels";
@@ -18,6 +19,7 @@ export function GenerateProposalForm({
   customers: Option[];
   pocProjects: Option[];
 }) {
+  const { project } = useDefaultProject();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [templateKey, setTemplateKey] = useState<string>(PROPOSAL_TEMPLATE_KEYS[0]);
@@ -44,7 +46,7 @@ export function GenerateProposalForm({
       body: JSON.stringify({
         title,
         templateKey,
-        projectSlug: "demo-project",
+        projectSlug: project!.slug,
         customerId: customerId || undefined,
         pocProjectId: pocProjectId || undefined,
         variables,
@@ -120,7 +122,7 @@ export function GenerateProposalForm({
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
       />
-      <Button type="submit" disabled={loading} className="sm:col-span-2 lg:col-span-1">
+      <Button type="submit" disabled={loading || !project} className="sm:col-span-2 lg:col-span-1">
         {loading ? "생성 중..." : "생성"}
       </Button>
       {message ? <p className="text-sm text-destructive sm:col-span-2 lg:col-span-3">{message}</p> : null}

@@ -2,19 +2,22 @@
 
 import { useState } from "react";
 
+import { useDefaultProject } from "@/hooks/use-default-project";
 import { Button } from "@/components/ui/button";
 import { actionErrorMessage } from "@/lib/action-error-labels";
 
 export function PortalActions() {
+  const { project } = useDefaultProject();
   const [accountId, setAccountId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
   async function connect() {
+    if (!project) return;
     setStatus(null);
     const response = await fetch("/api/portal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "connect-outlook", projectSlug: "demo-project" }),
+      body: JSON.stringify({ action: "connect-outlook", projectSlug: project!.slug }),
     });
     const data = await response.json();
     if (!response.ok) {
