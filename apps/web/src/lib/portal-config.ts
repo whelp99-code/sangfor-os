@@ -74,6 +74,7 @@ export const CFO_NAV: { title: string; href: string }[] = [
   { title: "구독", href: "/cfo/subscriptions" },
   { title: "월결산", href: "/cfo/month-close" },
   { title: "재무 챗봇", href: "/cfo/chat" },
+  { title: "연동 설정", href: "/cfo/settings" },
 ];
 
 export const MOCK_USER = {
