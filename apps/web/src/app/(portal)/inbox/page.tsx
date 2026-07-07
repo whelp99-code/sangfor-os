@@ -1,15 +1,47 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { prisma } from "@sangfor/db";
 import { evaluateCandidateColorGate } from "@sangfor/business";
+import { MailCandidatesList } from "@/components/mail/mail-candidates-list";
 import { SlipActions } from "@/components/cockpit/slip-actions";
 import { roleFor, TYPE_KO, wfFor, WF_KO, domainOf, revalOf } from "@/lib/cockpit";
 
-export default async function InboxPage() {
+export default async function InboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
+
+  // ── Candidates tab ──────────────────────────────────
+  if (tab === "candidates") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-normal">인입함</h1>
+          <div className="flex gap-1">
+            <Link
+              href="/inbox"
+              className="inline-flex items-center rounded-md border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+            >
+              인입
+            </Link>
+            <span className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+              후보 관리
+            </span>
+          </div>
+        </div>
+        <MailCandidatesList />
+      </div>
+    );
+  }
+
+  // ── Inbox tab (default) ─────────────────────────────
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  const [items, total, todayCount, avg] = await Promise.all([
+  const [items, total, todayCount, avg, todayApproved, convertedTotal] = await Promise.all([
     prisma.mailDerivedCandidate.findMany({
       where: { status: "proposed" },
       orderBy: { createdAt: "desc" },
@@ -22,6 +54,12 @@ export default async function InboxPage() {
     prisma.mailDerivedCandidate.aggregate({
       where: { status: "proposed" },
       _avg: { confidence: true },
+    }),
+    prisma.mailDerivedCandidate.count({
+      where: { updatedAt: { gte: startOfToday }, status: "approved" },
+    }),
+    prisma.mailDerivedCandidate.count({
+      where: { status: "converted" },
     }),
   ]);
 
@@ -45,6 +83,18 @@ export default async function InboxPage() {
           자동 분류 신뢰도<br />
           <b>{avgConf}%</b>
         </div>
+      </div>
+
+      <div className="flex gap-1 mb-4">
+        <span className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+          인입
+        </span>
+        <Link
+          href="/inbox?tab=candidates"
+          className="inline-flex items-center rounded-md border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+        >
+          후보 관리
+        </Link>
       </div>
 
       <div className="ck-cols">
@@ -135,6 +185,21 @@ export default async function InboxPage() {
             <div className="srcstat">
               <div className="l">오늘 인입</div>
               <div className="val">{todayCount}</div>
+            </div>
+          </div>
+          {/* ── Mail Intelligence unique metrics ── */}
+          <div className="pnl">
+            <div className="ph">
+              <b>메일 인텔리전스</b>
+              <span className="co mlbl">AI 분석</span>
+            </div>
+            <div className="srcstat">
+              <div className="l">오늘 승인</div>
+              <div className="val">{todayApproved}</div>
+            </div>
+            <div className="srcstat">
+              <div className="l">변환된 엔티티</div>
+              <div className="val">{convertedTotal}</div>
             </div>
           </div>
         </div>

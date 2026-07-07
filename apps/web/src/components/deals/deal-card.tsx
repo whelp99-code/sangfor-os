@@ -7,7 +7,7 @@ import type { Deal } from "@/components/deals/types";
 export function DealCard({ deal }: { deal: Deal }) {
   return (
     <Link
-      href={`/opportunities/${deal.id}`}
+      href={`/deals/${deal.id}`}
       className="block rounded-lg border bg-card p-3 shadow-sm ring-1 ring-foreground/5 transition-smooth hover:ring-primary/30"
     >
       <p className="line-clamp-2 text-sm font-medium leading-snug">{deal.title}</p>

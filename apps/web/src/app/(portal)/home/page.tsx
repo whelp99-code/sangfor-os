@@ -161,17 +161,17 @@ export default async function HomePage() {
         <MetricCard
           label="진행중 딜"
           value={openDeals.length}
-          href="/opportunities"
+           href="/deals"
         />
         <MetricCard
           label="가중 예상매출"
           value={formatKRWCompact(weightedPipeline)}
-          href="/opportunities"
+          href="/deals"
         />
         <MetricCard
           label="이번달 수주"
           value={formatKRWCompact(wonThisMonthAmount)}
-          href="/opportunities"
+          href="/deals"
         />
         <MetricCard
           label="보호 만료 임박"
@@ -244,7 +244,7 @@ export default async function HomePage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">최근 딜</CardTitle>
-            <Link href="/opportunities" className="text-xs text-primary hover:underline">
+            <Link href="/deals" className="text-xs text-primary hover:underline">
               파이프라인 보기
             </Link>
           </CardHeader>

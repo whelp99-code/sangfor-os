@@ -61,7 +61,7 @@ export function CreateOpportunityForm({
         setError(actionErrorMessage((data as { error?: string }).error, "기회를 생성하지 못했습니다."));
         return;
       }
-      router.push(`/opportunities/${data.opportunity.id}`);
+      router.push(`/deals/${data.opportunity.id}`);
       router.refresh();
     } catch {
       setError("기회를 생성하지 못했습니다. 네트워크를 확인해 주세요.");

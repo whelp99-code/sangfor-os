@@ -18,6 +18,15 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: monorepoRoot,
   },
+  async redirects() {
+    return [
+      { source: "/opportunities", destination: "/deals", permanent: false },
+      { source: "/opportunities/:id", destination: "/deals/:id", permanent: false },
+      { source: "/mail-intelligence", destination: "/inbox", permanent: false },
+      { source: "/development/mail-candidates", destination: "/inbox?tab=candidates", permanent: false },
+      { source: "/mail-connection", destination: "/settings/mail-connection", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

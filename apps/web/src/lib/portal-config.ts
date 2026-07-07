@@ -17,7 +17,6 @@ export const PORTAL_NAV: NavItem[] = [
 
   // ═══ CRM ═══
   { title: "딜", href: "/deals", icon: "trending-up", group: "CRM", tier: "primary" },
-  { title: "파이프라인", href: "/opportunities", icon: "bar-chart-2", group: "CRM", tier: "primary" },
   { title: "회사", href: "/customers", icon: "building", group: "CRM", tier: "primary" },
   { title: "리뉴얼", href: "/renewals", icon: "refresh", group: "CRM", tier: "primary" },
   { title: "연락처", href: "/contacts", icon: "contact", group: "CRM", tier: "primary" },
@@ -43,10 +42,10 @@ export const PORTAL_NAV: NavItem[] = [
   // ═══ 지식 ═══
   { title: "지식베이스", href: "/knowledge", icon: "book-open", group: "지식", tier: "more" },
   { title: "Knowledge Search", href: "/knowledge-search", icon: "search", group: "지식", tier: "more" },
-  { title: "Mail Intelligence", href: "/mail-intelligence", icon: "mail", group: "지식", tier: "more" },
+  { title: "Mail Intelligence", href: "/inbox", icon: "mail", group: "지식", tier: "more" },
   { title: "도메인 파이프라인", href: "/domain-pipeline", icon: "activity", group: "지식", tier: "more" },
   { title: "Agent Console", href: "/agent-console", icon: "bot", group: "지식", tier: "more" },
-  { title: "메일 후보", href: "/development/mail-candidates", icon: "inbox", group: "지식", tier: "more" },
+  { title: "메일 후보", href: "/inbox?tab=candidates", icon: "inbox", group: "지식", tier: "more" },
 
   // ═══ 시스템 ═══
   { title: "Color Agents", href: "/agents", icon: "palette", group: "시스템", tier: "system" },
@@ -75,6 +74,7 @@ export const CFO_NAV: { title: string; href: string }[] = [
   { title: "구독", href: "/cfo/subscriptions" },
   { title: "월결산", href: "/cfo/month-close" },
   { title: "재무 챗봇", href: "/cfo/chat" },
+  { title: "연동 설정", href: "/cfo/settings" },
 ];
 
 export const MOCK_USER = {

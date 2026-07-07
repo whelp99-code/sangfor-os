@@ -26,6 +26,9 @@ export default function SettingsPage() {
           <Link className={buttonVariants({ variant: "outline" })} href="/tools">
             MCP 도구
           </Link>
+          <Link className={buttonVariants({ variant: "outline" })} href="/settings/mail-connection">
+            메일 연동
+          </Link>
         </CardContent>
       </Card>
 

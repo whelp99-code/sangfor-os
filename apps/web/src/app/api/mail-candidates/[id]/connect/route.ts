@@ -18,7 +18,7 @@ export async function POST(request: Request, { params }: Params) {
       ...result,
       redirectTo: result.proposal?.id
         ? `/proposals/${result.proposal.id}`
-        : `/opportunities/${result.opportunity.id}`,
+        : `/deals/${result.opportunity.id}`,
     });
   } catch (error) {
     return apiError("connect_failed", error, { status: 400 });
