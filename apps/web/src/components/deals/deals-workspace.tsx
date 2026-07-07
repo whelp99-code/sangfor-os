@@ -150,12 +150,6 @@ export function DealsWorkspace({
               onChange={setView}
               available={["table", "kanban"]}
             />
-            <Button variant="outline" size="sm" disabled title="준비 중" aria-label="필터 (준비 중)">
-              필터
-            </Button>
-            <Button variant="outline" size="sm" disabled title="준비 중" aria-label="열 설정 (준비 중)">
-              열 설정
-            </Button>
             <Button size="sm" className="gap-1.5" onClick={() => setShowCreate((open) => !open)}>
               {showCreate ? <X className="size-3.5" /> : <Plus className="size-3.5" />}
               {showCreate ? "닫기" : "+ 새 딜"}

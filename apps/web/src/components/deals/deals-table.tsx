@@ -61,9 +61,6 @@ function StageCell({ deal }: { deal: Deal }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// RowActions — ⋯ dropdown: 편집(상세 링크) · 복사(준비 중) · 삭제(confirm→DELETE)
-// ---------------------------------------------------------------------------
 function RowActions({ deal }: { deal: Deal }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
@@ -101,7 +98,6 @@ function RowActions({ deal }: { deal: Deal }) {
         >
           편집
         </DropdownMenuItem>
-        <DropdownMenuItem disabled>복사 (준비 중)</DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
           disabled={deleting}

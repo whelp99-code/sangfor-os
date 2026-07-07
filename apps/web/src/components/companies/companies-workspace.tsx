@@ -297,15 +297,6 @@ export function CompaniesWorkspace({ companies }: { companies: Company[] }) {
         </div>
         <div className="ml-auto flex gap-2">
           <Button
-            variant="outline"
-            size="sm"
-            disabled
-            title="준비 중"
-            aria-label="필터 (준비 중)"
-          >
-            필터
-          </Button>
-          <Button
             size="sm"
             className="gap-1"
             onClick={() => setShowCreate((open) => !open)}
