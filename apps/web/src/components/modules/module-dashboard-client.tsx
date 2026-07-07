@@ -145,7 +145,7 @@ const MODULE_ROUTES_MAPPING: Record<string, { title: string; href: string; fileP
     { title: "Proof of Concept Workspace", href: "/poc", filePattern: "apps/web/src/app/(portal)/poc/page.tsx" }
   ],
   "opportunity": [
-    { title: "Opportunities Analysis Dashboard", href: "/opportunities", filePattern: "apps/web/src/app/(portal)/opportunities/page.tsx" }
+    { title: "Deals Workspace", href: "/deals", filePattern: "apps/web/src/app/(portal)/deals/page.tsx" }
   ],
   "proposal": [
     { title: "PRD & Proposal Generator", href: "/proposals", filePattern: "apps/web/src/app/(portal)/proposals/page.tsx" }

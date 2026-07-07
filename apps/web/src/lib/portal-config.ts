@@ -17,7 +17,6 @@ export const PORTAL_NAV: NavItem[] = [
 
   // ═══ CRM ═══
   { title: "딜", href: "/deals", icon: "trending-up", group: "CRM", tier: "primary" },
-  { title: "파이프라인", href: "/opportunities", icon: "bar-chart-2", group: "CRM", tier: "primary" },
   { title: "회사", href: "/customers", icon: "building", group: "CRM", tier: "primary" },
   { title: "리뉴얼", href: "/renewals", icon: "refresh", group: "CRM", tier: "primary" },
   { title: "연락처", href: "/contacts", icon: "contact", group: "CRM", tier: "primary" },

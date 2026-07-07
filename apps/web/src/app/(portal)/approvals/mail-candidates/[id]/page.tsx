@@ -368,7 +368,7 @@ function entityHref(entityType?: string | null) {
   if (entityType === "customer") return "/customers";
   if (entityType === "partner") return "/partners";
   if (entityType === "task") return "/tasks";
-  if (entityType === "opportunity") return "/opportunities";
+  if (entityType === "opportunity") return "/deals";
   if (entityType === "poc") return "/poc";
   return "/approvals";
 }

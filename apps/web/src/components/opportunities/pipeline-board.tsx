@@ -30,7 +30,7 @@ export function OpportunityPipelineBoard({ opportunities }: { opportunities: Opp
     return (
       <div className="flex flex-col items-center gap-3 rounded-md border border-dashed p-8 text-center">
         <p className="text-sm text-muted-foreground">진행 중인 기회가 없습니다.</p>
-        <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/opportunities">
+        <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/deals">
           기회 추가
         </Link>
       </div>
@@ -49,7 +49,7 @@ export function OpportunityPipelineBoard({ opportunities }: { opportunities: Opp
             {(byStage.get(stage) ?? []).map((o) => (
               <Link
                 key={o.id}
-                href={`/opportunities/${o.id}`}
+                href={`/deals/${o.id}`}
                 className="block rounded-md border p-2 text-sm hover:bg-muted/50"
               >
                 <div className="font-medium">{o.title}</div>
@@ -79,7 +79,7 @@ export function OpportunityClosedList({ opportunities }: { opportunities: Opport
             <CardTitle className="text-base">{o.title}</CardTitle>
             <div className="flex items-center gap-2">
               <Badge>{stageLabel(normalizeOpportunityStage(o.stage))}</Badge>
-              <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={`/opportunities/${o.id}`}>
+              <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={`/deals/${o.id}`}>
                 열기
               </Link>
             </div>
