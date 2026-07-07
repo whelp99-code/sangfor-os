@@ -33,7 +33,6 @@ export async function resolveDefaultProjectId(
 
   const db = client ?? prisma;
   const rows = await db.project.findMany({
-    where: { deletedAt: null },
     select: { id: true, slug: true, name: true },
   });
 
@@ -60,7 +59,6 @@ export async function resolveDefaultProjectSlug(
 
   const db = client ?? prisma;
   const rows = await db.project.findMany({
-    where: { deletedAt: null },
     select: { id: true, slug: true, name: true },
   });
 

@@ -5,7 +5,14 @@ import { resolveDefaultProjectId, resolveDefaultProjectSlug, type PrismaClientLi
 function fakeClient(rows: Array<{ id: string; slug: string; name: string }>): PrismaClientLike {
   return {
     project: {
-      findMany: async () => rows,
+      findMany: async (args) => {
+        if (args?.where && typeof args.where === "object" && "deletedAt" in args.where) {
+          throw new TypeError(
+            "fakeClient.findMany received where.deletedAt, which does not exist in the Prisma schema",
+          );
+        }
+        return rows;
+      },
     },
   };
 }
