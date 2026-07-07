@@ -5,6 +5,7 @@ import {
   canTransitionOpportunityStage,
   evaluateOpportunityQualification,
   isActiveOpportunity,
+  isRecognizedStage,
   normalizeOpportunityStage,
   validateOpportunityStageOrder,
   validateRegistrationGate,
@@ -373,5 +374,57 @@ describe("isActiveOpportunity", () => {
   it("handles whitespace-padded input (trims first)", () => {
     expect(isActiveOpportunity(" WON ")).toBe(false);
     expect(isActiveOpportunity("  LEAD  ")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isRecognizedStage — honest membership check (null-safe, no silent fallback)
+// ---------------------------------------------------------------------------
+describe("isRecognizedStage", () => {
+  it("returns true for canonical uppercase stage values", () => {
+    expect(isRecognizedStage("LEAD")).toBe(true);
+    expect(isRecognizedStage("QUALIFIED")).toBe(true);
+    expect(isRecognizedStage("PROPOSAL")).toBe(true);
+    expect(isRecognizedStage("POC")).toBe(true);
+    expect(isRecognizedStage("NEGOTIATION")).toBe(true);
+    expect(isRecognizedStage("WON")).toBe(true);
+    expect(isRecognizedStage("LOST")).toBe(true);
+  });
+
+  it("returns true for lowercase canonical values", () => {
+    expect(isRecognizedStage("lead")).toBe(true);
+    expect(isRecognizedStage("won")).toBe(true);
+    expect(isRecognizedStage("lost")).toBe(true);
+  });
+
+  it("returns true for legacy/Korean display labels", () => {
+    expect(isRecognizedStage("discovery")).toBe(true);
+    expect(isRecognizedStage("qualification")).toBe(true);
+    expect(isRecognizedStage("리드")).toBe(true);
+    expect(isRecognizedStage("검증")).toBe(true);
+    expect(isRecognizedStage("제안")).toBe(true);
+    expect(isRecognizedStage("협상")).toBe(true);
+    expect(isRecognizedStage("수주")).toBe(true);
+    expect(isRecognizedStage("실패")).toBe(true);
+  });
+
+  it("returns true for whitespace-padded recognized input", () => {
+    expect(isRecognizedStage("  LEAD  ")).toBe(true);
+    expect(isRecognizedStage("\tPOC\n")).toBe(true);
+  });
+
+  it("returns false for unrecognized garbage strings", () => {
+    expect(isRecognizedStage("banana")).toBe(false);
+    expect(isRecognizedStage("foobar")).toBe(false);
+    expect(isRecognizedStage("")).toBe(false);
+    expect(isRecognizedStage(" ")).toBe(false);
+  });
+
+  it("returns false for null input", () => {
+    expect(isRecognizedStage(null)).toBe(false);
+  });
+
+  it("returns false for undefined input", () => {
+    expect(isRecognizedStage(undefined)).toBe(false);
   });
 });

@@ -1,4 +1,6 @@
 import { prisma } from "@sangfor/db";
+import type { OpportunityStage } from "@prisma/client";
+import { ACTIVE_OPPORTUNITY_STAGES } from "./crm/opportunity-stage";
 
 export interface DailyReportData {
   date: string;
@@ -55,7 +57,9 @@ export async function generateDailyReport(): Promise<DailyReportData> {
   const customers = await prisma.customer.count();
   const partners = await prisma.partner.count();
   const tasks = await prisma.workTask.count();
-  const opportunities = await prisma.opportunity.count();
+  const opportunities = await prisma.opportunity.count({
+    where: { stage: { in: [...ACTIVE_OPPORTUNITY_STAGES] as OpportunityStage[] } },
+  });
 
   return {
     date: today.toISOString().split("T")[0],

@@ -2,14 +2,14 @@
 
 import { useMemo } from "react";
 
-import { CANONICAL_STAGES, normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
+import { ACTIVE_OPPORTUNITY_STAGES, normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
 
 import { KanbanBoard, type KanbanColumnDef } from "@/components/views/kanban-board";
 import { DealCard } from "@/components/deals/deal-card";
 import { STAGE_ACCENT, STAGE_LABELS, formatKRWCompact } from "@/components/deals/stage-meta";
 import type { Deal } from "@/components/deals/types";
 
-const ACTIVE_STAGES = CANONICAL_STAGES.filter((stage) => stage !== "WON" && stage !== "LOST");
+const ACTIVE_STAGES = [...ACTIVE_OPPORTUNITY_STAGES];
 
 type BoardItem = Deal & { columnId: string };
 

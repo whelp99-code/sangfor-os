@@ -74,6 +74,23 @@ export function isActiveOpportunity(stage: string | null | undefined): boolean {
   return ACTIVE_OPPORTUNITY_STAGES.includes(normalized);
 }
 
+/**
+ * Returns true only when `raw` (after the same trim/case/legacy-Korean
+ * mapping used by normalizeOpportunityStage) maps to a canonical
+ * OpportunityStage.  null / undefined / unknown strings → false.
+ *
+ * Unlike normalizeOpportunityStage, which silently falls back to "LEAD"
+ * for unmapped input, this is the honest membership check.
+ */
+export function isRecognizedStage(raw: string | null | undefined): boolean {
+  if (raw == null) return false;
+  const cleaned = raw.trim();
+  if (!cleaned) return false;
+  const upper = cleaned.toUpperCase() as OpportunityStage;
+  if (CANONICAL_STAGES.includes(upper)) return true;
+  return cleaned.toLowerCase() in LEGACY_TO_CANONICAL;
+}
+
 export function displayOpportunityStage(stage: string): string {
   return normalizeOpportunityStage(stage);
 }

@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { listCustomers, listOpportunities, listPartners } from "@sangfor/business";
-import { normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
+import { isActiveOpportunity } from "@sangfor/business/opportunity-stage";
 
 import { toDeal } from "@/components/deals/map-deal";
 import { DealsWorkspace } from "@/components/deals/deals-workspace";
@@ -19,10 +19,7 @@ export default async function OpportunitiesPage() {
 
   const deals = safe.map(toDeal);
 
-  const openDeals = deals.filter((deal) => {
-    const stage = normalizeOpportunityStage(deal.stage);
-    return stage !== "WON" && stage !== "LOST";
-  });
+  const openDeals = deals.filter((deal) => isActiveOpportunity(deal.stage));
   const openValue = openDeals.reduce((sum, deal) => sum + (deal.amount ?? 0), 0);
 
   return (
