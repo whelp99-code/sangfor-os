@@ -5,7 +5,7 @@ import {
   MailPolicyLookup,
   normalizePolicyKey,
 } from "../mail-policy-memory";
-import { SELF_DOMAINS, SYSTEM_SENDER_DOMAINS, KNOWN_PARTNER_DOMAINS } from "../mail-domain-registry";
+import { SELF_DOMAINS, SYSTEM_SENDER_DOMAINS, KNOWN_PARTNER_DOMAINS, FREE_MAIL_DOMAINS, KNOWN_DOMAIN_MAP } from "../mail-domain-registry";
 import {
   INTERNAL_COMPANY_NAMES,
   KEYWORDS,
@@ -116,6 +116,79 @@ export function isKnownPartnerDomain(domain: string | undefined, policy: MailPol
   if (!domain) return false;
   const normalized = normalizePolicyKey(domain);
   return KNOWN_PARTNER_DOMAINS.has(normalized) || domainMatches(normalized, policy.knownPartnerDomains);
+}
+
+// --- customer/partner signal-based confidence scoring ---
+
+const CUSTOMER_PARTNER_BASE = 55;
+const CUSTOMER_PARTNER_MAX = 94;
+const CUSTOMER_PARTNER_MIN = 40;
+const KNOWN_PARTNER_DOMAIN_BONUS = 20;
+const KNOWN_DOMAIN_MAP_BONUS = 12;
+const FREE_MAIL_PENALTY = -10;
+const EVIDENCE_BONUS_PER_UNIT = 2;
+const AI_ENHANCED_BONUS = 6;
+const PARTNER_KEYWORD_BONUS = 5;
+
+export type CustomerPartnerConfidenceSignals = {
+  isPartner: boolean;
+  knownPartnerDomain: boolean;
+  knownDomainMap: boolean;
+  freeMailDomain: boolean;
+  policySignal: number;
+  evidenceCount?: number;
+  aiEnhanced?: boolean;
+  partnerKeywordBonus?: number;
+};
+
+export function computeCustomerPartnerConfidence(
+  signals: CustomerPartnerConfidenceSignals,
+): { confidence: number; breakdown: Record<string, number> } {
+  const breakdown: Record<string, number> = {};
+  let score = CUSTOMER_PARTNER_BASE;
+  breakdown.base = CUSTOMER_PARTNER_BASE;
+
+  if (signals.knownPartnerDomain) {
+    score += KNOWN_PARTNER_DOMAIN_BONUS;
+    breakdown.knownPartnerDomain = KNOWN_PARTNER_DOMAIN_BONUS;
+  }
+
+  if (signals.knownDomainMap && !signals.knownPartnerDomain) {
+    score += KNOWN_DOMAIN_MAP_BONUS;
+    breakdown.knownDomainMap = KNOWN_DOMAIN_MAP_BONUS;
+  }
+
+  if (signals.policySignal) {
+    score += signals.policySignal;
+    breakdown.policySignal = signals.policySignal;
+  }
+
+  if (signals.freeMailDomain) {
+    score += FREE_MAIL_PENALTY;
+    breakdown.freeMailPenalty = FREE_MAIL_PENALTY;
+  }
+
+  const evidenceCount = signals.evidenceCount ?? 0;
+  if (evidenceCount > 0) {
+    const bonus = Math.min(evidenceCount, 3) * EVIDENCE_BONUS_PER_UNIT;
+    score += bonus;
+    breakdown.evidenceBonus = bonus;
+  }
+
+  if (signals.aiEnhanced) {
+    score += AI_ENHANCED_BONUS;
+    breakdown.aiEnhanced = AI_ENHANCED_BONUS;
+  }
+
+  if (signals.partnerKeywordBonus) {
+    score += signals.partnerKeywordBonus;
+    breakdown.partnerKeywordBonus = signals.partnerKeywordBonus;
+  }
+
+  score = Math.max(CUSTOMER_PARTNER_MIN, Math.min(CUSTOMER_PARTNER_MAX, Math.round(score)));
+  breakdown.total = score;
+
+  return { confidence: score, breakdown };
 }
 
 export function matchedPolicyMemories(
@@ -308,12 +381,26 @@ export function classifyMailCandidateDocument(input: {
       partnerMatches.length > 0 ||
       isKnownPartner(companyName, policy) ||
       isKnownPartnerDomain(domain, policy);
+    const knownPartnerDomain = isKnownPartnerDomain(domain, policy);
+    const knownDomainMap = !!domain && KNOWN_DOMAIN_MAP[domain] !== undefined;
+    const freeMailDomain = !!domain && FREE_MAIL_DOMAINS.has(domain);
+    const policySignal = isPartner ? 18 : 10;
+    const partnerKeywordBonus = isPartner && !knownPartnerDomain ? PARTNER_KEYWORD_BONUS : 0;
+    const { confidence, breakdown } = computeCustomerPartnerConfidence({
+      isPartner,
+      knownPartnerDomain,
+      knownDomainMap,
+      freeMailDomain,
+      policySignal,
+      partnerKeywordBonus,
+    });
     candidates.push({
       candidateType: isPartner ? "partner" : "customer",
       title: `${isPartner ? "Partner" : "Customer"}: ${companyName}`,
       summary: `${companyName} inferred from imported mail intelligence. ${summary}`.slice(0, 420),
-      confidence: isPartner ? 76 : 70,
+      confidence,
       matchedKeywords: isPartner ? ["sender-domain", ...partnerMatches] : ["sender-domain"],
+      confidenceBreakdown: breakdown,
     });
   }
 
@@ -661,21 +748,38 @@ export function classifyMailInsightThread(
 
   if (policyDecision.decision === "candidate" && policyDecision.candidateName) {
     const isPartner = policyDecision.entityRole === "partner";
+    const knownPartnerDomain = policyDecision.participantDomains.some(
+      (d) => isKnownPartnerDomain(d, policy),
+    );
+    const knownDomainMap = policyDecision.participantDomains.some(
+      (d) => KNOWN_DOMAIN_MAP[d] !== undefined,
+    );
+    const freeMailDomain = policyDecision.participantDomains.some(
+      (d) => FREE_MAIL_DOMAINS.has(d),
+    );
+    const policySignal = isPartner ? 18 : 10;
+    const evidenceCount = evidenceItems.length + nextActions.length;
+    const { confidence, breakdown } = computeCustomerPartnerConfidence({
+      isPartner,
+      knownPartnerDomain,
+      knownDomainMap,
+      freeMailDomain,
+      policySignal,
+      evidenceCount,
+      aiEnhanced: thread.aiEnhanced,
+    });
     candidates.push({
       candidateType: isPartner ? "partner" : "customer",
       title: `${isPartner ? "Partner" : "Customer"}: ${policyDecision.candidateName}`,
       summary: `${policyDecision.candidateName} inferred from Mail Intelligence thread. ${thread.summary}`.slice(0, 420),
-      confidence: isPartner ? 82 : 74,
+      confidence,
       matchedKeywords: [policyDecision.reason],
       evidenceItems,
       nextActions,
       sourceMessageIds: messageIds,
       policyDecision,
       mailIntelligence: buildMailIntelligenceMetadata(thread),
-      confidenceBreakdown: {
-        policySignal: isPartner ? 18 : 10,
-        aiEnhanced: thread.aiEnhanced ? 6 : 0,
-      },
+      confidenceBreakdown: breakdown,
     });
   }
 
