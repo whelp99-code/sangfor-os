@@ -411,4 +411,158 @@ describe("revalidateMailDerivedCandidate — customer/partner", () => {
     expect(result.revalidation).not.toBeNull();
     expect(result.revalidation!.targetObject).toBe("customer");
   });
+
+// ---------------------------------------------------------------------------
+// Cache behaviour tests
+// ---------------------------------------------------------------------------
+
+describe("revalidateMailDerivedCandidate — cache behaviour", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (prisma.customer.findFirst as any).mockResolvedValue(null);
+    (prisma.partner.findFirst as any).mockResolvedValue(null);
+    (prisma.mailDerivedCandidate.update as any).mockImplementation(
+      async (_args: unknown) => _args,
+    );
+  });
+
+  // -----------------------------------------------------------------------
+  // 10. Cached fresh LLM result → returned from cache (no LLM call)
+  // -----------------------------------------------------------------------
+  it("cached fresh LLM result + no force → returned from cache (no LLM call)", async () => {
+    const cachedKey =
+      "mail-ai-revalidation-v2:thread-key-1:quote.pdf:Evidence of customer interest:customer:Customer: Acme Corp:75";
+    const cachedRevalidation: AiRevalidationResult = {
+      decision: "approve_candidate",
+      targetObject: "customer",
+      confidence: 85,
+      reasoningSummary: "Previously validated customer lead",
+      evidence: [],
+      duplicateCheck: { possibleDuplicate: false },
+      missingFields: [],
+      suggestedFields: {},
+      riskFlags: [],
+      mode: "llm",
+      model: "gpt-4",
+      llmConfidence: 88,
+      revalidatedAt: "2026-07-01T00:00:00.000Z",
+      cacheKey: cachedKey,
+    };
+
+    (prisma.mailDerivedCandidate.findUniqueOrThrow as any).mockResolvedValue(
+      makeCandidate({
+        metadata: {
+          ...makeCandidate().metadata,
+          aiRevalidation: cachedRevalidation,
+        },
+      }),
+    );
+
+    const callLLM = vi.fn();
+    const result = await revalidateMailDerivedCandidate("test-id", { callLLM });
+
+    expect(callLLM).not.toHaveBeenCalled();
+    expect(result.revalidation!.decision).toBe("approve_candidate");
+    expect(result.revalidation!.mode).toBe("llm");
+    expect(result.revalidation!.cacheKey).toBe(cachedKey);
+  });
+
+  // -----------------------------------------------------------------------
+  // 11. Cached template + fallbackReason → re-runs LLM despite no force
+  // -----------------------------------------------------------------------
+  it("cached template + fallbackReason → re-runs LLM (stale fallback not cached)", async () => {
+    const cachedKey =
+      "mail-ai-revalidation-v2:thread-key-1:quote.pdf:Evidence of customer interest:customer:Customer: Acme Corp:75";
+    const cachedFallback: AiRevalidationResult = {
+      decision: "needs_human_review",
+      targetObject: "customer",
+      confidence: 70,
+      reasoningSummary: "Template fallback from LLM outage",
+      evidence: [],
+      duplicateCheck: { possibleDuplicate: false },
+      missingFields: [],
+      suggestedFields: {},
+      riskFlags: [],
+      mode: "template",
+      fallbackReason: "openai_timeout",
+      revalidatedAt: "2026-07-01T00:00:00.000Z",
+      cacheKey: cachedKey,
+    };
+
+    (prisma.mailDerivedCandidate.findUniqueOrThrow as any).mockResolvedValue(
+      makeCandidate({
+        metadata: {
+          ...makeCandidate().metadata,
+          aiRevalidation: cachedFallback,
+        },
+      }),
+    );
+
+    const callLLM = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        decision: "approve_candidate",
+        reasoningSummary: "Valid customer after retry",
+        missingFields: [],
+        riskFlags: [],
+        confidence: 85,
+      }),
+    );
+
+    const result = await revalidateMailDerivedCandidate("test-id", { callLLM });
+
+    expect(callLLM).toHaveBeenCalledTimes(1);
+    expect(result.revalidation!.mode).toBe("llm");
+    expect(result.revalidation!.decision).toBe("approve_candidate");
+  });
+
+  // -----------------------------------------------------------------------
+  // 12. force: true → re-runs LLM even over fresh LLM cache
+  // -----------------------------------------------------------------------
+  it("force: true → re-runs LLM even over fresh LLM cache", async () => {
+    const cachedKey =
+      "mail-ai-revalidation-v2:thread-key-1:quote.pdf:Evidence of customer interest:customer:Customer: Acme Corp:75";
+    const cachedRevalidation: AiRevalidationResult = {
+      decision: "needs_human_review",
+      targetObject: "customer",
+      confidence: 70,
+      reasoningSummary: "Previously cached — needs recheck",
+      evidence: [],
+      duplicateCheck: { possibleDuplicate: false },
+      missingFields: [],
+      suggestedFields: {},
+      riskFlags: [],
+      mode: "llm",
+      model: "gpt-4",
+      llmConfidence: 65,
+      revalidatedAt: "2026-07-01T00:00:00.000Z",
+      cacheKey: cachedKey,
+    };
+
+    (prisma.mailDerivedCandidate.findUniqueOrThrow as any).mockResolvedValue(
+      makeCandidate({
+        metadata: {
+          ...makeCandidate().metadata,
+          aiRevalidation: cachedRevalidation,
+        },
+      }),
+    );
+
+    const callLLM = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        decision: "approve_candidate",
+        reasoningSummary: "Re-validated with fresh LLM call",
+        missingFields: [],
+        riskFlags: [],
+        confidence: 92,
+      }),
+    );
+
+    const result = await revalidateMailDerivedCandidate("test-id", { callLLM }, { force: true });
+
+    expect(callLLM).toHaveBeenCalledTimes(1);
+    expect(result.revalidation!.mode).toBe("llm");
+    expect(result.revalidation!.decision).toBe("approve_candidate");
+  });
+});
+
 });

@@ -488,13 +488,23 @@ export async function revalidateMailDerivedCandidate(
     /** Injectable LLM caller for tests; forwarded to callLlmRevalidation. */
     callLLM?: (system: string, user: string) => Promise<string>;
   },
+  options?: { force?: boolean },
 ) {
   const candidate = await getMailDerivedCandidate(id);
 
   const cacheKey = buildRevalidationCacheKey(candidate);
   const metadata = asRecord(candidate.metadata);
   const existing = asRecord(metadata.aiRevalidation);
-  if (existing.cacheKey === cacheKey && typeof existing.decision === "string") {
+
+  // Skip cache when:
+  // - force is true (explicit revalidation request), or
+  // - cached result was an LLM-outage fallback (mode=template + fallbackReason)
+  //   that should not pin stale data permanently.
+  const isCacheStale =
+    options?.force === true ||
+    (existing.mode === "template" && typeof existing.fallbackReason === "string");
+
+  if (!isCacheStale && existing.cacheKey === cacheKey && typeof existing.decision === "string") {
     return { candidate, revalidation: existing };
   }
 
