@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useDefaultProject } from "@/hooks/use-default-project";
 import { actionErrorMessage } from "@/lib/action-error-labels";
 import { OPPORTUNITY_STAGES } from "@/lib/poc-constants";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ export function CreateOpportunityForm({
   customers: Option[];
   partners: Option[];
 }) {
+  const { project } = useDefaultProject();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [customerId, setCustomerId] = useState("");
@@ -44,7 +46,7 @@ export function CreateOpportunityForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
-          projectSlug: "demo-project",
+          projectSlug: project!.slug,
           stage,
           customerId: customerId || undefined,
           partnerId: partnerId || undefined,
@@ -107,7 +109,7 @@ export function CreateOpportunityForm({
       <Input aria-label="확률 %" type="number" min={0} max={100} placeholder="확률 %" value={probability} onChange={(e) => setProbability(e.target.value)} />
       <Input aria-label="마감일" type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
       <Input aria-label="다음 조치" placeholder="다음 조치" value={nextAction} onChange={(e) => setNextAction(e.target.value)} />
-      <Button type="submit" disabled={loading} className="sm:col-span-2 lg:col-span-1">
+      <Button type="submit" disabled={loading || !project} className="sm:col-span-2 lg:col-span-1">
         {loading ? "생성 중..." : "새 기회"}
       </Button>
       {error && (

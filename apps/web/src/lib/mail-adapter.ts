@@ -1,4 +1,4 @@
-import { createWorkTask, linkTaskToEntity } from "@sangfor/business";
+import { createWorkTask, linkTaskToEntity, resolveDefaultProjectSlug } from "@sangfor/business";
 import { getMailOverview, listMailMessages } from "@sangfor/mail-intelligence";
 
 /**
@@ -20,8 +20,9 @@ export async function acceptMailTaskCandidate(input: {
   customerId?: string;
   partnerId?: string;
 }) {
+  const projectSlug = await resolveDefaultProjectSlug();
   const task = await createWorkTask({
-    projectSlug: "demo-project",
+    projectSlug,
     title: input.title,
     status: "todo",
     priority: "normal",

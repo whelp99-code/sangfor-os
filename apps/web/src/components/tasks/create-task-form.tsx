@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useDefaultProject } from "@/hooks/use-default-project";
 import { actionErrorMessage } from "@/lib/action-error-labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +27,9 @@ type Props = {
   projectSlug?: string;
 };
 
-export function CreateTaskForm({ engagementId, engagements, projectSlug = "demo-project" }: Props) {
+export function CreateTaskForm({ engagementId, engagements, projectSlug: propProjectSlug }: Props) {
+  const { project } = useDefaultProject();
+  const projectSlug = propProjectSlug ?? project?.slug;
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [assigneeName, setAssigneeName] = useState("");
@@ -124,7 +127,7 @@ export function CreateTaskForm({ engagementId, engagements, projectSlug = "demo-
           </SelectContent>
         </Select>
       ) : null}
-      <Button type="submit" disabled={loading}>
+      <Button type="submit" disabled={loading || !projectSlug}>
         {loading ? "저장 중..." : "작업 추가"}
       </Button>
       {error && (

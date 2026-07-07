@@ -1,13 +1,14 @@
 export const dynamic = "force-dynamic";
 
-import { listCustomersWithOpportunities } from "@sangfor/business";
+import { listCustomersWithOpportunities, resolveDefaultProjectSlug } from "@sangfor/business";
 
 import { CompaniesWorkspace, type Company } from "@/components/companies/companies-workspace";
 
 export default async function CustomersPage() {
   // Single query: customers + their opportunities (was N+1 — listCustomers then
   // per-customer getCustomerDetail with 6 relations of which only opportunities was used).
-  const customers = await listCustomersWithOpportunities("demo-project");
+  const slug = await resolveDefaultProjectSlug();
+  const customers = await listCustomersWithOpportunities(slug);
 
   const companies: Company[] = customers.map((customer) => ({
     id: customer.id,

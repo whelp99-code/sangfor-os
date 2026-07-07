@@ -10,12 +10,12 @@ import { prisma } from "@sangfor/db";
 import {
   generateMailDerivedCandidates,
   generateMailDerivedCandidatesHybrid,
+  resolveDefaultProjectSlug,
   upsertMailInsightThreads,
 } from "@sangfor/business";
 import { getOpenAiApiKey } from "@sangfor/business/openai-config";
 import { sanitizeText } from "./outlook";
 
-const PROJECT_SLUG = "demo-project";
 const UPSERT_BATCH = 50;
 
 function domainOf(email?: string | null): string | null {
@@ -88,18 +88,20 @@ export async function learnFromMailbox(): Promise<{
     return { threads: 0, candidates: { created: 0 } };
   }
 
+  const projectSlug = await resolveDefaultProjectSlug();
+
   // Each thread also writes a knowledge doc + chunks, so batch the upserts.
   for (let i = 0; i < threads.length; i += UPSERT_BATCH) {
     await upsertMailInsightThreads({
-      projectSlug: PROJECT_SLUG,
+      projectSlug,
       threads: threads.slice(i, i + UPSERT_BATCH),
     });
   }
 
   const limit = Math.min(2000, threads.length);
   const candidates = getOpenAiApiKey()
-    ? await generateMailDerivedCandidatesHybrid({ projectSlug: PROJECT_SLUG, limit })
-    : await generateMailDerivedCandidates({ projectSlug: PROJECT_SLUG, limit });
+    ? await generateMailDerivedCandidatesHybrid({ projectSlug, limit })
+    : await generateMailDerivedCandidates({ projectSlug, limit });
 
   return { threads: threads.length, candidates };
 }

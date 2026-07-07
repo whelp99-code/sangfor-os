@@ -1,4 +1,4 @@
-import { createCustomer, createCustomerSchema, listCustomers } from "@sangfor/business";
+import { createCustomer, createCustomerSchema, listCustomers, resolveDefaultProjectSlug } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
 
@@ -6,7 +6,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("q") ?? undefined;
   try {
-    const customers = await listCustomers("demo-project", search);
+    const slug = await resolveDefaultProjectSlug();
+    const customers = await listCustomers(slug, search);
     return NextResponse.json({ customers });
   } catch (error) {
     return apiError("list_failed", error, { status: 500 });

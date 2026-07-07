@@ -3,11 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useDefaultProject } from "@/hooks/use-default-project";
 import { actionErrorMessage } from "@/lib/action-error-labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export function CreateKnowledgeForm() {
+  const { project } = useDefaultProject();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -27,7 +29,7 @@ export function CreateKnowledgeForm() {
           title,
           body,
           tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-          projectSlug: "demo-project",
+          projectSlug: project!.slug,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -63,7 +65,7 @@ export function CreateKnowledgeForm() {
           {error}
         </p>
       )}
-      <Button type="submit" disabled={loading}>{loading ? "저장 중..." : "문서 추가"}</Button>
+      <Button type="submit" disabled={loading || !project}>{loading ? "저장 중..." : "문서 추가"}</Button>
     </form>
   );
 }

@@ -3,11 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useDefaultProject } from "@/hooks/use-default-project";
 import { actionErrorMessage } from "@/lib/action-error-labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export function CreatePartnerForm() {
+  const { project } = useDefaultProject();
   const router = useRouter();
   const [name, setName] = useState("");
   const [partnerType, setPartnerType] = useState("");
@@ -25,7 +27,7 @@ export function CreatePartnerForm() {
         body: JSON.stringify({
           name,
           partnerType: partnerType || undefined,
-          projectSlug: "demo-project",
+          projectSlug: project!.slug,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -46,7 +48,7 @@ export function CreatePartnerForm() {
     <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSubmit}>
       <Input aria-label="파트너명" placeholder="파트너명" value={name} onChange={(event) => setName(event.target.value)} required />
       <Input aria-label="유형(리셀러·SI 등)" placeholder="유형(리셀러·SI 등)" value={partnerType} onChange={(event) => setPartnerType(event.target.value)} />
-      <Button type="submit" disabled={loading}>{loading ? "저장 중..." : "파트너 추가"}</Button>
+      <Button type="submit" disabled={loading || !project}>{loading ? "저장 중..." : "파트너 추가"}</Button>
       {error && (
         <p className="w-full text-xs text-destructive sm:basis-full" role="alert">
           {error}
