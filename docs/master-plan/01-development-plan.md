@@ -287,7 +287,7 @@ export async function resolveDefaultProjectId(prismaClient = prisma): Promise<st
 **브랜치**: `refactor/ia-consolidation`
 **선행**: WP-C (실데이터 기준으로 메뉴를 정해야 함).
 
-> ✅ 2026-07-07 **E-1/E-2 커밋, PR #101 출하 — auto-merge 대기(머지 미확정)**. `mergeStateStatus: BLOCKED` (2026-07-07 확인 시점). main에는 아직 반영되지 않음 — DoD 판정 시 이 점 반영할 것.
+> ✅ 2026-07-07 **E-1/E-2 커밋, PR #101 머지 완료** — `state: MERGED`, `mergedAt: 2026-07-07T10:44:29Z`, merge commit `22de4b5`(`gh pr view 101 --json state,mergedAt,mergeCommit`로 확인). 이 문서 워크트리는 이후 origin/main(#101 포함)으로 리베이스됨.
 
 ### Task E-1: 딜 진입점 단일화
 - [x] `/deals`와 `/opportunities`가 동일 컴포넌트를 렌더하는 중복 확인(감사 지적). **`/deals`를 canonical로 유지**(계기판 딜 워크스페이스), `/opportunities`는 `redirect('/deals')` + 상세는 `/deals/[id]`로. 사이드바(`PortalShell` 네비 정의)에서 기회 메뉴 제거. ✅ `next.config.ts`의 `redirects()`로 `/opportunities`(+상세) → `/deals`(+상세) 실 307 처리, 별도 "파이프라인" CRM 메뉴 제거. **부가 발견**: `(portal)/loading.tsx` 스트리밍 컨텍스트에서 page-level `redirect()`가 meta-refresh로 강등되는 Next 16 동작 때문에 config-level redirect로 전환(DEV_REFERENCE §8 참고).
@@ -300,7 +300,7 @@ export async function resolveDefaultProjectId(prismaClient = prisma): Promise<st
 - [x] 감사 문서의 고아 페이지 목록(가짜 Ops Portal 등) 확인 → 사이드바에 없고 실데이터도 없는 페이지 삭제. 삭제 전 `grep -rn "<라우트명>"`으로 참조 0 확인. ✅→**정정**: 감사가 지목한 고아 페이지 4곳을 전수 실사한 결과 **전부 실참조·실기능을 보유** — 예: `/cfo/settings`는 `CFO_NAV`에 실제로 연결돼 있음. 따라서 계획대로 "삭제"하지 않고 **연결/유지로 방침 변경**(감사 문서와 실상의 차이를 정직하게 기록, 참조 0건 확인이 안 돼 삭제를 보류한 것과 동일한 효과).
 
 **Acceptance:** 사이드바 메뉴 수 감소, 중복 라우트 0, 모든 메뉴가 실데이터 화면으로 연결. e2e/스모크 통과.
-✅ 2026-07-07 충족(코드 기준) — web typecheck 클린, lint 신규 0, build 성공, e2e 67 passed/0 failed(변경 전 베이스라인과 동일), href="/opportunities" 잔존 0건. **단, PR #101은 아직 main에 머지되지 않음(auto-merge 대기)** — 위 안내 참고.
+✅ 2026-07-07 충족 — web typecheck 클린, lint 신규 0, build 성공, e2e 67 passed/0 failed(변경 전 베이스라인과 동일), href="/opportunities" 잔존 0건. PR #101 머지 완료(2026-07-07T10:44:29Z, `22de4b5`) — main 반영 확인.
 
 ---
 
@@ -311,7 +311,7 @@ export async function resolveDefaultProjectId(prismaClient = prisma): Promise<st
 > **2026-07-07 현재 상태 — 항목별 정직 판정** (아래 원문 조건은 불변, 이 인용 블록만 주석):
 
 1. WP-A~E의 PR 5개가 main에 머지되고 각 Acceptance가 증거 파일로 남아 있다.
-   🔶 **부분충족** — WP-A(#96)·WP-B(#97)·WP-D(#98)·WP-C(#100) 4개는 main에 머지됨(증거 파일 존재). WP-E(#101)는 출하됐으나 **auto-merge 대기 중, main 미반영**. 별도로 CI e2e를 실차단 체크로 승격한 #99도 이 웨이브에 포함되어 사실상 6개 PR이 이 작업의 일부였다.
+   🔶 **부분충족(사유 갱신)** — **PR 5개(#96~#98, #100, #101) 전부 main 머지 완료**로 정정: WP-E(#101)는 2026-07-07T10:44:29Z 머지(merge commit `22de4b5`, `gh pr view 101 --json state,mergedAt,mergeCommit`로 확인). "E 미머지" 사유는 해소됨. 별도로 CI e2e를 실차단 체크로 승격한 #99도 이 웨이브에 포함되어 사실상 6개 PR이 이 작업의 일부였다. **다만 남은 사유**: WP-A/B/C/D는 `.agents/results/2026-07-07-wp-{a,b,c,d}-*.md` 전용 증거 파일이 있는 반면, **WP-E는 전용 증거 파일이 없고**(`.agents/results/`에 wp-e 관련 파일 부재 확인) 검증 근거가 PR #101 본문 서술(typecheck/lint/build/e2e/grep 결과)에만 남아 있다 — "각 Acceptance가 증거 파일로 남아 있다"는 조건은 엄밀히는 완전 충족이 아니라서 부분충족으로 유지.
 2. `pnpm lint && typecheck && test && build` + `CI_INTEGRATION=1` 통합 + `pnpm test:e2e` 전부 green.
    ✅ **충족** — WP-A/WP-C 게이트 각 6/6 green(`.agents/results/2026-07-07-{wp-a-gates,wp-c-gates}.md`), e2e는 #99로 실차단화되어 67 passed/0 failed(PR #101 검증에서도 동일 베이스라인 재확인).
 3. 진행중 딜 수치가 전 화면에서 일치한다 (02 검증서 SQL 체크 C-1).
