@@ -45,7 +45,7 @@
 |---|---|---|---|---|
 | 메일 후보 큐 리드타임(인입→결정) | mail_derived_candidates created_at→resolved 시각 | 측정 시작 | < 3일 | < 1일 |
 | 후보 정밀도(승인율 = 승인/(승인+거부)) | 주간 SQL 리포트 | 측정 시작 | ≥ 70% | ≥ 85% |
-| 자동 승인 비율(전체 결정 중 actor='ai') | domain_decision_logs | 0% | 파일럿(저위험 1종) | ≥ 30% (저위험 한정) |
+| 자동 승인 비율(전체 결정 중 actor='ai') | domain_decision_logs (actor::text 캐스트, 'ai' enum 라벨은 M3에서 추가) | 0% | 파일럿(저위험 1종) | ≥ 30% (저위험 한정) |
 | 자동 결정 뒤집힘율(사람이 24h 내 회수) | 05 문서 KPI | — | < 5% | < 5% |
 | 재무↔engagement 연결률 | 19/229 (8.3%) | 8.3% | ≥ 60% (human 매핑 후) | ≥ 80% |
 | e2e/CI green 유지 | GitHub Actions | 차단화 완료 | 유지 | 유지 |
@@ -86,7 +86,8 @@ M1은 아래 §3에 **이미 이 표준으로 분해돼 있다** — 첫 달은 
 - [ ] Step 3: `grep -c "^OPENAI_API_KEY" .env` → **1** 확인
 - [ ] Step 4: `bash scripts/prod-local.sh restart --build` (start만으로는 재빌드 안 됨)
 - [ ] Step 5: 라이브 확인 — /sales 커맨드바에서 명령 1회: "실행 실패"가 아닌 실답변이 오면 PASS (또는 9router 콘솔에서 호출 로그 확인)
-**Acceptance**: 프로드 LLM 호출이 9router로 감(zen 429 미발생), `.env` 백업 존재.
+- [ ] Step 6: **dev 루트도 동일 정리** — `~/Playground/sangfor-os/.env`의 `OPENAI_BASE_URL`이 현재 zen을 가리킴(실측: 9router 참조 0건). M1-5 데일리 배치가 이 .env를 읽으므로 9router(:20128/v1, cx/gpt-5.4-mini)로 교체하지 않으면 배치가 zen 429로 전멸한다. 동일 백업→수정→grep 검증.
+**Acceptance**: 프로드·dev 양쪽 LLM 호출이 9router로 감(zen 429 미발생), 두 `.env` 백업 존재.
 
 ### Task M1-3: FinanceProject 미매핑 10건 human 매핑
 **Files**: `packages/db/scripts/backfill-finance-engagement.ts`(확장) · 신규 `packages/db/scripts/fp-engagement-map.json`
@@ -94,7 +95,7 @@ M1은 아래 §3에 **이미 이 표준으로 분해돼 있다** — 첫 달은 
 - [ ] Step 1: UNMATCHED 10건(게임조선/대통령경호처/동국대/디지털조선/부산도시가스/에스씨엘/유니드/인카금융그룹/일지테크/2월 카드사용료)을 engagement 후보 목록과 함께 **사용자에게 표로 제시** — 상당수는 대응 engagement가 아예 없을 수 있음(null 확정이 정답)
 - [ ] Step 2: 사용자 확정값으로 json 작성
 - [ ] Step 3: 스크립트 확장(opencode 위임 가능) — 매핑 파일 검증(존재하는 fp.name/engagementId인지) + dry-run 기본 + APPLY=1
-- [ ] Step 4: `pnpm --filter @sangfor/db cfo:snapshot` → dry-run 검토 → APPLY
+- [ ] Step 4: 백업 `pnpm --filter @sangfor/db cfo:snapshot` (JSON 백업 도구일 뿐 — 매핑 적용 아님) → dry-run: `pnpm --filter @sangfor/db backfill:finance-engagement -- --mapping-file packages/db/scripts/fp-engagement-map.json` 검토 → 적용: 같은 명령에 `APPLY=1`
 - [ ] Step 5: 연결률 SQL 전후 기록 (기준: 19/229 = 8.3%)
 **Acceptance**: 매핑 가능한 FP 전부 연결 + 나머지는 null 확정(모호 0), 연결률 ≥60% 또는 "실데이터상 상한" 명시.
 
@@ -105,12 +106,12 @@ M1은 아래 §3에 **이미 이 표준으로 분해돼 있다** — 첫 달은 
 - [ ] Step 2: 구현 + 재검증 프롬프트의 하드코딩 목록을 이 상수로 치환(프롬프트-코드 동기화)
 - [ ] Step 3: candidates-generate의 customer/partner 후보 생성 직전에 필터 — 아티팩트면 후보 생성 스킵(로그만)
 - [ ] Step 4: 검증 — 최근 mail_insight_threads 30건으로 생성 함수 드라이런(테스트 또는 tsx) → 아티팩트 이름 후보 0
-**Acceptance**: 신규 생성 후보에 아티팩트 0, 기존 테스트(582) 무회귀, 프롬프트와 코드가 같은 목록 사용.
+**Acceptance**: 신규 생성 후보에 아티팩트 0, 기존 테스트 무회귀(착수 시점 `pnpm --filter @sangfor/business test` 실측을 기준선으로), 프롬프트와 코드가 같은 목록 사용.
 
 ### Task M1-5: 재검증 데일리 배치 상시화
 **Files**: 신규 `packages/business/scripts/revalidate-batch.ts` (wp-calib 워크트리의 `calib-run.local.ts`를 일반화해 **정식 커밋**) · launchd plist 또는 crontab 항목
 **Interfaces**: `--status proposed --concurrency 2 --max <N>` 인자, 출력 = 처리/폴백/reject 카운트 + jsonl 로그
-- [ ] Step 1: 러너 일반화(id 파일 대신 DB 쿼리로 대상 선정, 폴백은 자가치유 캐시가 자동 재시도 — force 불필요)
+- [ ] Step 1: **선행 확인** — M1-2 Step 6(dev .env 9router 정규화) 완료 여부. 미완이면 배치는 zen 429로 전멸한다. 이후 러너 일반화(id 파일 대신 DB 쿼리로 대상 선정, 폴백은 자가치유 캐시가 자동 재시도 — force 불필요)
 - [ ] Step 2: 로그를 `.agents/results/kpi/revalidate-YYYYMMDD.log`에 적재, 폴백률 >30%면 경고 라인
 - [ ] Step 3: 스케줄 등록(사용자 승인 후 — launchd 권장, 22:30 등 9router 한가한 시간)
 - [ ] Step 4: 3일 관찰 — 폴백 잔량(현재 529) 감소 추세 확인
@@ -118,13 +119,13 @@ M1은 아래 §3에 **이미 이 표준으로 분해돼 있다** — 첫 달은 
 
 ### Task M1-6: KPI 주간 측정 고정
 **Files**: 신규 `scripts/kpi-weekly.sql` + `scripts/kpi-weekly.sh`(psql 실행 → `.agents/results/kpi/kpi-YYYYMMDD.txt`)
-- [ ] Step 1: §2 표의 각 지표를 SQL로 — 큐 분포/리드타임(주의: resolved 시각 컬럼이 없으면 updated_at 근사, 한계 주석)/승인율/연결률/자동승인 비율(domain_decision_logs의 actor)
+- [ ] Step 1: §2 표의 각 지표를 SQL로 — 큐 분포/리드타임(주의: resolved 시각 컬럼이 없으면 updated_at 근사, 한계 주석)/승인율/연결률/자동승인 비율(`domain_decision_logs.actor::text` — **주의**: actor는 enum이라 text 캐스트 필수이고 'ai' 라벨은 M3 마이그레이션 전까지 없음 → 구조적으로 0%가 정상)
 - [ ] Step 2: 첫 실행 → **기준선(baseline) 기록**
 - [ ] Step 3: 주간 실행을 M1-5의 스케줄에 동승
 **Acceptance**: kpi/ 디렉터리에 첫 리포트 + 각 지표의 기준선 수치 확정.
 
 ### W2~W4: 1차 고도화 (03 문서 + `docs/superpowers/plans/2026-07-03-phase-*.md`가 줄 단위 정본)
-- [ ] **Task 0 — ADR-002** (선행 필수, M4가 이 결정에 의존): 산출물 `docs/adr/ADR-002-api-surface.md`. 결정 인풋: ①00-INDEX §5의 상충 2건(마스터플랜 "웹=BFF, tRPC 제거" vs phase-6 문서 "tRPC 도입"; Phase 7 인덱스/FK vs 신규 컬럼) ②현 코드 관성(REST 라우트 ~95개, tRPC 일부 잔존) ③06 재구조화와의 정합. 결정 기준을 명시하고 한쪽을 채택 — 반나절 작업.
+- [ ] **Task 0 — ADR-002** (선행 필수, M4가 이 결정에 의존): 산출물 `docs/convergence/ADR-002-api-surface.md` (03 문서 지정 경로 — ADR-001과 같은 디렉터리). 결정 인풋: ①00-INDEX §5의 상충 2건(마스터플랜 "웹=BFF, tRPC 제거" vs phase-6 문서 "tRPC 도입"; Phase 7 인덱스/FK vs 신규 컬럼) ②현 코드 관성(REST 라우트 ~95개, tRPC 일부 잔존) ③06 재구조화와의 정합. 결정 기준을 명시하고 한쪽을 채택 — 반나절 작업.
 - [ ] **리팩토링 Phase 2 잔여**(Task 2·3·4 dedup) → **Phase 3** web route 레이어링(11 라우트) → **Phase 4** `mail-candidates.ts` God-file 분해(캘리브레이션으로 이 영역 지도가 가장 선명한 지금이 적기). 각각 03 문서의 태스크 정의를 따르되, **착수 시 실측 재확인**(2.5 프로토콜).
 - 게이트: 02 검증서 + 특성화 테스트 유지 + e2e green.
 
@@ -141,6 +142,7 @@ M1은 아래 §3에 **이미 이 표준으로 분해돼 있다** — 첫 달은 
 - [ ] **파트너 데이터 재구축**: partners 3행 ↔ ground-truth 파트너 49의 격차 해소. 2026-06-30 분류 결과의 구조화 소스가 유실됐으므로(캘리브레이션 정찰 확인) — 커밋 이력/문서에서 복원하거나, 재검증 파이프라인으로 파트너 후보를 승인 큐에서 일괄 처리해 재구축.
 - [ ] **고객 domain 백필** (WP-C C-4 Step4 스킵분): 위 ground-truth 구조화가 선행되면 실행. Customer.domain 채움 → 분류 정밀도 상승 피드백.
 - [ ] **converted 후보 위생**: 과거 bulk convert가 createdEntityId 미설정이던 시절 데이터 백필(backlog 항목).
+- [ ] **백업 복원 드릴 1회**: 야간 pg_dump를 임시 DB에 restore → 주요 테이블 카운트 원본 대조 → 절차를 runbook에 기록 (리스크 레지스터 이관분 — M6까지 미루지 않는다).
 
 **M2 종료 기준**: 결정 로그 우회 경로 0, partners ≥ 40행(실데이터), 후보 정밀도 KPI 개선 확인.
 
@@ -232,6 +234,8 @@ M1은 아래 §3에 **이미 이 표준으로 분해돼 있다** — 첫 달은 
 | 스키마 변경 사고 | 저/치명 | migrate-only·additive 규칙 유지, db push 금지, 스냅샷 선행 |
 | 에이전트 세션 한도로 작업 중단 | 고/저 | opencode 직구동 + nohup 분리 + .omo 상태 기반 재개 (오늘 3회 실증) |
 | 자동화 오판(autopilot) | 중/고 | 저위험 한정, 24h 회수, kill-switch, 뒤집힘율 KPI |
+| **e2e flaky가 전 PR 머지 봉쇄** (#99로 차단 체크가 됨) | 중/고 | retries:1 존재. flaky 재발 스펙은 즉시 `test.fixme`+backlog 기록으로 머지 라인 사수 → 후속 수정. 연속 2회 flaky면 원인 수정 전 승격 금지 |
+| **백업 복원 미훈련** (cron 백업은 돌지만 무결성 미검증) | 중/치명 | M2에 복원 드릴 1회 앞당김(별도 DB로 restore→카운트 대조). M6에 재훈련 |
 | 단일 운영자 부재 | 중/고 | 00-INDEX 프로토콜 + 증거 체계 + 이 문서. 모든 작업이 문서에서 재개 가능해야 |
 
 ### 명시적 비목표 (6개월간 하지 않는다)
@@ -242,3 +246,4 @@ M1은 아래 §3에 **이미 이 표준으로 분해돼 있다** — 첫 달은 
 ## 변경 이력
 - **2026-07-08**: 최초 작성 — v1 완성(#96~#104) + 분류기 캘리브레이션(#105) 직후. 기준 데이터: proposed 964, 이중게이트 12건 대기, 재무 연결 19/229.
 - **2026-07-08 (2차)**: M1 전체를 01 문서 표준(Files/Interfaces/Steps/Acceptance)으로 분해 + §2.5 월별 상세화 프로토콜 신설(M2~M6은 월초에 실측 기반 상세 계획을 생성 후 집행 — 문서 노화 방지).
+- **2026-07-08 (3차, 적대적 검증 반영)**: momus 리뷰 조건부 통과 → 중요 5건 정정 — M1-3 Step4 실행 명령 오류(cfo:snapshot≠매핑 적용), ADR-002 경로를 03 정본대로 docs/convergence/로, actor enum에 'ai' 라벨 부재 주석(M3 의존), dev 루트 .env zen 잔존(M1-2 Step6 신설+M1-5 선행 확인), 리스크 2행 추가(e2e flaky 머지 봉쇄·백업 복원 드릴 M2 앞당김). 사소 1건(테스트 수 582 → 실측 기준선 문구).
