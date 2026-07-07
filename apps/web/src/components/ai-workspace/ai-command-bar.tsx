@@ -77,7 +77,7 @@ export function AICommandBar({ onSend, disabled, placeholder = "AI 보조 명령
   )
 
   return (
-    <Card className="relative">
+    <Card className="relative overflow-visible">
       <Toast message={toastMessage} visible={sent} onClose={() => setSent(false)} />
       <CardContent className="flex items-center gap-2 py-3">
         <Input
