@@ -418,6 +418,11 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **웹 LLM precedence**: 남은 `OPENAI_*` env가 웹 저장값에 가려짐.
 - **lone surrogate jsonb 크래시**: 메일 저장 전 `sanitizeJsonStrings` 필수.
 - **finance 포트 4100 제거됨**: `:3200/api/cfo`가 단일 소스.
+- **워크트리 셋업 순서(중요)**: 새 git worktree는 ① 루트 `.env` + `packages/db/.env`(필요 시 `apps/web/.env.local`도) 복사 → ② `pnpm install` → ③ `cd packages/db && npx prisma generate` 순서를 반드시 지킨다. 순서가 틀리면(특히 env 복사 전에 install/generate) Prisma 클라이언트가 env 경로를 못 캡처해 테스트가 `DATABASE_URL not found`로 실패하는데, 이는 회귀가 아니라 순서 문제다.
+- **API 부팅 전 워크스페이스 패키지 빌드 필요**: 새 워크트리에는 `packages/*/dist`가 없다. `pnpm --filter @sangfor/shared build`/`@sangfor/config build`만으로 부족한 경우(예: `apps/api`가 `@sangfor/auth`, `@sangfor/api-utils`, `@sangfor/health`, `@sangfor/infra`, `@sangfor/persona`, `@sangfor/ui` 등 dist-only 패키지를 요구해 boot 시 `Cannot find module '.../dist/index.js'`로 크래시) `pnpm -r --filter "./packages/**" build`로 전체를 빌드한다. `src`를 `exports`로 직접 노출하는 패키지(agent/business/mail-intelligence)는 `--noEmit` 타입체크만 있으면 되고 dist가 불필요하다.
+- **`(portal)/loading.tsx` 스트리밍 컨텍스트의 redirect 강등**: 이 레이아웃의 스트리밍 컨텍스트 안에서는 page-level `redirect()`(Next.js 서버 함수)가 실제 307이 아니라 **meta-refresh로 강등**된다. 라우트 통합/리다이렉트가 필요하면 page 컴포넌트의 `redirect()` 대신 **`next.config.ts`의 `redirects()`**를 써서 실 307을 보장한다(`/opportunities`→`/deals`, `/mail-connection`→`/settings/mail-connection` 전환에서 발견·적용, PR #101).
+- **opencode 샌드박스는 `.env`를 못 읽는다**: opencode CLI로 위임한 작업이 DB 관련 코드를 만지면 샌드박스가 프로젝트 `.env`를 읽지 못해 `DATABASE_URL`이 비어 실패할 수 있다 — 호출 전에 `DATABASE_URL`을 환경변수로 선주입해야 한다.
+- **e2e는 이제 CI 차단 체크**: `playwright.config.ts`에 `webServer`가 추가돼 API(`tsx` 경유, dist ESM directory-import 버그로 dist 실행 불가)와 web(`next start`)을 스스로 기동한다. `PORT`/`API_PORT` 오버라이드로 로컬의 다른 인스턴스와 포트 충돌 없이 별도 포트에서 돌릴 수 있다(`BASE_URL`/`API_BASE_URL`이 그 포트를 따라간다). `continue-on-error`가 제거됐으므로 e2e 실패는 이제 실제로 머지를 막는다(PR #99).
 
 ---
 
@@ -461,3 +466,4 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **2026-07-07**: **게이트 정직성 캘리브레이션**(`color-gate-llm.ts` 프롬프트만) — 원인: `gray`/`orange`가 정직한 "확인 필요"를 미완결로 감점 → 정직성과 통과가 충돌. 수정: 기준을 "출판본"→"사람 검토로 넘길 AI 초안"으로 재프레이밍 + 정직성 규칙(컨텍스트에 없는 값의 명시적 "확인 필요"는 감점 아님; 환각·있는데 회피·논리모순·알맹이부재만 감점). 결과: 동일 인카 본문 재판정 0→5렌즈 PASS(격리 A/B), full 재실행 3/3 통과·승격(`generated_documents` 7→10, status=approved), 껍데기 제안서는 여전히 5렌즈 FAIL(anti-gaming 생존), 도메인-AI 98테스트 무회귀. 임계값·코드 로직 불변(사용자 승인 Approach A). 브랜치 `fix/color-gate-calibration`.
 - **2026-07-07**: **WP-A 잔여 완결**(마스터플랜 01) — A-2 `proposal-promote.test.ts`(CI_INTEGRATION 통합 3케이스, 승격 문서/버전/템플릿 upsert/null-체인, IT_PROMOTE_ 태그 정리) 통과. A-3 프로젝트 허브 `LaneDecisionControls`에 승인→승격문서 brass 링크(`/proposals/[id]`, documentId 있을 때만). 같은 브랜치. 타입체크 business·web 모두 클린(A-2 test + A-3 컴포넌트 포함), 변경 파일 2개 lint 클린. **미완**: A-3 브라우저 실드라이브(dev 서버 필요), A-4 PR 출하(push 승인 대기).
   - ⚠️ **로컬 함정 2종(게이트 아님, CI 무관)**: ① 오래된 `apps/web/.next`(gitignore) 생성 타입이 삭제된 페이지(validation/blocks/finance/portal 등)를 참조해 웹 타입체크가 RED로 보임 → `rm -rf apps/web/.next`로 해소(CI는 새로 생성). ② `pnpm install`이 build-script 승인대기(esbuild/sharp)로 **Prisma 클라이언트 생성을 스킵** → `@prisma/client`에 PrismaClient/Prisma export 없음 에러 → `cd packages/db && npx prisma generate`로 복구.
+- **2026-07-07**: **v1 완성 웨이브 — WP-A~E + e2e 6PR(#96~#101) 전부 main 머지 완료**(#101은 2026-07-07T10:44:29Z 머지, `22de4b5`), 상세는 `docs/master-plan/01-development-plan.md` 및 `.agents/results/2026-07-07-*`.
