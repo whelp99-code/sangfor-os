@@ -33,7 +33,12 @@ exports[`classifyMailCandidateDocument golden master > PoC compatibility-test ma
     },
     {
       "candidateType": "customer",
-      "confidence": 70,
+      "confidence": 65,
+      "confidenceBreakdown": {
+        "base": 55,
+        "policySignal": 10,
+        "total": 65,
+      },
       "matchedKeywords": [
         "sender-domain",
       ],
@@ -106,7 +111,12 @@ exports[`classifyMailCandidateDocument golden master > customer inquiry with bra
     },
     {
       "candidateType": "customer",
-      "confidence": 70,
+      "confidence": 65,
+      "confidenceBreakdown": {
+        "base": 55,
+        "policySignal": 10,
+        "total": 65,
+      },
       "matchedKeywords": [
         "sender-domain",
       ],
@@ -226,7 +236,13 @@ exports[`classifyMailCandidateDocument golden master > known-partner-domain case
     },
     {
       "candidateType": "partner",
-      "confidence": 76,
+      "confidence": 93,
+      "confidenceBreakdown": {
+        "base": 55,
+        "knownPartnerDomain": 20,
+        "policySignal": 18,
+        "total": 93,
+      },
       "matchedKeywords": [
         "sender-domain",
       ],
@@ -268,7 +284,12 @@ exports[`classifyMailCandidateDocument golden master > mail with attachments and
     },
     {
       "candidateType": "customer",
-      "confidence": 70,
+      "confidence": 65,
+      "confidenceBreakdown": {
+        "base": 55,
+        "policySignal": 10,
+        "total": 65,
+      },
       "matchedKeywords": [
         "sender-domain",
       ],
@@ -332,7 +353,12 @@ exports[`classifyMailCandidateDocument golden master > multiple keyword matches 
     },
     {
       "candidateType": "customer",
-      "confidence": 70,
+      "confidence": 65,
+      "confidenceBreakdown": {
+        "base": 55,
+        "policySignal": 10,
+        "total": 65,
+      },
       "matchedKeywords": [
         "sender-domain",
       ],
@@ -405,7 +431,12 @@ exports[`classifyMailCandidateDocument golden master > opportunity quote-request
     },
     {
       "candidateType": "customer",
-      "confidence": 70,
+      "confidence": 65,
+      "confidenceBreakdown": {
+        "base": 55,
+        "policySignal": 10,
+        "total": 65,
+      },
       "matchedKeywords": [
         "sender-domain",
       ],
@@ -449,7 +480,13 @@ exports[`classifyMailCandidateDocument golden master > partner/reseller mail 1`]
     },
     {
       "candidateType": "partner",
-      "confidence": 76,
+      "confidence": 78,
+      "confidenceBreakdown": {
+        "base": 55,
+        "partnerKeywordBonus": 5,
+        "policySignal": 18,
+        "total": 78,
+      },
       "matchedKeywords": [
         "sender-domain",
         "partner",
@@ -599,10 +636,13 @@ exports[`classifyMailInsightThread golden master > PoC verification thread 1`] =
     },
     {
       "candidateType": "customer",
-      "confidence": 74,
+      "confidence": 75,
       "confidenceBreakdown": {
         "aiEnhanced": 6,
+        "base": 55,
+        "evidenceBonus": 4,
         "policySignal": 10,
+        "total": 75,
       },
       "evidenceItems": [
         "PoC 검증 요청",
@@ -664,10 +704,11 @@ exports[`classifyMailInsightThread golden master > bracketed customer name in th
   "candidates": [
     {
       "candidateType": "customer",
-      "confidence": 74,
+      "confidence": 65,
       "confidenceBreakdown": {
-        "aiEnhanced": 0,
+        "base": 55,
         "policySignal": 10,
+        "total": 65,
       },
       "evidenceItems": [],
       "mailIntelligence": {
@@ -772,10 +813,12 @@ exports[`classifyMailInsightThread golden master > external customer domain thre
     },
     {
       "candidateType": "customer",
-      "confidence": 74,
+      "confidence": 69,
       "confidenceBreakdown": {
-        "aiEnhanced": 0,
+        "base": 55,
+        "evidenceBonus": 4,
         "policySignal": 10,
+        "total": 69,
       },
       "evidenceItems": [
         "도입 검토 중",
@@ -1060,10 +1103,14 @@ exports[`classifyMailInsightThread golden master > known partner domain thread 1
     },
     {
       "candidateType": "partner",
-      "confidence": 82,
+      "confidence": 94,
       "confidenceBreakdown": {
         "aiEnhanced": 6,
+        "base": 55,
+        "evidenceBonus": 6,
+        "knownPartnerDomain": 20,
         "policySignal": 18,
+        "total": 94,
       },
       "evidenceItems": [
         "PoC 검증 요청",
@@ -1281,10 +1328,13 @@ exports[`classifyMailInsightThread golden master > qualified opportunity thread 
     },
     {
       "candidateType": "customer",
-      "confidence": 74,
+      "confidence": 75,
       "confidenceBreakdown": {
         "aiEnhanced": 6,
+        "base": 55,
+        "evidenceBonus": 4,
         "policySignal": 10,
+        "total": 75,
       },
       "evidenceItems": [
         "견적 요청",
@@ -1420,10 +1470,13 @@ exports[`classifyMailInsightThread golden master > vendor tech-support thread (b
     },
     {
       "candidateType": "partner",
-      "confidence": 82,
+      "confidence": 81,
       "confidenceBreakdown": {
         "aiEnhanced": 6,
+        "base": 55,
+        "evidenceBonus": 2,
         "policySignal": 18,
+        "total": 81,
       },
       "evidenceItems": [
         "disk error",
@@ -1740,11 +1793,15 @@ exports[`combineHybridClassification golden master > AI customer correction (con
         "urgency": "medium",
       },
       "candidateType": "customer",
-      "confidence": 84,
+      "confidence": 88,
       "confidenceBreakdown": {
         "aiClassification": 85,
         "aiEnhanced": 6,
+        "base": 55,
+        "evidenceBonus": 6,
+        "knownPartnerDomain": 20,
         "policySignal": 18,
+        "total": 94,
       },
       "evidenceItems": [
         "PoC 검증 요청",
@@ -2019,11 +2076,14 @@ exports[`combineHybridClassification golden master > AI opportunity classificati
         "urgency": "medium",
       },
       "candidateType": "customer",
-      "confidence": 64,
+      "confidence": 65,
       "confidenceBreakdown": {
         "aiClassification": 60,
         "aiEnhanced": 6,
+        "base": 55,
+        "evidenceBonus": 4,
         "policySignal": 10,
+        "total": 75,
       },
       "evidenceItems": [
         "견적 요청",
@@ -2256,10 +2316,13 @@ exports[`combineHybridClassification golden master > null aiResult passes the po
     },
     {
       "candidateType": "customer",
-      "confidence": 74,
+      "confidence": 75,
       "confidenceBreakdown": {
         "aiEnhanced": 6,
+        "base": 55,
+        "evidenceBonus": 4,
         "policySignal": 10,
+        "total": 75,
       },
       "evidenceItems": [
         "견적 요청",
