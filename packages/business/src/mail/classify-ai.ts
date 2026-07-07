@@ -38,6 +38,8 @@ export type AiRevalidationResult = {
     | "opportunity"
     | "poc"
     | "task"
+    | "customer"
+    | "partner"
     | "customer_partner_only"
     | "none";
   confidence: number;
@@ -64,6 +66,7 @@ export type AiRevalidationResult = {
   riskFlags: string[];
   mode: "template" | "llm";
   model?: string;
+  llmConfidence?: number;
   fallbackReason?: string;
   revalidatedAt: string;
   cacheKey: string;
@@ -204,6 +207,36 @@ function buildRevalidationCacheKey(candidate: Awaited<ReturnType<typeof getMailD
   ].join(":");
 }
 
+async function checkCustomerPartnerDedup(
+  candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>,
+): Promise<AiRevalidationResult["duplicateCheck"]> {
+  const normalizedName = candidate.title
+    .replace(/^(Customer|Partner):\s*/i, "")
+    .slice(0, 80);
+
+  if (candidate.candidateType === "customer") {
+    const match = await prisma.customer.findFirst({
+      where: { name: { contains: normalizedName, mode: "insensitive" } },
+      select: { id: true, name: true },
+    });
+    return match
+      ? { possibleDuplicate: true, matchedObjectType: "customer", matchedObjectId: match.id, reason: match.name }
+      : { possibleDuplicate: false };
+  }
+
+  if (candidate.candidateType === "partner") {
+    const match = await prisma.partner.findFirst({
+      where: { name: { contains: normalizedName, mode: "insensitive" } },
+      select: { id: true, name: true },
+    });
+    return match
+      ? { possibleDuplicate: true, matchedObjectType: "partner", matchedObjectId: match.id, reason: match.name }
+      : { possibleDuplicate: false };
+  }
+
+  return { possibleDuplicate: false };
+}
+
 async function findPossibleDuplicate(
   candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>,
 ) {
@@ -325,89 +358,114 @@ async function callLlmRevalidation(
   candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>,
   duplicateCheck: AiRevalidationResult["duplicateCheck"],
   cacheKey: string,
+  deps?: {
+    /** Injectable LLM caller for tests; default = production fetch. */
+    callLLM?: (system: string, user: string) => Promise<string>;
+  },
 ) {
-  const apiKey = getOpenAiApiKey();
-  if (!apiKey) return null;
-
   const metadata = asRecord(candidate.metadata);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), Number(process.env.OPENAI_TIMEOUT_MS) || 25000); // AI 응답 타임아웃(게이트웨이 지연 고려; OPENAI_TIMEOUT_MS로 조정)
+
+  const llmCaller = async (systemPrompt: string, userPayload: Record<string, unknown>): Promise<string> => {
+    if (deps?.callLLM) {
+      return deps.callLLM(systemPrompt, JSON.stringify(userPayload));
+    }
+    const apiKey = getOpenAiApiKey();
+    if (!apiKey) throw new Error("openai_api_key_missing");
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), Number(process.env.OPENAI_TIMEOUT_MS) || 25000);
+
+    try {
+      const response = await fetch(getOpenAiChatCompletionsUrl(), {
+        method: "POST",
+        headers: getOpenAiAuthHeaders(apiKey),
+        body: JSON.stringify(
+          buildChatCompletionRequestBody({
+            model: getOpenAiModel(),
+            jsonMode: true,
+            maxCompletionTokens: 900,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: JSON.stringify(userPayload) },
+            ],
+          }),
+        ),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`openai_http_${response.status}`);
+      }
+      const payload = (await response.json()) as {
+        choices?: Array<{
+          message?: { content?: string | null; reasoning_content?: string | null };
+        }>;
+      };
+      const text = extractChatCompletionText(payload);
+      if (!text) throw new Error("openai_empty_content");
+      return text;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('openai_timeout');
+      }
+      throw error;
+    }
+  };
 
   try {
-    const response = await fetch(getOpenAiChatCompletionsUrl(), {
-      method: "POST",
-      headers: getOpenAiAuthHeaders(apiKey),
-      body: JSON.stringify(
-        buildChatCompletionRequestBody({
-          model: getOpenAiModel(),
-          jsonMode: true,
-          maxCompletionTokens: 900,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You validate whether mail-intelligence output should become an AIOS project object. Return compact JSON only.",
-            },
-            {
-              role: "user",
-              content: JSON.stringify({
-                requiredSchema: {
-                  decision: "approve_candidate | needs_human_review | reject | knowledge_only",
-                  reasoningSummary: "short Korean or English summary",
-                  missingFields: ["string"],
-                  riskFlags: ["string"],
-                },
-                policy: [
-                  "Do not approve if evidence is weak.",
-                  "Possible duplicates require human review.",
-                  "Never create objects automatically.",
-                ],
-                candidate: {
-                  type: candidate.candidateType,
-                  title: candidate.title,
-                  summary: candidate.summary,
-                  confidence: candidate.confidence,
-                  sourceTitle: candidate.sourceTitle,
-                  sender: candidate.sourceSender,
-                  metadata,
-                  duplicateCheck,
-                },
-              }),
-            },
-          ],
-        }),
-      ),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+    const text = await llmCaller(
+      "You validate whether mail-intelligence output should become an AIOS project or entity record. Return compact JSON only.",
+      {
+        requiredSchema: {
+          decision: "approve_candidate | needs_human_review | reject | knowledge_only",
+          confidence: "0-100 numeric — how confident are you in this decision",
+          reasoningSummary: "short Korean or English summary",
+          missingFields: ["string"],
+          riskFlags: ["string"],
+        },
+        policy: [
+          "Do not approve if evidence is weak.",
+          "Possible duplicates require human review.",
+          "Never create objects automatically.",
+          "For customer/partner candidates, confirm they are a real customer or partner of ours, not a vendor or noise.",
+        ],
+        candidate: {
+          type: candidate.candidateType,
+          title: candidate.title,
+          summary: candidate.summary,
+          confidence: candidate.confidence,
+          sourceTitle: candidate.sourceTitle,
+          sender: candidate.sourceSender,
+          metadata,
+          duplicateCheck,
+        },
+      },
+    );
 
-    if (!response.ok) {
-      throw new Error(`openai_http_${response.status}`);
-    }
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: { content?: string | null; reasoning_content?: string | null };
-      }>;
-    };
-    const text = extractChatCompletionText(payload);
-    if (!text) throw new Error("openai_empty_content");
-
-    const parsed = JSON.parse(text) as Partial<AiRevalidationResult>;
+    const parsed = JSON.parse(text) as Partial<AiRevalidationResult> & { confidence?: number };
     const template = buildTemplateRevalidation({ candidate, duplicateCheck, cacheKey });
+
+    const llmConfidence =
+      typeof parsed.confidence === "number" && !Number.isNaN(parsed.confidence)
+        ? Math.max(0, Math.min(100, parsed.confidence))
+        : undefined;
 
     return {
       ...template,
       decision: parsed.decision ?? template.decision,
+      confidence: llmConfidence ?? template.confidence,
       reasoningSummary: parsed.reasoningSummary ?? template.reasoningSummary,
       missingFields: Array.isArray(parsed.missingFields) ? parsed.missingFields : template.missingFields,
       riskFlags: Array.isArray(parsed.riskFlags) ? parsed.riskFlags : template.riskFlags,
       mode: "llm",
       model: getOpenAiModel(),
+      llmConfidence,
     } satisfies AiRevalidationResult;
   } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('openai_timeout');
+    if (error instanceof Error && (error.message === "openai_api_key_missing" || error.message === "openai_timeout" || error.message.startsWith("openai_http_"))) {
+      throw error;
     }
     throw error;
   }
@@ -424,11 +482,14 @@ function shouldKeepRevalidationAsKnowledgeOnly(revalidation: AiRevalidationResul
   return /external_marketing|marketing content|newsletter|promo|no actual customer|마케팅|홍보/.test(text);
 }
 
-export async function revalidateMailDerivedCandidate(id: string) {
+export async function revalidateMailDerivedCandidate(
+  id: string,
+  deps?: {
+    /** Injectable LLM caller for tests; forwarded to callLlmRevalidation. */
+    callLLM?: (system: string, user: string) => Promise<string>;
+  },
+) {
   const candidate = await getMailDerivedCandidate(id);
-  if (!isProjectCandidateType(candidate.candidateType)) {
-    return { candidate, revalidation: null };
-  }
 
   const cacheKey = buildRevalidationCacheKey(candidate);
   const metadata = asRecord(candidate.metadata);
@@ -437,12 +498,23 @@ export async function revalidateMailDerivedCandidate(id: string) {
     return { candidate, revalidation: existing };
   }
 
-  const duplicateCheck = await findPossibleDuplicate(candidate);
+  const duplicateCheck = isProjectCandidateType(candidate.candidateType)
+    ? await findPossibleDuplicate(candidate)
+    : await checkCustomerPartnerDedup(candidate);
+
   let revalidation: AiRevalidationResult;
   try {
-    revalidation =
-      (await callLlmRevalidation(candidate, duplicateCheck, cacheKey)) ??
-      buildTemplateRevalidation({ candidate, duplicateCheck, cacheKey });
+    const llmResult = await callLlmRevalidation(candidate, duplicateCheck, cacheKey, deps);
+    if (llmResult) {
+      const llmRaw = llmResult.llmConfidence;
+      if (typeof llmRaw === "number" && !Number.isNaN(llmRaw)) {
+        const blended = Math.round(candidate.confidence * 0.3 + llmRaw * 0.7);
+        llmResult.confidence = Math.max(40, Math.min(95, blended));
+      }
+      revalidation = llmResult;
+    } else {
+      revalidation = buildTemplateRevalidation({ candidate, duplicateCheck, cacheKey });
+    }
   } catch (error) {
     revalidation = buildTemplateRevalidation({
       candidate,
@@ -450,6 +522,15 @@ export async function revalidateMailDerivedCandidate(id: string) {
       cacheKey,
       fallbackReason: error instanceof Error ? error.message : "llm_failed",
     });
+  }
+
+  if (
+    revalidation.mode === "template" &&
+    (candidate.candidateType === "customer" || candidate.candidateType === "partner") &&
+    revalidation.decision === "approve_candidate" &&
+    duplicateCheck.possibleDuplicate
+  ) {
+    revalidation.decision = "needs_human_review";
   }
 
   const status =
