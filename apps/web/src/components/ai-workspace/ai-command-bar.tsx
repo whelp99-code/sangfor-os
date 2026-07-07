@@ -32,7 +32,7 @@ function Toast({ message, visible, onClose }: { message: string; visible: boolea
   return (
     <div
       className={cn(
-        "pointer-events-none absolute right-0 bottom-full left-0 mb-2 flex justify-center transition-all duration-300",
+        "pointer-events-none absolute right-0 bottom-full left-0 z-50 mb-2 flex justify-center transition-all duration-300",
         visible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
       )}
     >
