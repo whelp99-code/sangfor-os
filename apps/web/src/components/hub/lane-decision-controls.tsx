@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export function LaneDecisionControls({ projectId, domain }: { projectId: string; domain: string }) {
   const router = useRouter();
@@ -11,6 +12,8 @@ export function LaneDecisionControls({ projectId, domain }: { projectId: string;
   const [error, setError] = useState<string | null>(null);
   const [showCorrect, setShowCorrect] = useState(false);
   const [note, setNote] = useState("");
+  // 승인 시 승격된 산출물 문서로의 링크(체인이 없어 승격 스킵되면 undefined → 링크 미노출).
+  const [documentId, setDocumentId] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -31,6 +34,8 @@ export function LaneDecisionControls({ projectId, domain }: { projectId: string;
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? `HTTP ${res.status}`);
       }
+      const data = (await res.json().catch(() => ({}))) as { documentId?: string };
+      setDocumentId(typeof data.documentId === "string" ? data.documentId : null);
       router.refresh();
       setStatus("기록됨");
       setTimeout(() => {
@@ -96,6 +101,15 @@ export function LaneDecisionControls({ projectId, domain }: { projectId: string;
         {status && <span className="text-xs text-green-600">{status}</span>}
         {error && <span className="text-xs text-red-600">{error}</span>}
       </div>
+      {documentId && (
+        <Link
+          href={`/proposals/${documentId}`}
+          className="inline-block text-xs underline underline-offset-2"
+          style={{ color: "#7C5E1E" }}
+        >
+          산출물 문서 보기 →
+        </Link>
+      )}
       {showCorrect && (
         <div className="flex items-center gap-2">
           <input

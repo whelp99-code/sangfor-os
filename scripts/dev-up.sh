@@ -27,7 +27,7 @@ START_DB=1
 [[ "${1:-}" == "--no-db" ]] && START_DB=0
 
 log()  { printf '\033[1;34m[dev-up]\033[0m %s\n' "$*"; }
-kill_port() { local p="$1"; local pid; pid="$(lsof -tiTCP:"$p" -sTCP:LISTEN 2>/dev/null || true)"; [[ -n "$pid" ]] && { kill "$pid" 2>/dev/null || true; log "freed port $p (pid $pid)"; }; }
+kill_port() { local p="$1"; local pid; pid="$(lsof -tiTCP:"$p" -sTCP:LISTEN 2>/dev/null || true)"; if [[ -n "$pid" ]]; then kill "$pid" 2>/dev/null || true; log "freed port $p (pid $pid)"; fi; }
 
 # 1) Postgres
 if [[ "$START_DB" == 1 ]]; then
@@ -42,7 +42,7 @@ fi
 
 # 2) API (finance/CFO needs the dev bypass flag + dev env)
 kill_port "$API_PORT"
-log "starting api on :$API_PORT…"
+log "starting api on :${API_PORT}…"
 DATABASE_URL="$DB_URL" API_PORT="$API_PORT" API_KEY="" AUTH_BYPASS_ENABLED=1 NODE_ENV=development \
   CORS_ORIGIN="http://localhost:$WEB_PORT" \
   nohup pnpm --filter @sangfor/api dev >/tmp/sangfor-api.log 2>&1 &
