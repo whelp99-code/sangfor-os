@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AIWorkspaceLayout } from '@/components/ai-workspace'
+import { AIWorkspaceLayout, runAgentCommand } from '@/components/ai-workspace'
 import { ActivityItem } from '@/components/ai-workspace/ai-activity-feed'
 import { IntegrationHealthPanel } from '@/components/integrations/integration-health-panel'
 
@@ -37,9 +37,8 @@ export default function OperatorPage() {
     fetch('/api/dashboard/operator').then(r => r.json()).then(d => { setData(d.result?.data || d); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
-  async function handleCommand(_cmd: string) {
-    // TODO(oma-deferred): wire the operator AI assistant when the endpoint is provisioned.
-    return 'AI 어시스턴트는 준비 중입니다'
+  function handleCommand(cmd: string) {
+    return runAgentCommand(cmd, 'operator')
   }
 
   return (

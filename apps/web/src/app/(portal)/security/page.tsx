@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { AIWorkspaceLayout } from '@/components/ai-workspace'
+import { AIWorkspaceLayout, runAgentCommand } from '@/components/ai-workspace'
 import { ActivityItem } from '@/components/ai-workspace/ai-activity-feed'
 
 interface SecurityData {
@@ -49,9 +49,8 @@ export default function SecurityPage() {
     fetch('/api/dashboard/security').then(r => r.json()).then(d => { setData(d.result?.data || d); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
-  async function handleCommand(_cmd: string) {
-    // TODO(oma-deferred): wire the security AI assistant when the endpoint is provisioned.
-    return 'AI 어시스턴트는 준비 중입니다'
+  function handleCommand(cmd: string) {
+    return runAgentCommand(cmd, 'security')
   }
 
   return (

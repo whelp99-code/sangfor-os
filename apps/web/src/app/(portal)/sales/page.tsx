@@ -5,7 +5,7 @@ import { DollarSign, Phone, Clock, FileText, RefreshCw, AlertTriangle } from "lu
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { STATUS_LABELS } from "@sangfor/shared";
-import { AIWorkspaceLayout } from "@/components/ai-workspace";
+import { AIWorkspaceLayout, runAgentCommand } from "@/components/ai-workspace";
 
 type SalesData = {
   pipeline: { id: string; customer: string | null; stage: string; value: number }[];
@@ -43,10 +43,7 @@ function ErrorState({ message }: { message: string }) {
   );
 }
 
-const handleCommand = async (_command: string) => {
-  // TODO(oma-deferred): wire the sales AI assistant when the endpoint is provisioned.
-  return "AI 어시스턴트는 준비 중입니다"
-}
+const handleCommand = (command: string) => runAgentCommand(command, "sales")
 
 export default function SalesDashboardPage() {
   const [data, setData] = useState<SalesData | null>(null);
