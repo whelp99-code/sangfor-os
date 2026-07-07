@@ -1,10 +1,13 @@
-import { generateDailyReport } from "@sangfor/business";
+import { generateDailyReport, resolveDefaultProjectId } from "@sangfor/business";
 import { createApiResponse, createApiErrorResponse } from "../_lib/api-response";
 import { API_ERRORS } from "../_lib/api-error";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const report = await generateDailyReport();
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get("projectId") ?? undefined;
+    const resolvedId = projectId ?? (await resolveDefaultProjectId());
+    const report = await generateDailyReport(resolvedId);
     return createApiResponse(report);
   } catch (error) {
     console.error("[api] report_failed:", error instanceof Error ? error.stack ?? error.message : error);

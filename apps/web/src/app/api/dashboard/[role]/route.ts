@@ -1,3 +1,4 @@
+import { resolveDefaultProjectId } from "@sangfor/business";
 import { isActiveOpportunity, normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
 import {
   calculateSalesDashboard,
@@ -11,26 +12,28 @@ import { NextResponse } from "next/server";
 import { prisma } from "@sangfor/db";
 import { apiError } from "@/lib/api-auth";
 
-async function salesData() {
-  const opportunities = await prisma.opportunity.findMany({ include: { customer: true } });
-  const pendingApprovals = await prisma.approvalRequest.findMany({ where: { status: "ready_for_human_approval" } });
-  const proposals = await prisma.generatedDocument.findMany({ orderBy: { createdAt: "desc" }, take: 10 });
+async function salesData(projectId: string) {
+  const [opportunities, pendingApprovals, proposals] = await Promise.all([
+    prisma.opportunity.findMany({ where: { projectId }, include: { customer: true } }),
+    prisma.approvalRequest.findMany({ where: { status: "ready_for_human_approval" } }),
+    prisma.generatedDocument.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
+  ]);
 
   return calculateSalesDashboard({ opportunities, pendingApprovals, proposals });
 }
 
-async function presalesData() {
-  const pocProjects = await prisma.pocProject.findMany({ where: { status: "planning" } });
+async function presalesData(projectId: string) {
+  const pocProjects = await prisma.pocProject.findMany({ where: { status: "planning", projectId } });
   return calculatePresalesDashboard({ pocProjects });
 }
 
-async function financeData() {
+async function financeData(_projectId: string) {
   const approvals = await prisma.approvalRequest.findMany({ where: { status: "ready_for_human_approval" } });
   return calculateFinanceDashboard({ approvals });
 }
 
-async function deliveryData() {
-  const projects = await prisma.engagement.findMany();
+async function deliveryData(projectId: string) {
+  const projects = await prisma.engagement.findMany({ where: { projectId } });
   return {
     preEngagement: projects.filter((p) => p.status === "pre_engagement").length,
     upcomingDeployments: projects.filter((p) => p.status === "planned").length,
@@ -41,16 +44,16 @@ async function deliveryData() {
   };
 }
 
-async function supportData() {
+async function supportData(_projectId: string) {
   const cases = await prisma.supportCase.findMany();
   return calculateSupportDashboard({ cases });
 }
 
-async function executiveData() {
-  const opportunities = await prisma.opportunity.findMany({ include: { customer: true } });
+async function executiveData(projectId: string) {
+  const opportunities = await prisma.opportunity.findMany({ where: { projectId }, include: { customer: true } });
   const approvals = await prisma.approvalRequest.findMany();
-  const pocProjects = await prisma.pocProject.findMany();
-  const deliveryProjects = await prisma.engagement.findMany();
+  const pocProjects = await prisma.pocProject.findMany({ where: { projectId } });
+  const deliveryProjects = await prisma.engagement.findMany({ where: { projectId } });
   const supportCases = await prisma.supportCase.findMany();
 
   const activeOpportunities = opportunities.filter((o) => isActiveOpportunity(o.stage));
@@ -85,15 +88,15 @@ async function executiveData() {
   };
 }
 
-async function operatorData() {
+async function operatorData(_projectId: string) {
   return calculateOperatorDashboard();
 }
 
-async function securityData() {
+async function securityData(_projectId: string) {
   return calculateSecurityDashboard();
 }
 
-const handlers: Record<string, () => Promise<unknown>> = {
+const handlers: Record<string, (projectId: string) => Promise<unknown>> = {
   sales: salesData,
   presales: presalesData,
   finance: financeData,
@@ -105,7 +108,7 @@ const handlers: Record<string, () => Promise<unknown>> = {
 };
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<any> },
 ) {
   const { role } = await params;
@@ -114,7 +117,9 @@ export async function GET(
     return NextResponse.json({ error: `Unknown dashboard role: ${role}` }, { status: 404 });
   }
   try {
-    const data = await handler();
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get("projectId") ?? (await resolveDefaultProjectId());
+    const data = await handler(projectId);
     return NextResponse.json(data);
   } catch (error) {
     return apiError(`${role}_dashboard_failed`, error, { status: 500 });
