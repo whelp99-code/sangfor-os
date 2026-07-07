@@ -1,5 +1,6 @@
 import { prisma } from "@sangfor/db";
 import { deriveEntityFromCandidate, canonicalCompanyKey } from "./mail-entity-quality";
+import { resolveDefaultProjectId } from "./default-project";
 
 export interface ConvertResult {
   customersCreated: number;
@@ -12,15 +13,8 @@ export interface ConvertResult {
   tasksCreated: number;
 }
 
-// Resolve the active portal project (slug "demo-project"; fall back to the
-// first project). The previous hardcoded id was stale, so converted records
-// landed under a non-existent project and never showed in the portal.
 async function resolveProjectId(): Promise<string> {
-  const bySlug = await prisma.project.findFirst({ where: { slug: "demo-project" }, select: { id: true } });
-  if (bySlug) return bySlug.id;
-  const first = await prisma.project.findFirst({ select: { id: true } });
-  if (!first) throw new Error("no project found to attach entities to");
-  return first.id;
+  return resolveDefaultProjectId(prisma);
 }
 
 // 업종 추론

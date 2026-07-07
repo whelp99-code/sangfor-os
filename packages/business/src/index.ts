@@ -52,3 +52,4 @@ export * from "./module-validation";
 export * from "./mail-insight-threads-generate";
 export * from "./daily-report";
 export * from "./mail-candidates-convert";
+export * from "./default-project";

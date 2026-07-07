@@ -1,5 +1,6 @@
 import { Prisma, prisma } from "@sangfor/db";
 import type { GtmDomain } from "@sangfor/shared/modes";
+import { resolveDefaultProjectSlug } from "../default-project";
 
 /**
  * 도메인 메모리 — 종축 도메인별 학습/기록.
@@ -115,8 +116,9 @@ export function recallDomainMemories(
 
 // --- DB layer ---
 
-export async function resolveDomainProjectId(slug = "demo-project") {
-  const project = await prisma.project.findUniqueOrThrow({ where: { slug } });
+export async function resolveDomainProjectId(slug?: string) {
+  const resolved = slug ?? await resolveDefaultProjectSlug();
+  const project = await prisma.project.findUniqueOrThrow({ where: { slug: resolved } });
   return project.id;
 }
 
