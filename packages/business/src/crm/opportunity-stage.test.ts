@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ACTIVE_OPPORTUNITY_STAGES,
   canTransitionOpportunityStage,
   evaluateOpportunityQualification,
+  isActiveOpportunity,
+  isRecognizedStage,
+  normalizeOpportunityStage,
   validateOpportunityStageOrder,
   validateRegistrationGate,
 } from "./opportunity-stage";
@@ -244,5 +248,183 @@ describe("validateRegistrationGate", () => {
         regStatus: "REJECTED",
       }),
     ).toEqual({ allowed: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Active-stage helpers (single source of truth for deal-metrics filters)
+// ---------------------------------------------------------------------------
+// The canonical set of "active / in-progress" stages is
+// ["LEAD", "QUALIFIED", "PROPOSAL", "POC", "NEGOTIATION"].
+// WON and LOST are the only two excluded (terminal outcomes).
+//
+// Rationale (recorded per audit 2026-07-03):
+// 1. Real DB distribution — LEAD=27, PROPOSAL=16, WON=8, NEGOTIATION=6,
+//    QUALIFIED=4, LOST=3, POC=0 — all 7 Prisma enum values appear.
+// 2. Existing ad-hoc convention in
+//    apps/web/src/components/deals/deals-board.tsx:
+//    `const ACTIVE_STAGES = CANONICAL_STAGES.filter(s => s !== "WON" && s !== "LOST")`.
+// 3. The home page "진행중 딜" (in-progress deals) metric independently
+//    describes the same WON/LOST-excluded split.
+//
+// This test suite codifies that convention as the single source of truth.
+describe("ACTIVE_OPPORTUNITY_STAGES and isActiveOpportunity", () => {
+  it("contains LEAD through NEGOTIATION, excludes WON and LOST", () => {
+    expect(ACTIVE_OPPORTUNITY_STAGES).toEqual([
+      "LEAD",
+      "QUALIFIED",
+      "PROPOSAL",
+      "POC",
+      "NEGOTIATION",
+    ]);
+  });
+
+  it("includes every active pipeline stage from ORDERED_PIPELINE", () => {
+    expect(ACTIVE_OPPORTUNITY_STAGES).toContain("LEAD");
+    expect(ACTIVE_OPPORTUNITY_STAGES).toContain("QUALIFIED");
+    expect(ACTIVE_OPPORTUNITY_STAGES).toContain("PROPOSAL");
+    expect(ACTIVE_OPPORTUNITY_STAGES).toContain("POC");
+    expect(ACTIVE_OPPORTUNITY_STAGES).toContain("NEGOTIATION");
+  });
+
+  it("does not include terminal outcomes WON or LOST", () => {
+    expect(ACTIVE_OPPORTUNITY_STAGES).not.toContain("WON");
+    expect(ACTIVE_OPPORTUNITY_STAGES).not.toContain("LOST");
+  });
+});
+
+describe("normalizeOpportunityStage (null-safe)", () => {
+  it("returns LEAD for null input (safe fallback, never throws)", () => {
+    expect(normalizeOpportunityStage(null)).toBe("LEAD");
+  });
+
+  it("returns LEAD for undefined input (safe fallback, never throws)", () => {
+    expect(normalizeOpportunityStage(undefined)).toBe("LEAD");
+  });
+
+  it("still normalizes case-insensitively (string input preserved)", () => {
+    expect(normalizeOpportunityStage("proposal")).toBe("PROPOSAL");
+    expect(normalizeOpportunityStage("Proposal")).toBe("PROPOSAL");
+    expect(normalizeOpportunityStage("PROPOSAL")).toBe("PROPOSAL");
+  });
+
+  it("trims whitespace before matching", () => {
+    expect(normalizeOpportunityStage(" NEGOTIATION ")).toBe("NEGOTIATION");
+    expect(normalizeOpportunityStage("\tPOC\n")).toBe("POC");
+  });
+
+  it("recognizes Korean display labels as legacy variants", () => {
+    expect(normalizeOpportunityStage("리드")).toBe("LEAD");
+    expect(normalizeOpportunityStage("검증")).toBe("QUALIFIED");
+    expect(normalizeOpportunityStage("제안")).toBe("PROPOSAL");
+    expect(normalizeOpportunityStage("협상")).toBe("NEGOTIATION");
+    expect(normalizeOpportunityStage("수주")).toBe("WON");
+    expect(normalizeOpportunityStage("실패")).toBe("LOST");
+  });
+
+  it("recognizes WON/LOST and Korean equivalents as valid stages", () => {
+    expect(normalizeOpportunityStage("WON")).toBe("WON");
+    expect(normalizeOpportunityStage("LOST")).toBe("LOST");
+    expect(normalizeOpportunityStage("수주")).toBe("WON");
+    expect(normalizeOpportunityStage("실패")).toBe("LOST");
+  });
+
+  // NOTE: "banana" falls back to "LEAD". This is intentional —
+  // it matches the pre-existing behavior of the non-null overload
+  // for unrecognised inputs, not a new design choice.
+  it("falls back to LEAD for unrecognized garbage (preserves existing behavior)", () => {
+    expect(normalizeOpportunityStage("banana")).toBe("LEAD");
+  });
+});
+
+describe("isActiveOpportunity", () => {
+  it("returns true for active stages", () => {
+    expect(isActiveOpportunity("LEAD")).toBe(true);
+    expect(isActiveOpportunity("QUALIFIED")).toBe(true);
+    expect(isActiveOpportunity("PROPOSAL")).toBe(true);
+    expect(isActiveOpportunity("POC")).toBe(true);
+    expect(isActiveOpportunity("NEGOTIATION")).toBe(true);
+  });
+
+  it("returns false for terminal stages WON and LOST", () => {
+    expect(isActiveOpportunity("WON")).toBe(false);
+    expect(isActiveOpportunity("LOST")).toBe(false);
+  });
+
+  it("returns false for Korean labels of terminal stages", () => {
+    expect(isActiveOpportunity("수주")).toBe(false);
+    expect(isActiveOpportunity("실패")).toBe(false);
+  });
+
+  it("returns true for Korean labels of active stages", () => {
+    expect(isActiveOpportunity("리드")).toBe(true);
+    expect(isActiveOpportunity("검증")).toBe(true);
+    expect(isActiveOpportunity("제안")).toBe(true);
+    expect(isActiveOpportunity("협상")).toBe(true);
+  });
+
+  it("returns false for null input", () => {
+    expect(isActiveOpportunity(null)).toBe(false);
+  });
+
+  it("returns false for undefined input", () => {
+    expect(isActiveOpportunity(undefined)).toBe(false);
+  });
+
+  it("handles whitespace-padded input (trims first)", () => {
+    expect(isActiveOpportunity(" WON ")).toBe(false);
+    expect(isActiveOpportunity("  LEAD  ")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isRecognizedStage — honest membership check (null-safe, no silent fallback)
+// ---------------------------------------------------------------------------
+describe("isRecognizedStage", () => {
+  it("returns true for canonical uppercase stage values", () => {
+    expect(isRecognizedStage("LEAD")).toBe(true);
+    expect(isRecognizedStage("QUALIFIED")).toBe(true);
+    expect(isRecognizedStage("PROPOSAL")).toBe(true);
+    expect(isRecognizedStage("POC")).toBe(true);
+    expect(isRecognizedStage("NEGOTIATION")).toBe(true);
+    expect(isRecognizedStage("WON")).toBe(true);
+    expect(isRecognizedStage("LOST")).toBe(true);
+  });
+
+  it("returns true for lowercase canonical values", () => {
+    expect(isRecognizedStage("lead")).toBe(true);
+    expect(isRecognizedStage("won")).toBe(true);
+    expect(isRecognizedStage("lost")).toBe(true);
+  });
+
+  it("returns true for legacy/Korean display labels", () => {
+    expect(isRecognizedStage("discovery")).toBe(true);
+    expect(isRecognizedStage("qualification")).toBe(true);
+    expect(isRecognizedStage("리드")).toBe(true);
+    expect(isRecognizedStage("검증")).toBe(true);
+    expect(isRecognizedStage("제안")).toBe(true);
+    expect(isRecognizedStage("협상")).toBe(true);
+    expect(isRecognizedStage("수주")).toBe(true);
+    expect(isRecognizedStage("실패")).toBe(true);
+  });
+
+  it("returns true for whitespace-padded recognized input", () => {
+    expect(isRecognizedStage("  LEAD  ")).toBe(true);
+    expect(isRecognizedStage("\tPOC\n")).toBe(true);
+  });
+
+  it("returns false for unrecognized garbage strings", () => {
+    expect(isRecognizedStage("banana")).toBe(false);
+    expect(isRecognizedStage("foobar")).toBe(false);
+    expect(isRecognizedStage("")).toBe(false);
+    expect(isRecognizedStage(" ")).toBe(false);
+  });
+
+  it("returns false for null input", () => {
+    expect(isRecognizedStage(null)).toBe(false);
+  });
+
+  it("returns false for undefined input", () => {
+    expect(isRecognizedStage(undefined)).toBe(false);
   });
 });

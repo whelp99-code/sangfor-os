@@ -1,4 +1,4 @@
-import { normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
+import { isActiveOpportunity, normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
 import {
   calculateSalesDashboard,
   calculatePresalesDashboard,
@@ -53,16 +53,21 @@ async function executiveData() {
   const deliveryProjects = await prisma.engagement.findMany();
   const supportCases = await prisma.supportCase.findMany();
 
-  const totalPipeline = opportunities.reduce((s, o) => s + (Number(o.amount) || 0), 0);
-  const weightedPipeline = opportunities.reduce((s, o) => {
-    const weights: Record<string, number> = { lead: 0.1, discovery: 0.2, solution_fit: 0.4, quote: 0.6, poc: 0.8 };
-    return s + (Number(o.amount) || 0) * (weights[o.stage] || 0.1);
+  const activeOpportunities = opportunities.filter((o) => isActiveOpportunity(o.stage));
+
+  const totalPipeline = activeOpportunities.reduce((s, o) => s + (Number(o.amount) || 0), 0);
+  const weightedPipeline = activeOpportunities.reduce((s, o) => {
+    // Canonical stage weights — normalize before lookup to fix the lowercase-key bug.
+    const weights: Record<string, number> = {
+      LEAD: 0.1, QUALIFIED: 0.2, PROPOSAL: 0.4, POC: 0.6, NEGOTIATION: 0.8,
+    };
+    return s + (Number(o.amount) || 0) * (weights[normalizeOpportunityStage(o.stage)] ?? 0.1);
   }, 0);
 
   void approvals; void pocProjects; void deliveryProjects; void supportCases;
 
   return {
-    revenuePipeline: { total: totalPipeline, weighted: weightedPipeline, deals: opportunities.length },
+    revenuePipeline: { total: totalPipeline, weighted: weightedPipeline, deals: activeOpportunities.length },
     productForecast: [] as { family: string; forecast: number; weighted: number; deals: number }[],
     grossMarginRisk: {
       blendedMargin: 0,

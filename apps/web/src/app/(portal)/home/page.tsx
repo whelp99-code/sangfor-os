@@ -3,7 +3,11 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { listOpportunities } from "@sangfor/business";
-import { normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
+import {
+  isActiveOpportunity,
+  isRecognizedStage,
+  normalizeOpportunityStage,
+} from "@sangfor/business/opportunity-stage";
 
 import { MetricCard, MetricGrid } from "@/components/ui/metric-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,15 +18,14 @@ import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
-// Stage funnel constants (① – ⑥)
+// Stage funnel buckets — ③결과 / ⑤수주 / ⑥딜리버리 had no enum mapping and
+// were always 0; superseded by the 기타 catch-all.
 // ---------------------------------------------------------------------------
-const FUNNEL_STAGES: { idx: number; label: string }[] = [
-  { idx: 1, label: "①제안" },
-  { idx: 2, label: "②PoC" },
-  { idx: 3, label: "③결과" },
-  { idx: 4, label: "④입찰" },
-  { idx: 5, label: "⑤수주" },
-  { idx: 6, label: "⑥딜리버리" },
+const FUNNEL_BUCKETS: { idx: number; label: string }[] = [
+  { idx: 1, label: "① 제안" },
+  { idx: 2, label: "② PoC" },
+  { idx: 4, label: "④ 선정·입찰" },
+  { idx: 0, label: "기타" },
 ];
 
 const TOTAL_PIPS = 6;
@@ -78,10 +81,7 @@ export default async function HomePage() {
   const opportunities = serializeDecimalAtBoundary(opportunitiesRaw);
 
   // -- KPI derivations -------------------------------------------------------
-  const openDeals = opportunities.filter((opp) => {
-    const stage = normalizeOpportunityStage(opp.stage);
-    return stage !== "WON" && stage !== "LOST";
-  });
+  const openDeals = opportunities.filter((opp) => isActiveOpportunity(opp.stage));
 
   const weightedPipeline = openDeals.reduce((sum, opp) => {
     const amount = toNum(opp.amount);
@@ -118,10 +118,16 @@ export default async function HomePage() {
   });
 
   // -- Stage funnel ----------------------------------------------------------
-  const stageCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+  // Count by display group; unmapped / unrecognised stages land in 기타.
+  const stageCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 4: 0 };
   for (const opp of openDeals) {
-    const { idx } = stageDisplay(opp.stage);
-    if (idx in stageCounts) stageCounts[idx]++;
+    if (!isRecognizedStage(opp.stage)) {
+      stageCounts[0]++;
+    } else {
+      const { idx } = stageDisplay(opp.stage);
+      if (idx in stageCounts) stageCounts[idx]++;
+      else stageCounts[0]++;
+    }
   }
   const maxCount = Math.max(1, ...Object.values(stageCounts));
 
@@ -188,7 +194,7 @@ export default async function HomePage() {
           <div className="flex flex-col gap-2">
             {/* Labels */}
             <div className="flex gap-1.5">
-              {FUNNEL_STAGES.map((s) => (
+              {FUNNEL_BUCKETS.map((s) => (
                 <div
                   key={s.idx}
                   className="flex-1 text-center text-xs font-semibold text-muted-foreground"
@@ -202,11 +208,11 @@ export default async function HomePage() {
               className="flex items-end gap-1.5"
               style={{ height: "96px" }}
               role="img"
-              aria-label={`단계별 파이프라인: ${FUNNEL_STAGES.map(
+              aria-label={`단계별 파이프라인: ${FUNNEL_BUCKETS.map(
                 (s) => `${s.label} ${stageCounts[s.idx] ?? 0}건`
               ).join(", ")}`}
             >
-              {FUNNEL_STAGES.map((s) => {
+              {FUNNEL_BUCKETS.map((s) => {
                 const count = stageCounts[s.idx] ?? 0;
                 const heightPct = Math.round((count / maxCount) * 100);
                 return (
