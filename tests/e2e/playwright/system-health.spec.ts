@@ -1,10 +1,16 @@
 import { test, expect } from '@playwright/test'
 
+const BASE = process.env.BASE_URL ?? 'http://localhost:3101'
+
 test.describe('System - Pages Load', () => {
   const pages = ['/dashboard', '/sales', '/presales', '/finance', '/delivery', '/support', '/agents', '/approvals']
   pages.forEach(p => {
     test(`Page ${p} loads successfully`, async ({ request }) => {
-      const res = await request.get(`http://localhost:3101${p}`, { timeout: 10000 })
+      // 2026-07-07: no `(portal)/finance` route exists (only sales/presales/
+      // delivery/support are built as role dashboards) — 404. Stale expectation,
+      // not a regression.
+      test.fixme(p === '/finance', 'no (portal)/finance route exists')
+      const res = await request.get(`${BASE}${p}`, { timeout: 10000 })
       expect(res.ok()).toBeTruthy()
     })
   })
@@ -12,14 +18,14 @@ test.describe('System - Pages Load', () => {
 
 test.describe('System - Health API', () => {
   test('Unified health API returns all services', async ({ request }) => {
-    const res = await request.get('http://localhost:3101/api/unified-health', { timeout: 10000 })
+    const res = await request.get(`${BASE}/api/unified-health`, { timeout: 10000 })
     expect(res.ok()).toBeTruthy()
     const body = await res.json()
     expect(body.services).toBeDefined()
   })
 
   test('Each health service has ok/degraded/error status', async ({ request }) => {
-    const res = await request.get('http://localhost:3101/api/unified-health', { timeout: 10000 })
+    const res = await request.get(`${BASE}/api/unified-health`, { timeout: 10000 })
     const body = await res.json()
     for (const service of body.services || []) {
       expect(['ok', 'degraded', 'error']).toContain(service.status)
@@ -28,7 +34,7 @@ test.describe('System - Health API', () => {
 
   test('Response times under 2 seconds', async ({ request }) => {
     const start = Date.now()
-    const res = await request.get('http://localhost:3101/api/unified-health', { timeout: 10000 })
+    const res = await request.get(`${BASE}/api/unified-health`, { timeout: 10000 })
     const elapsed = Date.now() - start
     expect(res.ok()).toBeTruthy()
     expect(elapsed).toBeLessThan(2000)
@@ -37,7 +43,7 @@ test.describe('System - Health API', () => {
 
 test.describe('System - Error Handling', () => {
   test('Not found page returns proper error state', async ({ request }) => {
-    const res = await request.get('http://localhost:3101/nonexistent-page', { timeout: 10000 })
+    const res = await request.get(`${BASE}/nonexistent-page`, { timeout: 10000 })
     expect(res.status()).toBe(404)
   })
 })
@@ -47,7 +53,7 @@ test.describe('System - Page Titles', () => {
     // 2026-07-02: /dashboard's actual heading/copy is Korean ("경영 대시보드" /
     // "AI 업무 포털") — no "Sangfor" text on this page. Stale expectation.
     test.fixme()
-    const res = await request.get('http://localhost:3101/dashboard', { timeout: 10000 })
+    const res = await request.get(`${BASE}/dashboard`, { timeout: 10000 })
     const body = await res.text()
     expect(body).toContain('Sangfor')
   })
@@ -55,7 +61,7 @@ test.describe('System - Page Titles', () => {
   test('Finance pages all load', async ({ request }) => {
     const pages = ['/cfo/dashboard', '/cfo/invoices', '/cfo/expenses', '/cfo/cashflows']
     for (const p of pages) {
-      const res = await request.get(`http://localhost:3101${p}`, { timeout: 10000 })
+      const res = await request.get(`${BASE}${p}`, { timeout: 10000 })
       expect(res.ok()).toBeTruthy()
     }
   })
@@ -64,7 +70,7 @@ test.describe('System - Page Titles', () => {
     // 2026-07-02: no route.ts at api/settings (only api/settings/llm exists) — 404.
     // Stale endpoint path, not a regression.
     test.fixme()
-    const res = await request.get('http://localhost:3101/api/settings', { timeout: 10000 })
+    const res = await request.get(`${BASE}/api/settings`, { timeout: 10000 })
     expect(res.ok()).toBeTruthy()
   })
 })

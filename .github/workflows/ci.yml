@@ -124,13 +124,9 @@ jobs:
       - run: pnpm db:generate
       - run: pnpm build
 
-  # Non-blocking until Phase 0 (refactor/phase-0-safety-net) merges its
-  # playwright.config.ts fix (testDir currently points at a stale path).
-  # Once that lands, drop continue-on-error to make this a required check.
   e2e:
     runs-on: ubuntu-latest
     needs: [build]
-    continue-on-error: true
     env:
       DATABASE_URL: postgresql://aios:aios_password@localhost:5432/aios_v2
       CI_INTEGRATION: '1'
