@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Calendar, FileSignature, Key, ClipboardCheck, FileText, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AIWorkspaceLayout } from "@/components/ai-workspace";
+import { AIWorkspaceLayout, runAgentCommand } from "@/components/ai-workspace";
 import { ActivityItem } from "@/components/ai-workspace/ai-activity-feed";
 
 type DeliveryData = {
@@ -63,9 +63,8 @@ export default function DeliveryDashboardPage() {
     fetchData();
   }, []);
 
-  async function handleCommand(_cmd: string) {
-    // TODO(oma-deferred): wire the delivery AI assistant when the endpoint is provisioned.
-    return "AI 어시스턴트는 준비 중입니다";
+  function handleCommand(cmd: string) {
+    return runAgentCommand(cmd, "delivery");
   }
 
   return (

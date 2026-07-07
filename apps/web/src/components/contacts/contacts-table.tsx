@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Settings2, SlidersHorizontal, Users } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { DataView } from "@/components/views/data-view";
 import { cn } from "@/lib/utils";
 
@@ -155,14 +155,6 @@ export function ContactsTable({ contacts }: { contacts: ContactRow[] }) {
             </span>
           </h1>
           <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled title="준비 중">
-              <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-              필터
-            </Button>
-            <Button variant="outline" size="sm" disabled title="준비 중">
-              <Settings2 className="size-3.5" aria-hidden="true" />
-              열 설정
-            </Button>
             <Link
               href="/customers"
               title="고객사 상세에서 연락처를 추가합니다"

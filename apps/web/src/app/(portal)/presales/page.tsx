@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { STATUS_LABELS } from "@sangfor/shared";
 import { AIWorkspaceLayout } from "@/components/ai-workspace/ai-workspace-layout";
 import { ActivityItem } from "@/components/ai-workspace/ai-activity-feed";
+import { runAgentCommand } from "@/components/ai-workspace/agent-command-client";
 
 type PresalesData = {
   pendingDiscovery: number;
@@ -62,10 +63,7 @@ export default function PresalesDashboardPage() {
     fetchData();
   }, []);
 
-  const handleCommand = useCallback((_cmd: string) => {
-    // TODO(oma-deferred): wire the presales AI assistant when the endpoint is provisioned.
-    return "AI 어시스턴트는 준비 중입니다";
-  }, []);
+  const handleCommand = useCallback((cmd: string) => runAgentCommand(cmd, "presales"), []);
 
   const stats = [
     { label: "오늘 분석 건수", value: data ? String(data.pendingDiscovery + data.solutionFitReview) : "-", type: "default" as const },

@@ -136,8 +136,7 @@ export function DealsWorkspace({
           <div className="min-w-0">
             <p className="text-[11px] text-muted-foreground">프로젝트</p>
             <h1 className="flex items-center gap-2 text-lg font-extrabold leading-tight">
-              전체 진행중
-              <span className="text-[12px] font-bold text-primary">▾</span>
+              {STAGE_CHIPS.find((c) => c.key === activeStage)?.label ?? "전체"}
               <span className="text-[12px] font-medium text-muted-foreground">
                 · {totalCount}건
               </span>
@@ -150,12 +149,6 @@ export function DealsWorkspace({
               onChange={setView}
               available={["table", "kanban"]}
             />
-            <Button variant="outline" size="sm" disabled title="준비 중" aria-label="필터 (준비 중)">
-              필터
-            </Button>
-            <Button variant="outline" size="sm" disabled title="준비 중" aria-label="열 설정 (준비 중)">
-              열 설정
-            </Button>
             <Button size="sm" className="gap-1.5" onClick={() => setShowCreate((open) => !open)}>
               {showCreate ? <X className="size-3.5" /> : <Plus className="size-3.5" />}
               {showCreate ? "닫기" : "+ 새 딜"}

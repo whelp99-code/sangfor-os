@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic"
 
-import { AIWorkspaceLayout } from "@/components/ai-workspace"
+import { AIWorkspaceLayout, runAgentCommand } from "@/components/ai-workspace"
 import { ExecutiveDashboard } from "@/components/dashboard/executive-dashboard"
 
 const ACTIVITIES: { id: string; time: string; icon?: React.ReactNode; text: string; type: 'success' | 'info' | 'warning' | 'error' }[] = []
@@ -10,10 +10,7 @@ const ACTIVITIES: { id: string; time: string; icon?: React.ReactNode; text: stri
 const STATS: { label: string; value: string; type: 'success' | 'warning' | 'error' | 'default' }[] = []
 
 export default function DashboardPage() {
-  const handleCommand = (_cmd: string) => {
-    // TODO(oma-deferred): wire the Executive Dashboard AI assistant when the endpoint is provisioned.
-    return "AI 어시스턴트는 준비 중입니다"
-  }
+  const handleCommand = (cmd: string) => runAgentCommand(cmd, "executive")
 
   return (
     <AIWorkspaceLayout

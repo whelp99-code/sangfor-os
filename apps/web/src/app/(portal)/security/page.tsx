@@ -4,148 +4,153 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { AIWorkspaceLayout } from '@/components/ai-workspace'
-import { ActivityItem } from '@/components/ai-workspace/ai-activity-feed'
-
-interface SecurityData {
-  restrictedAccess: Array<{ user: string; resource: string; reason: string; time: string }>
-  roleChanges: { total: number; recent: Array<{ user: string; from: string; to: string; time: string }> }
-  privilegedAccess: Array<{ user: string; session: string; started: string }>
-  auditMismatch: string
-  aiPolicyViolations: number
-  exportEvents: Array<{ user: string; target: string; time: string }>
-  workflowDefChanges: number
-}
-
-const securityActivities: ActivityItem[] = [
-  { id: 'sec1', time: new Date(Date.now() - 1000 * 60 * 2).toISOString(), text: '권한 변경 감지: admin → viewer 2건 자동 기록', type: 'warning' },
-  { id: 'sec2', time: new Date(Date.now() - 1000 * 60 * 25).toISOString(), text: '데이터 접근 로그 분석 완료: 비정상 패턴 0건', type: 'success' },
-  { id: 'sec3', time: new Date(Date.now() - 1000 * 60 * 90).toISOString(), text: '정책 위반 알림: 외부 공유 시도 1건 차단', type: 'error' },
-  { id: 'sec4', time: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), text: '감사 이상 탐지: 로그 갭 3분 → 자동 복구 확인', type: 'info' },
-]
-
-const securityStats = [
-  { label: '권한 변경', value: '2건', type: 'warning' as const },
-  { label: '정책 위반', value: '1건', type: 'error' as const },
-  { label: '감사 상태', value: '정상', type: 'success' as const },
-  { label: 'AI 위반', value: '0건', type: 'success' as const },
-]
-
-const auditMismatchLabel = (v?: string) => (v === 'verified' ? '검증됨' : v ? '불일치' : '-')
+import { AIWorkspaceLayout, runAgentCommand } from '@/components/ai-workspace'
+import type { SecurityDashboard } from '@sangfor/business'
 
 export default function SecurityPage() {
-  const [data, setData] = useState<SecurityData | null>(null)
+  const [data, setData] = useState<SecurityDashboard | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/dashboard/security').then(r => r.json()).then(d => { setData(d.result?.data || d); setLoading(false) }).catch(() => setLoading(false))
+    fetch('/api/dashboard/security')
+      .then((r) => r.json())
+      .then((d) => {
+        setData(d)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }, [])
 
-  async function handleCommand(_cmd: string) {
-    // TODO(oma-deferred): wire the security AI assistant when the endpoint is provisioned.
-    return 'AI 어시스턴트는 준비 중입니다'
+  function handleCommand(cmd: string) {
+    return runAgentCommand(cmd, 'security')
   }
+
+  const derivedStats = data
+    ? [
+        {
+          label: '권한 변경',
+          value: `${data.roleChanges}건`,
+          type: (data.roleChanges > 0 ? 'warning' : 'success') as 'warning' | 'success',
+        },
+        {
+          label: '특권 접근',
+          value: `${data.privilegedAccess}건`,
+          type: (data.privilegedAccess > 0 ? 'warning' : 'success') as 'warning' | 'success',
+        },
+        {
+          label: '감사 무결성',
+          value: data.auditMismatch ? '불일치' : '정상',
+          type: (data.auditMismatch ? 'error' : 'success') as 'error' | 'success',
+        },
+        {
+          label: 'AI 정책 위반',
+          value: `${data.aiPolicyViolations}건`,
+          type: (data.aiPolicyViolations > 0 ? 'error' : 'success') as 'error' | 'success',
+        },
+      ]
+    : undefined
 
   return (
     <AIWorkspaceLayout
       title="보안 워크스페이스"
       subtitle="위험 작업 정책, 승인 책임, 감사/증적 준비 상태"
-      activities={securityActivities}
-      stats={securityStats}
+      activities={[]}
+      stats={derivedStats}
       onCommand={handleCommand}
     >
-      {loading && <div className="space-y-4">{Array.from({length:4}).map((_,i) => <Skeleton key={i} className="h-48" />)}</div>}
+      {loading && (
+        <div className="space-y-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-48" />
+          ))}
+        </div>
+      )}
       {!loading && (
         <div className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>위험 작업</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>위험 작업</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <p>send, export, share, delete, deploy, real-upstream-write, production-db-mutation, release-tag</p>
-              <p>모든 위험 작업은 외부 실행 또는 되돌릴 수 없는 실행 전에 승인이 필요합니다.</p>
+              <p>
+                send, export, share, delete, deploy, real-upstream-write,
+                production-db-mutation, release-tag
+              </p>
+              <p>
+                모든 위험 작업은 외부 실행 또는 되돌릴 수 없는 실행 전에 승인이
+                필요합니다.
+              </p>
             </CardContent>
           </Card>
           <div className="grid grid-cols-3 gap-4">
-        {/* Restricted Data Access */}
-        <Card className="col-span-2"><CardHeader><CardTitle>제한 데이터 접근</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>사용자</TableHead>
-                  <TableHead>리소스</TableHead>
-                  <TableHead>사유</TableHead>
-                  <TableHead>시각</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data?.restrictedAccess.map((e, i) => (
-                  <TableRow key={i}>
-                    <TableCell>{e.user}</TableCell>
-                    <TableCell>{e.resource}</TableCell>
-                    <TableCell>{e.reason}</TableCell>
-                    <TableCell className="text-xs">{e.time}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {!data?.restrictedAccess.length && <p className="text-sm text-muted-foreground py-2">기록 없음</p>}
-          </CardContent></Card>
-        {/* Role Changes */}
-        <Card><CardHeader><CardTitle>권한 변경</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{data?.roleChanges.total || 0}</p>
-            <div className="mt-4 space-y-2">
-              {data?.roleChanges.recent.slice(0, 3).map((rc, i) => (
-                <div key={i} className="text-xs border-b pb-1">
-                  <p><strong>{rc.user}</strong>: {rc.from} → {rc.to}</p>
-                  <p className="text-muted-foreground">{rc.time}</p>
-                </div>
-              ))}
-              {!data?.roleChanges.recent.length && <p className="text-xs text-muted-foreground">최근 변경 없음</p>}
-            </div>
-          </CardContent></Card>
-        {/* Privileged Access */}
-        <Card><CardHeader><CardTitle>특권 접근</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-sm font-medium mb-2">활성 세션</p>
-            {data?.privilegedAccess.map((pa, i) => (
-              <div key={i} className="flex justify-between text-xs py-1">
-                <span>{pa.user}</span>
-                <span className="text-muted-foreground">{pa.session}</span>
-              </div>
-            ))}
-            {!data?.privilegedAccess.length && <p className="text-xs text-muted-foreground">활성 세션 없음</p>}
-          </CardContent></Card>
-        {/* Audit Mismatch */}
-        <Card><CardHeader><CardTitle>감사 무결성</CardTitle></CardHeader>
-          <CardContent>
-            <Badge variant={data?.auditMismatch === 'verified' ? 'default' : 'destructive'}>{auditMismatchLabel(data?.auditMismatch)}</Badge>
-          </CardContent></Card>
-        {/* AI Policy Violations */}
-        <Card><CardHeader><CardTitle>AI 정책 위반</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold text-red-500">{data?.aiPolicyViolations || 0}</p></CardContent></Card>
-        {/* Export Events */}
-        <Card><CardHeader><CardTitle>내보내기 이벤트</CardTitle></CardHeader>
-          <CardContent>
-            {data?.exportEvents.slice(0, 4).map((ev, i) => (
-              <div key={i} className="flex justify-between text-xs py-1 border-b last:border-0">
-                <span>{ev.user} → {ev.target}</span>
-                <span className="text-muted-foreground">{ev.time}</span>
-              </div>
-            ))}
-            {!data?.exportEvents.length && <p className="text-xs text-muted-foreground">기록 없음</p>}
-          </CardContent></Card>
-        {/* Workflow Definition Changes */}
-        <Card><CardHeader><CardTitle>워크플로 정의 변경</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{data?.workflowDefChanges || 0}</p></CardContent></Card>
+            <Card className="col-span-2">
+              <CardHeader>
+                <CardTitle>제한 데이터 접근</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground py-2">기록 없음</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>권한 변경</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{data?.roleChanges ?? 0}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>특권 접근</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{data?.privilegedAccess ?? 0}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>감사 무결성</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Badge variant={data?.auditMismatch ? 'destructive' : 'default'}>
+                  {data?.auditMismatch ? '불일치' : '검증됨'}
+                </Badge>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>AI 정책 위반</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-red-500">
+                  {data?.aiPolicyViolations ?? 0}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>내보내기 이벤트</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">기록 없음</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>워크플로 정의 변경</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">
+                  {data?.workflowChanges ?? 0}
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}
