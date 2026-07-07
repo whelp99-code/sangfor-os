@@ -42,10 +42,10 @@ export const PORTAL_NAV: NavItem[] = [
   // ═══ 지식 ═══
   { title: "지식베이스", href: "/knowledge", icon: "book-open", group: "지식", tier: "more" },
   { title: "Knowledge Search", href: "/knowledge-search", icon: "search", group: "지식", tier: "more" },
-  { title: "Mail Intelligence", href: "/mail-intelligence", icon: "mail", group: "지식", tier: "more" },
+  { title: "Mail Intelligence", href: "/inbox", icon: "mail", group: "지식", tier: "more" },
   { title: "도메인 파이프라인", href: "/domain-pipeline", icon: "activity", group: "지식", tier: "more" },
   { title: "Agent Console", href: "/agent-console", icon: "bot", group: "지식", tier: "more" },
-  { title: "메일 후보", href: "/development/mail-candidates", icon: "inbox", group: "지식", tier: "more" },
+  { title: "메일 후보", href: "/inbox?tab=candidates", icon: "inbox", group: "지식", tier: "more" },
 
   // ═══ 시스템 ═══
   { title: "Color Agents", href: "/agents", icon: "palette", group: "시스템", tier: "system" },

@@ -5,7 +5,7 @@ import { buildAuthorizationUrl, isOutlookOAuthConfigured } from "@/lib/outlook";
 // user to the Microsoft sign-in page.
 export async function GET(request: Request) {
   if (!isOutlookOAuthConfigured()) {
-    const dest = new URL("/mail-connection?error=not_configured", request.url);
+    const dest = new URL("/settings/mail-connection?error=not_configured", request.url);
     return NextResponse.redirect(dest);
   }
 

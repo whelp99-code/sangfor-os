@@ -5,7 +5,7 @@ import { connectOutlookAccount, exchangeCodeForToken } from "@/lib/outlook";
 // for tokens, persist them on the MailAccount, then return to the connection page.
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
-  const dest = new URL("/mail-connection", request.url);
+  const dest = new URL("/settings/mail-connection", request.url);
 
   const oauthError = url.searchParams.get("error");
   if (oauthError) {
