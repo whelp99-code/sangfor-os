@@ -39,12 +39,12 @@ WP-A (컬러게이트 루프 출하)          ← 최우선. 미커밋 작업이
 
 **Files:** 확인: `packages/db/prisma/migrations/**`, `packages/db/prisma/schema.prisma`
 
-- [ ] **Step 1: 컬럼이 마이그레이션에 포함되어 있는지 확인**
+- [x] **Step 1: 컬럼이 마이그레이션에 포함되어 있는지 확인** ✅ 2026-07-07: `@map`된 snake_case로 존재 — `color_gate_json`(20260629110000_domain_axis_memory_decision_logs), `resolved_at`/`resolved_by`(20260701200000_ai_decision_substrate)
 ```bash
 grep -rn "colorGateJson\|resolvedAt\|resolvedBy" packages/db/prisma/migrations/ | head
 ```
 Expected: PR #94에서 생성된 마이그레이션에 3컬럼의 `ALTER TABLE "domain_decision_logs" ADD COLUMN ...`이 존재.
-- [ ] **Step 2-A (존재하면)**: 로컬 DB에 적용 여부 확인 후 종료.
+- [x] **Step 2-A (존재하면)**: 로컬 DB에 적용 여부 확인 후 종료. ✅ 2026-07-07 `prisma migrate status` → "Database schema is up to date!"
 ```bash
 pnpm --filter @sangfor/db db:migrate:deploy   # "No pending migrations" 또는 적용 로그
 ```
@@ -57,7 +57,7 @@ mkdir -p prisma/migrations/$(date +%Y%m%d%H%M%S)_domain_decision_color_gate
 cp /tmp/color-gate.sql prisma/migrations/<위 디렉터리>/migration.sql
 npx prisma migrate resolve --applied <위 디렉터리명>   # 이미 push로 적용된 DB라면 resolve, 아니면 deploy
 ```
-- [ ] **Step 3: 검증** — `pnpm --filter @sangfor/db db:migrate:deploy`가 empty-diff/clean으로 끝나는지 확인.
+- [x] **Step 3: 검증** — `pnpm --filter @sangfor/db db:migrate:deploy`가 empty-diff/clean으로 끝나는지 확인. ✅ 2026-07-07 migrate status clean (Step 2-B는 drift 없어 N/A)
 
 **Acceptance:** fresh DB에서 `migrate deploy`만으로 `colorGateJson` 컬럼이 생긴다. `prisma migrate status`에 drift 없음.
 
@@ -71,7 +71,7 @@ npx prisma migrate resolve --applied <위 디렉터리명>   # 이미 push로 �
 - `promoteDomainProposalToDocument(input: {engagementId, domain, title, bodyMarkdown, status?}) => Promise<{documentId} | null>`
 - 체인 없으면 null(비파괴), 있으면 `DocumentTemplate`(projectId+templateKey `domain-ai` upsert) → `GeneratedDocument`(status 기본 `approved`) → `DocumentVersion`(version 1).
 
-- [ ] **Step 1: 실패하는 테스트 작성** — `CI_INTEGRATION=1` 게이트, 공유 DB이므로 생성 데이터는 전부 `test-promote-` prefix + afterAll 정리.
+- [x] **Step 1: 실패하는 테스트 작성** — `CI_INTEGRATION=1` 게이트, 공유 DB이므로 생성 데이터는 전부 `test-promote-` prefix + afterAll 정리. ✅ 2026-07-07 `proposal-promote.test.ts` (커밋 e8c21a9, IT_PROMOTE_ 태그 정리 포함)
 ```ts
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@sangfor/db";
@@ -115,9 +115,9 @@ integration("promoteDomainProposalToDocument", () => {
   });
 });
 ```
-- [ ] **Step 2: 실패 확인** — `CI_INTEGRATION=1 pnpm --filter @sangfor/business exec vitest run src/domain-ai/proposal-promote.test.ts` → 팩토리 미완성 상태에선 FAIL이 정상.
-- [ ] **Step 3: 팩토리 완성 → 통과 확인** — 같은 명령, Expected: 3 passed.
-- [ ] **Step 4: 전체 게이트** — `pnpm --filter @sangfor/business test` (기존 68개 파일 무손상).
+- [x] **Step 2: 실패 확인** — `CI_INTEGRATION=1 pnpm --filter @sangfor/business exec vitest run src/domain-ai/proposal-promote.test.ts` → 팩토리 미완성 상태에선 FAIL이 정상. ✅ 2026-07-07 완료 (커밋 e8c21a9)
+- [x] **Step 3: 팩토리 완성 → 통과 확인** — 같은 명령, Expected: 3 passed. ✅ 2026-07-07 통합 3케이스 통과 (DEV_REFERENCE 변경이력 2026-07-07 참조)
+- [x] **Step 4: 전체 게이트** — `pnpm --filter @sangfor/business test` (기존 68개 파일 무손상). ✅ 2026-07-07 도메인-AI 98테스트 무회귀 확인
 
 **Acceptance:** 통합 3케이스 통과 + 비통합 환경(`CI_INTEGRATION` 미설정)에서 skip 처리.
 
@@ -128,8 +128,8 @@ integration("promoteDomainProposalToDocument", () => {
 
 **Interfaces:** `POST /api/projects/[id]/domain-decision` 응답에 이미 `documentId?: string`이 포함된다(승격 성공 시).
 
-- [ ] **Step 1**: 승인 성공 응답에서 `documentId`가 있으면 결정 카드 하단에 `<Link href={`/proposals/${documentId}`}>산출물 문서 보기 →</Link>` 렌더 (계기판 톤: brass 텍스트 링크, 새 배지 금지 — DESIGN.md "계기는 정직").
-- [ ] **Step 2**: `/proposals/[id]` 상세가 GeneratedDocument id를 렌더하는지 확인(`apps/web/src/app/(portal)/proposals/[id]/page.tsx`). 아니면 링크 target을 실제 상세 라우트에 맞춘다.
+- [x] **Step 1**: 승인 성공 응답에서 `documentId`가 있으면 결정 카드 하단에 `<Link href={`/proposals/${documentId}`}>산출물 문서 보기 →</Link>` 렌더 (계기판 톤: brass 텍스트 링크, 새 배지 금지 — DESIGN.md "계기는 정직"). ✅ 2026-07-07 `LaneDecisionControls` brass 링크 (커밋 c896e40)
+- [x] **Step 2**: `/proposals/[id]` 상세가 GeneratedDocument id를 렌더하는지 확인(`apps/web/src/app/(portal)/proposals/[id]/page.tsx`). 아니면 링크 target을 실제 상세 라우트에 맞춘다. ✅ 2026-07-07 확인 (documentId 있을 때만 링크)
 - [ ] **Step 3**: 수동 검증 — `scripts/dev-up.sh` → 프로젝트 허브에서 pending 제안 승인 → 링크 클릭 → 문서 v1 본문 확인. 스크린샷 저장(playwright-verify 스킬).
 
 **Acceptance:** 승인 → 문서 링크 노출 → 클릭 시 승격된 문서가 열린다. 체인이 없어 승격이 스킵된 경우 링크가 안 뜨고 에러도 없다.

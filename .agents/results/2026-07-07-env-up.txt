@@ -1,0 +1,170 @@
+=== sangfor-os dev stack up attempt — 2026-07-07 09:55:14 KST ===
+branch: fix/color-gate-calibration
+
+--- scripts/dev-up.sh output ---
+[1;34m[dev-up][0m starting postgres (docker compose)…
+[1;34m[dev-up][0m postgres ready
+scripts/dev-up.sh  0.26s user 0.45s system 64% cpu 1.107 total
+
+--- port status after dev-up.sh ---
+postgres :5434:
+com.docke 82411 jmpark  157u  IPv6 0xb793095ce2e47a88      0t0  TCP *:5434 (LISTEN)
+api :3200:
+  not listening
+web :3101:
+  not listening
+
+--- api/web log files ---
+ls: /tmp/sangfor-api.log: No such file or directory
+ls: /tmp/sangfor-web.log: No such file or directory
+
+=== ROOT CAUSE ANALYSIS ===
+scripts/dev-up.sh line 44: 'kill_port "$API_PORT"' (and line 51 for WEB_PORT)
+kill_port() body (line 30):
+  kill_port() { local p="$1"; local pid; pid="$(lsof -tiTCP:"$p" -sTCP:LISTEN 2>/dev/null || true)"; [[ -n "$pid" ]] && { kill "$pid" 2>/dev/null || true; log "freed port $p (pid $pid)"; }; }
+
+Reproduction under set -euo pipefail (isolated):
+  isolated-script exit code: 1
+
+Explanation: when the target port has no listener, the [[ -n "$pid" ]] test
+in the && chain evaluates false, so the whole compound command (and thus the
+function/top-level call) returns exit status 1. Because scripts/dev-up.sh sets
+'set -euo pipefail' at the top and calls kill_port as a bare top-level statement
+(not inside an if/while condition), that nonzero status kills the entire script
+immediately — before api or web is ever started. This is why dev-up.sh's own run
+stopped right after '[dev-up] postgres ready' with exit code 1, and no
+/tmp/sangfor-api.log or /tmp/sangfor-web.log were ever created.
+
+=== dev-smoke.sh: NOT RUN ===
+Skipped per task scope — dev-up.sh did not bring up api/web, so there is nothing
+for dev-smoke.sh to smoke-test. Running it now would just report both endpoints down.
+
+=== final endpoint checks (informational, expected to fail) ===
+web :3101/ -> 000
+curl failed
+api :3200/api/health -> 
+
+=== FOLLOW-UP FIX — 2026-07-07 (kill_port set -e bug) ===
+
+--- fix diff (scripts/dev-up.sh, scripts/dev-down.sh) ---
+diff --git a/scripts/dev-down.sh b/scripts/dev-down.sh
+index be93bf6..fc5fb68 100755
+--- a/scripts/dev-down.sh
++++ b/scripts/dev-down.sh
+@@ -6,7 +6,7 @@ API_PORT="${API_PORT:-3200}"
+ WEB_PORT="${WEB_PORT:-3101}"
+ for p in "$API_PORT" "$WEB_PORT"; do
+   pid="$(lsof -tiTCP:"$p" -sTCP:LISTEN 2>/dev/null || true)"
+-  [[ -n "$pid" ]] && { kill "$pid" 2>/dev/null || true; echo "[dev-down] stopped :$p (pid $pid)"; }
++  if [[ -n "$pid" ]]; then kill "$pid" 2>/dev/null || true; echo "[dev-down] stopped :$p (pid $pid)"; fi
+ done
+ if [[ "${1:-}" == "--db" ]]; then
+   docker compose stop postgres >/dev/null 2>&1 && echo "[dev-down] postgres stopped (data kept; 'docker compose down -v' to wipe)"
+diff --git a/scripts/dev-up.sh b/scripts/dev-up.sh
+index bef6cd4..4f1dd62 100755
+--- a/scripts/dev-up.sh
++++ b/scripts/dev-up.sh
+@@ -27,7 +27,7 @@ START_DB=1
+ [[ "${1:-}" == "--no-db" ]] && START_DB=0
+ 
+ log()  { printf '\033[1;34m[dev-up]\033[0m %s\n' "$*"; }
+-kill_port() { local p="$1"; local pid; pid="$(lsof -tiTCP:"$p" -sTCP:LISTEN 2>/dev/null || true)"; [[ -n "$pid" ]] && { kill "$pid" 2>/dev/null || true; log "freed port $p (pid $pid)"; }; }
++kill_port() { local p="$1"; local pid; pid="$(lsof -tiTCP:"$p" -sTCP:LISTEN 2>/dev/null || true)"; if [[ -n "$pid" ]]; then kill "$pid" 2>/dev/null || true; log "freed port $p (pid $pid)"; fi; }
+ 
+ # 1) Postgres
+ if [[ "$START_DB" == 1 ]]; then
+@@ -42,7 +42,7 @@ fi
+ 
+ # 2) API (finance/CFO needs the dev bypass flag + dev env)
+ kill_port "$API_PORT"
+-log "starting api on :$API_PORT…"
++log "starting api on :${API_PORT}…"
+ DATABASE_URL="$DB_URL" API_PORT="$API_PORT" API_KEY="" AUTH_BYPASS_ENABLED=1 NODE_ENV=development \
+   CORS_ORIGIN="http://localhost:$WEB_PORT" \
+   nohup pnpm --filter @sangfor/api dev >/tmp/sangfor-api.log 2>&1 &
+
+Root cause 1 (as diagnosed): `[[ -n "$pid" ]] && { kill ...; log ...; }` as a bare
+top-level statement under `set -euo pipefail` returns exit 1 when the port has no
+listener (the `&&` short-circuits, and that nonzero status propagates out of the
+function and kills the whole script). Fixed by converting to `if ... ; then ... fi`,
+which preserves behavior (kill if pid found, silently pass otherwise) without ever
+producing a nonzero exit status of its own.
+
+grep -n '\[\[ -n' scripts/*.sh was run to check for the same accident pattern
+elsewhere. scripts/dev-down.sh:9 had the identical shape (`[[ -n "$pid" ]] && {...}`
+as a bare statement inside a `for` loop body, also under `set -euo pipefail`) — same
+bug, would silently skip/abort mid-loop when either port had no listener. Fixed with
+the same if/then/fi conversion. All other `[[ -n ... ]]` hits in scripts/*.sh
+(backup-db.sh, check-apm-readiness.sh, check-mail-oauth.sh, ops-apm-test-event.sh,
+restore-db.sh, run-all-checks.sh, route-smoke.sh, setup-github.sh) are already used
+as `if`/pattern conditions or are otherwise not bare top-level && chains, so left
+untouched (out of scope — no accident risk there for this run).
+
+Root cause 2 (found only after fixing #1, since the script never previously reached
+this line): scripts/dev-up.sh:45 had `log "starting api on :$API_PORT…"` — the
+unbraced `$API_PORT` immediately followed by the U+2026 ellipsis character. Under
+this shell's default locale (LANG=en_US.UTF-8) and `set -u`, bash's multibyte-aware
+identifier scan glues the ellipsis's UTF-8 bytes onto the variable name, so it reads
+the reference as the (unset) variable `API_PORT…` and aborts with "unbound variable"
+under `set -u` — killing the script immediately after the postgres step, before api
+or web ever started. Reproduced in isolation:
+  $ API_PORT=3200 bash -uc 'echo "x:$API_PORT…y"'
+  bash: API_PORT<0xe2><0x80><0xa6>: unbound variable
+Fixed by bracing the expansion: `${API_PORT}…` (cosmetic-only change to a log
+string; disambiguates the identifier boundary, no behavior change otherwise).
+Confirmed no other unbraced-var-adjacent-to-non-ASCII occurrences remain in
+scripts/dev-up.sh or scripts/dev-down.sh via
+  grep -nP '\$[A-Za-z_][A-Za-z0-9_]*[\x{2000}-\x{FFFF}]' scripts/dev-up.sh scripts/dev-down.sh
+(no matches).
+
+--- dev-up.sh success run (bash scripts/dev-up.sh) ---
+[dev-up] starting postgres (docker compose)…
+[dev-up] postgres ready
+[dev-up] starting api on :3200…
+[dev-up] starting web on :3101 (ulimit -n 4096, WATCHPACK_POLLING)…
+[dev-up] waiting for web to compile…
+[dev-up] ✅ web up at http://localhost:3101 (200 after ~10s)
+[dev-up] api log: /tmp/sangfor-api.log   web log: /tmp/sangfor-web.log
+[dev-up] stop with: scripts/dev-down.sh
+(real  0m8.981s wall)
+
+api log tail:
+🚀 AIOS API Server running on port 3200
+   tRPC: http://localhost:3200/trpc
+   Health: http://localhost:3200/health
+   Health (api): http://localhost:3200/api/health
+
+web log tail:
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3101
+✓ Ready in 498ms
+ GET /home 200 in 3.0s (next.js: 1980ms, application-code: 1051ms)
+
+--- scripts/dev-smoke.sh (bash scripts/dev-smoke.sh; echo exit=$?) ---
+── web (http://localhost:3101) ──
+  200  /home  ok
+  200  /deals  ok
+  200  /customers  ok
+  200  /projects  ok
+  200  /tasks  ok
+  200  /proposals  ok
+  200  /poc  ok
+  200  /cfo/dashboard  ok
+  200  /cfo/projects  ok
+  200  /cfo/invoices  ok
+── api (:3200, dev bypass) ──
+  200  /api/cfo/dashboard/kpi?year=2026&month=7
+  200  /api/cfo/dashboard/receivables
+✅ smoke passed
+exit=0
+
+--- final endpoint checks ---
+$ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3101/
+307
+$ curl -s http://localhost:3200/api/health
+{"status":"ok","version":"0.1.0","timestamp":"2026-07-07T01:00:02.999Z"}
+
+=== VERIFY: PASS ===
+web :3101 -> 307 (redirect to /home, matches allowed 200/307/302)
+api :3200/api/health -> 200 JSON
+smoke -> passed (exit 0)
