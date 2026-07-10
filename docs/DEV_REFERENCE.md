@@ -2,7 +2,7 @@
 
 > **목적**: 개발할 때마다 펴보는 단일 진입점. 시스템 지도 · 워크스트림 · 소스 인벤토리 · 명령어 · 데이터모델 · 알려진 이슈를 한 곳에.
 > **유지 규칙**: 작업이 끝날 때마다 이 문서를 갱신한다. 새 워크스트림은 §3에 한 섹션 추가, 명령은 §5, 파일은 §6, 모델 변경은 §7, 이슈는 §8. 맨 아래 **변경 이력** 한 줄 추가.
-> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-06-29
+> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-07-09
 
 ---
 
@@ -423,6 +423,9 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **`(portal)/loading.tsx` 스트리밍 컨텍스트의 redirect 강등**: 이 레이아웃의 스트리밍 컨텍스트 안에서는 page-level `redirect()`(Next.js 서버 함수)가 실제 307이 아니라 **meta-refresh로 강등**된다. 라우트 통합/리다이렉트가 필요하면 page 컴포넌트의 `redirect()` 대신 **`next.config.ts`의 `redirects()`**를 써서 실 307을 보장한다(`/opportunities`→`/deals`, `/mail-connection`→`/settings/mail-connection` 전환에서 발견·적용, PR #101).
 - **opencode 샌드박스는 `.env`를 못 읽는다**: opencode CLI로 위임한 작업이 DB 관련 코드를 만지면 샌드박스가 프로젝트 `.env`를 읽지 못해 `DATABASE_URL`이 비어 실패할 수 있다 — 호출 전에 `DATABASE_URL`을 환경변수로 선주입해야 한다.
 - **e2e는 이제 CI 차단 체크**: `playwright.config.ts`에 `webServer`가 추가돼 API(`tsx` 경유, dist ESM directory-import 버그로 dist 실행 불가)와 web(`next start`)을 스스로 기동한다. `PORT`/`API_PORT` 오버라이드로 로컬의 다른 인스턴스와 포트 충돌 없이 별도 포트에서 돌릴 수 있다(`BASE_URL`/`API_BASE_URL`이 그 포트를 따라간다). `continue-on-error`가 제거됐으므로 e2e 실패는 이제 실제로 머지를 막는다(PR #99).
+- **9router `cx/gpt-5.4-mini` 쿼터는 모델 단위 공유 한도**: 스크립트가 `OPENAI_API_KEY`/`OPENAI_BASE_URL`/`OPENAI_MODEL`을 셸에서 직접 override해도, 같은 모델을 부르는 다른 프로세스(예: main-fork 프로드)와 쿼터를 공유한다 — 429 발생 시 `curl :20128/v1/chat/completions`로 직접 재시도해 실제 리셋 카운트다운(수십 분 단위 rolling window)을 확인하고, 리셋될 때까지 해당 모델을 쓰는 배치를 잠깐 멈추는 게 낫다(무작정 재시도하면 fallback 결과만 반복 기록됨).
+- **DB 컬럼 케이싱 비일관**: 대부분 `@map`으로 snake_case(`engagement_id`)지만 `MailDerivedCandidate.metadata`처럼 일부 필드(예: `FinanceProject.projectId`류)는 예외적으로 camelCase로 매핑돼 있다. raw SQL(`psql -c`) 작성 전 `schema.prisma`에서 해당 필드의 `@map` 유무를 확인할 것 — 안 그러면 "column does not exist" 오탐이 반복된다.
+- **psql은 Prisma `DATABASE_URL`의 `?schema=` 쿼리파라미터를 거부**: `psql "$DATABASE_URL"`이 `invalid URI query parameter: "schema"`로 즉시 실패한다. `${DATABASE_URL%%\?*}`로 잘라내고 사용(`scripts/kpi-weekly.sh` 참고).
 
 ---
 
@@ -437,6 +440,10 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - [x] ~~CFO ledger 테마를 나머지 CFO 페이지로 확장~~ (2026-06-29, `08e7550`: crud-table·page-heading·loading/error·뱃지). 후속: projects/vat/subscriptions의 read-only 요약 테이블 내부(zinc) + 포털 전역까지.
 - [ ] 재무 Postgres RLS(비소유 롤+테넌트 컨텍스트) 세분 통제, pg_dump 전체 백업 cron.
 - [ ] workflow console(3500) 컨테이너화(현 `file:` 의존성으로 보류).
+- [x] ~~기존 아티팩트명 후보 소급 정리~~ (2026-07-10, `packages/business/scripts/suppress-artifact-candidates.ts`): 원 95건 중 90건은 §9-2 재검증 배치가 자체적으로 `reject`로 이미 전환, 남은 proposed 2건("Customer: Example" ×2)은 스크립트로 `knowledge_only` 전환 완료.
+- [ ] **아티팩트명 Customer 레코드 4건 정리**(위 조사 중 발견): 2026-07-04 과거 bulk convert가 "Customer: Mail"×2/"Customer: Mails"/"Customer: <1 min"을 실제 `customers` 테이블 레코드로 생성(`cmr5u0aga000o9kp87frw0akf`/`cmr5u0aiq004c9kp8r6jgiisq`/`cmr5u0apm00g49kp8u85wbx5x`/`cmr5u0apv00gk9kp8vki04vn6`). FK 참조 전수 확인(contacts/customer_partner_links/work_tasks/poc_projects/opportunities/generated_documents/customer_assets/renewal_opportunities/delivery_projects/meeting_notes/support_cases) 결과 전부 0건 — 자기 생성 감사로그(`customer_activity_logs` 4건)만 참조. 실제 비즈니스 참조 없어 삭제 안전하나, 엔티티 삭제는 되돌리기 어려워 사용자 승인 후 진행 권고.
+- [ ] **FinanceProject "인카금융그룹"/"게임조선 HCI Renewal" 매핑 확인**(2026-07-08 M1-3에서 보류): 후보 Engagement가 모호(전자는 Incar-aSV vs 인카금융서비스, 후자는 조선일로JNS 계열 여부 불확실)해 오매핑 방지 차원에서 null로 확정. 회사 관계 확인 후 `packages/db/scripts/fp-engagement-map.json` 갱신 + `APPLY=1`로 재실행 필요.
+- [ ] **재검증 데일리 배치·KPI 주간 스케줄 launchd 등록 승인 대기**(2026-07-08 M1-5): `.agents/launchd/com.jmpark.sangfor.{revalidate-batch,kpi-weekly}.plist` 준비 완료, 미등록. 승인 시 `.agents/results/2026-07-08-m1-5-revalidate-batch.md`의 등록 명령 참고.
 
 ---
 
@@ -466,4 +473,6 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **2026-07-07**: **게이트 정직성 캘리브레이션**(`color-gate-llm.ts` 프롬프트만) — 원인: `gray`/`orange`가 정직한 "확인 필요"를 미완결로 감점 → 정직성과 통과가 충돌. 수정: 기준을 "출판본"→"사람 검토로 넘길 AI 초안"으로 재프레이밍 + 정직성 규칙(컨텍스트에 없는 값의 명시적 "확인 필요"는 감점 아님; 환각·있는데 회피·논리모순·알맹이부재만 감점). 결과: 동일 인카 본문 재판정 0→5렌즈 PASS(격리 A/B), full 재실행 3/3 통과·승격(`generated_documents` 7→10, status=approved), 껍데기 제안서는 여전히 5렌즈 FAIL(anti-gaming 생존), 도메인-AI 98테스트 무회귀. 임계값·코드 로직 불변(사용자 승인 Approach A). 브랜치 `fix/color-gate-calibration`.
 - **2026-07-07**: **WP-A 잔여 완결**(마스터플랜 01) — A-2 `proposal-promote.test.ts`(CI_INTEGRATION 통합 3케이스, 승격 문서/버전/템플릿 upsert/null-체인, IT_PROMOTE_ 태그 정리) 통과. A-3 프로젝트 허브 `LaneDecisionControls`에 승인→승격문서 brass 링크(`/proposals/[id]`, documentId 있을 때만). 같은 브랜치. 타입체크 business·web 모두 클린(A-2 test + A-3 컴포넌트 포함), 변경 파일 2개 lint 클린. **미완**: A-3 브라우저 실드라이브(dev 서버 필요), A-4 PR 출하(push 승인 대기).
   - ⚠️ **로컬 함정 2종(게이트 아님, CI 무관)**: ① 오래된 `apps/web/.next`(gitignore) 생성 타입이 삭제된 페이지(validation/blocks/finance/portal 등)를 참조해 웹 타입체크가 RED로 보임 → `rm -rf apps/web/.next`로 해소(CI는 새로 생성). ② `pnpm install`이 build-script 승인대기(esbuild/sharp)로 **Prisma 클라이언트 생성을 스킵** → `@prisma/client`에 PrismaClient/Prisma export 없음 에러 → `cd packages/db && npx prisma generate`로 복구.
+- **2026-07-08/09**: **로드맵 08 §9 인수인계 + M1-W1 완료** — ①이중게이트 12건 배치 승인·전환(오퍼튜니티 12건 생성, `.agents/results/2026-07-08-calib-ops.md`) ②M1-2 main-fork·dev `.env` OPENAI zen/9router 이중정의 정리 + main-fork 재빌드·재기동 ③M1-3 FinanceProject 미매핑 10건 human 매핑(3건 확정연결+7건 null확정, 연결률 8.3%→11.8%·실데이터 상한 명시, `packages/db/scripts/backfill-finance-engagement.ts`에 `--mapping-file` 모드 추가) ④M1-4 상류 아티팩트 필터 TDD(`isArtifactEntityName`, `classify-rules.ts`/`classify-ai.ts`/`candidates-generate.ts`, 기존 정크 95건 발견·백로그 등재) ⑤M1-5 재검증 배치 스크립트 정식화(`packages/business/scripts/revalidate-batch.ts`, cwd 무관하게 고치는 버그 1건 발견·수정) ⑥M1-6 KPI 주간 SQL(`scripts/kpi-weekly.sql/.sh`) 첫 기준선 기록. 전체 품질 게이트(lint/typecheck/test/build) green. §9-2(폴백 529건 재검증)와 M1-2 라이브 확인은 9router `cx/gpt-5.4-mini` 쿼터 429로 세션 내 미완 — 리셋 후 재개 필요(§8 gotcha 참고). launchd 스케줄 등록은 사용자 승인 대기.
+- **2026-07-10**: §9-2·§9-3·백로그 마무리. `cx/gpt-5.4-mini` 쿼터가 2일째 미회복(9router 프로세스 자체는 정상, 좀비 워크트리 dev서버 10개 종료해도 무관 — 요청마다 리셋되는 패턴으로 추정) → 사용자 승인 하에 `kr/deepseek-3.2`로 임시 대체. 대체 중 마크다운 코드펜스 JSON 파싱 실패를 발견해 `classify-ai.ts`에 `stripJsonCodeFence()` 근본 수정(모델 무관 방어). 4회 재시도 루프로 폴백 529/529 전량 해소(단, 대체 모델 confidence 캘리브레이션이 원 모델과 달라 이중게이트 통과율 낮음 — cx 회복 후 재검증 권고, `.agents/results/2026-07-08-calib-ops.md` §2). Final Wave 판정 완료, boulder `classifier-calibration-2026-07-07` completed, wp-calib 워크트리 제거(fix는 dev-clean에 이미 반영 확인 후 제거). 백로그 아티팩트 정크 정리: 95건 중 90건은 재검증 배치가 자체 reject, 남은 2건 스크립트로 knowledge_only 전환. 조사 중 2026-07-04 과거 bulk convert가 만든 아티팩트명 Customer 레코드 4건 발견(FK 참조 전수 확인 결과 안전 — 삭제는 사용자 승인 필요, 신규 백로그 항목).
 - **2026-07-07**: **v1 완성 웨이브 — WP-A~E + e2e 6PR(#96~#101) 전부 main 머지 완료**(#101은 2026-07-07T10:44:29Z 머지, `22de4b5`), 상세는 `docs/master-plan/01-development-plan.md` 및 `.agents/results/2026-07-07-*`.
