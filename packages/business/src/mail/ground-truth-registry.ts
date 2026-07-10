@@ -123,15 +123,15 @@ export const GROUND_TRUTH_DOMAINS: readonly GroundTruthEntry[] = [
   { domain: "hometax.go.kr", name: "국세청 홈택스", classification: "system", evidence: "known: 정부 시스템" },
   { domain: "crew.you", name: "Autopilot 마케팅", classification: "system", evidence: "known: 마케팅 노이즈(기존 필터 대상)" },
 
-  { domain: "poscodx.com", name: "포스코DX", classification: "needs_human", evidence: "SI사(파트너)이자 최종수요(고객) 양쪽 가능, 4건뿐" },
-  { domain: "kt.com", name: "KT", classification: "needs_human", evidence: "inbound 2건뿐 — 고객 vs 마케팅 구분 불가" },
-  { domain: "aveva.com", name: "AVEVA", classification: "needs_human", evidence: "글로벌 산업SW — vendor 규칙 vs 19건 실대화(공급 파트너?) 상충" },
-  { domain: "clintl.kr", name: "씨엘인터내셔널(추정)", classification: "needs_human", evidence: "1건, 정보 부족" },
-  { domain: "innern.net", name: "이너엔(추정)", classification: "needs_human", evidence: "outbound 1건뿐" },
-  { domain: "lan.kr", name: "(불명)", classification: "needs_human", evidence: "outbound 1건뿐" },
-  { domain: "bnfi.co.kr", name: "(불명)", classification: "needs_human", evidence: "outbound 1건뿐" },
-  { domain: "ire.co.kr", name: "아이알이(추정)", classification: "needs_human", evidence: "outbound 1건뿐" },
-  { domain: "efrikia.com", name: "에프리키아(추정)", classification: "needs_human", evidence: "outbound 2건뿐" },
+  { domain: "poscodx.com", name: "포스코DX", classification: "customer", evidence: "user-confirmed 2026-07-11" },
+  { domain: "kt.com", name: "KT", classification: "customer", evidence: "user-confirmed 2026-07-11" },
+  { domain: "aveva.com", name: "AVEVA", classification: "partner", evidence: "user-confirmed 2026-07-11 (공급 파트너)" },
+  { domain: "clintl.kr", name: "씨엘인터내셔널", classification: "partner", evidence: "user-confirmed 2026-07-11" },
+  { domain: "innern.net", name: "이너엔", classification: "partner", evidence: "user-confirmed 2026-07-11" },
+  { domain: "lan.kr", name: "랜코리아", classification: "partner", evidence: "user-confirmed 2026-07-11" },
+  { domain: "bnfi.co.kr", name: "비엔에프아이", classification: "partner", evidence: "user-confirmed 2026-07-11" },
+  { domain: "ire.co.kr", name: "아이알이", classification: "partner", evidence: "user-confirmed 2026-07-11" },
+  { domain: "efrikia.com", name: "에프리키아", classification: "partner", evidence: "user-confirmed 2026-07-11" },
 ] as const;
 
 export function groundTruthByClass(cls: GroundTruthClass): GroundTruthEntry[] {
