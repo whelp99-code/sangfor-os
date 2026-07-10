@@ -50,6 +50,8 @@ export const ACTION_TIER_REGISTRY: Record<string, "T0" | "T1"> = {
   candidate_excluded: "T0",
   candidate_rejected: "T0",
   candidate_approved_converted: "T0",
+  // 내부 큐 상태 전이, 외부 발신 없음, 24시간 내 사람이 되돌리기 가능 → T0 (autopilot 설계)
+  autopilot_approve: "T0",
 };
 
 /**
