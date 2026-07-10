@@ -1463,6 +1463,8 @@ enum DecisionActor {
   engineer
   commercial_approval
   deal_registration
+  human
+  ai
 
   @@map("decision_actor")
 }
