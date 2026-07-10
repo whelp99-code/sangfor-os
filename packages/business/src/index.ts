@@ -47,6 +47,7 @@ export * from "./project-decision";
 export * from "./case-ref";
 export * from "./action-validation";
 export * from "./mail-candidates-batch";
+export * from "./autopilot";
 export * from "./mail-candidates-cleanup";
 export * from "./module-validation";
 export * from "./mail-insight-threads-generate";
