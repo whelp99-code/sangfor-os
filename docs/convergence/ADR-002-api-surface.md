@@ -1,6 +1,6 @@
 # ADR-002 — API Surface Unification (web = BFF)
 
-- **Status:** Proposed (사용자 승인 대기 — 승인 시 Accepted로 전환, 03 문서 Task 0 Step 4)
+- **Status:** Accepted (2026-07-10 사용자 승인)
 - **Date:** 2026-07-10
 - **Branch:** `dev-clean` (HEAD `738f525`, origin/main 동기)
 - **Deciders:** M1 W2~W4 execution (roadmap 08 §3 Task 0)

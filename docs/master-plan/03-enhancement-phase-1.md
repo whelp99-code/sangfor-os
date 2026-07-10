@@ -17,7 +17,7 @@
 | Phase 2 dedup | `docs/superpowers/plans/2026-07-03-phase-2-dedup.md` | ✅ **완료** (PR #85 머지: 834b840·c55296a·2a5b6df·afadf92 등 전 태스크). 잔여 미세 갭(죽은 헬퍼의 스테일 berlo 라벨) 2026-07-10 제거 |
 | Phase 3 레이어링 | `docs/superpowers/plans/2026-07-03-phase-3-layering.md` | ✅ **완료** (f3c7c70~8c42bb0, 11라우트). 3-I `dashboard/[role]`의 prisma 12건 잔존 갭은 2026-07-10 `role-dashboard-data.ts` 추출로 완결(라우트 prisma 0, 응답 9종 바이트 동일 검증) |
 | Phase 4 God-file 분해 | `docs/superpowers/plans/2026-07-03-phase-4-god-file-decomposition.md` | ✅ **완료** (b955a19+627a072, 배럴 20줄 + `mail/` 모듈, golden 유지) |
-| 방향 상충 | Phase 6 (tRPC 제거 vs 도입), Phase 7 내용 | **해소 — ADR-002 작성(2026-07-10, `docs/convergence/ADR-002-api-surface.md`), 사용자 승인 대기(Proposed)** |
+| 방향 상충 | Phase 6 (tRPC 제거 vs 도입), Phase 7 내용 | **해소 — ADR-002 Accepted (2026-07-10 사용자 승인)** |
 
 착수 시 첫 행동: `git log --oneline -20`과 `gh pr list --state merged --limit 10`으로 위 상태가 여전히 사실인지 확인하고, 이 표를 갱신한다. (2026-07-10: 정확히 이 절차로 2026-07-04 기준선이 낡았음을 발견·갱신함 — 증거 `.agents/results/2026-07-10-w2-w4-gate.md`)
 
@@ -32,7 +32,7 @@
 - [x] **Step 1: 실호출자 조사** (2026-07-10 실측) — web tRPC = hello 스텁 6파일·`.tsx` 소비자 0·저장소 전체 tRPC 클라이언트 import 0·raw HTTP `/trpc` 소스 호출 0. web REST 97 route. apps/api tRPC(7+16 라우터)는 `/trpc` 마운트만 있고 in-repo 소비자 0(web은 REST 프록시만 사용).
 - [x] **Step 2: ADR 작성** — 권고 기본값대로 마스터 방향 채택(`docs/convergence/ADR-002-api-surface.md` D1~D3). tRPC 실사용이 0으로 실측돼 반대 결론의 여지 없음.
 - [x] **Step 3: Phase 7 범위 확정** — ADR-002 D4: 인덱스+FK 승격만. 단 실측 결과 `segment`/`riskScore`는 2026-07-03에 **이미 추가돼 있어** 기정사실로 수용(롤백은 파괴적), 추가 예측 컬럼만 07 전 금지로 조정.
-- [ ] **Step 4: 사용자 승인** — ADR 초안 제시 완료, 승인 대기(Status: Proposed). 승인 시 Accepted로. **승인 전 Phase 6 계열 작업 착수 금지** (Phase 2~4는 이 결정과 무관하므로 병행 가능).
+- [x] **Step 4: 사용자 승인** — 2026-07-10 승인, Status: Accepted. Phase 6 계열 실행은 M4에서.
 
 **Acceptance:** ADR-002 Accepted + `phase-6-api-unification.md` 상단에 "ADR-002로 대체/수정됨" 배너 추가.
 
