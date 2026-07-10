@@ -38,8 +38,21 @@
  *   DATABASE_URL=… APPLY=1 pnpm --filter @sangfor/db backfill:finance-engagement
  */
 import { prisma } from "../src/index";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 
 const APPLY = process.env.APPLY === "1";
+
+const MAPPING_FILE_PATH: string | null = (() => {
+  const idx = process.argv.indexOf("--mapping-file");
+  if (idx === -1) return null;
+  const val = process.argv[idx + 1];
+  if (!val || val.startsWith("-")) {
+    console.error("--mapping-file requires a file path argument");
+    process.exit(1);
+  }
+  return val;
+})();
 
 // ---------------------------------------------------------------------------
 // Counterparty-name normaliser
@@ -69,7 +82,7 @@ type TableDef = {
 
 
 /** One entry in the FP→Engagement mapping table. */
-type FpMappingStatus = "matched" | "unmatched" | "ambiguous";
+type FpMappingStatus = "matched" | "unmatched" | "ambiguous" | "confirmed-null";
 
 interface FpMappingEntry {
   fpId: string;
@@ -195,11 +208,112 @@ async function buildFpEngagementMap(): Promise<Map<string, FpMappingEntry>> {
   return map;
 }
 
+// ---------------------------------------------------------------------------
+// Mapping-file helpers
+// ---------------------------------------------------------------------------
+
+async function readAndValidateMappingFile(
+  filePath: string,
+): Promise<Map<string, string | null>> {
+  const resolvedPath = resolve(process.env.INIT_CWD ?? process.cwd(), filePath);
+  const content = readFileSync(resolvedPath, "utf-8");
+  const raw: Record<string, string | null> = JSON.parse(content);
+  const mapping = new Map(Object.entries(raw));
+
+  if (mapping.size === 0) {
+    console.warn("  ⚠ Mapping file is empty — no entries to apply");
+    return mapping;
+  }
+
+  const [financeProjects, allEngagements] = await Promise.all([
+    prisma.financeProject.findMany({ select: { name: true } }),
+    prisma.engagement.findMany({ select: { id: true } }),
+  ]);
+
+  const validFpNames = new Set(financeProjects.map((fp) => fp.name));
+  const validEngIds = new Set(allEngagements.map((e) => e.id));
+
+  const errors: string[] = [];
+  for (const [fpName, engId] of mapping) {
+    if (!validFpNames.has(fpName)) {
+      errors.push(`  ✗ Unknown FinanceProject name: "${fpName}"`);
+    }
+    if (engId !== null && !validEngIds.has(engId)) {
+      errors.push(`  ✗ Unknown Engagement id: "${engId}" (for FP "${fpName}")`);
+    }
+  }
+
+  if (errors.length > 0) {
+    console.log("");
+    console.log("── Mapping file validation errors ──────────────────────");
+    for (const err of errors) console.log(err);
+    console.log("");
+    throw new Error("Mapping file validation failed — aborting");
+  }
+
+  return mapping;
+}
+
+async function applyManualMappings(
+  fpMap: Map<string, FpMappingEntry>,
+  manualMappings: Map<string, string | null>,
+): Promise<void> {
+  const fpByName = new Map<string, FpMappingEntry>();
+  for (const entry of fpMap.values()) {
+    fpByName.set(entry.fpName, entry);
+  }
+
+  const engIdsToResolve = new Set<string>();
+  for (const engId of manualMappings.values()) {
+    if (engId !== null) engIdsToResolve.add(engId);
+  }
+
+  const engNameById = new Map<string, string>();
+  if (engIdsToResolve.size > 0) {
+    const engagements = await prisma.engagement.findMany({
+      where: { id: { in: [...engIdsToResolve] } },
+      select: { id: true, name: true },
+    });
+    for (const eng of engagements) {
+      engNameById.set(eng.id, eng.name);
+    }
+  }
+
+  for (const [fpName, engId] of manualMappings) {
+    const entry = fpByName.get(fpName);
+    if (!entry) continue;
+
+    if (entry.status === "matched" || entry.status === "ambiguous") {
+      console.log(
+        `  [note] "${fpName}" already ${entry.status} by automated matcher — mapping-file entry skipped`,
+      );
+      continue;
+    }
+
+    if (engId === null) {
+      fpMap.set(entry.fpId, {
+        ...entry,
+        engagementId: null,
+        engagementName: null,
+        status: "confirmed-null",
+      });
+    } else {
+      fpMap.set(entry.fpId, {
+        ...entry,
+        engagementId: engId,
+        engagementName: engNameById.get(engId) ?? null,
+        status: "matched",
+      });
+    }
+  }
+}
+
 function printFpMappingTable(fpMap: Map<string, FpMappingEntry>): void {
   console.log("── FinanceProject → Engagement mapping ────────────────────");
   let matched = 0;
   let unmatched = 0;
   let ambiguous = 0;
+  let confirmedNull = 0;
 
   for (const entry of fpMap.values()) {
     switch (entry.status) {
@@ -221,11 +335,21 @@ function printFpMappingTable(fpMap: Map<string, FpMappingEntry>): void {
         );
         ambiguous++;
         break;
+      case "confirmed-null":
+        console.log(
+          `  - "${entry.fpName}"  →  CONFIRMED NULL  [client=${entry.fpClient ?? "-"}]`,
+        );
+        confirmedNull++;
+        break;
     }
   }
 
   console.log("");
-  console.log(`  ${matched} matched, ${unmatched} unmatched, ${ambiguous} ambiguous`);
+  if (confirmedNull > 0) {
+    console.log(`  ${matched} matched, ${unmatched} unmatched, ${ambiguous} ambiguous, ${confirmedNull} confirmed-null`);
+  } else {
+    console.log(`  ${matched} matched, ${unmatched} unmatched, ${ambiguous} ambiguous`);
+  }
   console.log("");
 }
 
@@ -377,6 +501,12 @@ async function main() {
   console.log(`mode: ${APPLY ? "APPLY (writing)" : "DRY-RUN (no writes)"}`);
   console.log("");
 
+  // ── Parse and validate mapping file ──────────────────────────────────
+  let manualMappings: Map<string, string | null> | null = null;
+  if (MAPPING_FILE_PATH) {
+    manualMappings = await readAndValidateMappingFile(MAPPING_FILE_PATH);
+  }
+
   // ── Table definitions (unchanged) ─────────────────────────────────────
   const tables: TableDef[] = [
     {
@@ -485,6 +615,11 @@ async function main() {
 
   console.log("══ PASS 1: FinanceProject bridge ════════════════════════════");
   const fpMap = await buildFpEngagementMap();
+
+  if (manualMappings && manualMappings.size > 0) {
+    await applyManualMappings(fpMap, manualMappings);
+  }
+
   printFpMappingTable(fpMap);
 
   const matchedFpEntries = [...fpMap.values()].filter(
