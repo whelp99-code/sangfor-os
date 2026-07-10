@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.jmpark.sangfor.mail-classify</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <string>curl -sS -f --max-time 180 -X POST http://localhost:3101/api/mail-candidates -H 'content-type: application/json' -d '{"limit":50}'</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Minute</key>
+    <integer>5</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/jmpark/Playground/sangfor-os/.agents/results/kpi/mail-classify.launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/jmpark/Playground/sangfor-os/.agents/results/kpi/mail-classify.launchd.err.log</string>
+</dict>
+</plist>
