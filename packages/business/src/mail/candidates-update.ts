@@ -5,6 +5,7 @@ import { createCustomer, createPartner } from "../crm/customer-partner";
 import { createImprovementCandidateFromError } from "../improvement-loop";
 import { resolveDefaultProjectId } from "../default-project";
 import { upsertPolicyMemory } from "../mail-policy-memory";
+import { upsertDomainMemory } from "../domain-ai/domain-memory";
 import { createOpportunity } from "../crm/opportunity-center";
 import { createPocProject } from "../poc-center";
 import { createWorkTask, linkTaskToEntity } from "../orchestration/task-center";
@@ -103,7 +104,45 @@ export async function rejectMailDerivedCandidate(
     suggestedModule: "mail-policy-memory",
   });
   await maybeProposePolicyMemoryFromRejection(updated, parsed.reasonCode);
+  await recordRejectionAsNegativeMemory(updated, parsed.reasonCode);
   return updated;
+}
+
+/**
+ * A-8 대칭 학습: 어떤 reasonCode든 거부는 rejected-outcome DomainMemory 로 남는다 —
+ * scoreDomainMemory 의 음수 가중 + A-3 same-key 억제가 이 행을 negative 신호로 소비한다.
+ * (기존 maybeProposePolicyMemoryFromRejection 은 3개 코드에만 교정 정책을 제안할 뿐,
+ * 그 외 거부는 학습 신호가 0이었다.)
+ */
+async function recordRejectionAsNegativeMemory(
+  candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>,
+  reasonCode: string,
+) {
+  const metadata = asRecord(candidate.metadata);
+  const senderDomain =
+    domainFromEmail(String(metadata.email ?? metadata.sourceSender ?? candidate.sourceSender ?? "")) ??
+    asStringArray(metadata.participantDomains)[0];
+  const domain = gtmDomainForCandidate(candidate.candidateType);
+  try {
+    await upsertDomainMemory({
+      domain,
+      memoryType: "case",
+      key: `${caseRefFor("mailCandidate", candidate.id)}:${domain}`,
+      label: `rejected: ${candidate.title.slice(0, 80)} (${reasonCode})`,
+      tags: [
+        `domain:${domain}`,
+        `entity:${candidate.candidateType}`,
+        "intent:rejected",
+        ...(senderDomain ? [`sender:${senderDomain}`] : []),
+      ],
+      valueJson: { sourceCandidateId: candidate.id, reasonCode },
+      outcome: "rejected",
+      source: "human",
+      confidence: 80,
+    });
+  } catch (error) {
+    console.error("[recordRejectionAsNegativeMemory] failed (swallowed):", error);
+  }
 }
 
 async function maybeProposePolicyMemoryFromRejection(
