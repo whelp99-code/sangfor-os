@@ -14,6 +14,10 @@
 - env 이중정의 구조적 위험(Next dotenv가 선행 정의를 채택해 프로드가 한도소진된 zen을 볼 위험) 제거 확인(단일 활성 정의).
 - main-fork 재기동 성공, 헬스체크 통과.
 
-**미검증**: `/sales` 커맨드바에서 `cx/gpt-5.4-mini`(main-fork persisted 기본값)로 실제 왕복 응답을 받는 것 자체. `cx/gpt-5.4-mini` 쿼터가 이 세션 전체(약 2일)에 걸쳐 지속적으로 429 — 단순 시간 경과로 회복되지 않아(§9-2 조사 참고: 다른 프로세스가 계속 소비 중이거나 더 긴 주기의 한도로 추정), 원 모델로의 실왕복 확인은 외부 요인으로 이번 세션 내 불가능. main-fork를 재빌드해 다른 모델로 임시 전환·검증·재전환하는 방법도 검토했으나, 빌드 1회에 수 분이 걸려(2회 필요) 비용 대비 가치가 낮다고 판단해 보류.
+## 후속 (2026-07-10) — 모델을 Free-Tier로 전환 + 라이브 재확인
 
-**결론**: env 정리·재기동이라는 M1-2의 실질 목표(구조적 위험 제거)는 달성됨. 순수 "cx 모델이 지금 응답하는가"는 인프라 문제가 아니라 외부 쿼터 문제 — cx 쿼터가 자연 회복되면 `/sales`에서 명령 1회로 재확인 권고(후속 backlog).
+`cx/gpt-5.4-mini` 쿼터가 끝내 회복되지 않아, 사용자 지시로 두 `.env`의 `OPENAI_MODEL`을 9router의 `Free-Tier`(owned_by=combo, 내부적으로 `gpt-oss:120b` 라우팅)로 전환(`.env.bak-0710` 백업 후). main-fork `restart`(재빌드 불필요 — 서버사이드 env는 런타임에 `process.env`로 읽혀 빌드 산출물에 안 박힘) → 헬스체크 통과(web 307, api 200).
+
+**라이브 커맨드바 왕복 시도**: `/api/auth/login` → 세션 토큰 획득 → `/api/agent/run` 호출 → `agent_run_failed: TypeError: fetch failed`. 서버 로그로 원인 특정: 9router/LLM 호출이 아니라 **`runMcpAgent`가 MCP 브릿지(:3600)를 fetch하는 단계**에서 실패 — 이번 세션에 MCP 서비스 스택(`make up`)을 띄운 적이 없어 발생한 별개의 사전 조건 미충족이지 모델 전환과 무관.
+
+**최종 결론**: 9router 자체(`curl :20128/v1/chat/completions` 직접 호출, Free-Tier 모델) 정상 200 확인 — LLM 경로는 완전히 정상. 커맨드바 E2E는 MCP 브릿지 미기동이라는 별도 이슈로 막혀 있어, MCP 서비스(`make up`)를 띄운 후 재확인 필요(신규 backlog).
