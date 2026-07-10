@@ -160,7 +160,7 @@ export async function listOpportunities(
   const db = deps.prisma ?? (realPrisma as unknown as OpportunityCenterPrisma);
   const projectId = await resolveProjectId(projectSlug, db);
   return db.opportunity.findMany({
-    where: { projectId },
+    where: { projectId, archivedAt: null },
     orderBy: { updatedAt: "desc" },
     include: {
       customer: true,
@@ -271,6 +271,23 @@ export async function updateOpportunity(
       outcome: "approved",
     });
 
+    // If non-stage fields were also edited in this same call, capture them
+    // separately so they don't vanish from the decision spine.
+    const nonStageFields = Object.fromEntries(
+      Object.entries(data).filter(([k]) => k !== "stage"),
+    );
+    if (Object.keys(nonStageFields).length > 0) {
+      await recordDecision({
+        projectId: existing.projectId,
+        domain: "sales",
+        actor: "human",
+        actionType: "entity_edit",
+        caseRef: caseRefFor("opportunity", id),
+        outcome: "corrected",
+        humanEdit: nonStageFields,
+      });
+    }
+
     return updated;
   }
 
@@ -374,8 +391,26 @@ export async function removeOpportunityLink(linkId: string) {
   return realPrisma.opportunityLink.delete({ where: { id: linkId } });
 }
 
-export async function archiveOpportunity(id: string) {
-  return realPrisma.opportunity.delete({ where: { id } });
+export async function archiveOpportunity(
+  id: string,
+  deps: OpportunityCenterDeps = {},
+) {
+  const db = deps.prisma ?? (realPrisma as unknown as OpportunityCenterPrisma);
+  const existing = await db.opportunity.findUniqueOrThrow({ where: { id } });
+  const updated = await db.opportunity.update({
+    where: { id },
+    data: { archivedAt: new Date() },
+  });
+  // Best-effort decision spine capture — outside txn, never throws.
+  await recordDecision({
+    projectId: existing.projectId,
+    domain: "sales",
+    actor: "human",
+    actionType: "entity_archive",
+    caseRef: caseRefFor("opportunity", id),
+    outcome: "approved",
+  });
+  return updated;
 }
 
 export type EnrichedOpportunityLink = {

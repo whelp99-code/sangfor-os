@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import { loadLlmConfigFromDb } from "../llm-settings";
 import { getOpenAiApiKey } from "../openai-config";
+import { recordDecision } from "../governance/ai-decision";
+import { caseRefFor } from "../case-ref";
 
 export { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey };
 
@@ -202,6 +204,12 @@ export async function saveDocumentVersion(
   documentId: string,
   bodyMarkdown: string,
 ) {
+  // Resolve projectId before the retry loop (best-effort read via template FK).
+  const doc = await realPrisma.generatedDocument.findUniqueOrThrow({
+    where: { id: documentId },
+    include: { template: { select: { projectId: true } } },
+  });
+
   // Concurrent saves both computing `latest + 1` would collide on the
   // DocumentVersion @@unique([generatedDocumentId, version]). Compute the next
   // version and write the new row inside a single transaction, and retry when a
@@ -231,6 +239,19 @@ export async function saveDocumentVersion(
           },
         });
       });
+
+      // S1: capture the human edit onto the decision spine (best-effort,
+      // outside txn, never throws).
+      await recordDecision({
+        projectId: doc.template.projectId,
+        domain: "sales",
+        actor: "human",
+        actionType: "entity_edit",
+        caseRef: caseRefFor("proposal", documentId),
+        outcome: "corrected",
+        humanEdit: { bodyMarkdown },
+      });
+
       return getGeneratedDocumentDetail(documentId);
     } catch (error) {
       // Version number was taken by a concurrent writer — retry with a fresh read.

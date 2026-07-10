@@ -11,7 +11,7 @@ import { isActiveOpportunity, normalizeOpportunityStage } from "./crm/opportunit
 
 async function salesData(projectId: string) {
   const [opportunities, pendingApprovals, proposals] = await Promise.all([
-    prisma.opportunity.findMany({ where: { projectId }, include: { customer: true } }),
+    prisma.opportunity.findMany({ where: { projectId, archivedAt: null }, include: { customer: true } }),
     prisma.approvalRequest.findMany({ where: { status: "ready_for_human_approval" } }),
     prisma.generatedDocument.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
   ]);
@@ -47,7 +47,7 @@ async function supportData(_projectId: string) {
 }
 
 async function executiveData(projectId: string) {
-  const opportunities = await prisma.opportunity.findMany({ where: { projectId }, include: { customer: true } });
+  const opportunities = await prisma.opportunity.findMany({ where: { projectId, archivedAt: null }, include: { customer: true } });
   const approvals = await prisma.approvalRequest.findMany();
   const pocProjects = await prisma.pocProject.findMany({ where: { projectId } });
   const deliveryProjects = await prisma.engagement.findMany({ where: { projectId } });

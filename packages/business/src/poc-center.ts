@@ -2,6 +2,8 @@ import { prisma as realPrisma, Prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { logStateTransition } from "./governance/audit";
+import { recordDecision } from "./governance/ai-decision";
+import { caseRefFor } from "./case-ref";
 
 /** Single source of truth for getPocDetail's include shape (used both at the
  * call site and to derive its precise return type below). */
@@ -247,7 +249,18 @@ export async function updatePocProject(
   if (parsed.scheduleAt !== undefined) {
     data.scheduleAt = parsed.scheduleAt ? new Date(parsed.scheduleAt) : null;
   }
-  return realPrisma.pocProject.update({ where: { id }, data });
+  const updated = await realPrisma.pocProject.update({ where: { id }, data });
+  // Best-effort decision spine capture — outside txn, never throws.
+  await recordDecision({
+    projectId: updated.projectId,
+    domain: "sales",
+    actor: "human",
+    actionType: "entity_edit",
+    caseRef: caseRefFor("poc", id),
+    outcome: "corrected",
+    humanEdit: data,
+  });
+  return updated;
 }
 
 export async function addPocRequirement(
