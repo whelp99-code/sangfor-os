@@ -24,6 +24,13 @@ ls -lt ~/Backups/sangfor-os/sangfor_os-*.sql.gz | head -5
 bash scripts/db-backup-local.sh
 ```
 
+수동/정기 어느 쪽이든 **덤프 직후 크기 검증**까지가 백업이다 (100KB 미만이면 실패로 간주):
+
+```bash
+F=$(ls -t ~/Backups/sangfor-os/sangfor_os-*.sql.gz | head -1)
+test "$(stat -f%z "$F")" -gt 100000 && echo "OK: $F" || echo "FAIL: $F is too small — check backup.log"
+```
+
 ### 1. 원본 카운트 캡처
 
 ```bash
