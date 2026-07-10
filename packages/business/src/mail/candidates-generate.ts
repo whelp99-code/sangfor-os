@@ -26,11 +26,13 @@ import {
   isProjectCandidateType,
   isSystemSenderDomain,
   matchedPolicyMemories,
+  gtmDomainForCandidate,
   toInputJson,
 } from "./classify-rules";
 import { classifyMailInsightThreadHybrid, revalidateMailDerivedCandidate } from "./classify-ai";
 import { listMailDerivedCandidates } from "./candidates-update";
-import { recordPolicyDecision } from "./policy-decision-log";
+import { recordDecision } from "../governance/ai-decision";
+import { caseRefFor } from "../case-ref";
 
 const generateMailCandidatesSchema = z.object({
   projectSlug: z.string().default("demo-project"),
@@ -158,12 +160,15 @@ async function suppressPolicyExcludedCandidates(projectId: string, policy: MailP
         }),
       },
     });
-    await recordPolicyDecision(projectId, {
-      entityType: "mail_derived_candidate",
-      entityId: candidate.id,
-      decisionType: "candidate_suppressed",
-      inputJson: toInputJson({ title: candidate.title, candidateType: candidate.candidateType }),
-      outputJson: toInputJson(policyDecision),
+    const domain = gtmDomainForCandidate(candidate.candidateType);
+    await recordDecision({
+      projectId,
+      domain,
+      actor: domain === "presales" ? "presales" : "sales",
+      actionType: "candidate_suppressed",
+      caseRef: caseRefFor("mailCandidate", candidate.id),
+      input: toInputJson({ title: candidate.title, candidateType: candidate.candidateType }),
+      output: toInputJson(policyDecision),
     });
     suppressed += 1;
   }
@@ -235,12 +240,15 @@ async function suppressWeakProjectCandidates(projectId: string) {
         }),
       },
     });
-    await recordPolicyDecision(projectId, {
-      entityType: "mail_derived_candidate",
-      entityId: candidate.id,
-      decisionType: "project_candidate_suppressed",
-      inputJson: toInputJson({ title: candidate.title, candidateType: candidate.candidateType }),
-      outputJson: toInputJson(policyDecision),
+    const domain = gtmDomainForCandidate(candidate.candidateType);
+    await recordDecision({
+      projectId,
+      domain,
+      actor: domain === "presales" ? "presales" : "sales",
+      actionType: "project_candidate_suppressed",
+      caseRef: caseRefFor("mailCandidate", candidate.id),
+      input: toInputJson({ title: candidate.title, candidateType: candidate.candidateType }),
+      output: toInputJson(policyDecision),
     });
     suppressed += 1;
   }
@@ -252,6 +260,7 @@ async function restoreKnownPartnerCandidates(projectId: string, policy: MailPoli
     where: { status: "knowledge_only", candidateType: "partner" },
     select: {
       id: true,
+      candidateType: true,
       title: true,
       metadata: true,
     },
@@ -276,12 +285,15 @@ async function restoreKnownPartnerCandidates(projectId: string, policy: MailPoli
         }),
       },
     });
-    await recordPolicyDecision(projectId, {
-      entityType: "mail_derived_candidate",
-      entityId: candidate.id,
-      decisionType: "candidate_restored",
-      inputJson: toInputJson({ title: candidate.title, status: "knowledge_only" }),
-      outputJson: toInputJson({ status: "proposed", reason: "known_partner_policy_match" }),
+    const domain = gtmDomainForCandidate(candidate.candidateType);
+    await recordDecision({
+      projectId,
+      domain,
+      actor: domain === "presales" ? "presales" : "sales",
+      actionType: "candidate_restored",
+      caseRef: caseRefFor("mailCandidate", candidate.id),
+      input: toInputJson({ title: candidate.title, status: "knowledge_only" }),
+      output: toInputJson({ status: "proposed", reason: "known_partner_policy_match" }),
     });
     restored += 1;
   }
@@ -372,15 +384,17 @@ export async function generateMailDerivedCandidates(
   for (const thread of threads) {
     const classified = classifyMailInsightThread(thread, policy);
     for (const excluded of classified.excluded) {
-      await recordPolicyDecision(projectId, {
-        entityType: "mail_insight_thread",
-        entityId: thread.id,
-        decisionType: "candidate_excluded",
-        inputJson: toInputJson({
+      await recordDecision({
+        projectId,
+        domain: "sales",
+        actor: "sales",
+        actionType: "candidate_excluded",
+        caseRef: caseRefFor("mailThread", thread.id),
+        input: toInputJson({
           threadKey: thread.threadKey,
           threadTitle: thread.threadTitle,
         }),
-        outputJson: toInputJson(excluded),
+        output: toInputJson(excluded),
       });
     }
 
@@ -453,16 +467,19 @@ export async function generateMailDerivedCandidates(
           }),
         },
       });
-      await recordPolicyDecision(projectId, {
-        entityType: "mail_derived_candidate",
-        entityId: createdCandidate.id,
-        decisionType: "candidate_created",
-        inputJson: toInputJson({
+      const domain = gtmDomainForCandidate(candidate.candidateType);
+      await recordDecision({
+        projectId,
+        domain,
+        actor: domain === "presales" ? "presales" : "sales",
+        actionType: "candidate_created",
+        caseRef: caseRefFor("mailCandidate", createdCandidate.id),
+        input: toInputJson({
           threadId: thread.id,
           threadKey: thread.threadKey,
           candidateType: candidate.candidateType,
         }),
-        outputJson: toInputJson({
+        output: toInputJson({
           title: candidate.title,
           confidence: candidate.confidence,
           policyDecision: candidate.policyDecision,
@@ -527,15 +544,17 @@ export async function generateMailDerivedCandidatesHybrid(
     }
 
     for (const excluded of classified.excluded) {
-      await recordPolicyDecision(projectId, {
-        entityType: "mail_insight_thread",
-        entityId: thread.id,
-        decisionType: "candidate_excluded",
-        inputJson: toInputJson({
+      await recordDecision({
+        projectId,
+        domain: "sales",
+        actor: "sales",
+        actionType: "candidate_excluded",
+        caseRef: caseRefFor("mailThread", thread.id),
+        input: toInputJson({
           threadKey: thread.threadKey,
           threadTitle: thread.threadTitle,
         }),
-        outputJson: toInputJson(excluded),
+        output: toInputJson(excluded),
       });
     }
 
@@ -611,17 +630,20 @@ export async function generateMailDerivedCandidatesHybrid(
           }),
         },
       });
-      await recordPolicyDecision(projectId, {
-        entityType: "mail_derived_candidate",
-        entityId: createdCandidate.id,
-        decisionType: "candidate_created",
-        inputJson: toInputJson({
+      const domain = gtmDomainForCandidate(candidate.candidateType);
+      await recordDecision({
+        projectId,
+        domain,
+        actor: domain === "presales" ? "presales" : "sales",
+        actionType: "candidate_created",
+        caseRef: caseRefFor("mailCandidate", createdCandidate.id),
+        input: toInputJson({
           threadId: thread.id,
           threadKey: thread.threadKey,
           candidateType: candidate.candidateType,
           classificationMethod: "hybrid",
         }),
-        outputJson: toInputJson({
+        output: toInputJson({
           title: candidate.title,
           confidence: candidate.confidence,
           policyDecision: candidate.policyDecision,

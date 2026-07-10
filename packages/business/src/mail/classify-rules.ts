@@ -1,5 +1,6 @@
 import { Prisma } from "@sangfor/db";
 import { sanitizeJsonStrings } from "@sangfor/shared";
+import type { GtmDomain } from "@sangfor/shared/modes";
 
 import {
   MailPolicyLookup,
@@ -233,6 +234,11 @@ export function compactSummary(body: string) {
 
 export function isProjectCandidateType(candidateType: string) {
   return candidateType === "task" || candidateType === "opportunity" || candidateType === "poc";
+}
+
+/** Map a mail-derived candidateType to its GTM domain for the decision spine. */
+export function gtmDomainForCandidate(candidateType: string): GtmDomain {
+  return candidateType === "poc" ? "presales" : "sales";
 }
 
 export function asRecord(value: unknown): Record<string, unknown> {

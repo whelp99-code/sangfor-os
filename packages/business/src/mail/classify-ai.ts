@@ -23,6 +23,7 @@ import {
   asUnknownArray,
   classifyMailInsightThread,
   combineHybridClassification,
+  gtmDomainForCandidate,
   isProjectCandidateType,
   toInputJson,
 } from "./classify-rules";
@@ -595,10 +596,11 @@ export async function revalidateMailDerivedCandidate(
           ? "rejected"
           : "corrected";
     const projectId = await resolveProjectId("demo-project");
+    const domain = gtmDomainForCandidate(candidate.candidateType);
     await recordDecision({
       projectId,
-      domain: "sales",
-      actor: "sales",
+      domain,
+      actor: domain === "presales" ? "presales" : "sales",
       actionType: "mail_revalidation",
       caseRef: "mail_candidate:" + id,
       outcome,
