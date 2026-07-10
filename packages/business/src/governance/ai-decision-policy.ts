@@ -16,7 +16,9 @@ export type DecisionActorKey =
   | "marketing"
   | "engineer"
   | "commercial_approval"
-  | "deal_registration";
+  | "deal_registration"
+  | "human"
+  | "ai";
 
 export type RiskTierValue = "T0" | "T1" | "T2";
 
@@ -33,6 +35,11 @@ export const ACTION_TIER_REGISTRY: Record<string, "T0" | "T1"> = {
   entity_edit: "T0",
   // 외부·저위험·승인후 발신 → T1
   mail_revalidation: "T1",
+  // A-2 위임 경로의 기존 decisionType들 — 전부 내부·무발신·가역 → T0
+  human_review: "T0",
+  ai_proposal: "T0",
+  "agent-stage": "T0",
+  "pipeline-stage": "T0",
 };
 
 /**

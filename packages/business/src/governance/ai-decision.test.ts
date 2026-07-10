@@ -101,7 +101,7 @@ describe("recordDecision", () => {
         },
         { prisma: throwingClient as never },
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toBeNull();
     err.mockRestore();
   });
 });

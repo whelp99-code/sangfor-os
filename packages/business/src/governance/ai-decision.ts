@@ -40,6 +40,7 @@ export interface RecordAiDecisionInput {
   input?: unknown;
   output?: unknown;
   humanEdit?: unknown;
+  colorGate?: unknown;
   /** Legacy decision_type column (NOT NULL). Defaults to actionType. */
   decisionType?: string;
 }
@@ -56,7 +57,7 @@ function toJsonInput(value: unknown): Prisma.InputJsonValue | undefined {
 export async function recordDecision(
   input: RecordAiDecisionInput,
   deps: RecordDecisionDeps = {},
-): Promise<void> {
+): Promise<{ id: string } | null> {
   const client = deps.prisma ?? prisma;
   try {
     const isRegistered = input.actionType in ACTION_TIER_REGISTRY;
@@ -73,7 +74,7 @@ export async function recordDecision(
       input.predictedConfidence ?? undefined,
     );
 
-    await client.domainDecisionLog.create({
+    const row = await client.domainDecisionLog.create({
       data: {
         projectId: input.projectId,
         domain: input.domain,
@@ -89,10 +90,14 @@ export async function recordDecision(
         inputJson: toJsonInput(input.input),
         outputJson: toJsonInput(input.output),
         humanEditJson: toJsonInput(input.humanEdit),
+        colorGateJson: toJsonInput(input.colorGate),
       },
+      select: { id: true },
     });
+    return { id: row.id };
   } catch (error) {
     // Best-effort: swallow. NEVER propagate to the decision flow.
     console.error("[recordDecision] failed (swallowed):", error);
+    return null;
   }
 }
