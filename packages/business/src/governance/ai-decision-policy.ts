@@ -40,6 +40,14 @@ export const ACTION_TIER_REGISTRY: Record<string, "T0" | "T1"> = {
   ai_proposal: "T0",
   "agent-stage": "T0",
   "pipeline-stage": "T0",
+  // Mail-candidate pipeline — 내부 큐 상태 전이, 무발신, 가역 → T0
+  candidate_created: "T0",
+  candidate_suppressed: "T0",
+  project_candidate_suppressed: "T0",
+  candidate_restored: "T0",
+  candidate_excluded: "T0",
+  candidate_rejected: "T0",
+  candidate_approved_converted: "T0",
 };
 
 /**

@@ -17,9 +17,11 @@ import {
   isInternalDomain,
   isProjectCandidateType,
   isSystemSenderDomain,
+  gtmDomainForCandidate,
   toInputJson,
 } from "./classify-rules";
-import { recordPolicyDecision } from "./policy-decision-log";
+import { recordDecision } from "../governance/ai-decision";
+import { caseRefFor } from "../case-ref";
 
 const listMailCandidatesSchema = z.object({
   status: mailCandidateStatusSchema.optional(),
@@ -73,16 +75,19 @@ export async function rejectMailDerivedCandidate(
       }),
     },
   });
-  await recordPolicyDecision(projectId, {
-    entityType: "mail_derived_candidate",
-    entityId: id,
-    decisionType: "candidate_rejected",
-    inputJson: toInputJson({
+  const domain = gtmDomainForCandidate(candidate.candidateType);
+  await recordDecision({
+    projectId,
+    domain,
+    actor: domain === "presales" ? "presales" : "sales",
+    actionType: "candidate_rejected",
+    caseRef: caseRefFor("mailCandidate", id),
+    input: toInputJson({
       candidateType: candidate.candidateType,
       title: candidate.title,
       metadata,
     }),
-    outputJson: toInputJson(rejection),
+    output: toInputJson(rejection),
   });
   await createImprovementCandidateFromError({
     sourceType: "mail_candidate_rejection",
@@ -265,16 +270,19 @@ export async function approveMailDerivedCandidate(id: string) {
     },
   });
   const projectId = await resolveDefaultProjectId(prisma);
-  await recordPolicyDecision(projectId, {
-    entityType: "mail_derived_candidate",
-    entityId: id,
-    decisionType: "candidate_approved_converted",
-    inputJson: toInputJson({
+  const domain = gtmDomainForCandidate(candidate.candidateType);
+  await recordDecision({
+    projectId,
+    domain,
+    actor: domain === "presales" ? "presales" : "sales",
+    actionType: "candidate_approved_converted",
+    caseRef: caseRefFor("mailCandidate", id),
+    input: toInputJson({
       candidateType: candidate.candidateType,
       title: candidate.title,
       metadata: candidate.metadata,
     }),
-    outputJson: toInputJson({
+    output: toInputJson({
       createdEntityType: candidate.candidateType,
       createdEntityId: created.id,
     }),
