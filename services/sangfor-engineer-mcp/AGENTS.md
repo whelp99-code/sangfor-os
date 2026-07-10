@@ -1,3 +1,5 @@
+<!-- Parent: ../../AGENTS.md — repo-wide rules and Working Norms (Fable Doctrine, F1–F14) live there -->
+
 # Agent instructions
 
 ## Project overview
