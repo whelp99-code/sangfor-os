@@ -18,6 +18,7 @@ import {
   classifyMailInsightThread,
   domainFromEmail,
   extractThreadMessages,
+  isArtifactEntityName,
   isInternalCompanyName,
   isInternalDomain,
   isKnownPartner,
@@ -384,6 +385,13 @@ export async function generateMailDerivedCandidates(
     }
 
     for (const candidate of classified.candidates) {
+      if (candidate.candidateType === "customer" || candidate.candidateType === "partner") {
+        const entityName = candidate.title.replace(/^(Customer|Partner):\s*/i, "").trim();
+        if (isArtifactEntityName(entityName)) {
+          console.log(`[artifact-filter] skipped candidate "${candidate.title}" — parser artifact`);
+          continue;
+        }
+      }
       const existing = await prisma.mailDerivedCandidate.findFirst({
         where: {
           candidateType: candidate.candidateType,
@@ -532,6 +540,13 @@ export async function generateMailDerivedCandidatesHybrid(
     }
 
     for (const candidate of classified.candidates) {
+      if (candidate.candidateType === "customer" || candidate.candidateType === "partner") {
+        const entityName = candidate.title.replace(/^(Customer|Partner):\s*/i, "").trim();
+        if (isArtifactEntityName(entityName)) {
+          console.log(`[artifact-filter] skipped candidate "${candidate.title}" — parser artifact`);
+          continue;
+        }
+      }
       const existing = await prisma.mailDerivedCandidate.findFirst({
         where: {
           candidateType: candidate.candidateType,

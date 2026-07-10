@@ -4,6 +4,7 @@ import {
   computeCustomerPartnerConfidence,
   classifyMailInsightThread,
   classifyMailCandidateDocument,
+  isArtifactEntityName,
 } from "./classify-rules";
 import type { ThreadLike } from "./classify-rules";
 
@@ -439,5 +440,83 @@ describe("characterization guard: opportunity/poc/task scoring unchanged", () =>
     const task = r.candidates.find((c) => c.candidateType === "task");
     expect(task).toBeDefined();
     expect(task!.confidence).toBe(82);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isArtifactEntityName — filter for parser-artifact / garbage entity names
+// ---------------------------------------------------------------------------
+
+describe("isArtifactEntityName", () => {
+  it('returns true for "Example" (exact match)', () => {
+    expect(isArtifactEntityName("Example")).toBe(true);
+  });
+
+  it('returns true for "Mail" (exact match)', () => {
+    expect(isArtifactEntityName("Mail")).toBe(true);
+  });
+
+  it('returns true for "Mails" (exact match)', () => {
+    expect(isArtifactEntityName("Mails")).toBe(true);
+  });
+
+  it('returns true for "<1 min" (duration-like)', () => {
+    expect(isArtifactEntityName("<1 min")).toBe(true);
+  });
+
+  it('returns true for "Re: Quote request" (Re: prefix)', () => {
+    expect(isArtifactEntityName("Re: Quote request")).toBe(true);
+  });
+
+  it('returns true for "Fw: Invoice" (Fw: prefix)', () => {
+    expect(isArtifactEntityName("Fw: Invoice")).toBe(true);
+  });
+
+  it('returns true for "Fwd: something" (Fwd: prefix)', () => {
+    expect(isArtifactEntityName("Fwd: something")).toBe(true);
+  });
+
+  it("returns true for a single character (< 2 chars)", () => {
+    expect(isArtifactEntityName("A")).toBe(true);
+  });
+
+  it("returns true for empty string", () => {
+    expect(isArtifactEntityName("")).toBe(true);
+  });
+
+  it('returns true for "12345" (bare numbers only)', () => {
+    expect(isArtifactEntityName("12345")).toBe(true);
+  });
+
+  it('returns true for "###" (bare symbols only)', () => {
+    expect(isArtifactEntityName("###")).toBe(true);
+  });
+
+  it('returns true for whitespace-only', () => {
+    expect(isArtifactEntityName("  ")).toBe(true);
+  });
+
+  it('returns false for "Sangfor"', () => {
+    expect(isArtifactEntityName("Sangfor")).toBe(false);
+  });
+
+  it('returns false for "넥시아스" (Korean company name)', () => {
+    expect(isArtifactEntityName("넥시아스")).toBe(false);
+  });
+
+  it('returns false for "GS건설" (Korean with embedded digit)', () => {
+    expect(isArtifactEntityName("GS건설")).toBe(false);
+  });
+
+  it('returns false for "Acme Corp"', () => {
+    expect(isArtifactEntityName("Acme Corp")).toBe(false);
+  });
+
+  it('returns false for "삼성전자"', () => {
+    expect(isArtifactEntityName("삼성전자")).toBe(false);
+  });
+
+  it('returns false for "J&G System" (has letters, not symbols-only)', () => {
+    expect(isArtifactEntityName("J&G System")).toBe(false);
   });
 });

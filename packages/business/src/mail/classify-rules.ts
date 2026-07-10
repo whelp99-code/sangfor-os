@@ -53,6 +53,23 @@ export type PolicyDecision = {
   participantDomains: string[];
 };
 
+export const ARTIFACT_ENTITY_NAME_EXAMPLES = ["Example", "Mail", "Mails", "<1 min", "Re:", "Fw:"] as const;
+
+export function isArtifactEntityName(name: string): boolean {
+  const trimmed = name.trim();
+  if (!trimmed) return true;
+  // case-insensitive exact match against known artifact name examples
+  if (ARTIFACT_ENTITY_NAME_EXAMPLES.some((ex) => ex.toLowerCase() === trimmed.toLowerCase())) return true;
+  // Re:/Fw:/Fwd: prefix (email reply/forward headers)
+  if (/^(re|fw|fwd):/i.test(trimmed)) return true;
+  // duration-like prefix, e.g. "<1 min", "<5 mins", "<1 hour"
+  if (/^<\s*\d+\s*(min|mins|minute|minutes|sec|secs|second|seconds|hour|hours|hr|hrs)\b/i.test(trimmed)) return true;
+  if (trimmed.length < 2) return true;
+  // bare numbers/symbols/whitespace only — Unicode-aware so Korean/CJK is not caught
+  if (/^[\d\s\p{P}\p{S}]+$/u.test(trimmed)) return true;
+  return false;
+}
+
 export function normalizeCompanyName(value: string) {
   return normalizePolicyKey(value).replace(/[^a-z0-9가-힣]/g, "");
 }

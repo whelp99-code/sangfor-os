@@ -1,0 +1,54 @@
+=== 1. 메일 후보 큐 리드타임 (created_at → updated_at, resolved 후보만) ===
+ resolved_count | avg_days | median_days 
+----------------+----------+-------------
+            401 |     3.22 |        2.63
+(1 row)
+
+
+=== 2. 큐 상태 분포 (컨텍스트) ===
+     status     | count 
+----------------+-------
+ proposed       |   952
+ converted      |   183
+ rejected       |   176
+ knowledge_only |    42
+(4 rows)
+
+
+=== 3. 후보 정밀도 (승인율 = (approved+converted) / (approved+converted+rejected)) ===
+ approved_count | rejected_count | precision_pct 
+----------------+----------------+---------------
+            183 |            176 |          51.0
+(1 row)
+
+
+=== 4. 자동 승인 비율 (domain_decision_logs, actor::text = 'ai') ===
+ ai_decisions | total_decisions | ai_pct 
+--------------+-----------------+--------
+            0 |            2167 |    0.0
+(1 row)
+
+
+=== 5. 재무 <-> engagement 연결률 ===
+ table_name | linked | total 
+------------+--------+-------
+ Cashflow   |      8 |   179
+ Invoice    |      9 |    15
+ Expense    |     10 |    35
+ TaxInvoice |      0 |     0
+(4 rows)
+
+
+=== 5b. 재무 <-> engagement 연결률 (합계) ===
+ linked | total | pct  
+--------+-------+------
+     27 |   229 | 11.8
+(1 row)
+
+
+=== 6. 자율도 표본 축적 (domain_decision_logs, decision_type=human_review, 도메인별) ===
+  domain  | sample_count 
+----------+--------------
+ presales |           12
+(1 row)
+

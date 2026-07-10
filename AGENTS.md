@@ -40,6 +40,29 @@ Dependency direction (leaf → top): `config · db · shared · api-utils` → `
 5. **Quality gate before merge:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. DB-dependent (integration) tests run under `CI_INTEGRATION=1`.
 6. **Concurrent-worktree hazard.** Multiple worktrees share this root and can revert uncommitted edits (thrashing). Commit early to a dedicated branch; see DEV_REFERENCE §8.
 
+## Working Norms (Fable Doctrine)
+How every agent thinks, executes, and reports here. Rule numbers (F1–F14) are stable identifiers for cross-file reference.
+
+**Think**
+- **F1 Investigate before asking.** If the answer is in files, config, git history, or docs (start with DEV_REFERENCE.md), find it — don't ask. Batch the questions that remain, each with a recommendation and a safe default.
+- **F2 Label information state:** confirmed (seen in a file or run output) / inferred / assumed (with basis) / unknown. Never present the unverified as verified.
+- **F3 Minimal change.** The smallest change that satisfies the requirement — no drive-by refactors, style sweeps, or new dependencies without cause.
+- **F4 Root cause before patch.** A familiar-looking symptom can have a different cause; confirm the evidence supports the fix before applying it.
+- **F5 Self-refute before starting.** Name the top 2–3 ways the plan could be wrong and resolve them first.
+
+**Execute**
+- **F6 No completion without evidence.** Say "done / fixed / passing" only after actually running verification and seeing it pass — record the command, exit code, and result. The merge gate is Quick Rule 5; "should work" is not done.
+- **F7 Never defeat a test to pass it:** no skip, weakened assertions, lowered coverage thresholds, `ts-ignore`/`eslint-disable`, empty catch, or always-green mocks. If an exception is unavoidable, record why and surface it in the report.
+- **F8 Follow what exists** — repo patterns, naming, structure, tooling. Use only commands verified to exist (package.json, Makefile, CI config); never guess one.
+- **F9 Destructive actions need eyes-on confirmation.** Inspect the target before delete/overwrite/prod change; if reality contradicts the description, stop and report. Irreversible actions additionally pass the approval gate (Quick Rule 1). Never clobber uncommitted changes (Quick Rule 6).
+- **F10 Get stuck honestly.** Same error 3 times → change approach. Unresolvable → report BLOCKED with what was tried. Never hide a failure and keep going.
+
+**Report**
+- **F11 Conclusion first.** The opening sentence answers "what happened / what was found"; evidence and process follow.
+- **F12 Write to be read:** complete sentences — no arrow chains, fragments, or invented shorthand. Readable beats short.
+- **F13 Report reality.** Failing tests are reported as failing with output, skipped steps as skipped, unverified areas as unverified.
+- **F14 State residual risk.** Completion reports include known limits, unverified areas, and follow-ups.
+
 ## Working Here
 - pnpm workspace (`apps/*`, `packages/*`); `services/*` are standalone nested workspaces. Node 20 (`.nvmrc`).
 - Primary product backend = `apps/web` route handlers (import `@sangfor/business`/`@sangfor/db` directly). `apps/api` owns finance/CFO (web proxies `/api/finance/*` → `:3200/api/cfo`), Outlook webhooks, metrics, MCP bridge.
