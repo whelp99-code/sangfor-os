@@ -352,8 +352,12 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 | `engagement-backfill.ts` | POC/제안서 opportunityId 백필 ※현재 트리 삭제표시 |
 | `poc-center.ts` | POC 생성(+opportunityId 자동 링크) |
 | `proposal-generator.ts` | 제안서 생성(+opportunityId 저장, LLM hydration) |
-| `mail-candidates.ts` | 메일 후보 분류 + `sanitizeJsonStrings`(toInputJson) + LLM hydration |
-| `outlook-sync.ts` | app-only Outlook 동기화(client_credentials) |
+| `mail-candidates.ts` | re-export 배럴(20줄) — 실 로직은 `mail/` 모듈(Phase 4 분해, 2026-07-10 실측 반영) |
+| `mail/constants.ts` · `mail/classify-rules.ts` | 분류 상수·순수 규칙 분류(+`sanitizeJsonStrings` 소비) |
+| `mail/classify-ai.ts` | AI 재검증(LLM hydration, 자가치유 캐시, `stripJsonCodeFence`) |
+| `mail/candidates-generate.ts` · `mail/candidates-update.ts` | 후보 생성(아티팩트 필터 포함)·갱신/전환 |
+| `mail/policy-decision-log.ts` | legacy 감사 스트림 writer(@deprecated, ADR-001 D2) |
+| `mail/outlook/outlook-sync.ts` | app-only Outlook 동기화(client_credentials) — 구 `outlook-sync.ts`에서 이동 |
 | `openai-config.ts` | OpenAI 키/베이스/모델 동기 getter |
 | `llm-settings.ts` | 웹 LLM 설정 저장/로드/적용 ※현재 트리 삭제표시 |
 
@@ -479,4 +483,5 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **2026-07-08/09**: **로드맵 08 §9 인수인계 + M1-W1 완료** — ①이중게이트 12건 배치 승인·전환(오퍼튜니티 12건 생성, `.agents/results/2026-07-08-calib-ops.md`) ②M1-2 main-fork·dev `.env` OPENAI zen/9router 이중정의 정리 + main-fork 재빌드·재기동 ③M1-3 FinanceProject 미매핑 10건 human 매핑(3건 확정연결+7건 null확정, 연결률 8.3%→11.8%·실데이터 상한 명시, `packages/db/scripts/backfill-finance-engagement.ts`에 `--mapping-file` 모드 추가) ④M1-4 상류 아티팩트 필터 TDD(`isArtifactEntityName`, `classify-rules.ts`/`classify-ai.ts`/`candidates-generate.ts`, 기존 정크 95건 발견·백로그 등재) ⑤M1-5 재검증 배치 스크립트 정식화(`packages/business/scripts/revalidate-batch.ts`, cwd 무관하게 고치는 버그 1건 발견·수정) ⑥M1-6 KPI 주간 SQL(`scripts/kpi-weekly.sql/.sh`) 첫 기준선 기록. 전체 품질 게이트(lint/typecheck/test/build) green. §9-2(폴백 529건 재검증)와 M1-2 라이브 확인은 9router `cx/gpt-5.4-mini` 쿼터 429로 세션 내 미완 — 리셋 후 재개 필요(§8 gotcha 참고). launchd 스케줄 등록은 사용자 승인 대기.
 - **2026-07-10**: §9-2·§9-3·백로그 마무리. `cx/gpt-5.4-mini` 쿼터가 2일째 미회복(9router 프로세스 자체는 정상, 좀비 워크트리 dev서버 10개 종료해도 무관 — 요청마다 리셋되는 패턴으로 추정) → 사용자 승인 하에 `kr/deepseek-3.2`로 임시 대체. 대체 중 마크다운 코드펜스 JSON 파싱 실패를 발견해 `classify-ai.ts`에 `stripJsonCodeFence()` 근본 수정(모델 무관 방어). 4회 재시도 루프로 폴백 529/529 전량 해소(단, 대체 모델 confidence 캘리브레이션이 원 모델과 달라 이중게이트 통과율 낮음 — cx 회복 후 재검증 권고, `.agents/results/2026-07-08-calib-ops.md` §2). Final Wave 판정 완료, boulder `classifier-calibration-2026-07-07` completed, wp-calib 워크트리 제거(fix는 dev-clean에 이미 반영 확인 후 제거). 백로그 아티팩트 정크 정리: 95건 중 90건은 재검증 배치가 자체 reject, 남은 2건 스크립트로 knowledge_only 전환. 조사 중 2026-07-04 과거 bulk convert가 만든 아티팩트명 Customer 레코드 4건 발견(FK 참조 전수 확인 결과 안전 — 삭제는 사용자 승인 필요, 신규 백로그 항목).
 - **2026-07-10 (후속)**: PR #110 CI green 확인 후 squash-merge(`d2d699b`), 로컬 `dev-clean`을 갱신된 `origin/main`(PR #109도 포함)에 동기화. 사용자 승인 5건 일괄 처리 — ①인카금융그룹 FP를 인카금융서비스로 확정 매핑(Cashflow+1/Expense+1, 연결률 11.8%→12.7%) ②재검증 데일리·KPI 주간 launchd 잡 설치+`launchctl load` 완료 ③아티팩트명 Customer 레코드 4건 백업 후 삭제(activity_logs cascade) + 연결된 `mail_derived_candidates` 4건 댕글링 참조 정리 ④9router 모델을 `cx/gpt-5.4-mini`→`Free-Tier`(owned_by=combo, 내부 `gpt-oss:120b`)로 전환, 두 `.env` 갱신 + main-fork 재기동. 라이브 커맨드바(`/api/agent/run`) 왕복 시도 결과 LLM 경로는 정상이나 MCP 브릿지(:3600) 미기동으로 별도 실패 — 신규 backlog.
+- **2026-07-10 (W2~W4)**: M1 1차 고도화 마감 — 실측으로 Phase 2·3·4가 이미 머지돼 있음을 확인(로드맵 항목이 낡아 있었음), 실제 잔여만 실행: ①ADR-002 작성(web=BFF 채택, tRPC 도입 폐기, phase-6 문서 배너 — 사용자 승인 대기) ②`dashboard/[role]` prisma 12건을 `role-dashboard-data.ts`로 추출(응답 9종 바이트 동일 검증, 라우트 127→22줄) ③죽은 헬퍼 2종(extractCompanyFromDomain/extractContactFromEmail, 스테일 berlo 라벨) 제거 ④02 게이트 G1~G4+golden+시나리오1 통과 — 재연 중 `mail-candidates-convert.ts` task 분기의 createdEntityId 미설정 실버그 발견·수정·회귀테스트 추가·댕글링 3건 백필(converted 후보 linkage 무결 100%). M1 종료 기준 4/5(잔여: 데일리 배치 3일 연속, 2026-07-13 관측). 증거 `.agents/results/2026-07-10-w2-w4-gate.md`.
 - **2026-07-07**: **v1 완성 웨이브 — WP-A~E + e2e 6PR(#96~#101) 전부 main 머지 완료**(#101은 2026-07-07T10:44:29Z 머지, `22de4b5`), 상세는 `docs/master-plan/01-development-plan.md` 및 `.agents/results/2026-07-07-*`.

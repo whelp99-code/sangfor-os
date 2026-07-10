@@ -1,5 +1,11 @@
 # Phase 6 Implementation Plan — API 표면 단일화 (web BFF 정리)
 
+> ⚠️ **ADR-002로 대체/수정됨** (2026-07-10, `docs/convergence/ADR-002-api-surface.md`):
+> 이 문서의 **tRPC 도입 방향((2)·(3) 및 tRPC 관련 태스크 전부)은 폐기**됐다 — 채택된 방향은
+> 마스터플랜의 "web = BFF, 미사용 tRPC 표면 제거"다. 이 문서 내장 Phase 7(신규 컬럼)도
+> ADR-002 D4로 재정의됨(인덱스·FK 승격만, segment/riskScore는 기추가분 수용).
+> **유효하게 남는 부분**: (1) 응답 포맷 정규화, (4) 에러 핸들링 표준화. 실행 전 ADR-002를 먼저 읽을 것.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** apps/web API routes를 type-safe, consistent하게 정리하고, 모든 비즈니스 로직을 @sangfor/business로 위임하여 route는 "auth + parse + business + serialize"만 담당하도록 정리.
