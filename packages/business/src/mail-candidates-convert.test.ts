@@ -16,6 +16,7 @@ describe.skipIf(!integrationEnabled)("convertApprovedMailCandidates — opportun
   afterAll(async () => {
     const { prisma } = await import("@sangfor/db");
     await prisma.opportunity.deleteMany({ where: { title: { startsWith: tag } } });
+    await prisma.workTask.deleteMany({ where: { title: { startsWith: tag } } });
     if (candidateIds.length) {
       await prisma.mailDerivedCandidate.deleteMany({ where: { id: { in: candidateIds } } });
     }
@@ -67,5 +68,48 @@ describe.skipIf(!integrationEnabled)("convertApprovedMailCandidates — opportun
 
     const r2 = await convertApprovedMailCandidates();
     expect(r2.opportunitiesCreated).toBe(0);
+  });
+
+  it("sets createdEntityType/createdEntityId on task conversion (new and existing)", async () => {
+    const { prisma } = await import("@sangfor/db");
+    const { convertApprovedMailCandidates } = await import("./mail-candidates-convert");
+
+    const title = `${tag} 태스크 링크`;
+    const t1 = await prisma.mailDerivedCandidate.create({
+      data: {
+        candidateType: "task",
+        title,
+        summary: "Test task candidate 1",
+        status: "approved",
+        confidence: 80,
+      },
+    });
+    const t2 = await prisma.mailDerivedCandidate.create({
+      data: {
+        candidateType: "task",
+        title,
+        summary: "Test task candidate 2 (duplicate)",
+        status: "approved",
+        confidence: 80,
+      },
+    });
+    candidateIds.push(t1.id, t2.id);
+
+    const r = await convertApprovedMailCandidates();
+    expect(r.tasksCreated).toBe(1);
+
+    const task = await prisma.workTask.findFirst({
+      where: { title, projectId: cleanProjectId },
+    });
+    expect(task).not.toBeNull();
+
+    const updated1 = await prisma.mailDerivedCandidate.findUniqueOrThrow({ where: { id: t1.id } });
+    const updated2 = await prisma.mailDerivedCandidate.findUniqueOrThrow({ where: { id: t2.id } });
+    expect(updated1.status).toBe("converted");
+    expect(updated1.createdEntityType).toBe("task");
+    expect(updated1.createdEntityId).toBe(task!.id);
+    expect(updated2.status).toBe("converted");
+    expect(updated2.createdEntityType).toBe("task");
+    expect(updated2.createdEntityId).toBe(task!.id);
   });
 });

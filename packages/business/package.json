@@ -25,6 +25,7 @@
     "./deal-registration": "./src/crm/deal-registration.ts",
     "./llm/config": "./src/platform/llm/config.ts",
     "./role-dashboard": "./src/role-dashboard.ts",
+    "./role-dashboard-data": "./src/role-dashboard-data.ts",
     "./cfo-client": "./src/cfo-client.ts",
     "./outlook": "./src/mail/outlook/index.ts"
   },

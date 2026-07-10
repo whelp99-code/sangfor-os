@@ -172,8 +172,9 @@ export async function convertApprovedMailCandidates(): Promise<ConvertResult> {
       where: { title: candidate.title, projectId: DEFAULT_PROJECT_ID },
     });
 
+    let taskId = existing?.id;
     if (!existing) {
-      await prisma.workTask.create({
+      const created = await prisma.workTask.create({
         data: {
           projectId: DEFAULT_PROJECT_ID,
           title: candidate.title,
@@ -182,12 +183,13 @@ export async function convertApprovedMailCandidates(): Promise<ConvertResult> {
           source: "mail-intelligence",
         },
       });
+      taskId = created.id;
       tasksCreated++;
     }
 
     await prisma.mailDerivedCandidate.update({
       where: { id: candidate.id },
-      data: { status: "converted" },
+      data: { status: "converted", createdEntityType: "task", createdEntityId: taskId },
     });
   }
 

@@ -91,26 +91,6 @@ export function domainFromEmail(value?: string | null) {
   return match?.[1]?.toLowerCase();
 }
 
-// 발신자 도메인에서 회사명 추출
-export function extractCompanyFromDomain(domain: string): string {
-  const domainMap: Record<string, string> = {
-    'berlo.co.kr': '베를로',
-    'berlo.com': '베를로',
-    'nexias.com': '넥시아스',
-    'partner.co.kr': '파트너사',
-    'customer.kr': '고객사',
-    'sangfor.com': 'Sangfor',
-  };
-  return domainMap[domain] || domain.split('.')[0];
-}
-
-// 발신자명에서 담당자 추출
-export function extractContactFromEmail(email: string, name?: string): string {
-  if (name) return name;
-  const localPart = email.split('@')[0];
-  return localPart.replace(/[0-9]/g, '').replace('.', ' ');
-}
-
 export function domainMatches(domain: string | undefined, domains: Set<string>) {
   if (!domain) return false;
   const normalized = normalizePolicyKey(domain);
