@@ -14,6 +14,7 @@ import {
   upsertDomainMemory,
   type DomainMemoryRecord,
   type DomainOutcome,
+  buildMemoryTags,
 } from "./domain-memory";
 import {
   createDefaultDomainGenerator,
@@ -139,7 +140,11 @@ export async function runDomainStage(
   const generate = resolveDomainGenerator(deps);
 
   // 1) recall (도메인 격리)
-  const recalled = await recallFromDb({ domain, tags: c.tags }, projectSlug, deps.recallTopK ?? 3);
+  // A-4: union raw case tags with the shared buildMemoryTags vocabulary so
+  // human-confirmed memories (written domain:/entity:/intent: by
+  // recordHumanDecision) are visible to runtime recall, not only agent-raw tags.
+  const recallTags = [...c.tags, ...buildMemoryTags({ domain, entityType: "case" })];
+  const recalled = await recallFromDb({ domain, tags: recallTags }, projectSlug, deps.recallTopK ?? 3);
 
   // 2) prompt → 3) generate (LLM 주입; 미주입 시 권장 기본 생성기)
   const prompt = buildDomainPrompt(domain, c, recalled);
@@ -173,7 +178,7 @@ export async function runDomainStage(
       memoryType: "case",
       key: `${domain}:${c.id}`,
       label: `${def.label} — ${c.subject}`,
-      tags: c.tags,
+      tags: [...c.tags, ...buildMemoryTags({ domain, entityType: "case", intentTag: outcome })],
       valueJson: { subject: c.subject, produces: artifact.produces, summary: artifact.summary },
       outcome,
       source: "agent",

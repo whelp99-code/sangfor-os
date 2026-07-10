@@ -99,14 +99,34 @@ export function scoreDomainMemory(query: RecallQuery, record: DomainMemoryRecord
   return tagScore * outcomeWeight * confidenceWeight + humanBonus;
 }
 
-/** top-K 유사 케이스. 동점은 최신(createdAt) 우선. */
+const NEGATIVE_OUTCOMES = new Set(["rejected", "human-reverted"]);
+
+/**
+ * top-K 유사 케이스. 동점은 최신(createdAt) 우선.
+ *
+ * Cross-candidate suppression (A-3 / PLAN §7 / Gate 9): 같은 key의 negative
+ * 메모리(rejected/human-reverted)가 존재하면, 그 key의 positive 메모리도 recall
+ * 에서 억제된다 — 사람이 한 번 뒤집은 케이스가 다른 경로(rule/exception 행)로
+ * 계속 추천되는 것을 막는다. `excludeCaseRef` 는 해당 caseRef 로 시작하는 key 의
+ * 메모리를 통째로 제외한다(자기 케이스의 이력이 자기 재생성에 재주입되는 것 방지).
+ */
 export function recallDomainMemories(
   query: RecallQuery,
   candidates: DomainMemoryRecord[],
   topK = 5,
+  options?: { excludeCaseRef?: string },
 ): DomainMemoryRecord[] {
+  const suppressedKeys = new Set(
+    candidates
+      .filter((r) => r.outcome !== null && NEGATIVE_OUTCOMES.has(r.outcome))
+      .map((r) => r.key),
+  );
   return candidates
-    .map((record) => ({ record, score: scoreDomainMemory(query, record) }))
+    .filter((r) => !options?.excludeCaseRef || !r.key.startsWith(options.excludeCaseRef))
+    .map((record) => ({
+      record,
+      score: suppressedKeys.has(record.key) ? 0 : scoreDomainMemory(query, record),
+    }))
     .filter((entry) => entry.score > 0)
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
