@@ -4,6 +4,7 @@ import {
   scoreDomainMemory,
   type DomainMemoryRecord,
   type RecallQuery,
+ buildMemoryTags,
 } from "./domain-memory";
 
 /**
@@ -91,8 +92,11 @@ export async function recallSemanticFromDb(input: {
 }): Promise<DomainMemoryRecord[]> {
   const candidates = await loadDomainMemories(input.domain, input.projectSlug ?? "demo-project");
   const queryEmbedding = await input.embed(input.queryText);
+  // A-4: always include the shared vocabulary tags so buildMemoryTags-written
+  // memories are recallable regardless of what raw tags the caller passed.
+  const tags = [...input.tags, ...buildMemoryTags({ domain: input.domain })];
   return recallHybrid(
-    { domain: input.domain, tags: input.tags },
+    { domain: input.domain, tags },
     queryEmbedding,
     candidates,
     input.topK ?? 5,

@@ -78,16 +78,53 @@ describe("scoreDomainMemory — negative learning (rejected must NOT be recommen
     ).toBeLessThanOrEqual(0);
   });
 
-  // PLAN §6 Gate 9 — suppression probe. MUST stay a todo until cross-candidate
-  // suppression is implemented (PLAN §7): recallDomainMemories scores each
-  // candidate independently and .filter(score>0)s — a rejected memory only
-  // drops ITSELF; it cannot remove or down-rank a SEPARATE positive memory for
-  // the same case. The tests above prove self-drop only. Do NOT green-light
-  // "negative learning" by injecting a lone rejected memory and asserting its
-  // own absence — that is the false sign-off this todo exists to prevent.
-  it.todo(
-    "same-case rejected memory suppresses/down-ranks a separate positive memory (cross-candidate — UNIMPLEMENTED, PLAN §7)",
-  );
+  // PLAN §6 Gate 9 — promoted from it.todo (A-3, 2026-07-10): cross-candidate
+  // suppression now lives in recallDomainMemories (same-key negative memory
+  // zeroes same-key positives).
+  it("same-case rejected memory suppresses a separate positive memory (cross-candidate, Gate 9)", () => {
+    const key = "eng:case1:sales";
+    const positive = rec({
+      key,
+      memoryType: "case",
+      tags: ["domain:sales", "intent:approved"],
+      outcome: "approved",
+    });
+    const negative = rec({
+      key,
+      memoryType: "rule",
+      tags: ["domain:sales"],
+      outcome: "rejected",
+    });
+    const unrelated = rec({
+      key: "eng:case2:sales",
+      tags: ["domain:sales", "intent:approved"],
+      outcome: "approved",
+    });
+
+    const withoutNegative = recallDomainMemories(query, [positive, unrelated]);
+    expect(withoutNegative.map((r) => r.key)).toContain(key);
+
+    const withNegative = recallDomainMemories(query, [positive, negative, unrelated]);
+    expect(withNegative.map((r) => r.key)).not.toContain(key);
+    expect(withNegative.map((r) => r.key)).toContain("eng:case2:sales");
+  });
+
+  it("excludeCaseRef drops the case's own memories from recall", () => {
+    const own = rec({
+      key: "eng:self:sales",
+      tags: ["domain:sales", "intent:approved"],
+      outcome: "approved",
+    });
+    const other = rec({
+      key: "eng:other:sales",
+      tags: ["domain:sales", "intent:approved"],
+      outcome: "approved",
+    });
+    const recalledAll = recallDomainMemories(query, [own, other]);
+    expect(recalledAll).toHaveLength(2);
+    const recalled = recallDomainMemories(query, [own, other], 5, { excludeCaseRef: "eng:self" });
+    expect(recalled.map((r) => r.key)).toEqual(["eng:other:sales"]);
+  });
 
   it("source=human approved scores >= non-human approved with same tags", () => {
     const humanScore = scoreDomainMemory(
