@@ -100,9 +100,9 @@ describe("runDomainStage", () => {
 });
 
 describe("runDomainPipeline", () => {
-  it("runs all five GTM domains end-to-end on passing gates", async () => {
+  it("runs all six GTM domains end-to-end on passing gates", async () => {
     const results = await runDomainPipeline(sampleCase, { generate: createStubGenerator() });
-    expect(results.map((r) => r.domain)).toEqual(["marketing", "sales", "presales", "engineer", "cfo"]);
+    expect(results.map((r) => r.domain)).toEqual(["marketing", "sales", "sales_support", "presales", "engineer", "cfo"]);
     expect(results.every((r) => r.gatePass)).toBe(true);
     expect(results[results.length - 1].handoffTo).toBeNull();
   });
@@ -116,7 +116,7 @@ describe("runDomainPipeline", () => {
           : { reviewed: required, failed: [] },
     };
     const results = await runDomainPipeline(sampleCase, deps);
-    expect(results.map((r) => r.domain)).toEqual(["marketing", "sales", "presales"]);
+    expect(results.map((r) => r.domain)).toEqual(["marketing", "sales", "sales_support", "presales"]);
     expect(results[results.length - 1].gatePass).toBe(false);
   });
 
@@ -132,6 +132,7 @@ describe("runDomainPipeline", () => {
     expect(results.map((r) => r.domain)).toEqual([
       "marketing",
       "sales",
+      "sales_support",
       "presales",
       "engineer",
       "cfo",

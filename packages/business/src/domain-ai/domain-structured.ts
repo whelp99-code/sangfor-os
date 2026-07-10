@@ -22,6 +22,7 @@ export function summarizeStructured(domain: GtmDomain, data: Record<string, unkn
   const keysByDomain: Record<GtmDomain, string[]> = {
     marketing: ["qualified", "leadScore", "nextAction"],
     sales: ["customer", "opportunityTitle", "estimatedAmount", "discountPct"],
+    sales_support: ["customer", "requestType", "slaResponseDue", "slaResolutionDue"],
     presales: ["proposalTitle", "architecture"],
     engineer: ["assetSummary", "haRequired"],
     cfo: ["decision", "marginPct", "rationale"],

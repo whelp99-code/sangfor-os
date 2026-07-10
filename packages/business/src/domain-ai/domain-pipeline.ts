@@ -70,7 +70,7 @@ export const DOMAIN_DEFINITIONS: Record<GtmDomain, DomainDefinition> = {
     label: "영업",
     ownedEntities: ["Customer", "Opportunity", "Quote"],
     produces: "opportunity-with-quote",
-    next: "presales",
+    next: "sales_support",
     // 비즈니스(orange) + 위험(red) + 고객대면 문서(gray)
     routingPreset: preset({
       artifactType: "quote",
@@ -78,6 +78,16 @@ export const DOMAIN_DEFINITIONS: Record<GtmDomain, DomainDefinition> = {
       hasRestrictedData: true,
       isCustomerFacing: true,
     }),
+    extraRequiredLenses: [],
+  },
+  sales_support: {
+    domain: "sales_support",
+    label: "영업지원",
+    ownedEntities: ["SupportSlaPolicy", "Opportunity"],
+    produces: "sla-request-handled",
+    next: "presales",
+    // 비즈니스(orange) + 고객대면 문서(gray)
+    routingPreset: preset({ artifactType: "sales-support", isCommercial: true, isCustomerFacing: true }),
     extraRequiredLenses: [],
   },
   presales: {

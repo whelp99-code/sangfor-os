@@ -34,6 +34,16 @@ export const DOMAIN_ARTIFACT_SCHEMAS: Record<GtmDomain, JsonSchema> = {
     },
     required: ["customer", "opportunityTitle", "estimatedAmount"],
   },
+  sales_support: {
+    type: "object",
+    properties: {
+      customer: { type: "string", description: "고객/회사명" },
+      requestType: { type: "string", description: "요청 유형 — 예: 견적/갱신/기술지원" },
+      slaResponseDue: { type: "string", description: "SLA 응답 기한 — ISO datetime" },
+      slaResolutionDue: { type: "string", description: "SLA 해결 기한 — ISO datetime" },
+    },
+    required: ["customer", "requestType"],
+  },
   presales: {
     type: "object",
     properties: {

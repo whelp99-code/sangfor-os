@@ -8,12 +8,14 @@ import {
 } from "./domain-pipeline";
 
 describe("GTM pipeline (종축)", () => {
-  it("orders domains marketing → sales → presales → engineer → cfo", () => {
-    expect([...GTM_PIPELINE]).toEqual(["marketing", "sales", "presales", "engineer", "cfo"]);
+  it("orders domains marketing → sales → sales_support → presales → engineer → cfo", () => {
+    expect([...GTM_PIPELINE]).toEqual(["marketing", "sales", "sales_support", "presales", "engineer", "cfo"]);
   });
 
   it("chains each domain to the next, cfo terminates", () => {
     expect(nextGtmDomain("marketing")).toBe("sales");
+    expect(nextGtmDomain("sales")).toBe("sales_support");
+    expect(nextGtmDomain("sales_support")).toBe("presales");
     expect(nextGtmDomain("presales")).toBe("engineer");
     expect(nextGtmDomain("cfo")).toBeNull();
   });
@@ -57,7 +59,7 @@ describe("handoff descriptors", () => {
   it("builds from → to with required lenses", () => {
     const h = buildDomainHandoff("sales");
     expect(h.from).toBe("sales");
-    expect(h.to).toBe("presales");
+    expect(h.to).toBe("sales_support");
     expect(h.artifact).toBe("opportunity-with-quote");
     expect(h.requiredLenses).toContain("orange");
   });

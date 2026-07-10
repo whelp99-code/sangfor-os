@@ -96,6 +96,18 @@ async function main() {
 
   await seedDashboardRegistry();
 
+  await prisma.supportSlaPolicy.upsert({
+    where: { id: "sla-support-default" },
+    update: {},
+    create: {
+      id: "sla-support-default",
+      name: "기본 영업지원 SLA",
+      responseTimeHrs: 24,
+      resolutionTimeHrs: 48,
+      severity: "normal",
+    },
+  });
+
   const existingCustomer = await prisma.customer.findFirst({
     where: { projectId: project.id, domain: "demo-customer.example.com" },
   });

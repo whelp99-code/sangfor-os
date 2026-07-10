@@ -95,9 +95,9 @@ describe("④ dashboard snapshot", () => {
       lastOutcome: "approved",
     });
     const snap = await buildDomainDashboardSnapshot(loader);
-    expect(snap.rows.map((r) => r.domain)).toEqual(["marketing", "sales", "presales", "engineer", "cfo"]);
-    expect(snap.totals.decisions).toBe(10); // 5 domains × 2
-    expect(snap.totals.memories).toBe(7); // 4×1 + 3
+    expect(snap.rows.map((r) => r.domain)).toEqual(["marketing", "sales", "sales_support", "presales", "engineer", "cfo"]);
+    expect(snap.totals.decisions).toBe(12); // 6 domains × 2
+    expect(snap.totals.memories).toBe(8); // 5×1 + 3
     expect(snap.rows.find((r) => r.domain === "cfo")?.lastOutcome).toBe("approved");
   });
 
@@ -134,7 +134,7 @@ describe("④ dashboard snapshot", () => {
       { outcome: "rejected", at: "2026-06-09T00:00:00.000Z" },
     ]);
     // totals aggregate the breakdown across domains
-    expect(snap.totals.approved).toBe(15); // 3 × 5 domains
+    expect(snap.totals.approved).toBe(18); // 3 × 6 domains
   });
 });
 
