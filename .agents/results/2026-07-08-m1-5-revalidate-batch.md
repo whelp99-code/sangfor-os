@@ -18,22 +18,13 @@
 - 1차(수정 전 경로 버그 상태): `--status proposed --concurrency 1 --max 2` → 정상 처리, 로그 경로만 틀림.
 - 2차(수정 후): 동일 실행 → `processed=2 fallback=1 (50%) rejected=0 errors=0`, 로그가 올바르게 저장소 루트에 저장됨 확인. (9router 쿼터 429로 인해 이 시점 실제 데이터 대부분은 fallback으로 처리됨 — 스크립트 자체의 결함이 아니라 §9-2와 동일한 외부 요인.)
 
-## 스케줄 등록 — 보류 (사용자 승인 대기)
+## 스케줄 등록 — 완료 (2026-07-10, 사용자 승인)
 
-계획서가 이 단계를 명시적으로 "사용자 승인 후"로 못박아, launchd 자동 등록 여부를 확인 질문했으나 60초 무응답. 매일 LLM 비용 발생 + DB 변경을 수반하는 무인·영구 자동화라 안전한 쪽(미등록)으로 보류.
+`~/Library/LaunchAgents/`에 복사 + `launchctl load` 완료. `launchctl list | grep sangfor`로 두 잡 모두 로드 확인(`com.jmpark.sangfor.revalidate-batch`, `com.jmpark.sangfor.kpi-weekly`).
 
-준비된 산출물(미등록):
 - `.agents/launchd/com.jmpark.sangfor.revalidate-batch.plist` — 매일 22:30, `--status proposed --concurrency 2 --max 300`
 - `.agents/launchd/com.jmpark.sangfor.kpi-weekly.plist` — 매주 월 22:45, `scripts/kpi-weekly.sh`
 
-승인 시 등록 명령:
-```
-cp .agents/launchd/com.jmpark.sangfor.revalidate-batch.plist ~/Library/LaunchAgents/
-cp .agents/launchd/com.jmpark.sangfor.kpi-weekly.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.jmpark.sangfor.revalidate-batch.plist
-launchctl load ~/Library/LaunchAgents/com.jmpark.sangfor.kpi-weekly.plist
-```
-
 ## Acceptance 잔여
 
-"3일 연속 자동 실행 성공 + 신규 proposed가 24h 내 재검증됨"은 스케줄 등록 후에만 관측 가능 — 이번 세션 범위 밖, 등록 후 3일차에 재확인 필요.
+"3일 연속 자동 실행 성공 + 신규 proposed가 24h 내 재검증됨"은 스케줄이 실제로 며칠 돈 뒤에만 관측 가능 — 등록 3일차(2026-07-13 이후)에 `.agents/results/kpi/revalidate-*.log` 로그로 재확인 필요.
