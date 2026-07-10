@@ -2500,3 +2500,19 @@ model ColorAgentDecision {
   @@index([handoffCardId])
   @@map("color_agent_decisions")
 }
+
+model AutonomyPolicy {
+  id            String   @id @default(cuid())
+  domain        String            // GTM 도메인
+  decisionType  String            // 예: mail_candidate_approve, ai_proposal_approve
+  mode          String   @default("observe")  // observe | suggest | auto
+  minAutonomy   Float    @default(0.9)        // computeAutonomy 임계값
+  minSamples    Int      @default(10)         // 최소 사람-결정 표본
+  requireColorGatePass Boolean @default(true)
+  updatedBy     String?
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  @@unique([domain, decisionType])
+  @@map("autonomy_policies")
+}
