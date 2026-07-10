@@ -149,12 +149,12 @@ M1은 아래 §3에 **이미 이 표준으로 분해돼 있다** — 첫 달은 
 
 **비즈니스 가치**: 모든 의사결정이 한 곳(결정 스파인)에 쌓여 감사 가능해지고, 파트너/고객 원장이 현실과 일치한다.
 
-- [ ] **결정 스파인 완전 수렴** (04 문서 = 정본): convergence PLAN §7 이월 레지스터 소화, `recordDecision()` 단일 write path 완결, 우회 기록 경로 제거.
-- [ ] **AI 역할 재편**: ai-roles 설계 반영 — 컬러 렌즈(검증)와 도메인 에이전트(생성)의 역할 경계 정리, 커맨드바 에이전트(`/api/agent/run`)에 실무 플레이북 연결(현재 안전 도구만).
-- [ ] **파트너 데이터 재구축**: partners 3행 ↔ ground-truth 파트너 49의 격차 해소. 2026-06-30 분류 결과의 구조화 소스가 유실됐으므로(캘리브레이션 정찰 확인) — 커밋 이력/문서에서 복원하거나, 재검증 파이프라인으로 파트너 후보를 승인 큐에서 일괄 처리해 재구축.
-- [ ] **고객 domain 백필** (WP-C C-4 Step4 스킵분): 위 ground-truth 구조화가 선행되면 실행. Customer.domain 채움 → 분류 정밀도 상승 피드백.
-- [ ] **converted 후보 위생**: 과거 bulk convert가 createdEntityId 미설정이던 시절 데이터 백필(backlog 항목).
-- [ ] **백업 복원 드릴 1회**: 야간 pg_dump를 임시 DB에 restore → 주요 테이블 카운트 원본 대조 → 절차를 runbook에 기록 (리스크 레지스터 이관분 — M6까지 미루지 않는다).
+- [x] **결정 스파인 완전 수렴** (2026-07-10/11 — PR #116/117/119/120/121/122, 게이트 기록 `.agents/results/2026-07-11-m2-m3-gate.md`) (04 문서 = 정본): convergence PLAN §7 이월 레지스터 소화, `recordDecision()` 단일 write path 완결, 우회 기록 경로 제거.
+- [~] **AI 역할 재편** (B-1~B-3 완료 #115 · B-4 플레이북은 실측상 인메모리 스토어라 영속화+도구 확장 별도 설계로 이월): ai-roles 설계 반영 — 컬러 렌즈(검증)와 도메인 에이전트(생성)의 역할 경계 정리, 커맨드바 에이전트(`/api/agent/run`)에 실무 플레이북 연결(현재 안전 도구만).
+- [x] **파트너 데이터 재구축** (partners 3→49, ground-truth 레지스트리 코드 영속화 #114): partners 3행 ↔ ground-truth 파트너 49의 격차 해소. 2026-06-30 분류 결과의 구조화 소스가 유실됐으므로(캘리브레이션 정찰 확인) — 커밋 이력/문서에서 복원하거나, 재검증 파이프라인으로 파트너 후보를 승인 큐에서 일괄 처리해 재구축.
+- [x] **고객 domain 백필** (0→12/148 — 잔여는 오염 51행+도메인 미보유 한국명, 상한 명시) (WP-C C-4 Step4 스킵분): 위 ground-truth 구조화가 선행되면 실행. Customer.domain 채움 → 분류 정밀도 상승 피드백.
+- [x] **converted 후보 위생** (2026-07-10 — 현행 버그로 판명·수정+백필, PR #112): 과거 bulk convert가 createdEntityId 미설정이던 시절 데이터 백필(backlog 항목).
+- [x] **백업 복원 드릴 1회** (#113 — 드릴이 죽은 정기백업까지 검출·수정 #114): 야간 pg_dump를 임시 DB에 restore → 주요 테이블 카운트 원본 대조 → 절차를 runbook에 기록 (리스크 레지스터 이관분 — M6까지 미루지 않는다).
 - [ ] **[F1] 리뉴얼 레이더 — Phase A: 자산 원장 부트스트랩** (§8.5 F1 상세): **실측 — 스키마는 완비(CustomerAsset·AssetLicense.expiresAt·Subscription @@index([endDate,status]))이나 전부 0행.** converted 리뉴얼 딜 + 메일 이력의 "1Y/26년~27년" 패턴에서 자산·만기 후보 추출 → 사람 확정 큐(기존 승인 UI 재사용) → 자산 ≥20행(실계약 기준).
 - [ ] **[F1] Phase B: 레이더 가동**: D-90/60/30 만기 스캔(M1-5 데일리 배치 동승) → Opportunity 자동 생성(dedup: 자산+연차당 1회, 결정 스파인 기록) + 담당 파트너 표기 + 브리핑(F2) 노출. Acceptance: 만기 임박 자산 100% 기회화·중복 0.
 - [ ] **[F5] 딜 전투 카드**: 딜 상세에 원페이지 — 메일 타임라인·미수금/매입·과거 PoC·담당 파트너·유사 딜. 신규 쿼리 최소(프로젝트 허브 조인 재사용), 읽기 전용 뷰.
@@ -169,10 +169,10 @@ M1은 아래 §3에 **이미 이 표준으로 분해돼 있다** — 첫 달은 
 
 선행조건 충족 확인: 캘리브레이션(신뢰도 유의미) ✅(M1) · 이중게이트 ✅ · 결정 스파인 ✅(M2) · 자율도 표본 축적(M1~M2 운영에서).
 
-- [ ] **AutonomyPolicy 모델 + resolveAutonomyMode** (05 문서 = 정본): `mode=auto AND autonomy.score≥0.9 AND samples≥10 AND colorGatePass` 조건, 미달 시 suggest 강등.
-- [ ] **runAutopilotPass**: 1순위 대상 = mail_candidate 중 **이중게이트 통과분**(현 기준 그대로 — confidence≥85 AND decision=approve_candidate). `actor='ai'` 승인 기록.
-- [ ] **안전장치 전부**: 돈 걸린 결정 자동화 금지, 24h 회수, `AUTOPILOT_ENABLED=0` kill-switch, 와치독(일일 이상 감지 리포트).
-- [ ] **상시 파이프라인**: 메일 sync → 분류 → 재검증 → 큐 → (autopilot) 의 cron 체계화. 실패 시 정직한 알림(운영자 데일리 리포트에 파이프라인 헬스 포함).
+- [x] **AutonomyPolicy 모델 + resolveAutonomyMode** (#118) (05 문서 = 정본): `mode=auto AND autonomy.score≥0.9 AND samples≥10 AND colorGatePass` 조건, 미달 시 suggest 강등.
+- [x] **runAutopilotPass** (#123 — 연속3회 뒤집힘 자동강등 포함): 1순위 대상 = mail_candidate 중 **이중게이트 통과분**(현 기준 그대로 — confidence≥85 AND decision=approve_candidate). `actor='ai'` 승인 기록.
+- [x] **안전장치 전부** (돈타입 스캔제외·24h 회수가능 T0·kill-switch DB+env·와치독 #124): 돈 걸린 결정 자동화 금지, 24h 회수, `AUTOPILOT_ENABLED=0` kill-switch, 와치독(일일 이상 감지 리포트).
+- [x] **상시 파이프라인** (launchd 4잡 — agent-schedules 부적합 실측 pivot, 2026-07-11 가동 개시 #124): 메일 sync → 분류 → 재검증 → 큐 → (autopilot) 의 cron 체계화. 실패 시 정직한 알림(운영자 데일리 리포트에 파이프라인 헬스 포함).
 - [ ] LLM confidence 의미론 정리(backlog): "결정 확신도 vs 후보 품질" 혼재를 autonomy 점수 도입과 함께 정의 통일.
 - [ ] **[F3] 견적서 자동 초안**: 이중게이트 통과 opportunity(캘리브레이션 실측: 승인 대기 12건 전원이 견적/사이징 요청) 승인 순간 → 과거 유사 문서 recall(임베딩 전이므로 구조적 recall) → GeneratedDocument 초안 생성(기존 승격 루프 재사용) → 사람은 단가 확정만. **실측 주의: quotes 테이블 0행 — 견적은 GeneratedDocument 축으로 설계**(Quote 모델 활성화는 별도 결정).
 - [ ] **[F10] 주간 AI 회고 리포트**: KPI 주간 리포트 확장 — "AI가 자동 처리한 것 / 사람이 뒤집은 것 / 학습된 규칙" 3절. autopilot 신뢰 장치(M3 자동화와 동시 출시가 요점).

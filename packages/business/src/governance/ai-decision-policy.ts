@@ -52,6 +52,8 @@ export const ACTION_TIER_REGISTRY: Record<string, "T0" | "T1"> = {
   candidate_approved_converted: "T0",
   // 내부 큐 상태 전이, 외부 발신 없음, 24시간 내 사람이 되돌리기 가능 → T0 (autopilot 설계)
   autopilot_approve: "T0",
+  // 사람이 킬스위치를 직접 토글 — 내부 설정값, 외부 발신 없음, 즉시 되돌림 가능 → T0
+  autopilot_toggle: "T0",
 };
 
 /**

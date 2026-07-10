@@ -1,8 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@sangfor/db";
-import { evaluateCandidateColorGate } from "@sangfor/business";
+import { evaluateCandidateColorGate, isAutopilotEnabled } from "@sangfor/business";
 import { revalOf } from "@/lib/cockpit";
+import { AutopilotKillSwitch } from "@/components/cockpit/autopilot-kill-switch";
 
 const DOMAINS = [
   { key: "marketing", cls: "mk", badge: "MK", nm: "마케팅", sub: "인입·분류" },
@@ -28,6 +29,32 @@ function autonomyStep(total: number, approved: number): number {
   return 1;
 }
 const STEP_LABELS = ["관찰", "초안", "자동", "위임"];
+const MODE_KO: Record<string, string> = { observe: "관찰", suggest: "제안", auto: "자동" };
+const REVERSAL_WINDOW_DAYS = 7;
+
+async function computeReversalRate7d(): Promise<{ rate: number; reversed: number; total: number }> {
+  const reversalSince = new Date(Date.now() - REVERSAL_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const autoDecisions = await prisma.domainDecisionLog.findMany({
+    where: { actor: "ai", actionType: "autopilot_approve", createdAt: { gte: reversalSince } },
+    select: { caseRef: true, createdAt: true },
+  });
+  let reversed = 0;
+  for (const d of autoDecisions) {
+    if (!d.caseRef) continue;
+    const laterRejection = await prisma.domainDecisionLog.findFirst({
+      where: {
+        caseRef: d.caseRef,
+        actor: { in: ["human", "sales"] },
+        outcome: "rejected",
+        createdAt: { gt: d.createdAt },
+      },
+      select: { id: true },
+    });
+    if (laterRejection) reversed++;
+  }
+  const rate = autoDecisions.length > 0 ? Math.round((reversed / autoDecisions.length) * 100) : 0;
+  return { rate, reversed, total: autoDecisions.length };
+}
 
 export default async function AiTeamPage() {
   const [byDomainOutcome, memByDomain, totalDecisions, corrections] =
@@ -74,6 +101,23 @@ export default async function AiTeamPage() {
       else if (g.lenses[k] === "fail") lensAgg[k].fail += 1;
     }
   }
+
+  // Autopilot 관제 — 정책·킬스위치·최근 자동 결정·뒤집힘율 (전부 실쿼리)
+  const [autopilotEnabled, policies, recentAutoDecisions] = await Promise.all([
+    isAutopilotEnabled(),
+    prisma.autonomyPolicy.findMany({
+      orderBy: [{ domain: "asc" }, { decisionType: "asc" }],
+      select: { domain: true, decisionType: true, mode: true, minAutonomy: true, minSamples: true },
+    }),
+    prisma.domainDecisionLog.findMany({
+      where: { actor: "ai", actionType: "autopilot_approve" },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: { id: true, caseRef: true, outcome: true, createdAt: true },
+    }),
+  ]);
+
+  const reversal = await computeReversalRate7d();
 
   const stat = (domain: string) => {
     const rows = byDomainOutcome.filter((r) => r.domain === domain);
@@ -226,6 +270,69 @@ export default async function AiTeamPage() {
             누적 사람 수정 {totalCorrected}건 — 반복 수정이 역할 AI 메모리로 학습됩니다.
           </p>
         </div>
+      </div>
+
+      <div className="sh" style={{ marginTop: 6 }}>
+        <h2>Autopilot 관제</h2>
+        <span className="n">{autopilotEnabled ? "ON" : "OFF"}</span>
+        <span className="flow">정책·킬스위치·뒤집힘율</span>
+      </div>
+      <div className="ck-cols">
+        <div className="pnl">
+          <div className="ph">
+            <b>도메인×유형 정책</b>
+            <span className="co mlbl">모드·임계</span>
+          </div>
+          {policies.length === 0 ? (
+            <p className="empty">등록된 자율운영 정책이 없습니다 — 전부 관찰 상태.</p>
+          ) : (
+            policies.map((p, i) => (
+              <div className="kv" key={`${p.domain}-${p.decisionType}-${i}`}>
+                <span className="k">
+                  {p.domain} · {p.decisionType}
+                </span>
+                <span className="v">
+                  {MODE_KO[p.mode] ?? p.mode} · 임계 {Math.round(p.minAutonomy * 100)}% · 표본{" "}
+                  {p.minSamples}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="pnl">
+          <div className="ph">
+            <b>킬스위치</b>
+            <span className="co mlbl">즉시 전체 정지</span>
+          </div>
+          <AutopilotKillSwitch enabled={autopilotEnabled} />
+          <p className="empty" style={{ paddingTop: 10 }}>
+            최근 {REVERSAL_WINDOW_DAYS}일 뒤집힘율 <b>{reversal.rate}%</b> ({reversal.reversed}/
+            {reversal.total}건)
+          </p>
+        </div>
+      </div>
+
+      <div className="pnl">
+        <div className="ph">
+          <b>최근 자동 결정</b>
+          <span className="co mlbl">최근 {recentAutoDecisions.length}건</span>
+        </div>
+        {recentAutoDecisions.length === 0 ? (
+          <p className="empty">아직 자동 승인된 결정이 없습니다.</p>
+        ) : (
+          recentAutoDecisions.map((d) => (
+            <div className="learn" key={d.id}>
+              <div className="ic">{d.outcome === "rejected" ? "↩" : "⚡"}</div>
+              <div className="x">
+                <b>{d.caseRef ?? d.id}</b>
+                <span>
+                  {d.outcome ?? "approved"} · {new Date(d.createdAt).toLocaleString("ko-KR")}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
