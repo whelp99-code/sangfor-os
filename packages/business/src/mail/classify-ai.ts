@@ -16,6 +16,7 @@ import { INTERNAL_COMPANY_NAMES, STATIC_POLICY_LOOKUP } from "./constants";
 import { SELF_DOMAINS, SYSTEM_SENDER_DOMAINS } from "../mail-domain-registry";
 import {
   AiClassificationResult,
+  ARTIFACT_ENTITY_NAME_EXAMPLES,
   ThreadLike,
   asRecord,
   asStringArray,
@@ -274,6 +275,11 @@ async function findPossibleDuplicate(
     : { possibleDuplicate: false };
 }
 
+function stripJsonCodeFence(text: string): string {
+  const fenced = text.trim().match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced ? fenced[1] : text;
+}
+
 function buildTemplateRevalidation(input: {
   candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>;
   duplicateCheck: AiRevalidationResult["duplicateCheck"];
@@ -428,7 +434,7 @@ GROUND_TRUTH: ${GROUND_TRUTH_CALIBRATION}
 DOMAIN KNOWLEDGE:
 - Our own company domains: ${selfDomainsStr}. Our internal company names: ${internalNamesStr}. If a customer/partner candidate IS our own company (title starts with "Customer:" or "Partner:" followed by one of these names) → decision=reject, confidence<=30.
 - System/relay sender domains: ${systemSendersStr}. Known relay/billing/vendor names that are NOT our customers: "팝빌", "eformsign", "linkhub", "모두싸인", "signgate", "DocuSign", "bill36524". These senders are RELAYS — the actual counterparty is in the title/summary, not the relay name. If the candidate title IS the relay/vendor name itself (e.g. "Customer: 팝빌") → decision=reject, confidence<=40.
-- Parser artifact / garbage entity names: "Example", "Mail", "Mails", "<1 min", "Re:", "Fw:", bare numbers-only, bare symbols-only, empty/short names (<2 chars) → decision=reject, confidence<=50.
+- Parser artifact / garbage entity names: ${ARTIFACT_ENTITY_NAME_EXAMPLES.map((n) => `"${n}"`).join(", ")}, bare numbers-only, bare symbols-only, empty/short names (<2 chars) → decision=reject, confidence<=50.
 - approve_candidate semantics: evidence is strong, entity name is a real external company (not us, not a relay, not garbage), and no duplicate found. Safe for batch human-approved conversion (NOT auto-creation — still needs human to click convert).
 - needs_human_review = possible duplicates, weak evidence, or unsure.
 - reject = definitely not our customer/partner (junk, our own company, relay/vendor as entity).`,
@@ -460,7 +466,7 @@ DOMAIN KNOWLEDGE:
       },
     );
 
-    const parsed = JSON.parse(text) as Partial<AiRevalidationResult> & { confidence?: number };
+    const parsed = JSON.parse(stripJsonCodeFence(text)) as Partial<AiRevalidationResult> & { confidence?: number };
     const template = buildTemplateRevalidation({ candidate, duplicateCheck, cacheKey });
 
     const llmConfidence =
