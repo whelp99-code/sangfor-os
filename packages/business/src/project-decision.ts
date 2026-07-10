@@ -43,6 +43,7 @@ export async function recordHumanDecision(
     domain,
     caseRef,
     decisionType: "human_review",
+    actor: "human",
     outputJson:
       proposalOutput !== undefined && proposalOutput !== null
         ? (proposalOutput as Prisma.InputJsonValue)

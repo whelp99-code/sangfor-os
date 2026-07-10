@@ -1,6 +1,8 @@
 import { Prisma, prisma } from "@sangfor/db";
 import type { GtmDomain } from "@sangfor/shared/modes";
 import { resolveDefaultProjectSlug } from "../default-project";
+import { recordDecision } from "../governance/ai-decision";
+import type { DecisionActorKey } from "../governance/ai-decision-policy";
 
 /**
  * 도메인 메모리 — 종축 도메인별 학습/기록.
@@ -170,11 +172,20 @@ export async function upsertDomainMemory(input: {
 
 /**
  * 결정/핸드오프 1건 기록 (감사 추적 + 피드백 루프).
- * @deprecated Writes `domain_decision_logs` directly, BYPASSING the fail-closed
- * tier gate in `recordDecision()` (ai-decision.ts). It is the 2nd writer to the
- * canonical table; its call sites should migrate to `recordDecision()` so every
- * row is tier-gated. Kept working this pass (additive) — see ADR-001 / PLAN §7.
+ * A-2 (2026-07-10): now a thin delegate into `recordDecision()` — every row is
+ * tier-gated with actor/actionType/policyVersion stamps. The 2nd direct writer
+ * to the canonical table is gone; kept as a compatibility wrapper for the
+ * domain-flow call sites. New code should call `recordDecision()` directly.
  */
+const DOMAIN_ACTOR: Record<string, DecisionActorKey> = {
+  marketing: "marketing",
+  sales: "sales",
+  sales_support: "sales",
+  presales: "presales",
+  engineer: "engineer",
+  cfo: "cfo",
+};
+
 export async function recordDomainDecision(input: {
   projectSlug?: string;
   domain: GtmDomain;
@@ -185,21 +196,26 @@ export async function recordDomainDecision(input: {
   colorGateJson?: Prisma.InputJsonValue;
   humanEditJson?: Prisma.InputJsonValue;
   outcome?: DomainOutcome;
-}) {
+  actor?: DecisionActorKey;
+}): Promise<{ id: string }> {
   const projectId = await resolveDomainProjectId(input.projectSlug);
-  return prisma.domainDecisionLog.create({
-    data: {
-      projectId,
-      domain: input.domain,
-      caseRef: input.caseRef ?? null,
-      decisionType: input.decisionType,
-      inputJson: input.inputJson ?? Prisma.JsonNull,
-      outputJson: input.outputJson ?? Prisma.JsonNull,
-      colorGateJson: input.colorGateJson ?? Prisma.JsonNull,
-      humanEditJson: input.humanEditJson ?? Prisma.JsonNull,
-      outcome: input.outcome ?? null,
-    },
+  const created = await recordDecision({
+    projectId,
+    domain: input.domain,
+    actor: input.actor ?? DOMAIN_ACTOR[input.domain] ?? "sales",
+    actionType: input.decisionType,
+    caseRef: input.caseRef ?? null,
+    decisionType: input.decisionType,
+    outcome: input.outcome ?? null,
+    input: input.inputJson,
+    output: input.outputJson,
+    humanEdit: input.humanEditJson,
+    colorGate: input.colorGateJson,
   });
+  // recordDecision swallows errors by contract; this wrapper's callers
+  // (recordHumanDecision 등) historically saw failures propagate — keep that.
+  if (!created) throw new Error("domain_decision_log_failed");
+  return created;
 }
 
 /** 한 도메인의 활성 메모리 전부 로드 (소유 경계: where domain). */
