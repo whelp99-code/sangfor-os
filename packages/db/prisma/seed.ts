@@ -108,6 +108,15 @@ async function main() {
     },
   });
 
+  // 자율운영 불변식: 초기 정책은 반드시 전부 observe — 자동화 0에서 시작
+  for (const domain of ["marketing", "sales", "sales_support", "presales", "engineer", "cfo"]) {
+    await prisma.autonomyPolicy.upsert({
+      where: { domain_decisionType: { domain, decisionType: "mail_candidate_approve" } },
+      update: {},
+      create: { domain, decisionType: "mail_candidate_approve", mode: "observe" },
+    });
+  }
+
   const existingCustomer = await prisma.customer.findFirst({
     where: { projectId: project.id, domain: "demo-customer.example.com" },
   });
