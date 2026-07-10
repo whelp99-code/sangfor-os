@@ -28,6 +28,7 @@ function tagsForDomain(domain: GtmDomain, c: InboundCase): string[] {
   const extra: Record<GtmDomain, string[]> = {
     marketing: ["inbound-lead"],
     sales: ["quote", "discount"],
+    sales_support: ["sla-request"],
     presales: ["poc", "tech-fit"],
     engineer: ["deployment", "onsite"],
     cfo: ["margin", "cashflow"],

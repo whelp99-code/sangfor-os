@@ -23,6 +23,7 @@ export type CandidateColorInput = {
   hasSummary?: boolean;
   amount?: number | null;
   marginPercent?: number | null; // 있으면 Orange 판정에 사용
+  isRenewal?: boolean; // 리뉴얼 딜은 마진 필수 검증
 };
 
 const COMMERCIAL = new Set(["opportunity", "customer", "partner"]);
@@ -55,16 +56,19 @@ export function evaluateCandidateColorGate(
     // Red 리스크: 재검증 거부/재확인 필요 → fail
     red: rejectLike ? "fail" : "pass",
     // Orange 가치·마진: 마진 있으면 20% 기준, 없으면 상업성+신뢰도
+    // 리뉴얼 딜은 마진Percent 필수 — 20% 미만이면 fail
     orange:
-      input.marginPercent != null
-        ? input.marginPercent >= 20
-          ? "pass"
-          : "fail"
-        : COMMERCIAL.has(input.candidateType)
-        ? conf >= 60
-          ? "pass"
-          : "fail"
-        : "pass",
+      input.isRenewal && (input.marginPercent == null || input.marginPercent < 20)
+        ? "fail"
+        : input.marginPercent != null
+          ? input.marginPercent >= 20
+            ? "pass"
+            : "fail"
+          : COMMERCIAL.has(input.candidateType)
+            ? conf >= 60
+              ? "pass"
+              : "fail"
+            : "pass",
     // Gray 근거: 요약·신뢰도로 근거 충분성
     gray: input.hasSummary && conf >= 60 ? "pass" : conf >= 75 ? "pass" : "fail",
     // Teal UX: 고객 전달 명료성 — 요약 존재

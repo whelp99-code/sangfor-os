@@ -56,4 +56,36 @@ describe("evaluateCandidateColorGate", () => {
     expect(g.lenses.teal).toBe("na");
     expect(g.reviewed).not.toContain("teal");
   });
+
+  it("fails Orange for renewal with low margin (isRenewal=true, marginPercent=15)", () => {
+    const g = evaluateCandidateColorGate({
+      candidateType: "opportunity",
+      confidence: 80,
+      hasSummary: true,
+      isRenewal: true,
+      marginPercent: 15,
+    });
+    expect(g.lenses.orange).toBe("fail");
+  });
+
+  it("passes Orange for renewal with sufficient margin (isRenewal=true, marginPercent=25)", () => {
+    const g = evaluateCandidateColorGate({
+      candidateType: "opportunity",
+      confidence: 80,
+      hasSummary: true,
+      isRenewal: true,
+      marginPercent: 25,
+    });
+    expect(g.lenses.orange).toBe("pass");
+  });
+
+  it("fails Orange for renewal with no marginPercent (isRenewal=true, undefined)", () => {
+    const g = evaluateCandidateColorGate({
+      candidateType: "opportunity",
+      confidence: 80,
+      hasSummary: true,
+      isRenewal: true,
+    });
+    expect(g.lenses.orange).toBe("fail");
+  });
 });

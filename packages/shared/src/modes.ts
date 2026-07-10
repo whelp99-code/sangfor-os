@@ -13,13 +13,14 @@ export const ROLE_MODES = [
 export type RoleMode = (typeof ROLE_MODES)[number];
 
 /**
- * 종축(업무 도메인) 파이프라인 순서 — 마케팅 → 영업 → 프리세일즈 → 엔지니어 → CFO.
+ * 종축(업무 도메인) 파이프라인 순서 — 마케팅 → 영업 → 영업지원 → 프리세일즈 → 엔지니어 → CFO.
  * 컬러 렌즈(횡축)와 직교한다. 도메인 AI가 추가되는 축.
  * operator/security 는 GTM 파이프라인 밖의 내부 거버넌스 모드라 제외.
  */
 export const GTM_PIPELINE = [
   "marketing",
   "sales",
+  "sales_support",
   "presales",
   "engineer",
   "cfo",

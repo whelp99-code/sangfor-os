@@ -16,6 +16,7 @@ export type DataClassification = "public" | "internal" | "confidential" | "restr
 export const DOMAIN_DATA_CLASS: Record<GtmDomain, DataClassification> = {
   marketing: "internal", // 리드 (개인정보 가능)
   sales: "internal",
+  sales_support: "internal",
   presales: "internal",
   engineer: "restricted", // 고객 자산/현장/보안 구성
   cfo: "restricted", // 재무/마진/캐시플로우
