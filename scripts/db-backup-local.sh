@@ -4,6 +4,10 @@
 # Intended to run from cron:  0 21 * * *  <repo>/scripts/db-backup-local.sh
 set -euo pipefail
 
+# cron runs with a minimal PATH that lacks Docker Desktop's symlink dir —
+# without this, `docker` resolves to nothing and the dump is a 20-byte empty gzip.
+export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="$HOME/Backups/sangfor-os"
 mkdir -p "$DEST"
