@@ -23,14 +23,18 @@ if [[ "${DATABASE_URL}" == *"prod"* || "${DATABASE_URL}" == *"production"* ]]; t
 fi
 
 echo "=== DB Restore Counts Check ==="
-pnpm --filter @ai-portal/db exec node <<'EOF'
+pnpm --filter @sangfor/db exec node <<'EOF'
 const { PrismaClient } = require("@prisma/client");
 
 async function main() {
   const prisma = new PrismaClient();
   const tables = [
-    "command_runs",
     "customers",
+    "opportunities",
+    "mail_derived_candidates",
+    "finance_cashflows",
+    "partners",
+    "command_runs",
     "work_tasks",
     "skill_runs",
     "work_breakdown_items",
