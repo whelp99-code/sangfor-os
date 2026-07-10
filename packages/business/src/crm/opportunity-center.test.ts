@@ -7,6 +7,7 @@ vi.mock("../governance/audit", () => ({ logStateTransition: vi.fn().mockResolved
 vi.mock("../governance/ai-decision", () => ({ recordDecision: vi.fn().mockResolvedValue(undefined) }));
 
 import {
+  archiveOpportunity,
   createOpportunity,
   listOpportunities,
   updateOpportunity,
@@ -15,18 +16,20 @@ import {
 import { logStateTransition } from "../governance/audit";
 import { recordDecision } from "../governance/ai-decision";
 
+const defaultFindUniqueResult: Record<string, unknown> = {
+  id: "opp-1",
+  stage: "LEAD",
+  projectId: "proj-1",
+  dealType: null,
+  dealRegistration: null,
+};
+
 /** Call-recording fake, following domain-persistence.test.ts's fakePrisma() style. */
 function fakePrisma() {
   const calls: Record<string, unknown[]> = {};
   const record = (name: string, args: unknown) => (calls[name] ??= []).push(args);
 
-  let findUniqueOrThrowResult: Record<string, unknown> = {
-    id: "opp-1",
-    stage: "LEAD",
-    projectId: "proj-1",
-    dealType: null,
-    dealRegistration: null,
-  };
+  let findUniqueOrThrowResult: Record<string, unknown> = { ...defaultFindUniqueResult };
 
   // eslint-disable-next-line prefer-const
   let db: OpportunityCenterPrisma;
@@ -188,6 +191,93 @@ describe("opportunity-center characterization", () => {
         expect.objectContaining({ actionType: "entity_edit", outcome: "corrected" }),
       );
       expect(updated.title).toBe("New Title");
+    });
+
+    it("captures both stage_transition and entity_edit when stage AND other fields change", async () => {
+      const { db, calls, setFindUniqueOrThrowResult } = fakePrisma();
+      // Ensure the existing stage is QUALIFIED so PROPOSAL is a legal advance.
+      setFindUniqueOrThrowResult({ ...defaultFindUniqueResult, stage: "QUALIFIED" });
+
+      const updated = await updateOpportunity(
+        "opp-1",
+        { stage: "PROPOSAL", amount: 999 },
+        { prisma: db },
+      );
+
+      expect(calls["opportunity.update"]).toHaveLength(1);
+      const updateArgs = calls["opportunity.update"][0] as { data: Record<string, unknown> };
+      expect(updateArgs.data.stage).toBe("PROPOSAL");
+      expect(updateArgs.data.amount).toBe(999);
+
+      // Two decisions: stage_transition + entity_edit for the non-stage fields.
+      expect(recordDecision).toHaveBeenCalledTimes(2);
+      expect(recordDecision).toHaveBeenCalledWith(
+        expect.objectContaining({ actionType: "stage_transition" }),
+      );
+      expect(recordDecision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actionType: "entity_edit",
+          humanEdit: expect.not.objectContaining({ stage: expect.anything() }),
+        }),
+      );
+      expect(updated.stage).toBe("PROPOSAL");
+      expect(updated.amount).toBe(999);
+    });
+
+    it("does NOT emit an entity_edit for a pure stage-only change", async () => {
+      const { db, setFindUniqueOrThrowResult } = fakePrisma();
+      setFindUniqueOrThrowResult({ ...defaultFindUniqueResult, stage: "QUALIFIED" });
+
+      await updateOpportunity("opp-1", { stage: "PROPOSAL" }, { prisma: db });
+
+      expect(recordDecision).toHaveBeenCalledTimes(1);
+      expect(recordDecision).toHaveBeenCalledWith(
+        expect.objectContaining({ actionType: "stage_transition" }),
+      );
+    });
+  });
+
+  describe("archiveOpportunity", () => {
+    it("updates archivedAt to a Date, does NOT call .delete(), and records entity_archive decision", async () => {
+      const { db, calls } = fakePrisma();
+
+      const result = await archiveOpportunity("opp-1", { prisma: db });
+
+      // Must call update, never delete.
+      expect(calls["opportunity.delete"]).toBeUndefined();
+      expect(calls["opportunity.update"]).toHaveLength(1);
+      const updateArgs = calls["opportunity.update"][0] as {
+        where: { id: string };
+        data: { archivedAt: Date };
+      };
+      expect(updateArgs.where.id).toBe("opp-1");
+      expect(updateArgs.data.archivedAt).toBeInstanceOf(Date);
+
+      // Exactly one recordDecision call with actionType entity_archive.
+      expect(recordDecision).toHaveBeenCalledTimes(1);
+      expect(recordDecision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actionType: "entity_archive",
+          projectId: "proj-1",
+          caseRef: "opp:opp-1",
+          outcome: "approved",
+        }),
+      );
+
+      expect(result.archivedAt).toBeInstanceOf(Date);
+    });
+  });
+
+  describe("listOpportunities — archived filtering", () => {
+    it("includes archivedAt: null in the findMany where clause", async () => {
+      const { db, calls } = fakePrisma();
+
+      await listOpportunities("demo-project", { prisma: db });
+
+      const findManyArgs = calls["opportunity.findMany"]?.[0] as {
+        where: { projectId: string; archivedAt: null };
+      };
+      expect(findManyArgs.where.archivedAt).toBeNull();
     });
   });
 });

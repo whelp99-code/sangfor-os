@@ -33,6 +33,8 @@ export const ACTION_TIER_REGISTRY: Record<string, "T0" | "T1"> = {
   stage_transition: "T0",
   // 사람이 직접 수정한 필드 편집(자율 AI 행동이 아님) → 내부·되돌림가능 → T0
   entity_edit: "T0",
+  // 사람이 직접 보관 처리(소프트 삭제, 되돌림가능) → 내부·무발신 → T0
+  entity_archive: "T0",
   // 외부·저위험·승인후 발신 → T1
   mail_revalidation: "T1",
   // A-2 위임 경로의 기존 decisionType들 — 전부 내부·무발신·가역 → T0

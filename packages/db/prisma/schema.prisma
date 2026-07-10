@@ -747,6 +747,7 @@ model CustomerActivityLog {
 model WorkTask {
   id           String    @id @default(cuid())
   projectId    String    @map("project_id")
+  archivedAt   DateTime? @map("archived_at")
   title        String
   status       String    @default("todo")
   priority     String    @default("normal")
@@ -906,6 +907,7 @@ model PocResultReport {
 model Opportunity {
   id            String    @id @default(cuid())
   projectId     String    @map("project_id")
+  archivedAt    DateTime? @map("archived_at")
   customerId    String?   @map("customer_id")
   partnerId     String?   @map("partner_id")
   distributorId String?   @map("distributor_id")

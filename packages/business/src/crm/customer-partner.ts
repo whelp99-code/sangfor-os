@@ -2,6 +2,8 @@ import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { logStateTransition } from "../governance/audit";
+import { recordDecision } from "../governance/ai-decision";
+import { caseRefFor } from "../case-ref";
 
 export const createCustomerSchema = z.object({
   projectSlug: z.string().default("demo-project"),
@@ -155,11 +157,47 @@ export async function updateCustomer(id: string, input: z.infer<typeof updateCus
     },
   });
 
+  // Best-effort decision spine capture — outside txn, never throws.
+  await recordDecision({
+    projectId: customer.projectId,
+    domain: "sales",
+    actor: "human",
+    actionType: "entity_edit",
+    caseRef: caseRefFor("customer", id),
+    outcome: "corrected",
+    humanEdit: parsed,
+  });
+
   return customer;
 }
 
 export async function archiveCustomer(id: string) {
-  return updateCustomer(id, { status: "archived" });
+  // Direct update, not updateCustomer — archive must leave exactly one
+  // entity_archive spine row, not an extra entity_edit from the delegate.
+  const customer = await prisma.customer.update({
+    where: { id },
+    data: { status: "archived" },
+  });
+
+  await prisma.customerActivityLog.create({
+    data: {
+      customerId: id,
+      activityType: "updated",
+      summary: `Customer ${customer.name} updated`,
+      metadata: { status: "archived" },
+    },
+  });
+
+  // Best-effort decision spine capture — outside txn, never throws.
+  await recordDecision({
+    projectId: customer.projectId,
+    domain: "sales",
+    actor: "human",
+    actionType: "entity_archive",
+    caseRef: caseRefFor("customer", id),
+    outcome: "approved",
+  });
+  return customer;
 }
 
 export async function createPartner(input: z.infer<typeof createPartnerSchema>) {
@@ -201,14 +239,42 @@ export async function getPartnerDetail(id: string) {
 
 export async function updatePartner(id: string, input: z.infer<typeof updatePartnerSchema>) {
   const parsed = updatePartnerSchema.parse(input);
-  return prisma.partner.update({
+  const partner = await prisma.partner.update({
     where: { id },
     data: parsed,
   });
+
+  // Best-effort decision spine capture — outside txn, never throws.
+  await recordDecision({
+    projectId: partner.projectId,
+    domain: "sales",
+    actor: "human",
+    actionType: "entity_edit",
+    caseRef: caseRefFor("partner", id),
+    outcome: "corrected",
+    humanEdit: parsed,
+  });
+
+  return partner;
 }
 
 export async function archivePartner(id: string) {
-  return updatePartner(id, { status: "archived" });
+  // Direct update, not updatePartner — archive must leave exactly one
+  // entity_archive spine row, not an extra entity_edit from the delegate.
+  const partner = await prisma.partner.update({
+    where: { id },
+    data: { status: "archived" },
+  });
+  // Best-effort decision spine capture — outside txn, never throws.
+  await recordDecision({
+    projectId: partner.projectId,
+    domain: "sales",
+    actor: "human",
+    actionType: "entity_archive",
+    caseRef: caseRefFor("partner", id),
+    outcome: "approved",
+  });
+  return partner;
 }
 
 export async function createContact(input: z.infer<typeof createContactSchema>) {

@@ -50,6 +50,7 @@ export async function listUnifiedPortalTasks(projectSlug = "demo-project") {
   const tasks = await prisma.workTask.findMany({
     where: {
       projectId: project.id,
+      archivedAt: null,
       source: { in: ["mail", "portal", "portal_legacy", "mail_candidate"] },
     },
     orderBy: { createdAt: "desc" },
@@ -83,6 +84,7 @@ export async function countUnifiedPortalTasks(projectSlug = "demo-project") {
   return prisma.workTask.count({
     where: {
       projectId: project.id,
+      archivedAt: null,
       source: { in: ["mail", "portal", "portal_legacy", "mail_candidate"] },
     },
   });

@@ -2,6 +2,8 @@ import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { logStateTransition } from "../governance/audit";
+import { recordDecision } from "../governance/ai-decision";
+import { caseRefFor } from "../case-ref";
 
 export const TASK_STATUSES = ["todo", "doing", "waiting", "done"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
@@ -131,6 +133,17 @@ export async function updateWorkTask(taskId: string, input: z.infer<typeof updat
     });
   }
 
+  // Best-effort decision spine capture — outside txn, never throws.
+  await recordDecision({
+    projectId: existing.projectId,
+    domain: "sales",
+    actor: "human",
+    actionType: "entity_edit",
+    caseRef: caseRefFor("task", taskId),
+    outcome: "corrected",
+    humanEdit: parsed,
+  });
+
   return task;
 }
 
@@ -140,7 +153,7 @@ export async function updateWorkTaskStatus(taskId: string, status: string) {
 
 export async function listTasksByEngagement(engagementId: string) {
   return prisma.workTask.findMany({
-    where: { engagementId },
+    where: { engagementId, archivedAt: null },
     orderBy: [{ priority: "desc" }, { dueAt: "asc" }],
     include: { customer: true, partner: true, links: true },
   });
@@ -177,6 +190,7 @@ export async function listWorkTasks(
   return prisma.workTask.findMany({
     where: {
       projectId,
+      archivedAt: null,
       ...(filters?.status ? { status: filters.status } : {}),
       ...(filters?.customerId ? { customerId: filters.customerId } : {}),
       ...(filters?.priority ? { priority: filters.priority } : {}),
@@ -188,7 +202,7 @@ export async function listWorkTasks(
 
 export async function listTasksForCustomer(customerId: string) {
   return prisma.workTask.findMany({
-    where: { customerId },
+    where: { customerId, archivedAt: null },
     orderBy: [{ priority: "desc" }, { dueAt: "asc" }],
     include: { links: true },
   });
@@ -204,6 +218,7 @@ export async function listTodayTasks(projectSlug = "demo-project") {
   return prisma.workTask.findMany({
     where: {
       projectId,
+      archivedAt: null,
       status: { not: "done" },
       OR: [
         { dueAt: { gte: start, lt: end } },
@@ -216,7 +231,21 @@ export async function listTodayTasks(projectSlug = "demo-project") {
 }
 
 export async function archiveWorkTask(id: string) {
-  return prisma.workTask.delete({ where: { id } });
+  const existing = await prisma.workTask.findUniqueOrThrow({ where: { id } });
+  const updated = await prisma.workTask.update({
+    where: { id },
+    data: { archivedAt: new Date() },
+  });
+  // Best-effort decision spine capture — outside txn, never throws.
+  await recordDecision({
+    projectId: existing.projectId,
+    domain: "sales",
+    actor: "human",
+    actionType: "entity_archive",
+    caseRef: caseRefFor("task", id),
+    outcome: "approved",
+  });
+  return updated;
 }
 
 export async function getWorkTaskDetail(taskId: string) {
