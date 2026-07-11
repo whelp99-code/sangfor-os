@@ -21,6 +21,7 @@ import {
 } from "./skill-to-work-breakdown";
 import type { AssignmentSuggestion } from "./phase13-assignment-rules";
 import { traceWorkflowEvent } from "../platform/langfuse-observability";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 export const recommendSkillsSchema = z.object({
   inputSummary: z.string().min(3),
@@ -31,7 +32,7 @@ export const recommendSkillsSchema = z.object({
 export const runPhase13Schema = z
   .object({
     inputSummary: z.string().min(3),
-    projectSlug: z.string().default("demo-project"),
+    projectSlug: z.string().optional(),
     module: z.string().optional(),
     phase: z.number().int().optional(),
     sourceEntityType: phase13SourceEntityTypeSchema.optional(),
@@ -83,6 +84,7 @@ export async function recommendSkillsForInput(input: z.infer<typeof recommendSki
 
 export async function runPhase13Orchestrator(input: z.infer<typeof runPhase13Schema>) {
   const parsed = runPhase13Schema.parse(input);
+  const projectSlug = parsed.projectSlug ?? (await resolveDefaultProjectSlug());
   const profile = resolvePhase13ExecutionProfile(
     parsed.executionProfile as Phase13ExecutionProfile | undefined,
   );
@@ -99,7 +101,7 @@ export async function runPhase13Orchestrator(input: z.infer<typeof runPhase13Sch
   ) {
     const { enrichPhase13RunWithContextPack } = await import("../orchestration/orchestrator-bridge");
     const enriched = await enrichPhase13RunWithContextPack({
-      projectSlug: parsed.projectSlug,
+      projectSlug,
       sourceEntityType: parsed.sourceEntityType,
       sourceEntityId: parsed.sourceEntityId,
       templateKey: parsed.templateKey,
@@ -133,7 +135,7 @@ export async function runPhase13Orchestrator(input: z.infer<typeof runPhase13Sch
 
   const commandRun = await createCommandRun({
     inputSummary: effectiveInputSummary,
-    projectSlug: parsed.projectSlug,
+    projectSlug,
     commandKey: "phase13-orchestrator",
     sourceEntityType: parsed.sourceEntityType,
     sourceEntityId: parsed.sourceEntityId,
