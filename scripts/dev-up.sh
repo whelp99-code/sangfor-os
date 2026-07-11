@@ -20,6 +20,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# LLM config must reach the api/web processes: Next.js only reads apps/web/.env*,
+# so without this the :3101 server has no OPENAI key and in-process
+# classification/revalidation falls back with openai_api_key_missing.
+if [[ -f .env ]] && grep -qE '^OPENAI_' .env; then
+  set -a
+  # shellcheck disable=SC1090
+  source <(grep -E '^OPENAI_' .env)
+  set +a
+fi
+
 API_PORT="${API_PORT:-3200}"
 WEB_PORT="${WEB_PORT:-3101}"
 DB_URL="${DATABASE_URL:-postgresql://sangfor:sangfor_password@localhost:5434/sangfor_os?schema=public}"
