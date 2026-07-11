@@ -28,6 +28,7 @@ function parseArgs(argv: string[]) {
 
 async function main() {
   const { status, concurrency, max } = parseArgs(process.argv.slice(2));
+  const runStart = new Date();
 
   const candidates = await prisma.mailDerivedCandidate.findMany({
     where: { status },
@@ -44,7 +45,9 @@ async function main() {
   console.log(`status=${status} concurrency=${concurrency} max=${max} candidates=${candidates.length}`);
 
   let processed = 0;
+  let llmOk = 0;
   let fallback = 0;
+  let cached = 0;
   let rejected = 0;
   let errors = 0;
   let idx = 0;
@@ -54,14 +57,21 @@ async function main() {
       const c = candidates[idx++];
       try {
         const res = await revalidateMailDerivedCandidate(c.id);
-        const reval = (res as { revalidation?: { decision?: string; llmConfidence?: number | null } }).revalidation ?? null;
-        const isFallback = reval ? reval.llmConfidence == null : false;
-        if (isFallback) fallback += 1;
+        const reval = (
+          res as { revalidation?: { decision?: string; mode?: string; fallbackReason?: string; revalidatedAt?: string } }
+        ).revalidation ?? null;
+        const revalidatedAt = reval?.revalidatedAt ? new Date(reval.revalidatedAt) : null;
+        const isFreshThisRun = revalidatedAt != null && revalidatedAt.getTime() >= runStart.getTime();
+        const isTrueFallback = reval?.mode === "template" && typeof reval.fallbackReason === "string";
+        const outcome = !reval ? "unknown" : !isFreshThisRun ? "cached" : isTrueFallback ? "fallback" : "llm_ok";
+        if (outcome === "cached") cached += 1;
+        else if (outcome === "fallback") fallback += 1;
+        else if (outcome === "llm_ok") llmOk += 1;
         if (reval?.decision === "reject") rejected += 1;
         processed += 1;
         appendFileSync(
           logPath,
-          `${JSON.stringify({ id: c.id, type: c.candidateType, title: c.title, decision: reval?.decision ?? null, fallback: isFallback })}\n`,
+          `${JSON.stringify({ id: c.id, type: c.candidateType, title: c.title, decision: reval?.decision ?? null, outcome })}\n`,
         );
       } catch (error) {
         errors += 1;
@@ -75,8 +85,14 @@ async function main() {
   });
   await Promise.all(workers);
 
-  const fallbackRate = processed > 0 ? Math.round((fallback / processed) * 100) : 0;
-  console.log(`processed=${processed} fallback=${fallback} (${fallbackRate}%) rejected=${rejected} errors=${errors}`);
+  // Rate is over freshly-revalidated items only (llmOk + fallback) — cached
+  // results carry no signal about current LLM provider health and would
+  // dilute/inflate the rate depending on how much of the batch was cache hits.
+  const freshTotal = llmOk + fallback;
+  const fallbackRate = freshTotal > 0 ? Math.round((fallback / freshTotal) * 100) : 0;
+  console.log(
+    `processed=${processed} llmOk=${llmOk} fallback=${fallback} (${fallbackRate}% of ${freshTotal} freshly-revalidated) cached=${cached} rejected=${rejected} errors=${errors}`,
+  );
   if (fallbackRate > 30) {
     console.warn(`WARNING: fallback rate ${fallbackRate}% exceeds 30% threshold — check LLM provider health`);
   }
