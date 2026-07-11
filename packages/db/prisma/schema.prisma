@@ -1547,6 +1547,7 @@ model Invoice {
   updatedAt      DateTime      @updatedAt
   taxInvoices    TaxInvoice[]
   engagementId   String?       @map("engagement_id")
+  engagement     Engagement?   @relation(fields: [engagementId], references: [id], onDelete: SetNull)
 
   @@index([engagementId])
   @@index([depositStatus, projectId])
@@ -1571,6 +1572,7 @@ model Expense {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   engagementId  String?        @map("engagement_id")
+  engagement    Engagement?    @relation(fields: [engagementId], references: [id], onDelete: SetNull)
 
   @@index([engagementId])
   @@index([category, isPaid, projectId])
@@ -1674,6 +1676,7 @@ model TaxInvoice {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   engagementId    String?  @map("engagement_id")
+  engagement      Engagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
 
   @@index([engagementId])
   @@index([direction, issueDate])
@@ -2267,6 +2270,9 @@ model Engagement {
   checklistItems     DeliveryChecklistItem[]
   generatedDocuments GeneratedDocument[]
   meetingNotes       MeetingNote[]
+  invoices           Invoice[]
+  expenses           Expense[]
+  taxInvoices        TaxInvoice[]
 
   @@map("delivery_projects")
 }
