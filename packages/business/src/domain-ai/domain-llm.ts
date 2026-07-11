@@ -7,7 +7,7 @@ import {
   opencodePrompt,
   type OpencodeConfig,
   type OpencodeModel,
-} from "../opencode-client";
+} from "../orchestration/opencode-client";
 
 /**
  * 도메인 AI 런타임의 실제 LLM 백엔드를 opencode(+OpenAI ChatGPT OAuth)로 연결한다.

@@ -1,6 +1,6 @@
 import { Prisma, prisma } from "@sangfor/db";
-import { buildMemoryTags, recordDomainDecision, upsertDomainMemory } from "./domain-ai/domain-memory";
-import { promoteDomainProposalToDocument } from "./domain-ai/proposal-promote";
+import { buildMemoryTags, recordDomainDecision, upsertDomainMemory } from "./domain-memory";
+import { promoteDomainProposalToDocument } from "./proposal-promote";
 import type { DomainKey } from "./artifact-domain-map";
 
 export type { DomainKey };

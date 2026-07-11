@@ -1,6 +1,6 @@
 import { Prisma, prisma } from "@sangfor/db";
 import type { GtmDomain } from "@sangfor/shared/modes";
-import { resolveDefaultProjectSlug } from "../default-project";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 import { recordDecision } from "../governance/ai-decision";
 import type { DecisionActorKey } from "../governance/ai-decision-policy";
 

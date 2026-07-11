@@ -7,7 +7,7 @@ import {
   lensesForDomain,
   buildDomainHandoff,
 } from "./domain-pipeline";
-import { checkColorGate, type ColorKey } from "../color-agent";
+import { checkColorGate, type ColorKey } from "./color-agent";
 import {
   recallFromDb,
   recordDomainDecision,

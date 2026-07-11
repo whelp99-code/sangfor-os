@@ -1,9 +1,9 @@
 import { prisma } from '@sangfor/db';
-import { getEngagementDetail } from './engagement-center';
-import { computePnl, type Pnl } from './domain-ai/domain-pnl';
+import { getEngagementDetail } from '../crm/engagement-center';
+import { computePnl, type Pnl } from './domain-pnl';
 import { buildLanes, type DomainLane, type LaneArtifact } from './artifact-domain-map';
 import { getDomainAutonomy } from './project-decision';
-import { getPendingProposals } from './domain-ai/domain-proposal';
+import { getPendingProposals } from './domain-proposal';
 
 export interface ProjectHub {
   engagement: Awaited<ReturnType<typeof getEngagementDetail>>;

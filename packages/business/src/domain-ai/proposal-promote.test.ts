@@ -20,7 +20,7 @@ describe.skipIf(!integrationEnabled)("promoteDomainProposalToDocument", () => {
 
   beforeAll(async () => {
     const { prisma } = await import("@sangfor/db");
-    const { convertOpportunityToProject } = await import("../engagement-center");
+    const { convertOpportunityToProject } = await import("../crm/engagement-center");
     const project = await prisma.project.findFirstOrThrow();
     projectId = project.id;
     const customer = await prisma.customer.create({

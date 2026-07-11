@@ -9,7 +9,7 @@ import {
   type ColorKey,
   type ColorRoutingInput,
   type ColorRoutingResult,
-} from "../color-agent";
+} from "./color-agent";
 import {
   buildDomainDashboardSnapshot,
   createPrismaDomainStatsLoader,
