@@ -183,7 +183,6 @@ export async function convertImprovementToPhase13Run(id: string) {
   const executionProfile = row.sourceType === "route_smoke" ? "smoke" : "full";
   const phase13 = await runPhase13Orchestrator({
     inputSummary,
-    projectSlug: "demo-project",
     phase: 13,
     module: row.suggestedModule ?? "development",
     executionProfile,

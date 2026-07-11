@@ -13,6 +13,7 @@ import {
 } from "../skills/portal-binding-summaries";
 import type { ContextPack, ContextPackSection, ContextPackSectionKey } from "./context-pack-types";
 import { buildContextPackSchema, type TemplateKey } from "./context-pack-types";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 function emptySection(key: ContextPackSectionKey, title: string): ContextPackSection {
   return { key, title, empty: true, content: "(no data)" };
@@ -102,6 +103,7 @@ export async function buildOrchestratorContextPack(
   input: z.infer<typeof buildContextPackSchema>,
 ): Promise<ContextPack> {
   const parsed = buildContextPackSchema.parse(input);
+  const projectSlug = parsed.projectSlug ?? (await resolveDefaultProjectSlug());
   const sections: ContextPackSection[] = [];
 
   let customerId: string | undefined;
@@ -227,7 +229,7 @@ export async function buildOrchestratorContextPack(
   const query = knowledgeQuery?.trim() || "Sangfor HCI PoC";
   try {
     const citations = await searchKnowledgeWithCitations({
-      projectSlug: parsed.projectSlug,
+      projectSlug,
       q: query,
     });
     const citationContent = formatKnowledgeCitations(citations);

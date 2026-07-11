@@ -48,7 +48,7 @@ export type TemplateRenderOutput = {
 };
 
 export const buildContextPackSchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   sourceEntityType: contextPackSourceEntitySchema.optional(),
   sourceEntityId: z.string().min(1).optional(),
   templateKey: templateKeySchema.optional(),

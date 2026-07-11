@@ -67,7 +67,6 @@ async function ensureWatchdogTask(
   if (existing) return "skipped";
 
   await createWorkTask({
-    projectSlug: "demo-project",
     title,
     status: "todo",
     source: "watchdog",

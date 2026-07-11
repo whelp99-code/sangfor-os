@@ -7,7 +7,7 @@ import type { ContextPack, TemplateKey, TemplateRenderOutput } from "./context-p
 import { templateKeySchema } from "./context-pack-types";
 
 export const phase14RunOptionsSchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   sourceEntityType: z.enum(["opportunity", "proposal", "poc"]).optional(),
   sourceEntityId: z.string().min(1).optional(),
   templateKey: templateKeySchema.optional(),

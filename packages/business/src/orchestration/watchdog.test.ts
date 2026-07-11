@@ -35,6 +35,7 @@ vi.mock("@sangfor/db", () => {
   };
   const project = {
     findUniqueOrThrow: vi.fn(async () => ({ id: "proj-1", slug: "demo-project" })),
+    findMany: vi.fn(async () => [{ id: "proj-1", slug: "demo-project", name: "Demo" }]),
   };
   const taskStatusEvent = { create: vi.fn(async () => ({})) };
   const taskLink = { upsert: vi.fn(async () => ({})) };

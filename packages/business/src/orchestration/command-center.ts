@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { enqueueOutboxEvent, logStateTransition } from "../governance/audit";
 import { createApprovalIfNeeded } from "../governance/approval-gate";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 export const phase13SourceEntityTypeSchema = z.enum([
   "opportunity",
@@ -12,7 +13,7 @@ export const phase13SourceEntityTypeSchema = z.enum([
 
 export const createCommandRunSchema = z.object({
   inputSummary: z.string().min(3),
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   commandKey: z.string().default("user-request"),
   sourceEntityType: phase13SourceEntityTypeSchema.optional(),
   sourceEntityId: z.string().min(1).optional(),
@@ -42,7 +43,7 @@ export async function createCommandRun(input: z.infer<typeof createCommandRunSch
   const parsed = createCommandRunSchema.parse(input);
 
   const project = await prisma.project.findUniqueOrThrow({
-    where: { slug: parsed.projectSlug },
+    where: { slug: parsed.projectSlug ?? (await resolveDefaultProjectSlug()) },
   });
 
   const command = await prisma.command.upsert({

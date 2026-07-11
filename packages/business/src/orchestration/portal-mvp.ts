@@ -2,13 +2,16 @@ import { prisma } from "@sangfor/db";
 
 import { createWorkTask, linkTaskToEntity } from "./task-center";
 import { countUnifiedPortalTasks, listUnifiedPortalTasks } from "./task-adapter";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 /**
  * Purpose: Phase 9 portal MVP — mock Outlook mail (real OAuth when OUTLOOK_* env set).
  * Task reads/writes use canonical work_tasks via task-adapter (Wave 1).
  */
-export async function connectMockOutlook(projectSlug = "demo-project") {
-  const project = await prisma.project.findUniqueOrThrow({ where: { slug: projectSlug } });
+export async function connectMockOutlook(projectSlug?: string) {
+  const project = await prisma.project.findUniqueOrThrow({
+    where: { slug: projectSlug ?? (await resolveDefaultProjectSlug()) },
+  });
   return prisma.mailAccount.upsert({
     where: { id: `${project.id}-outlook-mock` },
     update: { status: "mock_connected" },
@@ -44,7 +47,6 @@ export async function syncMockMail(accountId: string) {
       : null;
 
     const task = await createWorkTask({
-      projectSlug: "demo-project",
       title: `Mail: ${mail.subject}`,
       source: "mail_candidate",
       priority: mail.groupKey === "sales" ? "high" : "normal",
@@ -63,16 +65,17 @@ export async function syncMockMail(accountId: string) {
 }
 
 /** @deprecated Use listUnifiedPortalTasks — reads work_tasks only */
-export async function listPortalTasks(projectSlug = "demo-project") {
+export async function listPortalTasks(projectSlug?: string) {
   return listUnifiedPortalTasks(projectSlug);
 }
 
-export async function getPortalOverview(projectSlug = "demo-project") {
-  const project = await prisma.project.findUniqueOrThrow({ where: { slug: projectSlug } });
+export async function getPortalOverview(projectSlug?: string) {
+  const slug = projectSlug ?? (await resolveDefaultProjectSlug());
+  const project = await prisma.project.findUniqueOrThrow({ where: { slug } });
   const [accounts, messages, tasks] = await Promise.all([
     prisma.mailAccount.count({ where: { projectId: project.id } }),
     prisma.mailMessage.count(),
-    countUnifiedPortalTasks(projectSlug),
+    countUnifiedPortalTasks(slug),
   ]);
   return { accounts, messages, tasks };
 }
