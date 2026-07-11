@@ -1,5 +1,7 @@
 import { Prisma, prisma } from "@sangfor/db";
 
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
+
 export type MailPolicyMemoryType =
   | "internal_company_name"
   | "internal_domain"
@@ -190,8 +192,8 @@ export async function seedDefaultMailPolicyMemory(projectSlug = "demo-project") 
   return { projectId, seeded: seeds.length };
 }
 
-export async function buildMailPolicyLookup(projectSlug = "demo-project"): Promise<MailPolicyLookup> {
-  const projectId = await resolveProjectId(projectSlug);
+export async function buildMailPolicyLookup(projectSlug?: string): Promise<MailPolicyLookup> {
+  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()));
   const rows = await prisma.policyMemory.findMany({
     where: { projectId, status: { in: ["active", "approved"] } },
   });
@@ -265,7 +267,7 @@ export async function upsertPolicyMemory(input: {
   confidence?: number;
   status?: string;
 }) {
-  const projectId = await resolveProjectId(input.projectSlug ?? "demo-project");
+  const projectId = await resolveProjectId(input.projectSlug ?? (await resolveDefaultProjectSlug()));
   const key = normalizePolicyKey(input.key);
   return prisma.policyMemory.upsert({
     where: {

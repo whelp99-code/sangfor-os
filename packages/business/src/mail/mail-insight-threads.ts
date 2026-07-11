@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { syncKnowledgeChunks } from "../domain-ai/knowledge-search";
 import { resolveProjectId, seedDefaultMailPolicyMemory } from "./mail-policy-memory";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 const jsonArraySchema = z.array(z.unknown()).default([]);
 
@@ -27,12 +28,12 @@ export const mailInsightThreadInputSchema = z.object({
 });
 
 export const upsertMailInsightThreadsSchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   threads: z.array(mailInsightThreadInputSchema).min(1),
 });
 
 export const listMailInsightThreadsSchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   limit: z.number().int().min(1).max(2_000).default(100),
 });
 
@@ -136,7 +137,7 @@ export async function listMailInsightThreads(
   input: z.input<typeof listMailInsightThreadsSchema> = {},
 ) {
   const parsed = listMailInsightThreadsSchema.parse(input);
-  const projectId = await resolveProjectId(parsed.projectSlug);
+  const projectId = await resolveProjectId(parsed.projectSlug ?? (await resolveDefaultProjectSlug()));
   return prisma.mailInsightThread.findMany({
     where: { projectId },
     orderBy: [{ latestReceivedAt: "desc" }, { updatedAt: "desc" }],
@@ -152,7 +153,7 @@ export async function upsertMailInsightThreads(
   input: z.input<typeof upsertMailInsightThreadsSchema>,
 ) {
   const parsed = upsertMailInsightThreadsSchema.parse(input);
-  const { projectId } = await seedDefaultMailPolicyMemory(parsed.projectSlug);
+  const { projectId } = await seedDefaultMailPolicyMemory(parsed.projectSlug ?? (await resolveDefaultProjectSlug()));
   const stats = { upserted: 0, createdDocuments: 0, updatedDocuments: 0 };
   const threads = [];
 

@@ -11,6 +11,7 @@ import {
   getOpenAiModel,
 } from "../platform/openai-config";
 import { MailPolicyLookup, resolveProjectId } from "./mail-policy-memory";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 import { INTERNAL_COMPANY_NAMES, STATIC_POLICY_LOOKUP } from "./constants";
 import { SELF_DOMAINS, SYSTEM_SENDER_DOMAINS } from "./mail-domain-registry";
@@ -595,7 +596,7 @@ export async function revalidateMailDerivedCandidate(
         : revalidation.decision === "reject"
           ? "rejected"
           : "corrected";
-    const projectId = await resolveProjectId("demo-project");
+    const projectId = await resolveProjectId(await resolveDefaultProjectSlug());
     const domain = gtmDomainForCandidate(candidate.candidateType);
     await recordDecision({
       projectId,

@@ -33,9 +33,10 @@ import { classifyMailInsightThreadHybrid, revalidateMailDerivedCandidate } from 
 import { listMailDerivedCandidates } from "./candidates-update";
 import { recordDecision } from "../governance/ai-decision";
 import { caseRefFor } from "../infrastructure/case-ref";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 const generateMailCandidatesSchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   limit: z.number().int().min(1).max(2_000).default(50),
   legacyKnowledgeFallback: z.boolean().default(false),
 });
@@ -364,10 +365,11 @@ export async function generateMailDerivedCandidates(
   input: z.input<typeof generateMailCandidatesSchema> = {},
 ) {
   const parsed = generateMailCandidatesSchema.parse(input);
+  const projectSlug = parsed.projectSlug ?? (await resolveDefaultProjectSlug());
   await loadLlmConfigFromDb(); // pick up web-saved OpenAI key for AI revalidation
-  await seedDefaultMailPolicyMemory(parsed.projectSlug);
-  const projectId = await resolveProjectId(parsed.projectSlug);
-  const policy = await buildMailPolicyLookup(parsed.projectSlug);
+  await seedDefaultMailPolicyMemory(projectSlug);
+  const projectId = await resolveProjectId(projectSlug);
+  const policy = await buildMailPolicyLookup(projectSlug);
   const suppressed =
     (await suppressPolicyExcludedCandidates(projectId, policy)) +
     (await suppressWeakProjectCandidates(projectId));
@@ -518,9 +520,10 @@ export async function generateMailDerivedCandidatesHybrid(
   input: z.input<typeof generateMailCandidatesSchema> = {},
 ) {
   const parsed = generateMailCandidatesSchema.parse(input);
-  await seedDefaultMailPolicyMemory(parsed.projectSlug);
-  const projectId = await resolveProjectId(parsed.projectSlug);
-  const policy = await buildMailPolicyLookup(parsed.projectSlug);
+  const projectSlug = parsed.projectSlug ?? (await resolveDefaultProjectSlug());
+  await seedDefaultMailPolicyMemory(projectSlug);
+  const projectId = await resolveProjectId(projectSlug);
+  const policy = await buildMailPolicyLookup(projectSlug);
   const suppressed =
     (await suppressPolicyExcludedCandidates(projectId, policy)) +
     (await suppressWeakProjectCandidates(projectId));

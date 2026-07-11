@@ -336,7 +336,6 @@ export async function approveAndConnectMailCandidate(
   const customer = parsed.customer.mode === "existing"
     ? await prisma.customer.findUniqueOrThrow({ where: { id: parsed.customer.id } })
     : await createCustomer({
-        projectSlug: "demo-project",
         name: parsed.customer.name,
         domain: parsed.customer.domain ?? defaults.customer.domain,
         notes: defaults.customer.notes,
@@ -382,7 +381,6 @@ export async function approveAndConnectMailCandidate(
 
   const proposal = parsed.proposal.mode === "create"
     ? await generateProposal({
-        projectSlug: "demo-project",
         title: parsed.proposal.title,
         templateKey: parsed.proposal.templateKey,
         customerId: customer.id,

@@ -202,7 +202,6 @@ async function convertCustomer(candidate: Awaited<ReturnType<typeof getMailDeriv
   });
   if (existing) return existing;
   return createCustomer({
-    projectSlug: "demo-project",
     name: candidate.title.replace(/^Customer:\s*/i, ""),
     notes: `Created from approved mail candidate.\n\n${candidate.summary}`,
   });
@@ -216,7 +215,6 @@ async function convertPartner(candidate: Awaited<ReturnType<typeof getMailDerive
   });
   if (existing) return existing;
   return createPartner({
-    projectSlug: "demo-project",
     name,
     partnerType: "mail-derived",
   });
@@ -224,7 +222,6 @@ async function convertPartner(candidate: Awaited<ReturnType<typeof getMailDerive
 
 async function convertTask(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
   const task = await createWorkTask({
-    projectSlug: "demo-project",
     title: candidate.title.replace(/^Follow up:\s*/i, ""),
     status: "todo",
     priority: candidate.confidence >= 80 ? "high" : "normal",
@@ -251,7 +248,6 @@ async function convertOpportunity(candidate: Awaited<ReturnType<typeof getMailDe
 
 async function convertPoc(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
   const poc = await createPocProject({
-    projectSlug: "demo-project",
     title: candidate.title.replace(/^PoC:\s*/i, ""),
     productName: "Sangfor",
     requirements: candidate.summary,
