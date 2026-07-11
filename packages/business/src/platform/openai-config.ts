@@ -1,5 +1,5 @@
 /** OpenAI-compatible LLM endpoints (OpenAI, Xiaomi MiMo, etc.) */
-import { resolveLlmConfig } from "./platform/llm/config";
+import { resolveLlmConfig } from "./llm/config";
 
 const MIMO_PAYGO_BASE = "https://api.xiaomimimo.com/v1";
 const MIMO_TOKEN_PLAN_SGP_BASE = "https://token-plan-sgp.xiaomimimo.com/v1";

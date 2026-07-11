@@ -1,6 +1,6 @@
 import { prisma } from "@sangfor/db";
 
-import { buildTimeline, getCommandRunDetail } from "./command-center";
+import { buildTimeline, getCommandRunDetail } from "../orchestration/command-center";
 
 /**
  * Purpose: Persist timeline items and record errors for Beta traceability.
