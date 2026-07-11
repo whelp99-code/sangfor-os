@@ -1,7 +1,7 @@
 import { Prisma, prisma } from "@sangfor/db";
 import { z } from "zod";
 
-import { syncKnowledgeChunks } from "./knowledge-search";
+import { syncKnowledgeChunks } from "../domain-ai/knowledge-search";
 import { resolveProjectId, seedDefaultMailPolicyMemory } from "./mail-policy-memory";
 
 const jsonArraySchema = z.array(z.unknown()).default([]);

@@ -2,12 +2,12 @@ import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { createCustomer, createPartner } from "../crm/customer-partner";
-import { createImprovementCandidateFromError } from "../improvement-loop";
-import { resolveDefaultProjectId } from "../default-project";
-import { upsertPolicyMemory } from "../mail-policy-memory";
+import { createImprovementCandidateFromError } from "../orchestration/improvement-loop";
+import { resolveDefaultProjectId } from "../infrastructure/default-project";
+import { upsertPolicyMemory } from "./mail-policy-memory";
 import { upsertDomainMemory } from "../domain-ai/domain-memory";
 import { createOpportunity } from "../crm/opportunity-center";
-import { createPocProject } from "../poc-center";
+import { createPocProject } from "../crm/poc-center";
 import { createWorkTask, linkTaskToEntity } from "../orchestration/task-center";
 
 import { mailCandidateStatusSchema, mailCandidateTypeSchema } from "./constants";
@@ -22,7 +22,7 @@ import {
   toInputJson,
 } from "./classify-rules";
 import { recordDecision } from "../governance/ai-decision";
-import { caseRefFor } from "../case-ref";
+import { caseRefFor } from "../infrastructure/case-ref";
 
 const listMailCandidatesSchema = z.object({
   status: mailCandidateStatusSchema.optional(),

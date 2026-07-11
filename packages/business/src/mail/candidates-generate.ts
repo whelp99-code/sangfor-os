@@ -1,13 +1,13 @@
 import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
-import { loadLlmConfigFromDb } from "../llm-settings";
+import { loadLlmConfigFromDb } from "../platform/llm-settings";
 import {
   MailPolicyLookup,
   buildMailPolicyLookup,
   resolveProjectId,
   seedDefaultMailPolicyMemory,
-} from "../mail-policy-memory";
+} from "./mail-policy-memory";
 
 import {
   PolicyDecision,
@@ -32,7 +32,7 @@ import {
 import { classifyMailInsightThreadHybrid, revalidateMailDerivedCandidate } from "./classify-ai";
 import { listMailDerivedCandidates } from "./candidates-update";
 import { recordDecision } from "../governance/ai-decision";
-import { caseRefFor } from "../case-ref";
+import { caseRefFor } from "../infrastructure/case-ref";
 
 const generateMailCandidatesSchema = z.object({
   projectSlug: z.string().default("demo-project"),

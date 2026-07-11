@@ -11,9 +11,9 @@
 //
 // This file re-exports the public surface so `@sangfor/business` and the
 // `@sangfor/business/mail-candidates` subpath keep working unchanged.
-export * from "./mail/constants";
-export * from "./mail/classify-rules";
-export * from "./mail/classify-ai";
-export * from "./mail/candidates-update";
-export * from "./mail/candidates-generate";
+export * from "./constants";
+export * from "./classify-rules";
+export * from "./classify-ai";
+export * from "./candidates-update";
+export * from "./candidates-generate";
 

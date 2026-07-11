@@ -2,9 +2,9 @@ import { Prisma, prisma } from "@sangfor/db";
 import { PROPOSAL_TEMPLATE_KEYS } from "@sangfor/shared";
 import { z } from "zod";
 
-import { createContact, createCustomer } from "./crm/customer-partner";
-import { addOpportunityLink, createOpportunity, updateOpportunity } from "./crm/opportunity-center";
-import { generateProposal } from "./crm/proposal-generator";
+import { createContact, createCustomer } from "../crm/customer-partner";
+import { addOpportunityLink, createOpportunity, updateOpportunity } from "../crm/opportunity-center";
+import { generateProposal } from "../crm/proposal-generator";
 
 export const approveAndConnectMailCandidateSchema = z
   .object({

@@ -1,6 +1,6 @@
 import { prisma } from "@sangfor/db";
 import { deriveEntityFromCandidate, canonicalCompanyKey } from "./mail-entity-quality";
-import { resolveDefaultProjectId } from "./default-project";
+import { resolveDefaultProjectId } from "../infrastructure/default-project";
 
 export interface ConvertResult {
   customersCreated: number;

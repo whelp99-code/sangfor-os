@@ -9,7 +9,7 @@ describe.skipIf(!integrationEnabled)("convertApprovedMailCandidates — opportun
 
   beforeAll(async () => {
     const { prisma } = await import("@sangfor/db");
-    const { resolveDefaultProjectId } = await import("./default-project");
+    const { resolveDefaultProjectId } = await import("../infrastructure/default-project");
     cleanProjectId = await resolveDefaultProjectId(prisma);
   });
 
