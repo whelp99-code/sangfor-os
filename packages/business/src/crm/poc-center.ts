@@ -1,9 +1,10 @@
 import { prisma as realPrisma, Prisma } from "@sangfor/db";
 import { z } from "zod";
 
-import { logStateTransition } from "./governance/audit";
-import { recordDecision } from "./governance/ai-decision";
-import { caseRefFor } from "./case-ref";
+import { logStateTransition } from "../governance/audit";
+import { recordDecision } from "../governance/ai-decision";
+import { caseRefFor } from "../infrastructure/case-ref";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 /** Single source of truth for getPocDetail's include shape (used both at the
  * call site and to derive its precise return type below). */
@@ -47,7 +48,7 @@ export interface PocCenterDeps {
 }
 
 export const createPocSchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   title: z.string().min(2),
   opportunityId: z.string().optional(),
   customerId: z.string().optional(),
@@ -114,7 +115,7 @@ export async function createPocProject(
 ) {
   const db = deps.prisma ?? (realPrisma as unknown as PocCenterPrisma);
   const parsed = createPocSchema.parse(input);
-  const projectId = await resolveProjectId(parsed.projectSlug, db);
+  const projectId = await resolveProjectId(parsed.projectSlug ?? (await resolveDefaultProjectSlug()), db);
 
   const poc = await db.pocProject.create({
     data: {
@@ -169,8 +170,8 @@ export async function createPocProject(
   return getPocDetail(poc.id, deps);
 }
 
-export async function listPocProjects(projectSlug = "demo-project") {
-  const projectId = await resolveProjectId(projectSlug, realPrisma as unknown as PocCenterPrisma);
+export async function listPocProjects(projectSlug?: string) {
+  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()), realPrisma as unknown as PocCenterPrisma);
   return realPrisma.pocProject.findMany({
     where: { projectId },
     orderBy: { updatedAt: "desc" },

@@ -1,4 +1,4 @@
-import { evaluateCommercialApproval, type CommercialApprovalDecision } from "../commercial-approval";
+import { evaluateCommercialApproval, type CommercialApprovalDecision } from "../governance/commercial-approval";
 
 export interface QuoteLineItem {
   productName: string

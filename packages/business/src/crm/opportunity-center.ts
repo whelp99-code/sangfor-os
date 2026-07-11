@@ -3,7 +3,8 @@ import { z } from "zod";
 
 import { logStateTransition } from "../governance/audit";
 import { recordDecision } from "../governance/ai-decision";
-import { caseRefFor } from "../case-ref";
+import { caseRefFor } from "../infrastructure/case-ref";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 import { formatDealCode } from "./deal-code";
 import {
   CANONICAL_STAGES,
@@ -64,7 +65,7 @@ const stageInput = z
   .transform(normalizeOpportunityStage);
 
 export const createOpportunitySchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   title: z.string().min(2),
   customerId: z.string().optional(),
   partnerId: z.string().optional(),
@@ -108,7 +109,7 @@ export async function createOpportunity(
 ) {
   const db = deps.prisma ?? (realPrisma as unknown as OpportunityCenterPrisma);
   const parsed = createOpportunitySchema.parse(input);
-  const projectId = await resolveProjectId(parsed.projectSlug, db);
+  const projectId = await resolveProjectId(parsed.projectSlug ?? (await resolveDefaultProjectSlug()), db);
 
   const opp = await db.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('opp_code_seq')`;
@@ -154,11 +155,11 @@ export async function createOpportunity(
 }
 
 export async function listOpportunities(
-  projectSlug = "demo-project",
+  projectSlug?: string,
   deps: OpportunityCenterDeps = {},
 ) {
   const db = deps.prisma ?? (realPrisma as unknown as OpportunityCenterPrisma);
-  const projectId = await resolveProjectId(projectSlug, db);
+  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()), db);
   return db.opportunity.findMany({
     where: { projectId, archivedAt: null },
     orderBy: { updatedAt: "desc" },
@@ -473,7 +474,7 @@ export async function enrichOpportunityLinks(
   );
 }
 
-export async function getOpportunityPipelineSummary(projectSlug = "demo-project") {
+export async function getOpportunityPipelineSummary(projectSlug?: string) {
   const rows = await listOpportunities(projectSlug);
   const byStage: Record<string, number> = {};
   for (const stage of CANONICAL_STAGES) byStage[stage] = 0;
