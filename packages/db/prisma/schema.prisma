@@ -2436,6 +2436,22 @@ model AiPromptRun {
   @@map("ai_prompt_runs")
 }
 
+/// Command-bar agent playbook (reusable saved goal, one-click / scheduled run).
+model AgentPlaybook {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  goal        String
+  description String?
+  allowUnsafe Boolean  @default(false) @map("allow_unsafe")
+  maxSteps    Int?     @map("max_steps")
+  role        String?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("agent_playbooks")
+}
+
 // --- Security & Audit ---
 
 model DataExportRequest {

@@ -26,8 +26,12 @@ export interface Playbook {
   id: string;
   name: string;
   goal: string;
+  description?: string;
   allowUnsafe: boolean;
   maxSteps?: number;
+  /** Role AI tag ("sales" | "presales" | "engineer" | "cfo" | ...), if the playbook is role-scoped. */
+  role?: string;
+  enabled: boolean;
   createdAt: string;
 }
 

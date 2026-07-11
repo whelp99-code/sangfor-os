@@ -13,17 +13,20 @@ const tickRequest = () => new Request("http://test/api/agent/schedules/tick", { 
 
 describe("POST /api/agent/schedules/tick", () => {
   const prevBypass = process.env.AUTH_BYPASS_ENABLED;
+  const runTag = `test_tick_${Date.now()}`;
   beforeAll(() => {
     process.env.AUTH_BYPASS_ENABLED = "1";
   });
-  afterAll(() => {
+  afterAll(async () => {
     process.env.AUTH_BYPASS_ENABLED = prevBypass;
+    const { prisma } = await import("@sangfor/db");
+    await prisma.agentPlaybook.deleteMany({ where: { name: { startsWith: runTag } } });
   });
 
   it("runs due schedules, records a run, and advances nextRunAt", async () => {
     mockRun.mockResolvedValue({ goal: "g", status: "completed", answer: "ok", steps: [] });
 
-    const pb = playbookStore.create({ name: "tickP", goal: "do tick" });
+    const pb = await playbookStore.create({ name: `${runTag}_tickP`, goal: "do tick" });
     // created 10 min ago with a 5 min interval → nextRunAt is in the past (due).
     const past = Date.now() - 10 * 60_000;
     const s = scheduleStore.create({ playbookId: pb.id, intervalMinutes: 5, nowMs: past });
@@ -42,7 +45,7 @@ describe("POST /api/agent/schedules/tick", () => {
 
   it("skips disabled schedules", async () => {
     mockRun.mockClear();
-    const pb = playbookStore.create({ name: "offP", goal: "x" });
+    const pb = await playbookStore.create({ name: `${runTag}_offP`, goal: "x" });
     const s = scheduleStore.create({ playbookId: pb.id, intervalMinutes: 5, nowMs: Date.now() - 10 * 60_000 });
     scheduleStore.update(s.id, { enabled: false });
 

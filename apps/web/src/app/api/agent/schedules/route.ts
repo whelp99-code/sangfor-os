@@ -6,9 +6,11 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/agent/schedules — list schedules (joined with playbook name). */
 export async function GET() {
+  const playbooks = await playbookStore.list();
+  const nameById = new Map(playbooks.map((p) => [p.id, p.name]));
   const schedules = scheduleStore.list().map((s) => ({
     ...s,
-    playbookName: playbookStore.get(s.playbookId)?.name ?? "(deleted playbook)",
+    playbookName: nameById.get(s.playbookId) ?? "(deleted playbook)",
   }));
   return Response.json({ schedules });
 }
@@ -25,7 +27,7 @@ export async function POST(request: Request) {
   }
   const playbookId = typeof body.playbookId === "string" ? body.playbookId : "";
   const intervalMinutes = typeof body.intervalMinutes === "number" ? body.intervalMinutes : 0;
-  if (!playbookId || !playbookStore.get(playbookId)) {
+  if (!playbookId || !(await playbookStore.get(playbookId))) {
     return Response.json({ error: "valid playbookId is required" }, { status: 400 });
   }
   if (!(intervalMinutes > 0)) {

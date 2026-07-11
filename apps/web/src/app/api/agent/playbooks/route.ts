@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/agent/playbooks — list saved playbooks. */
 export async function GET() {
-  return Response.json({ playbooks: playbookStore.list() });
+  return Response.json({ playbooks: await playbookStore.list() });
 }
 
 /** POST /api/agent/playbooks — create a playbook. Body: { name, goal, allowUnsafe?, maxSteps? } */
@@ -23,11 +23,18 @@ export async function POST(request: Request) {
   if (!name || !goal) {
     return Response.json({ error: "name and goal are required" }, { status: 400 });
   }
-  const playbook = playbookStore.create({
-    name,
-    goal,
-    allowUnsafe: body.allowUnsafe === true,
-    maxSteps: typeof body.maxSteps === "number" ? body.maxSteps : undefined,
-  });
-  return Response.json({ playbook }, { status: 201 });
+  try {
+    const playbook = await playbookStore.create({
+      name,
+      goal,
+      allowUnsafe: body.allowUnsafe === true,
+      maxSteps: typeof body.maxSteps === "number" ? body.maxSteps : undefined,
+    });
+    return Response.json({ playbook }, { status: 201 });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "P2002") {
+      return Response.json({ error: "a playbook with this name already exists" }, { status: 409 });
+    }
+    throw error;
+  }
 }
