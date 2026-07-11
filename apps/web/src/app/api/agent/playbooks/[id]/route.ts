@@ -8,7 +8,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const denied = assertApiAccess(request);
   if (denied) return denied;
   const { id } = await params;
-  const removed = playbookStore.remove(id);
+  const removed = await playbookStore.remove(id);
   if (!removed) return Response.json({ error: "playbook not found" }, { status: 404 });
   return Response.json({ ok: true });
 }

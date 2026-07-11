@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   const triggered: Array<{ scheduleId: string; playbookId: string; runId?: string; status: string }> = [];
 
   for (const schedule of due) {
-    const playbook = playbookStore.get(schedule.playbookId);
+    const playbook = await playbookStore.get(schedule.playbookId);
     if (!playbook) {
       scheduleStore.markRan(schedule.id, now);
       triggered.push({ scheduleId: schedule.id, playbookId: schedule.playbookId, status: "skipped_no_playbook" });
