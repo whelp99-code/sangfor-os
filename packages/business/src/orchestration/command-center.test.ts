@@ -39,7 +39,7 @@ describe.skipIf(!integrationEnabled)("command center integration", () => {
 describe.skipIf(!integrationEnabled)("workflow runner integration", () => {
   it("completes mock workflow for a command run", async () => {
     const { createCommandRun } = await import("./command-center");
-    const { runWorkflowMock } = await import("./orchestration/workflow-runner");
+    const { runWorkflowMock } = await import("./workflow-runner");
 
     const run = await createCommandRun({
       inputSummary: "Workflow mock test",

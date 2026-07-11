@@ -1,7 +1,7 @@
 import { prisma } from "@sangfor/db";
 
-import { logStateTransition } from "./governance/audit";
-import { createPullRequestForRun } from "./github-connector";
+import { logStateTransition } from "../governance/audit";
+import { createPullRequestForRun } from "../infrastructure/github-connector";
 
 /**
  * Purpose: Phase 11 Codex task create/track flow with GitHub issue + PR linkage.

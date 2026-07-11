@@ -1,12 +1,12 @@
 import { Prisma, prisma } from "@sangfor/db";
 
-import { approveMailDerivedCandidate } from "./mail/candidates-update";
-import { recordDecision } from "./governance/ai-decision";
-import { getDomainAutonomy, type DomainKey } from "./project-decision";
+import { approveMailDerivedCandidate } from "../mail/candidates-update";
+import { recordDecision } from "../governance/ai-decision";
+import { getDomainAutonomy, type DomainKey } from "../domain-ai/project-decision";
 import { resolveAutonomyMode, autonomyFromComputed } from "./autonomy-policy";
-import { caseRefFor } from "./case-ref";
-import { gtmDomainForCandidate } from "./mail/classify-rules";
-import { resolveDefaultProjectId } from "./default-project";
+import { caseRefFor } from "../infrastructure/case-ref";
+import { gtmDomainForCandidate } from "../mail/classify-rules";
+import { resolveDefaultProjectId } from "../infrastructure/default-project";
 
 export type AutopilotAction = "auto" | "suggest" | "observe" | "skipped";
 
@@ -34,7 +34,7 @@ export interface RunAutopilotOpts {
 export interface AutopilotDeps {
   prisma?: typeof import("@sangfor/db").prisma;
   approve?: (id: string) => Promise<unknown>;
-  recordDecision?: typeof import("./governance/ai-decision").recordDecision;
+  recordDecision?: typeof import("../governance/ai-decision").recordDecision;
   getAutonomy?: (
     domain: string,
   ) => Promise<{ pct: number | null; sample: number; label: string }>;

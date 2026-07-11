@@ -3,7 +3,7 @@ import {
   normalizeOpportunityStage,
   validateOpportunityStageOrder,
   validateRegistrationGate,
-} from "./crm/opportunity-stage";
+} from "../crm/opportunity-stage";
 
 export interface ConvertMailToOpportunityInput {
   candidateId: string;

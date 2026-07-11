@@ -1,8 +1,8 @@
 import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
-import { enqueueOutboxEvent, logStateTransition } from "./governance/audit";
-import { createApprovalIfNeeded } from "./governance/approval-gate";
+import { enqueueOutboxEvent, logStateTransition } from "../governance/audit";
+import { createApprovalIfNeeded } from "../governance/approval-gate";
 
 export const phase13SourceEntityTypeSchema = z.enum([
   "opportunity",

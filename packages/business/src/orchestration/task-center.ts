@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { logStateTransition } from "../governance/audit";
 import { recordDecision } from "../governance/ai-decision";
-import { caseRefFor } from "../case-ref";
+import { caseRefFor } from "../infrastructure/case-ref";
 
 export const TASK_STATUSES = ["todo", "doing", "waiting", "done"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];

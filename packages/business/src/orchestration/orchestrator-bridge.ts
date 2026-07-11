@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-import { buildContextPack } from "./context-pack-builder";
-import { traceWorkflowEvent } from "../langfuse-observability";
+import { buildOrchestratorContextPack } from "./context-pack-builder";
+import { traceWorkflowEvent } from "../platform/langfuse-observability";
 import { renderDeterministicTemplate } from "./template-registry";
-import type { ContextPack, TemplateKey, TemplateRenderOutput } from "./types";
-import { templateKeySchema } from "./types";
+import type { ContextPack, TemplateKey, TemplateRenderOutput } from "./context-pack-types";
+import { templateKeySchema } from "./context-pack-types";
 
 export const phase14RunOptionsSchema = z.object({
   projectSlug: z.string().default("demo-project"),
@@ -41,7 +41,7 @@ export async function enrichPhase13RunWithContextPack(
     };
   }
 
-  const contextPack = await buildContextPack({
+  const contextPack = await buildOrchestratorContextPack({
     projectSlug: parsed.projectSlug,
     sourceEntityType: parsed.sourceEntityType,
     sourceEntityId: parsed.sourceEntityId,

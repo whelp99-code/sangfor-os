@@ -52,8 +52,8 @@ vi.mock("@sangfor/db", () => {
     },
   };
 });
-vi.mock("./governance/audit", () => ({ logStateTransition: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("./governance/ai-decision", () => ({ recordDecision: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("../governance/audit", () => ({ logStateTransition: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("../governance/ai-decision", () => ({ recordDecision: vi.fn().mockResolvedValue(undefined) }));
 
 import { prisma } from "@sangfor/db";
 import { runWatchdogPass } from "./watchdog";

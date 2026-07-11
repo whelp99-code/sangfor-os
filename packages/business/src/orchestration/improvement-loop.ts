@@ -1,6 +1,6 @@
 import { prisma } from "@sangfor/db";
 import { z } from "zod";
-import { traceWorkflowEvent } from "./langfuse-observability";
+import { traceWorkflowEvent } from "../platform/langfuse-observability";
 
 export const improvementSeveritySchema = z.enum([
   "low",
@@ -161,7 +161,7 @@ export async function convertImprovementToPhase13Run(id: string) {
     throw new Error("improvement_candidate_rejected");
   }
   if (row.status === "converted" && row.commandRunId) {
-    const { getPhase13RunDetail } = await import("./skills/phase13-orchestrator");
+    const { getPhase13RunDetail } = await import("../skills/phase13-orchestrator");
     return {
       candidate: row,
       phase13: await getPhase13RunDetail(row.commandRunId),
@@ -179,7 +179,7 @@ export async function convertImprovementToPhase13Run(id: string) {
     "Apply aios-error-to-improvement and regression recommendation skills.",
   ].join("\n");
 
-  const { runPhase13Orchestrator } = await import("./skills/phase13-orchestrator");
+  const { runPhase13Orchestrator } = await import("../skills/phase13-orchestrator");
   const executionProfile = row.sourceType === "route_smoke" ? "smoke" : "full";
   const phase13 = await runPhase13Orchestrator({
     inputSummary,

@@ -1,5 +1,5 @@
-import type { ContextPack } from "./types";
-import { templateKeySchema, type TemplateKey, type TemplateRenderOutput } from "./types";
+import type { ContextPack } from "./context-pack-types";
+import { templateKeySchema, type TemplateKey, type TemplateRenderOutput } from "./context-pack-types";
 
 export const TEMPLATE_REGISTRY: Record<
   TemplateKey,

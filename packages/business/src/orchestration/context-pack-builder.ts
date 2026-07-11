@@ -2,17 +2,17 @@ import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { getCustomerDetail, getPartnerDetail } from "../crm/customer-partner";
-import { searchKnowledgeWithCitations } from "../knowledge-search";
+import { searchKnowledgeWithCitations } from "../domain-ai/knowledge-search";
 import { getOpportunityDetail } from "../crm/opportunity-center";
-import { getPocDetail } from "../poc-center";
+import { getPocDetail } from "../crm/poc-center";
 import { getGeneratedDocumentDetail } from "../crm/proposal-generator";
 import {
   buildOpportunityOrchestratorSummary,
   buildPocOrchestratorSummary,
   buildProposalOrchestratorSummary,
 } from "../skills/portal-binding-summaries";
-import type { ContextPack, ContextPackSection, ContextPackSectionKey } from "./types";
-import { buildContextPackSchema, type TemplateKey } from "./types";
+import type { ContextPack, ContextPackSection, ContextPackSectionKey } from "./context-pack-types";
+import { buildContextPackSchema, type TemplateKey } from "./context-pack-types";
 
 function emptySection(key: ContextPackSectionKey, title: string): ContextPackSection {
   return { key, title, empty: true, content: "(no data)" };
@@ -98,7 +98,7 @@ export function inferTemplateKeyFromSource(
   }
 }
 
-export async function buildContextPack(
+export async function buildOrchestratorContextPack(
   input: z.infer<typeof buildContextPackSchema>,
 ): Promise<ContextPack> {
   const parsed = buildContextPackSchema.parse(input);

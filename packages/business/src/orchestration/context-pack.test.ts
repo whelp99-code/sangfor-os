@@ -63,8 +63,8 @@ describe("phase14 context pack unit", () => {
 
 describe.skipIf(!dbIntegrationEnabled)("phase14 context pack integration", () => {
   it("renders empty sections when entity is missing", async () => {
-    const { buildContextPack } = await import("./context-pack-builder");
-    const pack = await buildContextPack({
+    const { buildOrchestratorContextPack } = await import("./context-pack-builder");
+    const pack = await buildOrchestratorContextPack({
       projectSlug: "demo-project",
       sourceEntityType: "opportunity",
       sourceEntityId: `non-existent-opportunity-${Date.now()}-${Math.random()
@@ -80,12 +80,12 @@ describe.skipIf(!dbIntegrationEnabled)("phase14 context pack integration", () =>
 
   it("builds opportunity context pack with non-empty opportunity section", async () => {
     const { createOpportunity } = await import("../crm/opportunity-center");
-    const { buildContextPack } = await import("./context-pack-builder");
+    const { buildOrchestratorContextPack } = await import("./context-pack-builder");
     const opp = await createOpportunity({
       title: "Phase 14 context pack test opp",
       customerId: undefined,
     });
-    const pack = await buildContextPack({
+    const pack = await buildOrchestratorContextPack({
       projectSlug: "demo-project",
       sourceEntityType: "opportunity",
       sourceEntityId: opp.id,
@@ -96,14 +96,14 @@ describe.skipIf(!dbIntegrationEnabled)("phase14 context pack integration", () =>
   }, 30_000);
 
   it("builds poc context pack", async () => {
-    const { createPocProject } = await import("../poc-center");
-    const { buildContextPack } = await import("./context-pack-builder");
+    const { createPocProject } = await import("../crm/poc-center");
+    const { buildOrchestratorContextPack } = await import("./context-pack-builder");
     const poc = await createPocProject({
       projectSlug: "demo-project",
       title: "Phase 14 PoC pack test",
     });
     expect(poc).not.toBeNull();
-    const pack = await buildContextPack({
+    const pack = await buildOrchestratorContextPack({
       projectSlug: "demo-project",
       sourceEntityType: "poc",
       sourceEntityId: poc!.id,
@@ -114,7 +114,7 @@ describe.skipIf(!dbIntegrationEnabled)("phase14 context pack integration", () =>
 
   it("builds proposal context pack", async () => {
     const { generateProposal } = await import("../crm/proposal-generator");
-    const { buildContextPack } = await import("./context-pack-builder");
+    const { buildOrchestratorContextPack } = await import("./context-pack-builder");
     const doc = await generateProposal({
       projectSlug: "demo-project",
       title: "Phase 14 proposal pack",
@@ -122,7 +122,7 @@ describe.skipIf(!dbIntegrationEnabled)("phase14 context pack integration", () =>
       variables: {},
     });
     expect(doc).not.toBeNull();
-    const pack = await buildContextPack({
+    const pack = await buildOrchestratorContextPack({
       projectSlug: "demo-project",
       sourceEntityType: "proposal",
       sourceEntityId: doc!.id,
@@ -133,9 +133,9 @@ describe.skipIf(!dbIntegrationEnabled)("phase14 context pack integration", () =>
 
   it("handles missing task links with empty linkedTasks section", async () => {
     const { createOpportunity } = await import("../crm/opportunity-center");
-    const { buildContextPack } = await import("./context-pack-builder");
+    const { buildOrchestratorContextPack } = await import("./context-pack-builder");
     const opp = await createOpportunity({ title: "No links opp" });
-    const pack = await buildContextPack({
+    const pack = await buildOrchestratorContextPack({
       projectSlug: "demo-project",
       sourceEntityType: "opportunity",
       sourceEntityId: opp.id,

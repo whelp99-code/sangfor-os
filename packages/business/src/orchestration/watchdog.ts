@@ -1,6 +1,6 @@
 import { prisma } from "@sangfor/db";
 
-import { createWorkTask } from "./orchestration/task-center";
+import { createWorkTask } from "./task-center";
 
 /**
  * 리뉴얼·SLA 와치독 — 03-master-plan Task 5.

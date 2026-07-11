@@ -1,7 +1,7 @@
 import { prisma } from "@sangfor/db";
 
-import { logStateTransition } from "./governance/audit";
-import { createCodeChangeForRun } from "./dev-engine";
+import { logStateTransition } from "../governance/audit";
+import { createCodeChangeForRun } from "../infrastructure/dev-engine";
 
 /**
  * Purpose: Phase 11 Cursor session tracking — branch, files, build/test results.
