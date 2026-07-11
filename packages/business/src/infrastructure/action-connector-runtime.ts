@@ -1,6 +1,6 @@
 import { prisma } from "@sangfor/db";
 import { z } from "zod";
-import { traceWorkflowEvent } from "./langfuse-observability";
+import { traceWorkflowEvent } from "../platform/langfuse-observability";
 
 /**
  * AIOS action + connector metadata runtime (original implementation).

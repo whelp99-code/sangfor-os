@@ -4,7 +4,7 @@ const traceWorkflowEvent = vi.fn<(input: Record<string, unknown>) => Promise<voi
   async (_input) => undefined,
 );
 
-vi.mock("./langfuse-observability", () => ({
+vi.mock("../platform/langfuse-observability", () => ({
   traceWorkflowEvent,
 }));
 
