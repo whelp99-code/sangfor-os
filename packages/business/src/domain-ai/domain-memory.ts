@@ -241,7 +241,7 @@ export async function recordDomainDecision(input: {
 /** 한 도메인의 활성 메모리 전부 로드 (소유 경계: where domain). */
 export async function loadDomainMemories(
   domain: GtmDomain,
-  projectSlug = "demo-project",
+  projectSlug?: string,
 ): Promise<DomainMemoryRecord[]> {
   const projectId = await resolveDomainProjectId(projectSlug);
   const rows = await prisma.domainMemory.findMany({
@@ -265,7 +265,7 @@ export async function loadDomainMemories(
 /** DB 에서 유사 케이스 top-K recall (도메인 격리). */
 export async function recallFromDb(
   query: RecallQuery,
-  projectSlug = "demo-project",
+  projectSlug?: string,
   topK = 5,
 ): Promise<DomainMemoryRecord[]> {
   const candidates = await loadDomainMemories(query.domain, projectSlug);

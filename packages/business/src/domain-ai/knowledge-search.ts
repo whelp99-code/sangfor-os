@@ -1,15 +1,17 @@
 import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
+
 const CHUNK_SIZE = 500;
 
 export const searchKnowledgeSchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   q: z.string().min(1),
 });
 
 export const createKnowledgeSchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   title: z.string().min(2),
   body: z.string().min(1),
   tags: z.array(z.string()).default([]),
@@ -53,7 +55,7 @@ export async function syncKnowledgeChunks(documentId: string) {
 
 export async function createKnowledgeDocument(input: z.infer<typeof createKnowledgeSchema>) {
   const parsed = createKnowledgeSchema.parse(input);
-  const projectId = await resolveProjectId(parsed.projectSlug);
+  const projectId = await resolveProjectId(parsed.projectSlug ?? (await resolveDefaultProjectSlug()));
   const doc = await prisma.knowledgeDocument.create({
     data: {
       projectId,
@@ -79,7 +81,7 @@ export async function searchKnowledgeWithCitations(
   input: z.infer<typeof searchKnowledgeSchema>,
 ): Promise<KnowledgeCitation[]> {
   const parsed = searchKnowledgeSchema.parse(input);
-  const projectId = await resolveProjectId(parsed.projectSlug);
+  const projectId = await resolveProjectId(parsed.projectSlug ?? (await resolveDefaultProjectSlug()));
   const q = parsed.q.toLowerCase();
 
   const chunks = await prisma.knowledgeChunk.findMany({
@@ -134,7 +136,7 @@ export async function searchKnowledge(input: z.infer<typeof searchKnowledgeSchem
 
 export async function buildContextPack(
   query: string,
-  projectSlug = "demo-project",
+  projectSlug?: string,
   limit = 5,
 ): Promise<string> {
   const citations = await searchKnowledgeWithCitations({
@@ -151,8 +153,8 @@ export async function buildContextPack(
     .join("\n\n");
 }
 
-export async function listKnowledgeDocuments(projectSlug = "demo-project") {
-  const projectId = await resolveProjectId(projectSlug);
+export async function listKnowledgeDocuments(projectSlug?: string) {
+  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()));
   return prisma.knowledgeDocument.findMany({
     where: { projectId },
     orderBy: { title: "asc" },
