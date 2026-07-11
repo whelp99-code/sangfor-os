@@ -1,6 +1,6 @@
 import type { getGeneratedDocumentDetail } from "../crm/proposal-generator";
 import type { getOpportunityDetail } from "../crm/opportunity-center";
-import type { getPocDetail } from "../poc-center";
+import type { getPocDetail } from "../crm/poc-center";
 
 type OpportunityDetail = NonNullable<Awaited<ReturnType<typeof getOpportunityDetail>>>;
 type ProposalDetail = NonNullable<Awaited<ReturnType<typeof getGeneratedDocumentDetail>>>;

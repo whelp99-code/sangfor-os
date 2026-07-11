@@ -6,7 +6,7 @@ import {
   getOpenAiAuthHeaders,
   getOpenAiChatCompletionsUrl,
   getOpenAiModel,
-} from "../openai-config";
+} from "../platform/openai-config";
 import { shouldUseLiveLlmForSkill } from "./execution-profile";
 import type { ExecutionMode, RunSkillInput } from "./types";
 

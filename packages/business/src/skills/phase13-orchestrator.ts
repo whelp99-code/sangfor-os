@@ -1,9 +1,9 @@
 import { prisma, Prisma } from "@sangfor/db";
 import { z } from "zod";
 
-import { createCommandRun, phase13SourceEntityTypeSchema } from "../command-center";
+import { createCommandRun, phase13SourceEntityTypeSchema } from "../orchestration/command-center";
 import { createApprovalIfNeeded } from "../governance/approval-gate";
-import { mapWithConcurrency } from "../map-with-concurrency";
+import { mapWithConcurrency } from "../infrastructure/map-with-concurrency";
 import { normalizeSkillOutput } from "./skill-output-normalizer";
 import { recommendSkills } from "./skill-router";
 import { recommendAssignmentForWorkItem } from "./phase13-assignment-rules";
@@ -12,15 +12,15 @@ import {
   resolvePhase13ExecutionProfile,
   type Phase13ExecutionProfile,
 } from "./execution-profile";
-import { templateKeySchema } from "../phase14/types";
-import type { ContextPack, TemplateRenderOutput } from "../phase14/types";
+import { templateKeySchema } from "../orchestration/context-pack-types";
+import type { ContextPack, TemplateRenderOutput } from "../orchestration/context-pack-types";
 import { runSkillWithMetadata } from "./skill-runner";
 import {
   workBreakdownFromNormalizedData,
   workBreakdownFromSkillOutput,
 } from "./skill-to-work-breakdown";
 import type { AssignmentSuggestion } from "./phase13-assignment-rules";
-import { traceWorkflowEvent } from "../langfuse-observability";
+import { traceWorkflowEvent } from "../platform/langfuse-observability";
 
 export const recommendSkillsSchema = z.object({
   inputSummary: z.string().min(3),
@@ -97,7 +97,7 @@ export async function runPhase13Orchestrator(input: z.infer<typeof runPhase13Sch
     parsed.sourceEntityType &&
     parsed.sourceEntityId
   ) {
-    const { enrichPhase13RunWithContextPack } = await import("../phase14/phase14-orchestrator-bridge");
+    const { enrichPhase13RunWithContextPack } = await import("../orchestration/orchestrator-bridge");
     const enriched = await enrichPhase13RunWithContextPack({
       projectSlug: parsed.projectSlug,
       sourceEntityType: parsed.sourceEntityType,
