@@ -11,7 +11,7 @@ import {
   lensesForDomain,
   buildDomainHandoff,
 } from "../src/domain-ai/domain-pipeline";
-import { checkColorGate } from "../src/color-agent";
+import { checkColorGate } from "../src/domain-ai/color-agent";
 import {
   upsertDomainMemory,
   recordDomainDecision,

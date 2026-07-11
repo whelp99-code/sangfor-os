@@ -7,7 +7,7 @@
 import { prisma } from "@sangfor/db";
 import { runDomainPipeline, type DomainCase } from "../src/domain-ai/domain-agent-runtime";
 import { createOpencodeDomainGenerator } from "../src/domain-ai/domain-llm";
-import { opencodeHealth } from "../src/opencode-client";
+import { opencodeHealth } from "../src/orchestration/opencode-client";
 
 const SLUG = "demo-project";
 
