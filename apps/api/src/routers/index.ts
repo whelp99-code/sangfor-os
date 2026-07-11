@@ -4,10 +4,7 @@
  */
 
 import { router } from './trpc';
-import { cfoRouter } from './cfo';
 
-export const appRouter = router({
-  cfo: cfoRouter,
-});
+export const appRouter = router({});
 
 export type AppRouter = typeof appRouter;
