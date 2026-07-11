@@ -1,11 +1,10 @@
 /**
  * AIOS API Server
- * Express + tRPC API 서버
+ * Express API 서버
  */
 
 import express, { type Express } from "express";
 import cors from "cors";
-import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { fileURLToPath } from "node:url";
 import {
   probeIntegrationTarget,
@@ -14,8 +13,6 @@ import {
   listMcpTools,
   callMcpTool,
 } from "@sangfor/infra";
-import { appRouter } from "./routers";
-import { createContext } from "./context/index";
 import { apiKeyMiddleware, authMiddleware, errorHandler, financeAccessGuard, rateLimiter } from "./middleware";
 import { metrics } from "@sangfor/infra";
 import { createEventRoutes, eventBus } from "./routes/events";
@@ -168,16 +165,6 @@ export function createApp(): Express {
     }
   });
 
-  // tRPC
-  app.use(
-    "/trpc",
-    createExpressMiddleware({
-      router: appRouter,
-      createContext,
-      onError: ({ error }) => console.error("tRPC Error:", error),
-    }),
-  );
-
   // Webhook routes
   const outlookWebhook = new OutlookWebhookHandler(
     process.env.WEBHOOK_CLIENT_STATE || "aios-webhook",
@@ -244,7 +231,6 @@ if (isEntrypoint) {
   const app = createApp();
   const server = app.listen(PORT, () => {
     console.log(`🚀 AIOS API Server running on port ${PORT}`);
-    console.log(`   tRPC: http://localhost:${PORT}/trpc`);
     console.log(`   Health: http://localhost:${PORT}/health`);
     console.log(`   Health (api): http://localhost:${PORT}/api/health`);
   });
@@ -255,5 +241,3 @@ if (isEntrypoint) {
     console.error(`[Server] listen error on port ${PORT}:`, err.code ?? err.message, err);
   });
 }
-
-export type { AppRouter } from "./routers";
