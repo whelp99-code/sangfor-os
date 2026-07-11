@@ -4,7 +4,7 @@ import {
   releaseGatePassed,
   GOLDEN_ANSWERS,
   type QualityResult,
-} from "../../src/ai-quality-gate";
+} from "../../src/governance/ai-quality-gate";
 
 describe("ai-quality-gate", () => {
   describe("GOLDEN_ANSWERS", () => {

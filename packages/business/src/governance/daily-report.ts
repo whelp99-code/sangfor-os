@@ -1,7 +1,7 @@
 import { prisma } from "@sangfor/db";
 import type { OpportunityStage } from "@prisma/client";
-import { ACTIVE_OPPORTUNITY_STAGES } from "./crm/opportunity-stage";
-import { resolveDefaultProjectId } from "./default-project";
+import { ACTIVE_OPPORTUNITY_STAGES } from "../crm/opportunity-stage";
+import { resolveDefaultProjectId } from "../infrastructure/default-project";
 import {
   getOpenAiApiKey,
   getOpenAiChatCompletionsUrl,
@@ -9,7 +9,7 @@ import {
   getOpenAiModel,
   buildChatCompletionRequestBody,
   extractChatCompletionText,
-} from "./openai-config";
+} from "../platform/openai-config";
 
 export interface DailyReportData {
   date: string;

@@ -1,4 +1,4 @@
-import { normalizeOpportunityStage } from "./crm/opportunity-stage";
+import { normalizeOpportunityStage } from "../crm/opportunity-stage";
 
 // ---------------------------------------------------------------------------
 // Constants

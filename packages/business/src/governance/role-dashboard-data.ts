@@ -7,7 +7,7 @@ import {
   calculateOperatorDashboard,
   calculateSecurityDashboard,
 } from "./role-dashboard";
-import { isActiveOpportunity, normalizeOpportunityStage } from "./crm/opportunity-stage";
+import { isActiveOpportunity, normalizeOpportunityStage } from "../crm/opportunity-stage";
 
 async function salesData(projectId: string) {
   const [opportunities, pendingApprovals, proposals] = await Promise.all([
