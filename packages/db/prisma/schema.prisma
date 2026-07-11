@@ -1549,6 +1549,7 @@ model Invoice {
   engagementId   String?       @map("engagement_id")
 
   @@index([engagementId])
+  @@index([depositStatus, projectId])
   @@map("finance_invoices")
 }
 
@@ -1572,6 +1573,7 @@ model Expense {
   engagementId  String?        @map("engagement_id")
 
   @@index([engagementId])
+  @@index([category, isPaid, projectId])
   @@map("finance_expenses")
 }
 
@@ -1591,6 +1593,7 @@ model Cashflow {
   engagementId String?        @map("engagement_id")
 
   @@index([engagementId])
+  @@index([type, projectId, date])
   @@map("finance_cashflows")
 }
 
@@ -1673,6 +1676,7 @@ model TaxInvoice {
   engagementId    String?  @map("engagement_id")
 
   @@index([engagementId])
+  @@index([direction, issueDate])
   @@map("finance_tax_invoices")
 }
 
