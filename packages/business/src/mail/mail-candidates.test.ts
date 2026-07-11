@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
 import {
   classifyMailCandidateDocument,
@@ -8,6 +8,56 @@ import {
 import type { AiClassificationResult } from "./mail-candidates";
 
 describe("mail candidate classification", () => {
+  // Runs against the SHARED dev DB, not a sandbox — a prior version of this
+  // file left fixture rows behind permanently (381-row cleanup incident).
+  // afterAll below deletes only rows matched by this run's own ids/markers.
+  const createdCandidateIds: string[] = [];
+  const createdKnowledgeDocumentIds: string[] = [];
+  const createdMailInsightThreadIds: string[] = [];
+  const legacyUniqueMarkers: string[] = [];
+
+  afterAll(async () => {
+    if (
+      createdCandidateIds.length === 0 &&
+      createdKnowledgeDocumentIds.length === 0 &&
+      createdMailInsightThreadIds.length === 0 &&
+      legacyUniqueMarkers.length === 0
+    ) {
+      return;
+    }
+    const { prisma } = await import("@sangfor/db");
+
+    // Candidates generated as a side effect of generateMailDerivedCandidates
+    // aren't captured by id at creation time — find them by this run's
+    // `legacy.<unique>@buyer.example.com` / `legacy-<unique>` fixture markers.
+    for (const unique of legacyUniqueMarkers) {
+      await prisma.mailDerivedCandidate.deleteMany({
+        where: {
+          OR: [
+            { metadata: { path: ["email"], equals: `legacy.${unique}@buyer.example.com` } },
+            { metadata: { path: ["messageId"], equals: `legacy-${unique}` } },
+          ],
+        },
+      });
+      await prisma.workTask.deleteMany({
+        where: { title: { contains: `Legacy quote request ${unique}` } },
+      });
+    }
+
+    if (createdCandidateIds.length > 0) {
+      await prisma.mailDerivedCandidate.deleteMany({ where: { id: { in: createdCandidateIds } } });
+    }
+    if (createdKnowledgeDocumentIds.length > 0) {
+      await prisma.mailDerivedCandidate.deleteMany({
+        where: { knowledgeDocumentId: { in: createdKnowledgeDocumentIds } },
+      });
+      await prisma.knowledgeDocument.deleteMany({ where: { id: { in: createdKnowledgeDocumentIds } } });
+    }
+    if (createdMailInsightThreadIds.length > 0) {
+      await prisma.mailInsightThread.deleteMany({ where: { id: { in: createdMailInsightThreadIds } } });
+    }
+  });
+
   it("finds opportunity, task, and customer candidates from real mail-like content", () => {
     const result = classifyMailCandidateDocument({
       title: "[Acme] Sangfor 라이선스 견적 요청",
@@ -262,6 +312,7 @@ describe("mail candidate classification", () => {
         },
       },
     });
+    createdCandidateIds.push(candidate.id);
 
     await generateMailDerivedCandidates({ projectSlug: "demo-project", limit: 8 });
 
@@ -279,7 +330,8 @@ describe("mail candidate classification", () => {
 
     const projectId = await resolveProjectId("demo-project");
     const unique = Date.now();
-    await prisma.mailInsightThread.create({
+    legacyUniqueMarkers.push(String(unique));
+    const thread = await prisma.mailInsightThread.create({
       data: {
         projectId,
         threadKey: `test-thread-${unique}`,
@@ -295,6 +347,7 @@ describe("mail candidate classification", () => {
         participantDomains: ["example.com"],
       },
     });
+    createdMailInsightThreadIds.push(thread.id);
     const document = await prisma.knowledgeDocument.create({
       data: {
         projectId,
@@ -311,6 +364,7 @@ describe("mail candidate classification", () => {
         source: "mail-intelligence",
       },
     });
+    createdKnowledgeDocumentIds.push(document.id);
 
     await generateMailDerivedCandidates({ projectSlug: "demo-project", limit: 20, legacyKnowledgeFallback: true });
 
@@ -321,6 +375,7 @@ describe("mail candidate classification", () => {
       },
     });
     expect(created).not.toBeNull();
+    if (created) createdCandidateIds.push(created.id);
   });
 });
 
