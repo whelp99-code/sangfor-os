@@ -31,6 +31,8 @@ import { DealDetail } from "@/components/deals/deal-detail";
 import { DealDetailTabs } from "@/components/deals/deal-detail-tabs";
 import { DEAL_DETAIL_TABS, type DealDetailTab } from "@/components/deals/deal-detail-tabs.constants";
 import { winProbabilityLabel } from "@/components/deals/win-probability";
+import { stageLabel } from "@/components/deals/stage-meta";
+import { activityNoteLabel } from "@/components/deals/activity-labels";
 import { DealWorkTab } from "@/components/deals/deal-work-tab";
 import { RegistrationPanel } from "@/components/deals/registration-panel";
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
@@ -213,7 +215,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         }
         actions={
           <>
-            <Badge>{stage}</Badge>
+            <Badge>{stageLabel(stage)}</Badge>
             <Badge variant="outline">{winProbabilityLabel(opportunity.probability, stage)}</Badge>
             <Link
               href={`/deals/${opportunity.id}?tab=상세`}
@@ -292,8 +294,8 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
               ) : (
                 opportunity.stageEvents.map((e) => (
                   <div key={e.id} className="flex justify-between">
-                    <span>{e.fromStage ?? "—"} → {e.toStage}</span>
-                    <Badge variant="outline">{e.note ?? ""}</Badge>
+                    <span>{e.fromStage ? stageLabel(e.fromStage) : "—"} → {stageLabel(e.toStage)}</span>
+                    <Badge variant="outline">{e.note ? activityNoteLabel(e.note) : ""}</Badge>
                   </div>
                 ))
               )}
@@ -447,10 +449,10 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                       />
                       <div className="flex flex-col gap-0.5">
                         <span className="font-semibold">
-                          {e.fromStage ?? "시작"}{" "}→{" "}{e.toStage}
+                          {e.fromStage ? stageLabel(e.fromStage) : "시작"}{" "}→{" "}{stageLabel(e.toStage)}
                         </span>
                         {e.note ? (
-                          <span className="text-xs text-muted-foreground">{e.note}</span>
+                          <span className="text-xs text-muted-foreground">{activityNoteLabel(e.note)}</span>
                         ) : null}
                       </div>
                     </li>
