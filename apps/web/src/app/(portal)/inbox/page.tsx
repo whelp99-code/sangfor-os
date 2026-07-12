@@ -56,7 +56,7 @@ export default async function InboxPage({
       _avg: { confidence: true },
     }),
     prisma.mailDerivedCandidate.count({
-      where: { updatedAt: { gte: startOfToday }, status: "approved" },
+      where: { updatedAt: { gte: startOfToday }, status: { in: ["approved", "converted"] } },
     }),
     prisma.mailDerivedCandidate.count({
       where: { status: "converted" },
@@ -143,7 +143,13 @@ export default async function InboxPage({
                       {gate.pass ? "게이트 통과" : `보류 ${gate.failed.length}렌즈`}
                     </span>
                   </div>
-                  <SlipActions candidateId={c.id} detailHref={`/approvals/mail-candidates/${c.id}`} />
+                  <SlipActions
+                    candidateId={c.id}
+                    detailHref={`/approvals/mail-candidates/${c.id}`}
+                    needsAiRevalidation={
+                      ["task", "opportunity", "poc"].includes(c.candidateType) && !revalOf(c.metadata)
+                    }
+                  />
                 </div>
               );
             })
@@ -194,7 +200,7 @@ export default async function InboxPage({
               <span className="co mlbl">AI 분석</span>
             </div>
             <div className="srcstat">
-              <div className="l">오늘 승인</div>
+              <div className="l">오늘 처리</div>
               <div className="val">{todayApproved}</div>
             </div>
             <div className="srcstat">
