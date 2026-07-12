@@ -83,6 +83,9 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (raw === "cannot_advance_stage") {
       return apiError("cannot_advance_stage", error, { status: 409 });
     }
+    if (raw.startsWith("illegal_stage_transition:")) {
+      return apiError(raw.slice("illegal_stage_transition:".length), error, { status: 409 });
+    }
     return apiError("update_failed", error, { status: 400 });
   }
 }

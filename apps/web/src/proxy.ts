@@ -35,6 +35,9 @@ const PUBLIC_PREFIXES = [
   "/api/aios-v3-status",
   "/api/auth/login",
   "/api/mail/oauth/callback",
+  // The login page itself must be reachable without a session, or the redirect
+  // below would loop.
+  "/login",
 ];
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -109,12 +112,19 @@ export async function proxy(request: NextRequest) {
       request.cookies.get("session")?.value ??
       request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
     if (!(await verifyEdgeSessionToken(token, secret))) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+      if (pathname.startsWith("/api")) {
+        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+      }
+      const loginUrl = new URL("/login", request.url);
+      return NextResponse.redirect(loginUrl);
     }
   }
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/api/:path*"],
+  // Guard every route except Next internals and static assets (any path with a
+  // file extension). Page routes must be gated too, not just /api — otherwise
+  // unauthenticated visitors read business data straight off the server render.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.).*)"],
 };

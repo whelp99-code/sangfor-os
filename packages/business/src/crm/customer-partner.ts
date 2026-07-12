@@ -93,6 +93,7 @@ export async function listCustomers(projectSlug?: string, search?: string) {
   return prisma.customer.findMany({
     where: {
       projectId,
+      status: { not: "archived" },
       ...(search
         ? {
             OR: [
@@ -119,7 +120,7 @@ export async function listCustomers(projectSlug?: string, search?: string) {
 export async function listCustomersWithOpportunities(projectSlug?: string) {
   const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()));
   return prisma.customer.findMany({
-    where: { projectId },
+    where: { projectId, status: { not: "archived" } },
     orderBy: { updatedAt: "desc" },
     include: {
       contacts: { select: { id: true } },
@@ -223,7 +224,7 @@ export async function createPartner(input: z.infer<typeof createPartnerSchema>) 
 export async function listPartners(projectSlug?: string) {
   const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()));
   return prisma.partner.findMany({
-    where: { projectId },
+    where: { projectId, status: { not: "archived" } },
     orderBy: { name: "asc" },
     include: {
       customerLinks: { include: { customer: true } },

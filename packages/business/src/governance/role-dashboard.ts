@@ -1,4 +1,4 @@
-import { normalizeOpportunityStage } from "../crm/opportunity-stage";
+import { isActiveOpportunity, normalizeOpportunityStage } from "../crm/opportunity-stage";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -104,12 +104,14 @@ export function calculateSalesDashboard(params: SalesDashboardParams): SalesDash
   const { opportunities, pendingApprovals, proposals } = params;
 
   return {
-    pipeline: opportunities.map((o) => ({
-      id: o.id,
-      customer: o.customer?.name ?? null,
-      stage: o.stage,
-      value: Number(o.amount) || 0,
-    })),
+    pipeline: opportunities
+      .filter((o) => isActiveOpportunity(o.stage))
+      .map((o) => ({
+        id: o.id,
+        customer: o.customer?.name ?? null,
+        stage: o.stage,
+        value: Number(o.amount) || 0,
+      })),
     followUp: opportunities.filter((o) => normalizeOpportunityStage(o.stage) === "LEAD").length,
     pendingApprovals: pendingApprovals.length,
     proposalsInProgress: proposals.filter((p) => p.status === "draft").length,
