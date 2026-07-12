@@ -28,7 +28,13 @@ export const createPartnerSchema = z.object({
 export const updatePartnerSchema = createPartnerSchema
   .omit({ projectSlug: true })
   .partial()
-  .extend({ status: z.enum(["active", "inactive", "archived"]).optional() });
+  .extend({
+    status: z.enum(["active", "inactive", "archived"]).optional(),
+    kind: z.preprocess(
+      (v) => (v === "" ? undefined : v),
+      z.enum(["VENDOR", "DISTRIBUTOR", "RESELLER"]).optional(),
+    ),
+  });
 
 export const createContactSchema = z.object({
   customerId: z.string().optional(),

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getCustomerDetail } from "@sangfor/business";
 import { prisma } from "@sangfor/db";
 import { daysUntil, won } from "@/lib/cockpit";
+import { EntityEditSheet } from "@/components/common/entity-edit-sheet";
 
 const STAGE_KO: Record<string, string> = {
   LEAD: "리드", QUALIFIED: "검증", PROPOSAL: "제안", NEGOTIATION: "협상",
@@ -80,6 +81,30 @@ export default async function CustomerHubPage({
           <h1>{customer.name}</h1>
           <div className="mono" style={{ fontSize: 11, color: "var(--ck-muted)", marginTop: 5 }}>
             {customer.industry ?? "업종 미지정"} · 세그먼트 {customer.segment ?? "—"} · 담당 영업 AI
+          </div>
+          <div className="flex items-center gap-2" style={{ marginTop: 8 }}>
+            <EntityEditSheet
+              title="고객사 수정"
+              endpoint={`/api/customers/${customer.id}`}
+              fields={[
+                { name: "name", label: "이름" },
+                { name: "domain", label: "도메인" },
+                { name: "industry", label: "업종" },
+                { name: "status", label: "상태", type: "select", options: [
+                  { value: "active", label: "활성" },
+                  { value: "inactive", label: "비활성" },
+                  { value: "archived", label: "보관" },
+                ]},
+                { name: "notes", label: "메모" },
+              ]}
+              initial={{
+                name: customer.name,
+                domain: customer.domain ?? "",
+                industry: customer.industry ?? "",
+                status: customer.status ?? "active",
+                notes: customer.notes ?? "",
+              }}
+            />
           </div>
         </div>
         <div className="big-r">
