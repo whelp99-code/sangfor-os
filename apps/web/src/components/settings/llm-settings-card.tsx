@@ -82,7 +82,7 @@ export function LlmSettingsCard() {
         </div>
 
         <label className="block text-sm">
-          <span className="text-muted-foreground">API Key</span>
+          <span className="text-muted-foreground">API 키</span>
           <input
             type="password"
             value={apiKey}

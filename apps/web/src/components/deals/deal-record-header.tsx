@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ArrowRight, CalendarDays, CircleDollarSign, Handshake, ShieldCheck, Target, User } from "lucide-react";
 
+import { winProbabilityLabel } from "@/components/deals/win-probability";
 import { formatKRWCompact, stageDisplay } from "@/components/deals/stage-meta";
 import { regStatusMeta } from "@/components/deals/reg-status";
 import { cn } from "@/lib/utils";
@@ -99,7 +100,7 @@ export function DealRecordHeader({
   actions,
   className,
 }: DealRecordHeaderProps) {
-  const probabilityLabel = probability == null ? "미정" : `${probability}%`;
+  const probabilityLabel = winProbabilityLabel(probability, stage);
   const { label: stageLabel } = stageDisplay(stage);
 
   return (

@@ -39,7 +39,7 @@ export function AdvanceOpportunityButton({ id, stage }: { id: string; stage: str
   return (
     <div className="space-y-1">
       <Button size="sm" onClick={advance} disabled={loading}>
-        {loading ? "진행 중..." : "Advance stage"}
+        {loading ? "진행 중..." : "다음 단계로"}
       </Button>
       {error && (
         <p className="text-xs text-destructive" role="alert">

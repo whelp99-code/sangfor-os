@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { stageLabel } from "@/components/deals/stage-meta";
+import { winProbabilityLabel } from "@/components/deals/win-probability";
 import { DealDetailSection } from "@/components/deals/deal-detail-section";
 import { InlineField } from "@/components/deals/inline-field";
 import { regStatusMeta, regStatusInlineClasses } from "@/components/deals/reg-status";
@@ -163,7 +164,7 @@ export function DealDetail({ opportunity }: DealDetailProps) {
           />
           <InlineField
             label="수주 확률"
-            value={opp.probability != null ? `${opp.probability}%` : "—"}
+            value={winProbabilityLabel(opp.probability, opp.stage)}
             readOnly
             opportunityId={id}
           />

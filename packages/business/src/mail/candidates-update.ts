@@ -83,6 +83,7 @@ export async function rejectMailDerivedCandidate(
     actor: domain === "presales" ? "presales" : "sales",
     actionType: "candidate_rejected",
     caseRef: caseRefFor("mailCandidate", id),
+    outcome: "rejected",
     input: toInputJson({
       candidateType: candidate.candidateType,
       title: candidate.title,
@@ -198,18 +199,18 @@ async function maybeProposePolicyMemoryFromRejection(
 async function convertCustomer(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
   const projectId = await resolveDefaultProjectId(prisma);
   const existing = await prisma.customer.findFirst({
-    where: { projectId, name: candidate.title.replace(/^Customer:\s*/i, "") },
+    where: { projectId, name: candidate.title.replace(/^(Customer|Partner):\s*/i, "") },
   });
   if (existing) return existing;
   return createCustomer({
-    name: candidate.title.replace(/^Customer:\s*/i, ""),
+    name: candidate.title.replace(/^(Customer|Partner):\s*/i, ""),
     notes: `Created from approved mail candidate.\n\n${candidate.summary}`,
   });
 }
 
 async function convertPartner(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
   const projectId = await resolveDefaultProjectId(prisma);
-  const name = candidate.title.replace(/^Partner:\s*/i, "");
+  const name = candidate.title.replace(/^(Customer|Partner):\s*/i, "");
   const existing = await prisma.partner.findFirst({
     where: { projectId, name },
   });
@@ -312,6 +313,7 @@ export async function approveMailDerivedCandidate(id: string) {
     actor: domain === "presales" ? "presales" : "sales",
     actionType: "candidate_approved_converted",
     caseRef: caseRefFor("mailCandidate", id),
+    outcome: "approved",
     input: toInputJson({
       candidateType: candidate.candidateType,
       title: candidate.title,

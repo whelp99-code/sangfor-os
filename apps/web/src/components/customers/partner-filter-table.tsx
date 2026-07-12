@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -76,6 +77,7 @@ interface PartnerFilterTableProps {
 
 export function PartnerFilterTable({ partners, total }: PartnerFilterTableProps) {
   const [activeFilter, setActiveFilter] = useState<FilterChip>("all");
+  const router = useRouter();
 
   const filtered =
     activeFilter === "all"
@@ -146,7 +148,19 @@ export function PartnerFilterTable({ partners, total }: PartnerFilterTableProps)
                 const displayCount = dealCount > 0 ? dealCount : linkCount > 0 ? linkCount : 0;
 
                 return (
-                  <TableRow key={partner.id}>
+                  <TableRow
+                    key={partner.id}
+                    className="cursor-pointer"
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => router.push(`/partners/${partner.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        router.push(`/partners/${partner.id}`);
+                      }
+                    }}
+                  >
                     {/* 이름 */}
                     <TableCell>
                       <div className="font-bold text-foreground">{partner.name}</div>

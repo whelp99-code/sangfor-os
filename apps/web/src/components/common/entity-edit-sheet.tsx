@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useToast } from "@sangfor/ui";
 
+import { actionErrorMessage } from "@/lib/action-error-labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -36,6 +38,7 @@ export function EntityEditSheet({
   initial,
 }: EntityEditSheetProps) {
   const router = useRouter();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -91,15 +94,21 @@ export function EntityEditSheet({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(
-          (body as { error?: string }).error ?? `오류가 발생했습니다 (${res.status})`
+        const message = actionErrorMessage(
+          (body as { error?: string }).error,
+          `오류가 발생했습니다 (${res.status})`,
         );
+        setError(message);
+        toast.error(message);
       } else {
+        toast.success("저장했습니다.");
         setOpen(false);
         router.refresh();
       }
     } catch {
-      setError("네트워크 오류가 발생했습니다.");
+      const message = "네트워크 오류가 발생했습니다.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }

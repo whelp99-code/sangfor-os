@@ -123,42 +123,42 @@ const SKILL_MODULE_MAPPING: Record<string, string> = {
 // Route details mapping
 const MODULE_ROUTES_MAPPING: Record<string, { title: string; href: string; filePattern: string }[]> = {
   "dashboard": [
-    { title: "Dashboard Workspace", href: "/dashboard", filePattern: "apps/web/src/app/(portal)/dashboard/page.tsx" }
+    { title: "대시보드 워크스페이스", href: "/dashboard", filePattern: "apps/web/src/app/(portal)/dashboard/page.tsx" }
   ],
   "command-center": [
-    { title: "Command Center Timeline", href: "/commands", filePattern: "apps/web/src/app/(portal)/commands/page.tsx" }
+    { title: "커맨드 센터 타임라인", href: "/commands", filePattern: "apps/web/src/app/(portal)/commands/page.tsx" }
   ],
   "registry-admin": [
-    { title: "Modules Dashboard Control", href: "/modules", filePattern: "apps/web/src/app/(portal)/modules/page.tsx" },
-    { title: "Registry Manager UI", href: "/registry", filePattern: "apps/web/src/app/(portal)/registry/page.tsx" }
+    { title: "모듈 대시보드 관리", href: "/modules", filePattern: "apps/web/src/app/(portal)/modules/page.tsx" },
+    { title: "레지스트리 관리자 UI", href: "/registry", filePattern: "apps/web/src/app/(portal)/registry/page.tsx" }
   ],
   "customer": [
-    { title: "Customer Overview Screen", href: "/customers", filePattern: "apps/web/src/app/(portal)/customers/page.tsx" }
+    { title: "고객 개요 화면", href: "/customers", filePattern: "apps/web/src/app/(portal)/customers/page.tsx" }
   ],
   "task": [
-    { title: "Task Center Board Layout", href: "/tasks", filePattern: "apps/web/src/app/(portal)/tasks/page.tsx" }
+    { title: "작업 센터 보드 레이아웃", href: "/tasks", filePattern: "apps/web/src/app/(portal)/tasks/page.tsx" }
   ],
   "partner": [
-    { title: "Partner Directory View", href: "/partners", filePattern: "apps/web/src/app/(portal)/partners/page.tsx" }
+    { title: "파트너 디렉터리 화면", href: "/partners", filePattern: "apps/web/src/app/(portal)/partners/page.tsx" }
   ],
   "poc": [
-    { title: "Proof of Concept Workspace", href: "/poc", filePattern: "apps/web/src/app/(portal)/poc/page.tsx" }
+    { title: "PoC 워크스페이스", href: "/poc", filePattern: "apps/web/src/app/(portal)/poc/page.tsx" }
   ],
   "opportunity": [
-    { title: "Deals Workspace", href: "/deals", filePattern: "apps/web/src/app/(portal)/deals/page.tsx" }
+    { title: "딜 워크스페이스", href: "/deals", filePattern: "apps/web/src/app/(portal)/deals/page.tsx" }
   ],
   "proposal": [
-    { title: "PRD & Proposal Generator", href: "/proposals", filePattern: "apps/web/src/app/(portal)/proposals/page.tsx" }
+    { title: "PRD 및 제안서 생성기", href: "/proposals", filePattern: "apps/web/src/app/(portal)/proposals/page.tsx" }
   ],
   "knowledge": [
-    { title: "Knowledge Base Management", href: "/knowledge", filePattern: "apps/web/src/app/(portal)/knowledge/page.tsx" }
+    { title: "지식 베이스 관리", href: "/knowledge", filePattern: "apps/web/src/app/(portal)/knowledge/page.tsx" }
   ],
 };
 
 const SYSTEM_CONNECTORS = [
-  { key: "github", displayName: "GitHub VCS Connector", type: "vcs" },
-  { key: "slack", displayName: "Slack IM Gateway", type: "im" },
-  { key: "outlook", displayName: "Outlook Mail Gateway", type: "email" }
+  { key: "github", displayName: "GitHub VCS 커넥터", type: "vcs" },
+  { key: "slack", displayName: "Slack IM 게이트웨이", type: "im" },
+  { key: "outlook", displayName: "Outlook 메일 게이트웨이", type: "email" }
 ];
 
 export function ModuleDashboardClient({

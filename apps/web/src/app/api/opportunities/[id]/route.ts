@@ -76,6 +76,13 @@ export async function PATCH(request: Request, context: RouteContext) {
     const opportunity = await updateOpportunity(id, body);
     return NextResponse.json({ opportunity: serializeDecimalAtBoundary(opportunity) });
   } catch (error) {
+    const raw = error instanceof Error ? error.message : "";
+    if (raw.startsWith("registration_gate:")) {
+      return apiError(raw.slice("registration_gate:".length), error, { status: 409 });
+    }
+    if (raw === "cannot_advance_stage") {
+      return apiError("cannot_advance_stage", error, { status: 409 });
+    }
     return apiError("update_failed", error, { status: 400 });
   }
 }

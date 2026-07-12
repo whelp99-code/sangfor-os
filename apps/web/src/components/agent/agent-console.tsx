@@ -25,7 +25,7 @@ export function AgentConsole() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Agent Console</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">에이전트 콘솔</h1>
         <p className="text-muted-foreground">
           MCP 도구를 연쇄 호출하는 자율 에이전트 — 실행 · 플레이북 · 스케줄
         </p>

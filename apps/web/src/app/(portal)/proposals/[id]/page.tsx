@@ -35,20 +35,20 @@ export default async function ProposalDetailPage({ params }: PageProps) {
         <div className="mt-2 flex flex-wrap gap-2">
           <Badge variant="secondary">{document.template?.templateKey ?? "template"}</Badge>
           <Badge variant="outline">{document.status}</Badge>
-          {document.customer ? <Badge variant="outline">Customer: {document.customer.name}</Badge> : null}
+          {document.customer ? <Badge variant="outline">고객: {document.customer.name}</Badge> : null}
           {document.pocProject ? <Badge variant="outline">PoC: {document.pocProject.title}</Badge> : null}
         </div>
         <div className="mt-3 flex flex-wrap gap-2 text-sm text-muted-foreground">
           {Object.entries(actionGuards).map(([action, guard]) => (
             <Badge key={action} variant={guard.allowed ? "secondary" : "outline"}>
-              {proposalActionLabels[action as keyof typeof proposalActionLabels]}: {guard.allowed ? "allowed" : guard.reason}
+              {proposalActionLabels[action as keyof typeof proposalActionLabels]}: {guard.allowed ? "허용됨" : guard.reason}
             </Badge>
           ))}
         </div>
       </div>
       <PortalOrchestratorRunPanel
-        title="Phase 13 orchestrator"
-        buttonLabel="Generate PRD / Work Breakdown"
+        title="Phase 13 오케스트레이터"
+        buttonLabel="PRD / 작업 분해 생성"
         inputSummary={buildProposalOrchestratorSummary(document)}
         sourceEntityType="proposal"
         sourceEntityId={document.id}

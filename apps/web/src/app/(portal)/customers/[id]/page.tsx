@@ -6,6 +6,7 @@ import { getCustomerDetail } from "@sangfor/business";
 import { prisma } from "@sangfor/db";
 import { daysUntil, won } from "@/lib/cockpit";
 import { EntityEditSheet } from "@/components/common/entity-edit-sheet";
+import { CreateContactForm } from "@/components/customers/create-contact-form";
 
 const STAGE_KO: Record<string, string> = {
   LEAD: "리드", QUALIFIED: "검증", PROPOSAL: "제안", NEGOTIATION: "협상",
@@ -207,6 +208,9 @@ export default async function CustomerHubPage({
                 </div>
               ))
             )}
+            <div style={{ marginTop: 8 }}>
+              <CreateContactForm customerId={customer.id} />
+            </div>
           </div>
 
           <div className="pnl">

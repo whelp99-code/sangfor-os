@@ -130,8 +130,8 @@ export function DailyReportSection() {
                   />
                   <ReportStat
                     icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-                    label="오늘 승인"
-                    value={report.mail.todayApproved}
+                    label="오늘 처리"
+                    value={report.mail.todayApproved + report.mail.todayConverted}
                     unit="건"
                     color="emerald"
                   />

@@ -23,6 +23,10 @@ export const ACTION_ERROR_LABELS: Record<string, string> = {
   create_failed: "생성에 실패했습니다.",
   // phase13 run panel
   phase13_run_failed: "Phase 13 실행에 실패했습니다.",
+  // opportunity stage advance / registration gate
+  registration_not_submitted: "딜 등록 승인이 필요한 단계입니다. 채널·등록 탭에서 딜 등록을 제출·승인받아 주세요.",
+  registration_rejected: "딜 등록이 반려되어 다음 단계로 진행할 수 없습니다. 등록 상태를 확인해 주세요.",
+  cannot_advance_stage: "더 진행할 다음 단계가 없습니다.",
 };
 
 /**

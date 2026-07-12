@@ -8,8 +8,8 @@ export default function DevelopmentOrchestratorPage() {
     <div className="space-y-6">
       <RegistryPageView
         pageKey="development.orchestrator"
-        title="Phase 13 Orchestrator"
-        description="PM Skills routing, skill runs, and work breakdown for development requests."
+        title="Phase 13 오케스트레이터"
+        description="개발 요청에 대한 PM 스킬 라우팅, 스킬 실행, 작업 분해."
       />
       <OrchestratorPanel />
     </div>

@@ -340,7 +340,7 @@ export async function advanceOpportunityStage(id: string) {
       opportunityId: id,
       fromStage,
       toStage: next,
-      note: "Stage advanced",
+      note: "단계 진행",
     },
   });
 

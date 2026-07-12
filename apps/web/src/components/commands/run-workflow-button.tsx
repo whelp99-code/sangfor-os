@@ -15,7 +15,7 @@ export function RunWorkflowButton({ commandRunId }: { commandRunId: string }) {
       const response = await fetch(`/api/workflows/${commandRunId}/run`, { method: "POST" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "failed");
-      setMessage("Workflow mock completed");
+      setMessage("워크플로 모의 실행 완료");
       window.location.reload();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "failed");
@@ -27,7 +27,7 @@ export function RunWorkflowButton({ commandRunId }: { commandRunId: string }) {
   return (
     <div className="flex items-center gap-3">
       <Button variant="secondary" onClick={runWorkflow} disabled={loading}>
-        {loading ? "Running…" : "Run workflow mock"}
+        {loading ? "실행 중…" : "워크플로 모의 실행"}
       </Button>
       {message ? <span className="text-sm text-muted-foreground">{message}</span> : null}
     </div>

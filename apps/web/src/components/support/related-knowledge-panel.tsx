@@ -8,6 +8,7 @@ export async function RelatedKnowledgePanel({
   product?: string;
 }) {
   let chunks: { id?: string; title?: string; section?: string; text?: string; source?: string }[] = [];
+  let failed = false;
   try {
     const result = await engineerConsole.ragSearch({ query: caseSubject, product, limit: 5 });
     chunks = (result.results ?? []).slice(0, 3).map((hit) => ({
@@ -18,7 +19,21 @@ export async function RelatedKnowledgePanel({
       source: hit.source,
     }));
   } catch {
-    return null;
+    failed = true;
+  }
+
+  if (failed) {
+    return (
+      <div className="pnl">
+        <div className="ph">
+          <b>관련 지식</b>
+          <span className="co mlbl">엔지니어 RAG</span>
+        </div>
+        <span style={{ fontSize: 12.5 }}>
+          엔지니어 지식 서비스에 연결하지 못했습니다. 서비스 상태를 확인해 주세요.
+        </span>
+      </div>
+    );
   }
   if (chunks.length === 0) return null;
 

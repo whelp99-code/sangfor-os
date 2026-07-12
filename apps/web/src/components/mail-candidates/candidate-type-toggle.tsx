@@ -2,9 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useToast } from "@sangfor/ui";
 
 import { Button } from "@/components/ui/button";
 import { actionErrorMessage } from "@/lib/action-error-labels";
+import { withRo } from "@/lib/korean";
 
 type CorrectableType = "customer" | "partner";
 
@@ -21,6 +23,7 @@ export function CandidateTypeToggle({
   candidateType: CorrectableType;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const target: CorrectableType = candidateType === "customer" ? "partner" : "customer";
@@ -34,10 +37,13 @@ export function CandidateTypeToggle({
       body: JSON.stringify({ action: "set_candidate_type", candidateType: target }),
     });
     if (res.ok) {
+      toast.success(`${TARGET_LABEL[target]} 유형으로 교정했습니다.`);
       router.refresh();
     } else {
       const data = await res.json().catch(() => ({}));
-      setError(actionErrorMessage(data.error, actionErrorMessage("patch_failed")));
+      const message = actionErrorMessage(data.error, actionErrorMessage("patch_failed"));
+      setError(message);
+      toast.error(message);
     }
     setLoading(false);
   }
@@ -45,7 +51,7 @@ export function CandidateTypeToggle({
   return (
     <span className="inline-flex items-center gap-2">
       <Button size="sm" variant="outline" disabled={loading} onClick={correct} type="button">
-        {loading ? "전환 중…" : `${TARGET_LABEL[target]}로 전환`}
+        {loading ? "전환 중…" : `${withRo(TARGET_LABEL[target])} 전환`}
       </Button>
       {error ? <span className="text-xs text-destructive">{error}</span> : null}
     </span>

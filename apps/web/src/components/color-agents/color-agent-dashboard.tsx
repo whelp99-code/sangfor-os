@@ -13,11 +13,11 @@ import { ColorReviewBadge, ColorAgentDot } from "@/components/ui/color-review-ba
 type ColorStatus = "passed" | "pending" | "failed" | "not_required";
 
 const COLORS: { name: string; label: string; desc: string; focus: string }[] = [
-  { name: "Blue", label: "기술 검토", desc: "Technical Direction / Architecture", focus: "기술 방향, 구현, 아키텍처" },
-  { name: "Red", label: "리스크 검토", desc: "Risk & Safety / Security", focus: "보안, 리스크, 회귀, 승인 우회" },
-  { name: "Orange", label: "비즈니스 가치 검토", desc: "Product & Business Value", focus: "고객 가치, 매출, ROI" },
-  { name: "Gray", label: "문서/근거 검토", desc: "Documentation & Evidence", focus: "문서, 결정 기록, 근거" },
-  { name: "Teal", label: "UX/가시성 검토", desc: "UX & Visibility", focus: "UI/UX, 대시보드, 가시성" },
+  { name: "Blue", label: "기술 검토", desc: "기술 방향 / 아키텍처", focus: "기술 방향, 구현, 아키텍처" },
+  { name: "Red", label: "리스크 검토", desc: "리스크·안전 / 보안", focus: "보안, 리스크, 회귀, 승인 우회" },
+  { name: "Orange", label: "비즈니스 가치 검토", desc: "제품 및 비즈니스 가치", focus: "고객 가치, 매출, ROI" },
+  { name: "Gray", label: "문서/근거 검토", desc: "문서화 및 근거", focus: "문서, 결정 기록, 근거" },
+  { name: "Teal", label: "UX/가시성 검토", desc: "UX 및 가시성", focus: "UI/UX, 대시보드, 가시성" },
 ];
 
 const AGENT_STATUSES: { name: string; status: ColorStatus; deal: string; reviewer: string }[] = [];
@@ -58,15 +58,15 @@ export function ColorAgentDashboard() {
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex items-center justify-between rounded-lg bg-muted/30 px-2 py-1.5">
-                  <span className="text-xs text-muted-foreground">Status</span>
+                  <span className="text-xs text-muted-foreground">상태</span>
                   <StatusBadge status={agent?.status ?? "not_required"} agent={agentKey} />
                 </div>
                 <div className="flex items-center justify-between rounded-lg bg-muted/30 px-2 py-1.5">
-                  <span className="text-xs text-muted-foreground">Deal</span>
+                  <span className="text-xs text-muted-foreground">딜</span>
                   <span className="text-xs font-medium truncate ml-2">{agent?.deal ?? "—"}</span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg bg-muted/30 px-2 py-1.5">
-                  <span className="text-xs text-muted-foreground">Reviewer</span>
+                  <span className="text-xs text-muted-foreground">검토자</span>
                   <span className="text-xs font-medium">{agent?.reviewer ?? "—"}</span>
                 </div>
                 <p className="text-xs text-muted-foreground pt-1">{c.focus}</p>

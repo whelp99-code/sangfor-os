@@ -36,7 +36,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const addToast = useCallback((type: ToastType, message: string, action?: Toast['action']) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
     setToasts(prev => [...prev.slice(-4), { id, type, message, action }])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), type === 'error' ? 0 : 4000)
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), type === 'error' ? 8000 : 4000)
   }, [])
 
   const ctx: ToastContextValue = {

@@ -109,7 +109,19 @@ export function DataView<T>({
               <TableRow
                 key={row.id}
                 className={cn(rowHref && "cursor-pointer")}
+                role={rowHref ? "link" : undefined}
+                tabIndex={rowHref ? 0 : undefined}
                 onClick={rowHref ? () => router.push(rowHref(row.original)) : undefined}
+                onKeyDown={
+                  rowHref
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          router.push(rowHref(row.original));
+                        }
+                      }
+                    : undefined
+                }
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>

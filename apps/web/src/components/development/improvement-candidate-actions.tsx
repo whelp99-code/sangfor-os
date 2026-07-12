@@ -83,7 +83,7 @@ export function ImprovementCandidateActions({
           onClick={runPhase13}
           type="button"
         >
-          {loading === "run" ? "Running…" : "Run Phase 13"}
+          {loading === "run" ? "실행 중…" : "Phase 13 실행"}
         </Button>
       ) : null}
       {status === "converted" && commandRunId ? (
@@ -91,7 +91,7 @@ export function ImprovementCandidateActions({
           className="text-sm text-primary hover:underline"
           href={`/development/orchestrator`}
         >
-          Command run {commandRunId}
+          커맨드 실행 {commandRunId}
         </a>
       ) : null}
       {error ? <span className="text-xs text-destructive">{error}</span> : null}

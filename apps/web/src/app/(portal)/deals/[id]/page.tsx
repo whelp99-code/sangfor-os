@@ -28,7 +28,9 @@ import { DealRecordHeader, DealStagePath } from "@/components/deals/deal-record-
 import { DealStageGuide } from "@/components/deals/deal-stage-guide";
 import { DealAiRail } from "@/components/deals/deal-ai-rail";
 import { DealDetail } from "@/components/deals/deal-detail";
-import { DealDetailTabs, DEAL_DETAIL_TABS, type DealDetailTab } from "@/components/deals/deal-detail-tabs";
+import { DealDetailTabs } from "@/components/deals/deal-detail-tabs";
+import { DEAL_DETAIL_TABS, type DealDetailTab } from "@/components/deals/deal-detail-tabs.constants";
+import { winProbabilityLabel } from "@/components/deals/win-probability";
 import { DealWorkTab } from "@/components/deals/deal-work-tab";
 import { RegistrationPanel } from "@/components/deals/registration-panel";
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
@@ -212,7 +214,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         actions={
           <>
             <Badge>{stage}</Badge>
-            <Badge variant="outline">{opportunity.probability}%</Badge>
+            <Badge variant="outline">{winProbabilityLabel(opportunity.probability, stage)}</Badge>
             <Link
               href={`/deals/${opportunity.id}?tab=상세`}
               className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
