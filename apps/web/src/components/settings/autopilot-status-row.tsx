@@ -10,7 +10,7 @@ export function AutopilotStatusRow({ enabled }: { enabled: boolean }) {
         <span>
           오토파일럿 {enabled ? "ON" : "OFF"}{" "}
           <span className="text-muted-foreground">
-            — {enabled ? "전체 도메인 auto 정책 적용 중" : "킬스위치 작동 — 전부 관찰 강등"}
+            — {enabled ? "자율 실행 허용 · 도메인별 정책이 최종 게이트" : "킬스위치 작동 · 전 도메인 관찰 모드"}
           </span>
         </span>
       </div>
