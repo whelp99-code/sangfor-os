@@ -37,13 +37,28 @@ export interface ResolveEmbedderOptions extends OpenAiEmbedderOptions {
   dim?: number;
 }
 
-/** 키 있으면 OpenAI 임베딩, 없으면 로컬 해시(오프라인). */
+// 채팅 9router(:20128)에는 임베딩 모델이 없어 임베딩만 별도 백엔드(EMBEDDING_BASE_URL)로 분리한다.
+function embeddingEndpoint(opts: ResolveEmbedderOptions): OpenAiEmbedderOptions | null {
+  const baseUrl = opts.baseUrl ?? process.env.EMBEDDING_BASE_URL;
+  if (!baseUrl) return null;
+  return {
+    baseUrl,
+    model: opts.model ?? process.env.EMBEDDING_MODEL ?? "nomic-embed-text",
+    apiKey: opts.apiKey ?? process.env.EMBEDDING_API_KEY ?? "ollama",
+    fetchImpl: opts.fetchImpl,
+  };
+}
+
+/** 임베딩 엔드포인트가 있으면 그것을, 아니면 OpenAI 키 있으면 OpenAI, 없으면 로컬 해시(오프라인). */
 export function resolveEmbedder(opts: ResolveEmbedderOptions = {}): Embedder {
+  const endpoint = embeddingEndpoint(opts);
+  if (endpoint) return createOpenAiEmbedder(endpoint);
   const apiKey = opts.apiKey ?? getOpenAiApiKey();
   return apiKey ? createOpenAiEmbedder(opts) : createHashEmbedder(opts.dim ?? 256);
 }
 
 /** 현재 환경에서 어떤 임베더가 쓰일지 (로깅용). */
-export function describeEmbedder(opts: ResolveEmbedderOptions = {}): "openai" | "hash" {
+export function describeEmbedder(opts: ResolveEmbedderOptions = {}): "embedding-endpoint" | "openai" | "hash" {
+  if (embeddingEndpoint(opts)) return "embedding-endpoint";
   return (opts.apiKey ?? getOpenAiApiKey()) ? "openai" : "hash";
 }

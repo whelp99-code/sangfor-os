@@ -24,12 +24,17 @@ describe("real embedding provider", () => {
     expect(body.input).toBe("hello");
   });
 
-  it("resolveEmbedder falls back to hash when no key (offline-usable)", async () => {
-    const embed = resolveEmbedder({ apiKey: "", dim: 32 });
-    const v = await embed("offline text");
-    expect(v.length).toBe(32); // hash embedder dimension → no network needed
-    expect(describeEmbedder({ apiKey: "" })).toBe("hash");
-    expect(describeEmbedder({ apiKey: "sk-x" })).toBe("openai");
+  it("resolveEmbedder falls back to hash when no key and no embedding endpoint (offline-usable)", async () => {
+    vi.stubEnv("EMBEDDING_BASE_URL", "");
+    try {
+      const embed = resolveEmbedder({ apiKey: "", dim: 32 });
+      const v = await embed("offline text");
+      expect(v.length).toBe(32); // hash embedder dimension → no network needed
+      expect(describeEmbedder({ apiKey: "" })).toBe("hash");
+      expect(describeEmbedder({ apiKey: "sk-x" })).toBe("openai");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 
