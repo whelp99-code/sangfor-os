@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { prisma } from "@sangfor/db";
 
 const STAGES = [
@@ -76,7 +77,7 @@ export default async function SupportPage() {
                 </div>
               ) : (
                 columns[i].map((c) => (
-                  <div className="scard" key={c.id}>
+                  <Link className="scard" href={`/support/${c.id}`} key={c.id} style={{ display: "block" }}>
                     <b>{c.subject}</b>
                     <span className="pt">{c.customer?.name ?? "고객 미지정"}</span>
                     <div className="bt">
@@ -90,7 +91,7 @@ export default async function SupportPage() {
                         SLA {new Date(c.slaDeadline).toLocaleDateString("ko-KR")}
                       </span>
                     ) : null}
-                  </div>
+                  </Link>
                 ))
               )}
             </div>
