@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildFinanceProxyUrl } from "@/lib/finance-proxy";
 import { assertApiAccess } from "@/lib/api-auth";
-import { createApiErrorResponse } from "../../_lib/api-response";
-import { API_ERRORS } from "../../_lib/api-error";
+
+type ParsedFinanceResponse =
+  | { ok: true; data: unknown }
+  | { ok: false };
+
+function parseFinanceResponse(text: string): ParsedFinanceResponse {
+  try {
+    return { ok: true, data: JSON.parse(text) };
+  } catch {
+    // Never echo raw upstream text back to the client — it may carry internal
+    // detail (stack hints, driver text, payloads). Log server-side and return
+    // a stable, generic envelope.
+    console.error("[api] finance_upstream_parse_failed:", text);
+    return { ok: false };
+  }
+}
 
 async function proxy(req: NextRequest, method: string) {
   // The proxy injects a real upstream API key (FINANCE_API_KEY||API_KEY), so
@@ -30,23 +44,19 @@ async function proxy(req: NextRequest, method: string) {
   try {
     const res = await fetch(url, init);
     const text = await res.text();
-    const data = text ? parseFinanceResponse(text) : null;
-    return NextResponse.json(data, { status: res.status });
+    if (!text) {
+      return NextResponse.json(null, { status: res.status });
+    }
+    const parsed = parseFinanceResponse(text);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: "upstream_unavailable" }, { status: 502 });
+    }
+    return NextResponse.json(parsed.data, { status: res.status });
   } catch (error) {
     console.error("[api] finance_proxy_unavailable:", error instanceof Error ? error.stack ?? error.message : error);
-    return createApiErrorResponse(API_ERRORS.INTERNAL_ERROR());
-  }
-}
-
-function parseFinanceResponse(text: string) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    // Never echo raw upstream text back to the client — it may carry internal
-    // detail (stack hints, driver text, payloads). Log server-side and return
-    // a stable, generic envelope.
-    console.error("[api] finance_upstream_parse_failed:", text);
-    return { error: "invalid_upstream_response" };
+    // Upstream unreachable or connection failure — 502 (bad gateway) is the
+    // semantically correct status; this is an upstream problem, not ours.
+    return NextResponse.json({ error: "upstream_unavailable" }, { status: 502 });
   }
 }
 
