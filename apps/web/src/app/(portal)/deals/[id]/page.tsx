@@ -40,6 +40,11 @@ type PageProps = {
   searchParams: Promise<{ tab?: string }>;
 };
 
+function daysSince(from: Date | null | undefined): number | null {
+  if (!from) return null;
+  return Math.floor((Date.now() - from.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 export default async function DealDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const { tab: tabParam } = await searchParams;
@@ -112,10 +117,8 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
 
   const stage = normalizeOpportunityStage(opportunity.stage);
   const dwellFrom = opportunity.stageEnteredAt ?? opportunity.createdAt;
-  const stageDwellDays = Math.max(0, Math.floor((Date.now() - dwellFrom.getTime()) / (1000 * 60 * 60 * 24)));
-  const overdueDays = opportunity.closeDate
-    ? Math.floor((Date.now() - opportunity.closeDate.getTime()) / (1000 * 60 * 60 * 24))
-    : null;
+  const stageDwellDays = Math.max(0, daysSince(dwellFrom) ?? 0);
+  const overdueDays = daysSince(opportunity.closeDate);
   const dealRisk = computeDealRisk({
     stageDwellDays,
     amount: opportunity.amount != null ? Number(opportunity.amount) : null,
