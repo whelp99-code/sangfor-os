@@ -1,4 +1,4 @@
-import type { DomainKey } from '../artifact-domain-map';
+import type { DomainKey } from './artifact-domain-map';
 import {
   getOpenAiApiKey,
   getOpenAiChatCompletionsUrl,
@@ -6,8 +6,8 @@ import {
   getOpenAiModel,
   buildChatCompletionRequestBody,
   extractChatCompletionText,
-} from '../openai-config';
-import { withBackoff } from '../ai-classify-batch';
+} from '../platform/openai-config';
+import { withBackoff } from '../mail/ai-classify-batch';
 import {
   recordDomainDecision,
   loadDomainMemories,

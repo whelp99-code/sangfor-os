@@ -6,6 +6,7 @@ import {
   type RecallQuery,
  buildMemoryTags,
 } from "./domain-memory";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 /**
  * V2 — 임베딩 기반 의미(semantic) recall.
@@ -90,7 +91,7 @@ export async function recallSemanticFromDb(input: {
   topK?: number;
   options?: HybridRecallOptions;
 }): Promise<DomainMemoryRecord[]> {
-  const candidates = await loadDomainMemories(input.domain, input.projectSlug ?? "demo-project");
+  const candidates = await loadDomainMemories(input.domain, input.projectSlug ?? (await resolveDefaultProjectSlug()));
   const queryEmbedding = await input.embed(input.queryText);
   // A-4: always include the shared vocabulary tags so buildMemoryTags-written
   // memories are recallable regardless of what raw tags the caller passed.

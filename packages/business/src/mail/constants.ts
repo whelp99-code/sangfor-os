@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { buildStaticMailPolicyLookup } from "../mail-policy-memory";
+import { buildStaticMailPolicyLookup } from "./mail-policy-memory";
 
 export const mailCandidateTypeSchema = z.enum([
   "customer",

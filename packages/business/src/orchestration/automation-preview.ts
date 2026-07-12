@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { getOpenAiModel, getOpenAiApiKey } from "../openai-config";
+import { getOpenAiModel, getOpenAiApiKey } from "../platform/openai-config";
 import { recommendAssignmentForWorkItem } from "../skills/phase13-assignment-rules";
 import { recommendSkills } from "../skills/skill-router";
-import { traceWorkflowEvent } from "../langfuse-observability";
+import { traceWorkflowEvent } from "../platform/langfuse-observability";
 
 const forbiddenMailActionPattern =
   /\b(mail\.(oauth|graph|send|delete|move)|mail\s+(oauth|graph|send|delete|move))\b/i;

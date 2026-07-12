@@ -3,7 +3,7 @@
  * 실행: npx tsx packages/business/scripts/domain-structured-e2e.ts
  */
 import { createOpencodeStructuredGenerator } from "../src/domain-ai/domain-structured";
-import { opencodeHealth } from "../src/opencode-client";
+import { opencodeHealth } from "../src/orchestration/opencode-client";
 
 async function main() {
   if (!(await opencodeHealth())) {

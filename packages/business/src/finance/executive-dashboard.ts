@@ -2,6 +2,7 @@ import { prisma } from "@sangfor/db";
 
 import { getOpportunityPipelineSummary } from "../crm/opportunity-center";
 import { listTodayTasks, listWorkTasks } from "../orchestration/task-center";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 export type ExecutiveSummary = {
   customers: number;
@@ -56,10 +57,10 @@ function isProjectMailCandidate(candidateType: string) {
 }
 
 export async function getExecutiveSummary(
-  projectSlug = "demo-project",
+  projectSlug?: string,
 ): Promise<ExecutiveSummary> {
   const project = await prisma.project.findUniqueOrThrow({
-    where: { slug: projectSlug },
+    where: { slug: projectSlug ?? (await resolveDefaultProjectSlug()) },
   });
 
   const [
@@ -115,10 +116,11 @@ export async function getExecutiveSummary(
 }
 
 export async function getDashboardWidgets(
-  projectSlug = "demo-project",
+  projectSlug?: string,
 ): Promise<DashboardWidgets> {
+  const slug = projectSlug ?? (await resolveDefaultProjectSlug());
   const project = await prisma.project.findUniqueOrThrow({
-    where: { slug: projectSlug },
+    where: { slug },
   });
   const projectId = project.id;
 
@@ -133,8 +135,8 @@ export async function getDashboardWidgets(
     cursorSessions,
     validationFailures,
   ] = await Promise.all([
-    listTodayTasks(projectSlug),
-    listWorkTasks(projectSlug),
+    listTodayTasks(slug),
+    listWorkTasks(slug),
     prisma.pocProject.findMany({
       where: { projectId, status: { notIn: ["completed", "cancelled"] } },
       orderBy: { updatedAt: "desc" },

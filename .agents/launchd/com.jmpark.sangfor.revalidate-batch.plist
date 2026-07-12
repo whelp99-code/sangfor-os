@@ -8,7 +8,7 @@
   <array>
     <string>/bin/bash</string>
     <string>-lc</string>
-    <string>cd /Users/jmpark/Playground/sangfor-os/packages/db &amp;&amp; set -a; source ../../.env; set +a; export DATABASE_URL=&quot;postgresql://sangfor:sangfor_password@localhost:5434/sangfor_os?schema=public&quot;; pnpm exec tsx ../business/scripts/revalidate-batch.ts --status proposed --concurrency 2 --max 300</string>
+    <string>cd /Users/jmpark/Playground/sangfor-os/packages/db &amp;&amp; set -a; source ../../.env; set +a; for i in $(seq 1 20); do curl -sf -m 5 &quot;${OPENAI_BASE_URL:-http://127.0.0.1:20128/v1}/models&quot; &gt;/dev/null &amp;&amp; break; echo &quot;[preflight] LLM router not up yet ($i/20)&quot;; sleep 30; done; export DATABASE_URL=&quot;postgresql://sangfor:sangfor_password@localhost:5434/sangfor_os?schema=public&quot;; pnpm exec tsx ../business/scripts/revalidate-batch.ts --status proposed --concurrency 2 --max 300</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict>

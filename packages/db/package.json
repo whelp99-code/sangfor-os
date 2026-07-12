@@ -25,7 +25,8 @@
     "berllo:import": "tsx scripts/berllo-crm-import.ts",
     "berllo:enrich": "tsx scripts/berllo-enrich.ts",
     "backfill:project-scope": "tsx scripts/backfill-project-scope.ts",
-    "backfill:finance-engagement": "tsx scripts/backfill-finance-engagement.ts"
+    "backfill:finance-engagement": "tsx scripts/backfill-finance-engagement.ts",
+    "check:engagement-orphans": "tsx scripts/check-engagement-orphans.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

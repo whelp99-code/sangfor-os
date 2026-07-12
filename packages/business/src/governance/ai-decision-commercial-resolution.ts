@@ -1,6 +1,7 @@
 import { prisma } from "@sangfor/db";
 
 import { recordDecision } from "./ai-decision";
+import { resolveDefaultProjectId } from "../infrastructure/default-project";
 
 /**
  * Commercial-approval RESOLUTION instrumentation (S1 커버리지 확대 슬라이스).
@@ -15,13 +16,12 @@ import { recordDecision } from "./ai-decision";
  *  - MUST NEVER throw. recordDecision 자체가 삼키지만, projectId 조회/매핑
  *    단계의 예외까지 확실히 삼켜 결정 흐름을 절대 막지 않는다.
  *  - ApprovalRequest 스키마엔 projectId가 없으므로, 명시적으로 주어지지 않으면
- *    프로젝트 슬러그('demo-project') 규약으로 best-effort 조회한다. 조회 실패
- *    시엔 기록하지 않고 조용히 반환한다(DomainDecisionLog.projectId는 NOT NULL).
+ *    resolveDefaultProjectId 규약(env DEFAULT_PROJECT_ID → 단일 프로젝트 행)으로
+ *    best-effort 조회한다. 조회 실패 시엔 기록하지 않고 조용히 반환한다
+ *    (DomainDecisionLog.projectId는 NOT NULL).
  *  - actionType='commercial_approval_resolution'은 티어 레지스트리 미등록
  *    (fail-closed, 스펙 §5: 재무/계약 관련) → riskTier=T2 스냅샷.
  */
-
-const DEFAULT_PROJECT_SLUG = "demo-project";
 
 export interface RecordCommercialApprovalResolutionInput {
   /** resolution 대상 상업승인 견적 id. caseRef='quote:<id>'로 저장. */
@@ -46,11 +46,7 @@ export async function recordCommercialApprovalResolution(
   try {
     let projectId = input.projectId ?? null;
     if (!projectId) {
-      const project = await client.project.findUnique({
-        where: { slug: DEFAULT_PROJECT_SLUG },
-        select: { id: true },
-      });
-      projectId = project?.id ?? null;
+      projectId = await resolveDefaultProjectId(client).catch(() => null);
     }
     // NOT NULL 제약: projectId 없으면 조용히 스킵(비파괴).
     if (!projectId) return;

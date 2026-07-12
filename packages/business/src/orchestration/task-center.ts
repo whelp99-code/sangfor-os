@@ -3,7 +3,8 @@ import { z } from "zod";
 
 import { logStateTransition } from "../governance/audit";
 import { recordDecision } from "../governance/ai-decision";
-import { caseRefFor } from "../case-ref";
+import { caseRefFor } from "../infrastructure/case-ref";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 export const TASK_STATUSES = ["todo", "doing", "waiting", "done"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
@@ -29,7 +30,7 @@ export function nextTaskStatus(status: string): TaskStatus | null {
 }
 
 export const createWorkTaskSchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   title: z.string().min(2),
   status: z.enum(TASK_STATUSES).default("todo"),
   priority: z.enum(TASK_PRIORITIES).default("normal"),
@@ -76,7 +77,7 @@ async function recordStatusEvent(
 
 export async function createWorkTask(input: z.infer<typeof createWorkTaskSchema>) {
   const parsed = createWorkTaskSchema.parse(input);
-  const projectId = await resolveProjectId(parsed.projectSlug);
+  const projectId = await resolveProjectId(parsed.projectSlug ?? (await resolveDefaultProjectSlug()));
 
   const task = await prisma.workTask.create({
     data: {
@@ -183,10 +184,10 @@ export async function linkTaskToEntity(
 }
 
 export async function listWorkTasks(
-  projectSlug = "demo-project",
+  projectSlug?: string,
   filters?: { status?: string; customerId?: string; priority?: string },
 ) {
-  const projectId = await resolveProjectId(projectSlug);
+  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()));
   return prisma.workTask.findMany({
     where: {
       projectId,
@@ -208,8 +209,8 @@ export async function listTasksForCustomer(customerId: string) {
   });
 }
 
-export async function listTodayTasks(projectSlug = "demo-project") {
-  const projectId = await resolveProjectId(projectSlug);
+export async function listTodayTasks(projectSlug?: string) {
+  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()));
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);

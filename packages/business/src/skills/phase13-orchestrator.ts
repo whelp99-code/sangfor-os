@@ -1,9 +1,9 @@
 import { prisma, Prisma } from "@sangfor/db";
 import { z } from "zod";
 
-import { createCommandRun, phase13SourceEntityTypeSchema } from "../command-center";
+import { createCommandRun, phase13SourceEntityTypeSchema } from "../orchestration/command-center";
 import { createApprovalIfNeeded } from "../governance/approval-gate";
-import { mapWithConcurrency } from "../map-with-concurrency";
+import { mapWithConcurrency } from "../infrastructure/map-with-concurrency";
 import { normalizeSkillOutput } from "./skill-output-normalizer";
 import { recommendSkills } from "./skill-router";
 import { recommendAssignmentForWorkItem } from "./phase13-assignment-rules";
@@ -12,15 +12,16 @@ import {
   resolvePhase13ExecutionProfile,
   type Phase13ExecutionProfile,
 } from "./execution-profile";
-import { templateKeySchema } from "../phase14/types";
-import type { ContextPack, TemplateRenderOutput } from "../phase14/types";
+import { templateKeySchema } from "../orchestration/context-pack-types";
+import type { ContextPack, TemplateRenderOutput } from "../orchestration/context-pack-types";
 import { runSkillWithMetadata } from "./skill-runner";
 import {
   workBreakdownFromNormalizedData,
   workBreakdownFromSkillOutput,
 } from "./skill-to-work-breakdown";
 import type { AssignmentSuggestion } from "./phase13-assignment-rules";
-import { traceWorkflowEvent } from "../langfuse-observability";
+import { traceWorkflowEvent } from "../platform/langfuse-observability";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 export const recommendSkillsSchema = z.object({
   inputSummary: z.string().min(3),
@@ -31,7 +32,7 @@ export const recommendSkillsSchema = z.object({
 export const runPhase13Schema = z
   .object({
     inputSummary: z.string().min(3),
-    projectSlug: z.string().default("demo-project"),
+    projectSlug: z.string().optional(),
     module: z.string().optional(),
     phase: z.number().int().optional(),
     sourceEntityType: phase13SourceEntityTypeSchema.optional(),
@@ -83,6 +84,7 @@ export async function recommendSkillsForInput(input: z.infer<typeof recommendSki
 
 export async function runPhase13Orchestrator(input: z.infer<typeof runPhase13Schema>) {
   const parsed = runPhase13Schema.parse(input);
+  const projectSlug = parsed.projectSlug ?? (await resolveDefaultProjectSlug());
   const profile = resolvePhase13ExecutionProfile(
     parsed.executionProfile as Phase13ExecutionProfile | undefined,
   );
@@ -97,9 +99,9 @@ export async function runPhase13Orchestrator(input: z.infer<typeof runPhase13Sch
     parsed.sourceEntityType &&
     parsed.sourceEntityId
   ) {
-    const { enrichPhase13RunWithContextPack } = await import("../phase14/phase14-orchestrator-bridge");
+    const { enrichPhase13RunWithContextPack } = await import("../orchestration/orchestrator-bridge");
     const enriched = await enrichPhase13RunWithContextPack({
-      projectSlug: parsed.projectSlug,
+      projectSlug,
       sourceEntityType: parsed.sourceEntityType,
       sourceEntityId: parsed.sourceEntityId,
       templateKey: parsed.templateKey,
@@ -133,7 +135,7 @@ export async function runPhase13Orchestrator(input: z.infer<typeof runPhase13Sch
 
   const commandRun = await createCommandRun({
     inputSummary: effectiveInputSummary,
-    projectSlug: parsed.projectSlug,
+    projectSlug,
     commandKey: "phase13-orchestrator",
     sourceEntityType: parsed.sourceEntityType,
     sourceEntityId: parsed.sourceEntityId,

@@ -1,5 +1,5 @@
 import { GTM_PIPELINE, type GtmDomain } from "@sangfor/shared/modes";
-import type { OpencodeModel } from "../opencode-client";
+import type { OpencodeModel } from "../orchestration/opencode-client";
 import type { DomainModelMap } from "./domain-llm";
 
 /**

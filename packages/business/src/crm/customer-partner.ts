@@ -3,10 +3,11 @@ import { z } from "zod";
 
 import { logStateTransition } from "../governance/audit";
 import { recordDecision } from "../governance/ai-decision";
-import { caseRefFor } from "../case-ref";
+import { caseRefFor } from "../infrastructure/case-ref";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 export const createCustomerSchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   name: z.string().min(2),
   domain: z.string().optional(),
   industry: z.string().optional(),
@@ -19,7 +20,7 @@ export const updateCustomerSchema = createCustomerSchema
   .extend({ status: z.enum(["active", "inactive", "archived"]).optional() });
 
 export const createPartnerSchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   name: z.string().min(2),
   partnerType: z.string().optional(),
 });
@@ -50,7 +51,7 @@ async function resolveProjectId(slug: string) {
 
 export async function createCustomer(input: z.infer<typeof createCustomerSchema>) {
   const parsed = createCustomerSchema.parse(input);
-  const projectId = await resolveProjectId(parsed.projectSlug);
+  const projectId = await resolveProjectId(parsed.projectSlug ?? (await resolveDefaultProjectSlug()));
 
   const customer = await prisma.customer.create({
     data: {
@@ -81,8 +82,8 @@ export async function createCustomer(input: z.infer<typeof createCustomerSchema>
   return customer;
 }
 
-export async function listCustomers(projectSlug = "demo-project", search?: string) {
-  const projectId = await resolveProjectId(projectSlug);
+export async function listCustomers(projectSlug?: string, search?: string) {
+  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()));
   return prisma.customer.findMany({
     where: {
       projectId,
@@ -109,8 +110,8 @@ export async function listCustomers(projectSlug = "demo-project", search?: strin
  * opportunity fields the detail panel actually renders. Replaces the previous
  * N+1 pattern (listCustomers + per-customer getCustomerDetail with 6 relations).
  */
-export async function listCustomersWithOpportunities(projectSlug = "demo-project") {
-  const projectId = await resolveProjectId(projectSlug);
+export async function listCustomersWithOpportunities(projectSlug?: string) {
+  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()));
   return prisma.customer.findMany({
     where: { projectId },
     orderBy: { updatedAt: "desc" },
@@ -202,7 +203,7 @@ export async function archiveCustomer(id: string) {
 
 export async function createPartner(input: z.infer<typeof createPartnerSchema>) {
   const parsed = createPartnerSchema.parse(input);
-  const projectId = await resolveProjectId(parsed.projectSlug);
+  const projectId = await resolveProjectId(parsed.projectSlug ?? (await resolveDefaultProjectSlug()));
 
   return prisma.partner.create({
     data: {
@@ -213,8 +214,8 @@ export async function createPartner(input: z.infer<typeof createPartnerSchema>) 
   });
 }
 
-export async function listPartners(projectSlug = "demo-project") {
-  const projectId = await resolveProjectId(projectSlug);
+export async function listPartners(projectSlug?: string) {
+  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()));
   return prisma.partner.findMany({
     where: { projectId },
     orderBy: { name: "asc" },
@@ -321,8 +322,8 @@ export async function linkCustomerPartner(
   return link;
 }
 
-export async function findConnectionCandidatesByEmail(email: string, projectSlug = "demo-project") {
-  const projectId = await resolveProjectId(projectSlug);
+export async function findConnectionCandidatesByEmail(email: string, projectSlug?: string) {
+  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()));
   const domain = email.includes("@") ? email.split("@")[1]?.toLowerCase() : null;
 
   const [byContact, byDomain] = await Promise.all([
@@ -351,23 +352,24 @@ export async function findConnectionCandidatesByEmail(email: string, projectSlug
   };
 }
 
-export async function searchCustomers(projectSlug = "demo-project", search?: string) {
+export async function searchCustomers(projectSlug?: string, search?: string) {
   return listCustomers(projectSlug, search);
 }
 
-export async function seedCustomerPartnerDemo(projectSlug = "demo-project") {
-  const existing = await listCustomers(projectSlug);
+export async function seedCustomerPartnerDemo(projectSlug?: string) {
+  const slug = projectSlug ?? (await resolveDefaultProjectSlug());
+  const existing = await listCustomers(slug);
   if (existing.length > 0) return { seeded: false, count: existing.length };
 
   const customer = await createCustomer({
-    projectSlug,
+    projectSlug: slug,
     name: "Acme Manufacturing",
     domain: "acme.example.com",
     industry: "Manufacturing",
   });
 
   const partner = await createPartner({
-    projectSlug,
+    projectSlug: slug,
     name: "Sangfor Korea Partner",
     partnerType: "reseller",
   });

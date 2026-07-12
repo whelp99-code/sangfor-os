@@ -7,7 +7,7 @@ function fakeCreatePrisma() {
     created,
     client: {
       project: {
-        findUnique: vi.fn(async () => ({ id: "proj_resolved" })),
+        findMany: vi.fn(async () => [{ id: "proj_resolved", slug: "demo-project", name: "Demo" }]),
       },
       domainDecisionLog: {
         create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
@@ -51,7 +51,7 @@ describe("recordCommercialApprovalResolution", () => {
     expect(fake.created[0]!.outcome).toBe("rejected");
   });
 
-  it("resolves projectId via demo-project when not provided", async () => {
+  it("resolves projectId via resolveDefaultProjectId when not provided", async () => {
     const fake = fakeCreatePrisma();
 
     await recordCommercialApprovalResolution(
@@ -59,13 +59,13 @@ describe("recordCommercialApprovalResolution", () => {
       { prisma: fake.client as never },
     );
 
-    expect(fake.client.project.findUnique).toHaveBeenCalled();
+    expect(fake.client.project.findMany).toHaveBeenCalled();
     expect(fake.created[0]!.projectId).toBe("proj_resolved");
   });
 
   it("never throws when projectId cannot be resolved (best-effort, no record)", async () => {
     const client = {
-      project: { findUnique: vi.fn(async () => null) },
+      project: { findMany: vi.fn(async () => []) },
       domainDecisionLog: { create: vi.fn() },
     };
 
@@ -80,7 +80,7 @@ describe("recordCommercialApprovalResolution", () => {
 
   it("never throws when the underlying persist fails (best-effort)", async () => {
     const client = {
-      project: { findUnique: vi.fn(async () => ({ id: "proj_x" })) },
+      project: { findMany: vi.fn(async () => [{ id: "proj_x", slug: "demo-project", name: "Demo" }]) },
       domainDecisionLog: {
         create: vi.fn(async () => {
           throw new Error("db down");

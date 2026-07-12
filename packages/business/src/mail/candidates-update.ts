@@ -2,12 +2,12 @@ import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { createCustomer, createPartner } from "../crm/customer-partner";
-import { createImprovementCandidateFromError } from "../improvement-loop";
-import { resolveDefaultProjectId } from "../default-project";
-import { upsertPolicyMemory } from "../mail-policy-memory";
+import { createImprovementCandidateFromError } from "../orchestration/improvement-loop";
+import { resolveDefaultProjectId } from "../infrastructure/default-project";
+import { upsertPolicyMemory } from "./mail-policy-memory";
 import { upsertDomainMemory } from "../domain-ai/domain-memory";
 import { createOpportunity } from "../crm/opportunity-center";
-import { createPocProject } from "../poc-center";
+import { createPocProject } from "../crm/poc-center";
 import { createWorkTask, linkTaskToEntity } from "../orchestration/task-center";
 
 import { mailCandidateStatusSchema, mailCandidateTypeSchema } from "./constants";
@@ -22,7 +22,7 @@ import {
   toInputJson,
 } from "./classify-rules";
 import { recordDecision } from "../governance/ai-decision";
-import { caseRefFor } from "../case-ref";
+import { caseRefFor } from "../infrastructure/case-ref";
 
 const listMailCandidatesSchema = z.object({
   status: mailCandidateStatusSchema.optional(),
@@ -202,7 +202,6 @@ async function convertCustomer(candidate: Awaited<ReturnType<typeof getMailDeriv
   });
   if (existing) return existing;
   return createCustomer({
-    projectSlug: "demo-project",
     name: candidate.title.replace(/^Customer:\s*/i, ""),
     notes: `Created from approved mail candidate.\n\n${candidate.summary}`,
   });
@@ -216,7 +215,6 @@ async function convertPartner(candidate: Awaited<ReturnType<typeof getMailDerive
   });
   if (existing) return existing;
   return createPartner({
-    projectSlug: "demo-project",
     name,
     partnerType: "mail-derived",
   });
@@ -224,7 +222,6 @@ async function convertPartner(candidate: Awaited<ReturnType<typeof getMailDerive
 
 async function convertTask(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
   const task = await createWorkTask({
-    projectSlug: "demo-project",
     title: candidate.title.replace(/^Follow up:\s*/i, ""),
     status: "todo",
     priority: candidate.confidence >= 80 ? "high" : "normal",
@@ -251,7 +248,6 @@ async function convertOpportunity(candidate: Awaited<ReturnType<typeof getMailDe
 
 async function convertPoc(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
   const poc = await createPocProject({
-    projectSlug: "demo-project",
     title: candidate.title.replace(/^PoC:\s*/i, ""),
     productName: "Sangfor",
     requirements: candidate.summary,

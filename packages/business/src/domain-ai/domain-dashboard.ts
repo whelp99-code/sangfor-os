@@ -1,5 +1,6 @@
 import { GTM_PIPELINE, type GtmDomain } from "@sangfor/shared/modes";
 import { pipelineOverview } from "./domain-pipeline";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 /**
  * 종축 대시보드 스냅샷 — 파이프라인 개요 + 도메인별 메모리/결정 통계.
@@ -121,14 +122,16 @@ interface PrismaLike {
 /** prisma 기반 기본 통계 로더 (도메인 격리: where domain). */
 export function createPrismaDomainStatsLoader(
   prismaLike: PrismaLike,
-  projectSlug = "demo-project",
+  projectSlug?: string,
 ): DomainStatsLoader {
   let projectIdPromise: Promise<string | null> | null = null;
   const getProjectId = () => {
     if (!projectIdPromise) {
-      projectIdPromise = prismaLike.project
-        .findUnique({ where: { slug: projectSlug } })
-        .then((p) => p?.id ?? null);
+      projectIdPromise = (async () => {
+        const slug = projectSlug ?? (await resolveDefaultProjectSlug());
+        const p = await prismaLike.project.findUnique({ where: { slug } });
+        return p?.id ?? null;
+      })();
     }
     return projectIdPromise;
   };

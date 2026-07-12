@@ -7,7 +7,7 @@ import {
   lensesForDomain,
   buildDomainHandoff,
 } from "./domain-pipeline";
-import { checkColorGate, type ColorKey } from "../color-agent";
+import { checkColorGate, type ColorKey } from "./color-agent";
 import {
   recallFromDb,
   recordDomainDecision,
@@ -21,6 +21,7 @@ import {
   type DefaultGeneratorOptions,
 } from "./domain-default-generator";
 import type { DomainPersister, DomainPersistResult } from "./domain-persistence";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 /**
  * V2 — 도메인 AI 런타임.
@@ -135,7 +136,7 @@ export async function runDomainStage(
   deps: DomainRuntimeDeps,
 ): Promise<DomainStageResult> {
   const def = DOMAIN_DEFINITIONS[domain];
-  const projectSlug = deps.projectSlug ?? "demo-project";
+  const projectSlug = deps.projectSlug ?? (await resolveDefaultProjectSlug());
   const evaluateGate = deps.evaluateGate ?? defaultGate;
   const generate = resolveDomainGenerator(deps);
 

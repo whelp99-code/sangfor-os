@@ -5,8 +5,8 @@ import type { GtmDomain } from "@sangfor/shared/modes";
 import {
   MailPolicyLookup,
   normalizePolicyKey,
-} from "../mail-policy-memory";
-import { SELF_DOMAINS, SYSTEM_SENDER_DOMAINS, KNOWN_PARTNER_DOMAINS, FREE_MAIL_DOMAINS, KNOWN_DOMAIN_MAP } from "../mail-domain-registry";
+} from "./mail-policy-memory";
+import { SELF_DOMAINS, SYSTEM_SENDER_DOMAINS, KNOWN_PARTNER_DOMAINS, FREE_MAIL_DOMAINS, KNOWN_DOMAIN_MAP } from "./mail-domain-registry";
 import {
   INTERNAL_COMPANY_NAMES,
   KEYWORDS,

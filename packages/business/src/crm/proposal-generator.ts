@@ -2,10 +2,11 @@ import { prisma as realPrisma } from "@sangfor/db";
 import { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey } from "@sangfor/shared";
 import { z } from "zod";
 
-import { loadLlmConfigFromDb } from "../llm-settings";
-import { getOpenAiApiKey } from "../openai-config";
+import { loadLlmConfigFromDb } from "../platform/llm-settings";
+import { getOpenAiApiKey } from "../platform/openai-config";
 import { recordDecision } from "../governance/ai-decision";
-import { caseRefFor } from "../case-ref";
+import { caseRefFor } from "../infrastructure/case-ref";
+import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 export { PROPOSAL_TEMPLATE_KEYS, type ProposalTemplateKey };
 
@@ -40,7 +41,7 @@ export function evaluateProposalAction(input: { status: string; action: Proposal
 }
 
 export const generateProposalSchema = z.object({
-  projectSlug: z.string().default("demo-project"),
+  projectSlug: z.string().optional(),
   templateKey: z.enum(PROPOSAL_TEMPLATE_KEYS).default("standard-proposal"),
   customerId: z.string().optional(),
   pocProjectId: z.string().optional(),
@@ -72,8 +73,8 @@ function applyTemplate(body: string, variables: Record<string, string>) {
   );
 }
 
-export async function ensureProposalTemplates(projectSlug = "demo-project") {
-  const projectId = await resolveProjectId(projectSlug);
+export async function ensureProposalTemplates(projectSlug?: string) {
+  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()));
   for (const templateKey of PROPOSAL_TEMPLATE_KEYS) {
     await realPrisma.documentTemplate.upsert({
       where: { projectId_templateKey: { projectId, templateKey } },
@@ -138,7 +139,7 @@ export async function maybeEnhanceWithLlm(
   if (!apiKey) return body;
 
   try {
-    const buildContextPack = deps.buildContextPack ?? (await import("../knowledge-search")).buildContextPack;
+    const buildContextPack = deps.buildContextPack ?? (await import("../domain-ai/knowledge-search")).buildContextPack;
     const context = await buildContextPack(title);
     if (!context) return body;
     return `${body}\n\n## Knowledge context\n\n${context}`;
@@ -149,9 +150,10 @@ export async function maybeEnhanceWithLlm(
 
 export async function generateProposal(input: z.infer<typeof generateProposalSchema>) {
   const parsed = generateProposalSchema.parse(input);
+  const projectSlug = parsed.projectSlug ?? (await resolveDefaultProjectSlug());
   await loadLlmConfigFromDb(); // pick up web-saved OpenAI key for LLM enhancement
-  await ensureProposalTemplates(parsed.projectSlug);
-  const projectId = await resolveProjectId(parsed.projectSlug);
+  await ensureProposalTemplates(projectSlug);
+  const projectId = await resolveProjectId(projectSlug);
 
   const template = await realPrisma.documentTemplate.findUniqueOrThrow({
     where: {
@@ -275,8 +277,8 @@ export async function getGeneratedDocumentDetail(id: string) {
   });
 }
 
-export async function listGeneratedDocuments(projectSlug = "demo-project") {
-  const projectId = await resolveProjectId(projectSlug);
+export async function listGeneratedDocuments(projectSlug?: string) {
+  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()));
   const templates = await realPrisma.documentTemplate.findMany({
     where: { projectId },
     select: { id: true },
@@ -293,9 +295,10 @@ export async function archiveProposal(id: string) {
   return realPrisma.generatedDocument.update({ where: { id }, data: { status: "archived" } });
 }
 
-export async function listProposalTemplates(projectSlug = "demo-project") {
-  await ensureProposalTemplates(projectSlug);
-  const projectId = await resolveProjectId(projectSlug);
+export async function listProposalTemplates(projectSlug?: string) {
+  const slug = projectSlug ?? (await resolveDefaultProjectSlug());
+  await ensureProposalTemplates(slug);
+  const projectId = await resolveProjectId(slug);
   return realPrisma.documentTemplate.findMany({
     where: { projectId },
     orderBy: { templateKey: "asc" },

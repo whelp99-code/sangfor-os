@@ -7,8 +7,8 @@ import {
   getOpenAiAuthHeaders,
   buildChatCompletionRequestBody,
   extractChatCompletionText,
-} from "../openai-config";
-import { withBackoff } from "../ai-classify-batch";
+} from "../platform/openai-config";
+import { withBackoff } from "../mail/ai-classify-batch";
 
 export type LensVerdict = { pass: boolean; note: string };
 export type LensKey = "blue" | "red" | "orange" | "gray" | "teal";
