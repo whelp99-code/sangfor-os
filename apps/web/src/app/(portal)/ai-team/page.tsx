@@ -1,7 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@sangfor/db";
-import { evaluateCandidateColorGate, isAutopilotEnabled } from "@sangfor/business";
+import {
+  evaluateCandidateColorGate,
+  getObservabilitySummary,
+  isAutopilotEnabled,
+} from "@sangfor/business";
 import { revalOf } from "@/lib/cockpit";
 import { AutopilotKillSwitch } from "@/components/cockpit/autopilot-kill-switch";
 
@@ -103,7 +107,7 @@ export default async function AiTeamPage() {
   }
 
   // Autopilot 관제 — 정책·킬스위치·최근 자동 결정·뒤집힘율 (전부 실쿼리)
-  const [autopilotEnabled, policies, recentAutoDecisions] = await Promise.all([
+  const [autopilotEnabled, policies, recentAutoDecisions, llmObservability] = await Promise.all([
     isAutopilotEnabled(),
     prisma.autonomyPolicy.findMany({
       orderBy: [{ domain: "asc" }, { decisionType: "asc" }],
@@ -115,6 +119,7 @@ export default async function AiTeamPage() {
       take: 20,
       select: { id: true, caseRef: true, outcome: true, createdAt: true },
     }),
+    getObservabilitySummary(),
   ]);
 
   const reversal = await computeReversalRate7d();
@@ -311,6 +316,42 @@ export default async function AiTeamPage() {
             {reversal.total}건)
           </p>
         </div>
+      </div>
+
+      <div className="sh" style={{ marginTop: 6 }}>
+        <h2>LLM 계측</h2>
+        <span className="n">{llmObservability.llmCalls}</span>
+        <span className="flow">호출량·지연·실패율</span>
+      </div>
+      <div className="pnl">
+        <div className="ph">
+          <b>LLM 호출 계측</b>
+          <span className="co mlbl">실측</span>
+        </div>
+        {llmObservability.llmCalls === 0 ? (
+          <p className="empty">아직 계측된 호출 없음</p>
+        ) : (
+          <>
+            <div className="kv">
+              <span className="k">최근 24시간 호출</span>
+              <span className="v">{llmObservability.last24h}건</span>
+            </div>
+            <div className="kv">
+              <span className="k">최근 7일 호출</span>
+              <span className="v">{llmObservability.last7d}건</span>
+            </div>
+            <div className="kv">
+              <span className="k">지연 p50 / p95</span>
+              <span className="v">
+                {llmObservability.latencyP50}ms / {llmObservability.latencyP95}ms
+              </span>
+            </div>
+            <div className="kv">
+              <span className="k">실패율</span>
+              <span className="v">{Math.round(llmObservability.failureRate * 100)}%</span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="pnl">

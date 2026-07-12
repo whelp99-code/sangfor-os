@@ -18,6 +18,10 @@ vi.mock('./domain-memory', () => ({
       .map((t) => t.toLowerCase()),
 }));
 
+vi.mock('./color-gate-llm', () => ({
+  verifyProposalColorGate: vi.fn().mockResolvedValue(undefined),
+}));
+
 
 describe('buildDomainPrompt', () => {
   it('presales — returns system/user with json and 제안서', () => {

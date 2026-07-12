@@ -45,7 +45,8 @@ describe("buildDailyBrief", () => {
   it("all-zero mocks -> zero counts and a non-empty fallback summary", async () => {
     const prisma = buildFakePrisma();
 
-    const brief = await buildDailyBrief("proj-1", makeDeps({ prisma }));
+    const llm = vi.fn().mockRejectedValue(new Error("offline"));
+    const brief = await buildDailyBrief("proj-1", makeDeps({ prisma, llm }));
 
     expect(brief.inflow).toEqual({ mails: 0, candidatesByType: {} });
     expect(brief.deadlines).toEqual({ renewalsD30: 0, slaAtRisk: 0, pendingApprovals: 0 });

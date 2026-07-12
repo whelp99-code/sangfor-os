@@ -1274,6 +1274,8 @@ model LlmCall {
   inputTokens  Int      @default(0) @map("input_tokens")
   outputTokens Int      @default(0) @map("output_tokens")
   latencyMs    Int?     @map("latency_ms")
+  caller       String?
+  success      Boolean  @default(true)
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([commandRunId])
