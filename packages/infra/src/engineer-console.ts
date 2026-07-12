@@ -92,8 +92,10 @@ export const engineerConsole = {
     request<unknown>("POST", "/api/generate-config-plan", body, opts),
   analyzeRequirements: (body: Record<string, unknown>, opts?: EngineerConsoleOptions) =>
     request<unknown>("POST", "/api/analyze-requirements", body, opts),
-  ragSearch: (body: Record<string, unknown>, opts?: EngineerConsoleOptions) =>
-    request<RagSearchResult>("POST", "/api/rag-search", body, opts),
+  ragSearch: async (body: Record<string, unknown>, opts?: EngineerConsoleOptions) => {
+    const raw = await request<unknown>("POST", "/api/rag-search", body, opts);
+    return Array.isArray(raw) ? { results: raw as RagHit[] } : (raw as RagSearchResult);
+  },
   summary: (opts?: EngineerConsoleOptions) => request<unknown>("GET", "/api/summary", undefined, opts),
   products: (opts?: EngineerConsoleOptions) =>
     request<ProductsResult>("GET", "/api/products", undefined, opts),
