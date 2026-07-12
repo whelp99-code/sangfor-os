@@ -1,13 +1,7 @@
 // 컬러 게이트 LLM 검증 — 도메인 AI 산출물(제안서)을 review 모델로 5-렌즈 실판정한다.
 // 결정형 게이트(color-gate.ts)가 후보 신호로 판정하는 것과 달리, 이쪽은 생성된
 // 산출물의 내용을 실제 LLM(cx/*-review)이 냉정하게 비평해 pass/fail + 근거를 낸다.
-import {
-  getOpenAiApiKey,
-  getOpenAiChatCompletionsUrl,
-  getOpenAiAuthHeaders,
-  buildChatCompletionRequestBody,
-  extractChatCompletionText,
-} from "../platform/openai-config";
+import { meteredChatCompletion } from "../platform/llm-metering";
 import { withBackoff } from "../mail/ai-classify-batch";
 
 export type LensVerdict = { pass: boolean; note: string };
@@ -108,31 +102,18 @@ ${input.bodyMarkdown.slice(0, 4000)}
   if (deps?.callLLM) {
     rawText = await deps.callLLM(system, user);
   } else {
-    const key = getOpenAiApiKey();
-    if (!key) throw new Error("no LLM key");
-    const res = await withBackoff(() =>
-      fetch(getOpenAiChatCompletionsUrl(), {
-        method: "POST",
-        headers: getOpenAiAuthHeaders(key),
-        body: JSON.stringify(
-          buildChatCompletionRequestBody({
-            model,
-            jsonMode: true,
-            maxCompletionTokens: 900,
-            messages: [
-              { role: "system", content: system },
-              { role: "user", content: user },
-            ],
-          }),
-        ),
-      }).then((r) => {
-        if (!r.ok) throw new Error("gate_" + r.status);
-        return r.json() as Promise<Parameters<typeof extractChatCompletionText>[0]>;
+    rawText = await withBackoff(() =>
+      meteredChatCompletion({
+        caller: `color-gate:${input.domain}`,
+        model,
+        jsonMode: true,
+        maxCompletionTokens: 900,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
       }),
     );
-    const text = extractChatCompletionText(res);
-    if (!text) throw new Error("gate_empty_response");
-    rawText = text;
   }
 
   return parseColorGateVerdict(rawText, model);

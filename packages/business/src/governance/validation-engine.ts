@@ -1,5 +1,5 @@
 import { prisma } from "@sangfor/db";
-import { getOpenAiModel } from "../platform/openai-config";
+import { summarizeLlmCalls } from "../platform/llm-metering";
 
 /**
  * Purpose: Phase 8 validation & observability recording.
@@ -46,37 +46,23 @@ export async function runValidationPlan(commandRunId: string, checks: { key: str
     },
   });
 
-  await prisma.llmCall.create({
-    data: {
-      commandRunId,
-      model: getOpenAiModel(),
-      inputTokens: 1200,
-      outputTokens: 400,
-      latencyMs: 850,
-    },
-  });
-
-  await prisma.costEvent.create({
-    data: {
-      commandRunId,
-      source: "llm",
-      amountUsd: 0.02,
-      metadata: { mock: true },
-    },
-  });
-
   return plan;
 }
 
 export async function getObservabilitySummary() {
-  const [llmCalls, costEvents, failures] = await Promise.all([
-    prisma.llmCall.count(),
+  const [llmCallSummary, costEvents, failures] = await Promise.all([
+    summarizeLlmCalls(),
     prisma.costEvent.aggregate({ _sum: { amountUsd: true } }),
     prisma.workflowStep.count({ where: { status: "failed" } }),
   ]);
 
   return {
-    llmCalls,
+    llmCalls: llmCallSummary.total,
+    last24h: llmCallSummary.last24h,
+    last7d: llmCallSummary.last7d,
+    latencyP50: llmCallSummary.latencyP50,
+    latencyP95: llmCallSummary.latencyP95,
+    failureRate: llmCallSummary.failureRate,
     totalCostUsd: costEvents._sum.amountUsd ?? 0,
     workflowFailures: failures,
   };

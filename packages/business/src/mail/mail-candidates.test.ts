@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 import {
   classifyMailCandidateDocument,
@@ -366,7 +366,12 @@ describe("mail candidate classification", () => {
     });
     createdKnowledgeDocumentIds.push(document.id);
 
-    await generateMailDerivedCandidates({ projectSlug: "demo-project", limit: 20, legacyKnowledgeFallback: true });
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    try {
+      await generateMailDerivedCandidates({ projectSlug: "demo-project", limit: 20, legacyKnowledgeFallback: true });
+    } finally {
+      vi.unstubAllGlobals();
+    }
 
     const created = await prisma.mailDerivedCandidate.findFirst({
       where: {
