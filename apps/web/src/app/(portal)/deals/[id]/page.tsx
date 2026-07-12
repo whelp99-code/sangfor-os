@@ -28,12 +28,13 @@ import { DealRecordHeader, DealStagePath } from "@/components/deals/deal-record-
 import { DealStageGuide } from "@/components/deals/deal-stage-guide";
 import { DealAiRail } from "@/components/deals/deal-ai-rail";
 import { DealDetail } from "@/components/deals/deal-detail";
+import { DealDetailTabs, DEAL_DETAIL_TABS, type DealDetailTab } from "@/components/deals/deal-detail-tabs";
 import { DealWorkTab } from "@/components/deals/deal-work-tab";
 import { RegistrationPanel } from "@/components/deals/registration-panel";
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -48,9 +49,8 @@ function daysSince(from: Date | null | undefined): number | null {
 export default async function DealDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const { tab: tabParam } = await searchParams;
-  const VALID_TABS = ["작업", "상세", "문서", "연락처", "채널·등록", "활동"] as const;
-  const activeTab = VALID_TABS.includes(tabParam as (typeof VALID_TABS)[number])
-    ? (tabParam as (typeof VALID_TABS)[number])
+  const activeTab: DealDetailTab = DEAL_DETAIL_TABS.includes(tabParam as DealDetailTab)
+    ? (tabParam as DealDetailTab)
     : "작업";
   // getEngagementByOpportunity depends only on `id`, so it joins the initial
   // parallel batch instead of running as a sequential await afterwards (−1 round-trip).
@@ -238,12 +238,12 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
       <DealStageGuide stage={stage} />
 
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-      <Tabs defaultValue={activeTab} className="space-y-0">
+      <DealDetailTabs defaultTab={activeTab} className="space-y-0">
         <TabsList variant="line" className="w-full justify-start border-b rounded-none px-2 pb-0 h-auto">
           <TabsTrigger value="작업">작업</TabsTrigger>
           <TabsTrigger value="상세">상세</TabsTrigger>
           <TabsTrigger value="문서">문서</TabsTrigger>
-          <TabsTrigger value="연락처">연락처</TabsTrigger>
+          <TabsTrigger value="연락처">연결 항목</TabsTrigger>
           <TabsTrigger value="채널·등록">채널·등록</TabsTrigger>
           <TabsTrigger value="활동">활동</TabsTrigger>
         </TabsList>
@@ -342,7 +342,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
           </Card>
         </TabsContent>
 
-        {/* 연락처 tab: linked entities + mail evidence */}
+        {/* Tab value stays "연락처" for URL compat; visible label is "연결 항목". */}
         <TabsContent value="연락처" className="space-y-4 pt-4">
           <Card>
             <CardHeader><CardTitle>연결 항목</CardTitle></CardHeader>
@@ -458,7 +458,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </DealDetailTabs>
 
       <div className="space-y-4">
         <Card>

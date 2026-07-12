@@ -5,6 +5,8 @@
  * Entirely presentational — checkboxes are advisory (unchecked by default).
  */
 
+import { Info } from "lucide-react";
+
 import { stageDisplay } from "@/components/deals/stage-meta";
 import { STAGE_GUIDE } from "@/components/deals/stage-guide-data";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,11 @@ export function DealStageGuide({ stage, className }: DealStageGuideProps) {
       className={cn("rounded-lg border bg-card pb-4", className)}
       aria-label="이 단계 가이드"
     >
+      <div className="flex items-center gap-1.5 rounded-t-lg border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-[11px] font-medium text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400">
+        <Info className="size-3 shrink-0" aria-hidden="true" />
+        참고용 가이드 · 딜별 완료 상태 미반영
+      </div>
+
       {/* ── Header row: tag + exit criterion + advisory CTA ────────────────── */}
       <div className="flex flex-wrap items-center gap-3 px-4 pt-4 pb-3">
         {/* Stage tag badge — primary/10 bg to echo mockup azure→primary */}
@@ -46,14 +53,15 @@ export function DealStageGuide({ stage, className }: DealStageGuideProps) {
           </strong>
         </p>
 
-        {/* Presentational "단계 완료" button (no action, advisory CTA) */}
+        {/* Advisory CTA, disabled — not wired to any deal-specific state */}
         <Button
           size="sm"
           className="shrink-0 text-xs"
-          aria-label="단계 완료 표시 (참고용)"
+          aria-label="단계 완료 표시 (준비 중)"
           type="button"
+          disabled
         >
-          단계 완료 ✓
+          준비 중
         </Button>
       </div>
 
