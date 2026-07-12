@@ -62,7 +62,7 @@ export function DataView<T>({
   const rows = table.getRowModel().rows;
 
   return (
-    <div className="overflow-hidden rounded-xl border">
+    <div className="overflow-x-auto rounded-xl border">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((group) => (

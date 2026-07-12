@@ -5,6 +5,7 @@ import { listEngagements } from "@sangfor/business";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { projectStatusLabel } from "@/lib/ux-labels";
 
 export default async function ProjectsPage() {
   const engagements = await listEngagements();
@@ -31,7 +32,7 @@ export default async function ProjectsPage() {
               <Card className="transition-colors hover:border-primary">
                 <CardHeader className="flex-row items-center justify-between">
                   <CardTitle className="text-base">{eng.name}</CardTitle>
-                  <Badge variant="outline">{eng.status}</Badge>
+                  <Badge variant="outline">{projectStatusLabel(eng.status)}</Badge>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm text-muted-foreground">
                   <p>{eng.opportunity?.customer?.name ?? "고객 미연결"}</p>

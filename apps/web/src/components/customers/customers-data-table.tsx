@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { DataTable, type ColumnDef } from "@/components/ui/data-table"
+import { displayStatus } from "@/lib/ux-labels"
 
 type CustomerRecord = {
   id: string
@@ -60,7 +61,7 @@ export function CustomersDataTable({ customers, searchQuery }: Props) {
         id: "status",
         label: "상태",
         sortable: true,
-        render: (item) => <Badge variant="outline">{item.status}</Badge>,
+        render: (item) => <Badge variant="outline">{displayStatus(item.status)}</Badge>,
       },
       {
         id: "partners",

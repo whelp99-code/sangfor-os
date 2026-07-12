@@ -235,7 +235,7 @@ const columns: ColumnDef<Deal, unknown>[] = [
     accessorKey: "nextAction",
     header: "다음 액션",
     cell: ({ row }) => (
-      <span className="line-clamp-1 text-sm text-muted-foreground">
+      <span className="block max-w-[280px] truncate text-sm text-muted-foreground">
         {row.original.nextAction ?? "미정"}
       </span>
     ),

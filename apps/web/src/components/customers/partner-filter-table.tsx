@@ -70,6 +70,13 @@ function formatRevenue(count: number): string {
   return `${count}건`;
 }
 
+function partnerTypeLabel(partnerType: string | null): string | null {
+  if (!partnerType) return null;
+  if (partnerType === "mail-derived") return "메일 유래";
+  if (partnerType.startsWith("ground-truth-")) return null;
+  return partnerType;
+}
+
 interface PartnerFilterTableProps {
   partners: Partner[];
   total: number;
@@ -146,6 +153,7 @@ export function PartnerFilterTable({ partners, total }: PartnerFilterTableProps)
                 const dealCount = partner._count.opportunities;
                 const linkCount = partner.customerLinks.length;
                 const displayCount = dealCount > 0 ? dealCount : linkCount > 0 ? linkCount : 0;
+                const typeLabel = partnerTypeLabel(partner.partnerType);
 
                 return (
                   <TableRow
@@ -164,8 +172,8 @@ export function PartnerFilterTable({ partners, total }: PartnerFilterTableProps)
                     {/* 이름 */}
                     <TableCell>
                       <div className="font-bold text-foreground">{partner.name}</div>
-                      {partner.partnerType && (
-                        <div className="text-xs text-muted-foreground mt-0.5">{partner.partnerType}</div>
+                      {typeLabel && (
+                        <div className="text-xs text-muted-foreground mt-0.5">{typeLabel}</div>
                       )}
                     </TableCell>
 

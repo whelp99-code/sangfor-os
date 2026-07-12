@@ -105,20 +105,6 @@ export function createApp(): Express {
     }
   });
 
-  // List MCP tools exposed by the whelp99 bridge.
-  app.get("/api/whelp99/tools", async (_req, res) => {
-    try {
-      const tools = await listMcpTools();
-      res.json({ tools });
-    } catch (error) {
-      console.error("[api] whelp99 tools list failed:", error instanceof Error ? error.stack ?? error.message : error);
-      res.status(502).json({
-        error: "upstream_unavailable",
-        tools: [],
-      });
-    }
-  });
-
   // Slack status — env-based detection
   app.get("/api/slack/status", (_req, res) => {
     const hasWebhook = Boolean(process.env.SLACK_WEBHOOK_URL);
@@ -142,6 +128,21 @@ export function createApp(): Express {
 
   // Auth middleware for other /api routes
   app.use("/api", authMiddleware);
+
+  // List MCP tools — behind auth: the catalog reveals internal tool names and
+  // schemas, so it must not be reachable unauthenticated.
+  app.get("/api/whelp99/tools", async (_req, res) => {
+    try {
+      const tools = await listMcpTools();
+      res.json({ tools });
+    } catch (error) {
+      console.error("[api] whelp99 tools list failed:", error instanceof Error ? error.stack ?? error.message : error);
+      res.status(502).json({
+        error: "upstream_unavailable",
+        tools: [],
+      });
+    }
+  });
 
   // Invoke an MCP tool through the whelp99 bridge. Arbitrary tool execution —
   // must sit behind authMiddleware (moved here from before the auth gate,

@@ -7,6 +7,7 @@ import {
   resolveDefaultProjectId,
 } from "@sangfor/business";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { requireRole } from "@/lib/auth/rbac";
 
 const REVERSAL_WINDOW_DAYS = 7;
 
@@ -60,6 +61,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const forbidden = requireRole(request, ["admin", "operator"]);
+  if (forbidden) return forbidden;
   try {
     const body = await request.json().catch(() => ({}));
     if (typeof body?.enabled !== "boolean") {

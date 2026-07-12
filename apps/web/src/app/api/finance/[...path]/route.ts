@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildFinanceProxyUrl } from "@/lib/finance-proxy";
 import { assertApiAccess } from "@/lib/api-auth";
+import { requireRole } from "@/lib/auth/rbac";
 
 type ParsedFinanceResponse =
   | { ok: true; data: unknown }
@@ -25,6 +26,8 @@ async function proxy(req: NextRequest, method: string) {
   // passes when AUTH_BYPASS_ENABLED=1; in prod it hard-blocks with 401.
   const denied = assertApiAccess(req);
   if (denied) return denied;
+  const forbidden = requireRole(req, ["admin", "operator", "finance"]);
+  if (forbidden) return forbidden;
 
   const url = buildFinanceProxyUrl(req.nextUrl.pathname, req.nextUrl.search);
   const headers: Record<string, string> = {

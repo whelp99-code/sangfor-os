@@ -42,7 +42,7 @@ export type OpportunityForDetail = {
 const DEAL_STATUS_LABEL: Record<string, string> = {
   OPEN: "진행",
   WON: "수주",
-  LOST: "실패",
+  LOST: "실주",
   ON_HOLD: "보류",
   DISQUALIFIED: "미자격",
 };
@@ -81,7 +81,7 @@ const DEAL_TYPE_OPTIONS = [
 const DEAL_STATUS_OPTIONS = [
   { value: "OPEN", label: "진행" },
   { value: "WON", label: "수주" },
-  { value: "LOST", label: "실패" },
+  { value: "LOST", label: "실주" },
   { value: "ON_HOLD", label: "보류" },
   { value: "DISQUALIFIED", label: "미자격" },
 ];
@@ -277,7 +277,7 @@ export function DealDetail({ opportunity }: DealDetailProps) {
             opportunityId={id}
           />
           <InlineField
-            label="실구매 결정자(Economic Buyer)"
+            label="실구매 결정자"
             value="—"
             editable={false}
             opportunityId={id}
@@ -325,7 +325,7 @@ export function DealDetail({ opportunity }: DealDetailProps) {
             opportunityId={id}
           />
           <InlineField
-            label="실구매 결정자(Economic Buyer)"
+            label="실구매 결정자"
             value="—"
             editable={false}
             opportunityId={id}

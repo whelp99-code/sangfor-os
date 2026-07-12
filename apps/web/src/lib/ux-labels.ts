@@ -82,9 +82,19 @@ export const STATUS_LABELS: Record<string, string> = {
   // Common
   active: "활성",
   inactive: "비활성",
+  archived: "보관",
   error: "오류",
   success: "성공",
   not_required: "해당 없음",
+};
+
+/** Engagement(project) status → user-facing label (see Engagement.status). */
+export const PROJECT_STATUS_LABELS: Record<string, string> = {
+  pre_engagement: "사전 접촉",
+  planned: "계획",
+  active: "진행",
+  on_hold: "보류",
+  completed: "완료",
 };
 
 /** Color Agent color CSS classes */
@@ -99,4 +109,9 @@ export const COLOR_AGENT_COLORS: Record<string, { dot: string; bg: string; text:
 /** Map internal status to user-facing label */
 export function displayStatus(status: string): string {
   return STATUS_LABELS[status] ?? status;
+}
+
+/** Map internal Engagement status to user-facing label */
+export function projectStatusLabel(status: string): string {
+  return PROJECT_STATUS_LABELS[status] ?? status;
 }
