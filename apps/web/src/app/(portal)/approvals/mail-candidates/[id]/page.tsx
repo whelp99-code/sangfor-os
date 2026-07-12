@@ -8,6 +8,7 @@ import { prisma } from "@sangfor/db";
 
 import { MailCandidateActions } from "@/components/development/mail-candidate-actions";
 import { ApproveConnectForm } from "@/components/mail-candidates/approve-connect-form";
+import { CandidateTypeToggle } from "@/components/mail-candidates/candidate-type-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -108,6 +109,9 @@ export default async function MailCandidateApprovalDetailPage({ params }: PagePr
           </h1>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">{candidate.candidateType}</Badge>
+            {candidate.candidateType === "customer" || candidate.candidateType === "partner" ? (
+              <CandidateTypeToggle candidateId={candidate.id} candidateType={candidate.candidateType} />
+            ) : null}
             <Badge variant={candidate.status === "converted" ? "secondary" : "outline"}>
               {candidate.status}
             </Badge>

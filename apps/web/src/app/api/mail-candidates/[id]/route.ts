@@ -3,6 +3,7 @@ import {
   getMailDerivedCandidate,
   revalidateMailDerivedCandidate,
   rejectMailDerivedCandidate,
+  setCandidateType,
 } from "@sangfor/business/mail-candidates";
 import { NextResponse } from "next/server";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
@@ -34,6 +35,10 @@ export async function PATCH(request: Request, { params }: Params) {
         reasonCode: body.reasonCode ?? "manual_reject",
         note: body.note,
       });
+      return NextResponse.json({ candidate });
+    }
+    if (body.action === "set_candidate_type") {
+      const candidate = await setCandidateType(id, { candidateType: body.candidateType });
       return NextResponse.json({ candidate });
     }
     return NextResponse.json({ error: "unsupported_action" }, { status: 400 });

@@ -326,6 +326,57 @@ export async function approveMailDerivedCandidate(id: string) {
   return { candidate: updated, created };
 }
 
+const setCandidateTypeSchema = z.object({
+  candidateType: z.enum(["customer", "partner"]),
+});
+
+const CORRECTABLE_CANDIDATE_TYPES = new Set(["customer", "partner"]);
+
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(
+    error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "P2002",
+  );
+}
+
+export async function setCandidateType(
+  id: string,
+  input: z.input<typeof setCandidateTypeSchema>,
+) {
+  const parsed = setCandidateTypeSchema.parse(input);
+  const candidate = await getMailDerivedCandidate(id);
+  if (!CORRECTABLE_CANDIDATE_TYPES.has(candidate.candidateType)) {
+    throw new Error("candidate_type_not_correctable");
+  }
+  const projectId = await resolveDefaultProjectId(prisma);
+
+  const previousCandidateType = candidate.candidateType;
+  let updated;
+  try {
+    updated = await prisma.mailDerivedCandidate.update({
+      where: { id },
+      data: { candidateType: parsed.candidateType },
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new Error("candidate_type_conflict");
+    }
+    throw error;
+  }
+
+  // Best-effort decision spine capture — outside txn, never throws.
+  await recordDecision({
+    projectId,
+    domain: gtmDomainForCandidate(parsed.candidateType),
+    actor: "human",
+    actionType: "entity_edit",
+    caseRef: caseRefFor("mailCandidate", id),
+    outcome: "corrected",
+    humanEdit: { previousCandidateType, candidateType: parsed.candidateType },
+  });
+
+  return updated;
+}
+
 async function reinforcePolicyMemoryFromApproval(
   candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>,
 ) {
