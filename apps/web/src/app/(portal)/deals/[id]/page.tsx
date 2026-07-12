@@ -1,4 +1,5 @@
 import {
+  computeDealRisk,
   enrichOpportunityLinks,
   getEngagementByOpportunity,
   getOpportunityDetail,
@@ -14,7 +15,7 @@ import {
 import { buildOpportunityOrchestratorSummary } from "@sangfor/business/skills";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Edit, ActivitySquare } from "lucide-react";
+import { Edit, ActivitySquare, Gauge } from "lucide-react";
 
 import {
   AddOpportunityLinkForm,
@@ -38,6 +39,11 @@ type PageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ tab?: string }>;
 };
+
+function daysSince(from: Date | null | undefined): number | null {
+  if (!from) return null;
+  return Math.floor((Date.now() - from.getTime()) / (1000 * 60 * 60 * 24));
+}
 
 export default async function DealDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
@@ -110,6 +116,19 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
     : [];
 
   const stage = normalizeOpportunityStage(opportunity.stage);
+  const dwellFrom = opportunity.stageEnteredAt ?? opportunity.createdAt;
+  const stageDwellDays = Math.max(0, daysSince(dwellFrom) ?? 0);
+  const overdueDays = daysSince(opportunity.closeDate);
+  const dealRisk = computeDealRisk({
+    stageDwellDays,
+    amount: opportunity.amount != null ? Number(opportunity.amount) : null,
+    probability: opportunity.probability,
+    mailSilenceDays: null,
+    lensFailCount: 0,
+    stage: opportunity.stage,
+    overdueDays,
+    hasNextAction: Boolean(opportunity.nextAction && opportunity.nextAction.trim()),
+  });
   const enrichedLinks = await enrichOpportunityLinks(opportunity.links);
   const customerOptions = customers.map((c) => ({ id: c.id, label: c.name }));
   const partnerOptions = partners.map((p) => ({ id: p.id, label: p.name }));
@@ -442,6 +461,35 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
       </Tabs>
 
       <div className="space-y-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-2 pb-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+              <Gauge className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            </div>
+            <CardTitle className="text-base">리스크 스코어</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {dealRisk.factors.length === 1 && dealRisk.factors[0]?.key === "terminal" ? (
+              <p className="text-sm text-muted-foreground">{dealRisk.factors[0].note}</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-foreground/60" style={{ width: `${dealRisk.score}%` }} />
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums">
+                    {dealRisk.score}점 · {dealRisk.level === "high" ? "높음" : dealRisk.level === "medium" ? "중간" : "낮음"}
+                  </span>
+                </div>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {dealRisk.factors.map((factor) => (
+                    <li key={factor.key}>{factor.label}: {factor.note}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </CardContent>
+        </Card>
         <DealAiRail stage={stage} />
         <PortalOrchestratorRunPanel
           title="Phase 13 오케스트레이터"
