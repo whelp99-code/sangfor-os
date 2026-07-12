@@ -1,7 +1,7 @@
 import { Prisma, prisma } from "@sangfor/db";
 import type { GtmDomain } from "@sangfor/shared/modes";
 import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
-import { recordDecision } from "../governance/ai-decision";
+import { recordDecision, type DecisionOutcome } from "../governance/ai-decision";
 import type { DecisionActorKey } from "../governance/ai-decision-policy";
 
 /**
@@ -18,7 +18,7 @@ import type { DecisionActorKey } from "../governance/ai-decision-policy";
  */
 
 export type DomainMemoryType = "case" | "rule" | "exception";
-export type DomainOutcome = "approved" | "rejected" | "corrected";
+export type DomainOutcome = "approved" | "rejected" | "corrected" | "human-reverted";
 
 // ─── Tag vocabulary ────────────────────────────────────────────────────────────
 
@@ -99,7 +99,7 @@ export function scoreDomainMemory(query: RecallQuery, record: DomainMemoryRecord
   return tagScore * outcomeWeight * confidenceWeight + humanBonus;
 }
 
-const NEGATIVE_OUTCOMES = new Set(["rejected", "human-reverted"]);
+export const NEGATIVE_OUTCOMES = new Set(["rejected", "human-reverted"]);
 
 /**
  * top-K 유사 케이스. 동점은 최신(createdAt) 우선.
@@ -215,7 +215,7 @@ export async function recordDomainDecision(input: {
   outputJson?: Prisma.InputJsonValue;
   colorGateJson?: Prisma.InputJsonValue;
   humanEditJson?: Prisma.InputJsonValue;
-  outcome?: DomainOutcome;
+  outcome?: DecisionOutcome;
   actor?: DecisionActorKey;
 }): Promise<{ id: string }> {
   const projectId = await resolveDomainProjectId(input.projectSlug);

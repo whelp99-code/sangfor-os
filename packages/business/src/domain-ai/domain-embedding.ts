@@ -2,6 +2,7 @@ import type { GtmDomain } from "@sangfor/shared/modes";
 import {
   loadDomainMemories,
   scoreDomainMemory,
+  NEGATIVE_OUTCOMES,
   type DomainMemoryRecord,
   type RecallQuery,
  buildMemoryTags,
@@ -53,9 +54,10 @@ export function hybridScore(
 
   if (!hasEmbedding) return tagScore;
 
-  // 임베딩 경로: 태그 무겹침이어도 의미 유사하면 recall 되도록 — 단 격리/active 는 강제.
+  // 반려/되돌림(negative outcome)은 의미유사도로도 되살리지 않는다 — 태그 경로와 동일한 negative-learning 억제.
   if (record.domain !== query.domain) return 0;
   if (record.status !== "active") return 0;
+  if (record.outcome !== null && NEGATIVE_OUTCOMES.has(record.outcome)) return 0;
 
   const sim = Math.max(0, cosineSimilarity(queryEmbedding!, record.embedding!));
   const weight = options.embeddingWeight ?? 0.7;
@@ -70,8 +72,14 @@ export function recallHybrid(
   topK = 5,
   options: HybridRecallOptions = {},
 ): DomainMemoryRecord[] {
+  const suppressedKeys = new Set(
+    candidates.filter((r) => r.outcome !== null && NEGATIVE_OUTCOMES.has(r.outcome)).map((r) => r.key),
+  );
   return candidates
-    .map((record) => ({ record, score: hybridScore(query, queryEmbedding, record, options) }))
+    .map((record) => ({
+      record,
+      score: suppressedKeys.has(record.key) ? 0 : hybridScore(query, queryEmbedding, record, options),
+    }))
     .filter((entry) => entry.score > 0)
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;

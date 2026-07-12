@@ -64,6 +64,16 @@ describe("hybridScore", () => {
     const sFar = hybridScore(query, [1, 0], far, { embeddingWeight: 1 });
     expect(sNear).toBeGreaterThan(sFar);
   });
+
+  it("suppresses rejected memories even on a perfect embedding match", () => {
+    const rejected = rec({ tags: ["firewall"], outcome: "rejected", embedding: [1, 0, 0] });
+    expect(hybridScore(query, [1, 0, 0], rejected, { embeddingWeight: 1 })).toBe(0);
+  });
+
+  it("suppresses human-reverted memories in the embedding path", () => {
+    const reverted = rec({ tags: [], outcome: "human-reverted", embedding: [1, 0, 0] });
+    expect(hybridScore(query, [1, 0, 0], reverted, { embeddingWeight: 1 })).toBe(0);
+  });
 });
 
 describe("recallHybrid", () => {
@@ -77,5 +87,15 @@ describe("recallHybrid", () => {
     ];
     const out = recallHybrid(query, [1, 0], candidates, 1, { embeddingWeight: 1 });
     expect(out.map((r) => r.key)).toEqual(["near"]);
+  });
+
+  it("cross-suppresses a key that has any negative-outcome sibling", () => {
+    const candidates: DomainMemoryRecord[] = [
+      rec({ key: "deal-x", tags: ["firewall"], outcome: "approved", embedding: [1, 0] }),
+      rec({ key: "deal-x", tags: ["firewall"], outcome: "rejected", embedding: [1, 0] }),
+      rec({ key: "deal-y", tags: ["firewall"], outcome: "approved", embedding: [1, 0] }),
+    ];
+    const out = recallHybrid(query, [1, 0], candidates, 5, { embeddingWeight: 1 });
+    expect(out.map((r) => r.key)).toEqual(["deal-y"]);
   });
 });
