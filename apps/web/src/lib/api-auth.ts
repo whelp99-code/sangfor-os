@@ -48,7 +48,14 @@ export function assertApiAccess(request: Request): NextResponse | null {
     const token =
       cookie.match(/(?:^|;\s*)session=([^;]+)/)?.[1] ??
       request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-    if (verifySessionToken(token)) {
+    const session = verifySessionToken(token);
+    if (session) {
+      if (
+        session.role === "viewer" &&
+        !["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase())
+      ) {
+        return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      }
       return null;
     }
   }

@@ -1,5 +1,6 @@
 import {
   approveMailDerivedCandidate,
+  CandidateConversionInProgressError,
   getMailDerivedCandidate,
   revalidateMailDerivedCandidate,
   rejectMailDerivedCandidate,
@@ -43,6 +44,9 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     return NextResponse.json({ error: "unsupported_action" }, { status: 400 });
   } catch (error) {
+    if (error instanceof CandidateConversionInProgressError) {
+      return apiError("candidate_conversion_in_progress", error, { status: 409 });
+    }
     return apiError("patch_failed", error, { status: 400 });
   }
 }

@@ -1,5 +1,6 @@
 import { createSessionToken, isAuthConfigured } from "@/lib/auth/session";
 import { checkRateLimit, clientIp } from "@/lib/api-auth";
+import { resolveDefaultProjectScope } from "@/lib/project-scope";
 import { NextResponse } from "next/server";
 
 const DEMO_EMAIL = "operator@demo.local";
@@ -55,11 +56,16 @@ export async function POST(request: Request) {
 
   // In mock mode createSessionToken would throw (no JWT_SECRET); issue the
   // `mock.` token that verifySessionToken already recognizes instead of 500ing.
-  const token = isAuthConfigured()
+  const projectScope = isAuthConfigured()
+    ? await resolveDefaultProjectScope()
+    : null;
+  const token = projectScope
     ? createSessionToken({
         id: "user-demo",
         email,
         role,
+        projectId: projectScope.projectId,
+        projectSlug: projectScope.projectSlug,
       })
     : "mock.session";
 

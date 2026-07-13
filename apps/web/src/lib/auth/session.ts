@@ -1,17 +1,24 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { z } from "zod";
 
 import { getJwtSecret, isAuthConfigured } from "@/lib/auth/config";
 
-export type SessionUser = {
-  id: string;
-  email: string;
-  role: "admin" | "operator" | "viewer";
-};
+const sessionUserSchema = z.object({
+  id: z.string().min(1),
+  email: z.string().email(),
+  role: z.enum(["admin", "operator", "viewer"]),
+  projectId: z.string().min(1),
+  projectSlug: z.string().min(1),
+});
+
+export type SessionUser = z.infer<typeof sessionUserSchema>;
 
 const MOCK_USER: SessionUser = {
   id: "mock-user",
   email: "operator@demo.local",
   role: "admin",
+  projectId: "mock-project",
+  projectSlug: "demo-project",
 };
 
 function sign(payload: string, secret: string): string {
@@ -50,13 +57,17 @@ export function verifySessionToken(token: string | null | undefined): SessionUse
     return null;
   }
   try {
-    return JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as SessionUser;
+    return sessionUserSchema.parse(JSON.parse(Buffer.from(body, "base64url").toString("utf8")));
   } catch {
     return null;
   }
 }
 
 export function getSessionFromRequest(request: Request): SessionUser {
+  return getVerifiedSessionFromRequest(request) ?? MOCK_USER;
+}
+
+export function getVerifiedSessionFromRequest(request: Request): SessionUser | null {
   const auth = request.headers.get("authorization");
   const cookie = request.headers.get("cookie");
   const bearer = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
@@ -65,7 +76,7 @@ export function getSessionFromRequest(request: Request): SessionUser {
     .map((c) => c.trim())
     .find((c) => c.startsWith("session="))
     ?.split("=")[1];
-  return verifySessionToken(bearer ?? cookieToken) ?? MOCK_USER;
+  return verifySessionToken(bearer ?? cookieToken);
 }
 
 export { isAuthConfigured };

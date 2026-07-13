@@ -11,14 +11,23 @@ import {
 } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
+import {
+  isResourceInProject,
+  relatedResourcesBelongToProject,
+  resolveProjectScope,
+} from "@/lib/project-scope";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
+  const projectScope = await resolveProjectScope(request);
+  if (!projectScope.ok) return projectScope.response;
   const { id } = await context.params;
   try {
     const project = await getPocDetail(id);
-    if (!project) return NextResponse.json({ error: "not_found" }, { status: 404 });
+    if (!isResourceInProject(project, projectScope.scope)) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
     return NextResponse.json({ project });
   } catch (error) {
     return apiError("fetch_failed", error, { status: 500 });
@@ -28,12 +37,29 @@ export async function GET(_request: Request, context: RouteContext) {
 export async function PATCH(request: Request, context: RouteContext) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const projectScope = await resolveProjectScope(request);
+  if (!projectScope.ok) return projectScope.response;
   const { id } = await context.params;
   try {
+    const existing = await getPocDetail(id);
+    if (!isResourceInProject(existing, projectScope.scope)) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
     const body = await request.json();
     const action = body.action as string | undefined;
 
+    const relatedAllowed = await relatedResourcesBelongToProject(projectScope.scope, [
+      { entityType: "customer", entityId: body.customerId },
+      { entityType: "partner", entityId: body.partnerId },
+    ]);
+    if (!relatedAllowed) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+
     if (action === "toggle_checklist") {
+      if (!existing?.checklistItems.some((item) => item.id === body.itemId)) {
+        return NextResponse.json({ error: "not_found" }, { status: 404 });
+      }
       const item = await togglePocChecklistItem(body.itemId, Boolean(body.done));
       return NextResponse.json({ item });
     }
@@ -42,6 +68,9 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ issue }, { status: 201 });
     }
     if (action === "update_issue") {
+      if (!existing?.issues.some((issue) => issue.id === body.issueId)) {
+        return NextResponse.json({ error: "not_found" }, { status: 404 });
+      }
       const issue = await updatePocIssue(body.issueId, {
         status: body.status,
         severity: body.severity,
@@ -83,8 +112,14 @@ export async function PATCH(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const projectScope = await resolveProjectScope(request);
+  if (!projectScope.ok) return projectScope.response;
   const { id } = await context.params;
   try {
+    const existing = await getPocDetail(id);
+    if (!isResourceInProject(existing, projectScope.scope)) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
     const project = await archivePocProject(id);
     return NextResponse.json({ project });
   } catch (error) {

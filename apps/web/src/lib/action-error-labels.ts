@@ -30,6 +30,7 @@ export const ACTION_ERROR_LABELS: Record<string, string> = {
   stage_skip_forward: "단계를 건너뛸 수 없습니다. 한 단계씩 진행해 주세요.",
   illegal_stage_regression: "이전 단계로 되돌릴 수 없습니다.",
   stage_is_terminal: "종료된 딜(수주·실패)은 단계를 변경할 수 없습니다.",
+  opportunity_conflict: "다른 변경이 먼저 저장되었습니다. 새로고침 후 다시 시도해 주세요.",
 };
 
 /**

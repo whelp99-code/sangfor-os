@@ -38,6 +38,7 @@ export function EditOpportunityForm({
     nextAction: string | null;
     customerId: string | null;
     partnerId: string | null;
+    updatedAt: Date | string;
   };
   customers: Option[];
   partners: Option[];
@@ -71,6 +72,7 @@ export function EditOpportunityForm({
           nextAction: nextAction || null,
           customerId: customerId || null,
           partnerId: partnerId || null,
+          expectedUpdatedAt: new Date(initial.updatedAt).toISOString(),
         }),
       });
       if (!res.ok) {

@@ -257,6 +257,24 @@ async function convertPoc(candidate: Awaited<ReturnType<typeof getMailDerivedCan
   return poc;
 }
 
+export class CandidateConversionInProgressError extends Error {
+  readonly candidateId: string;
+
+  constructor(candidateId: string) {
+    super("candidate_conversion_in_progress");
+    this.name = "CandidateConversionInProgressError";
+    this.candidateId = candidateId;
+  }
+}
+
+async function conversionAlreadyClaimed(id: string) {
+  const latest = await getMailDerivedCandidate(id);
+  if (latest.status === "converted" && latest.createdEntityId) {
+    return { candidate: latest, created: null };
+  }
+  throw new CandidateConversionInProgressError(id);
+}
+
 export async function approveMailDerivedCandidate(id: string) {
   const candidate = await getMailDerivedCandidate(id);
   if (candidate.status === "converted" && candidate.createdEntityId) {
@@ -271,6 +289,9 @@ export async function approveMailDerivedCandidate(id: string) {
   if (candidate.status === "knowledge_only") {
     throw new Error("candidate_marked_knowledge_only");
   }
+  if (candidate.status === "converting") {
+    throw new CandidateConversionInProgressError(id);
+  }
   if (isProjectCandidateType(candidate.candidateType)) {
     const metadata = asRecord(candidate.metadata);
     const revalidation = asRecord(metadata.aiRevalidation);
@@ -282,29 +303,46 @@ export async function approveMailDerivedCandidate(id: string) {
     }
   }
 
-  let created: { id: string };
-  if (candidate.candidateType === "customer") {
-    created = await convertCustomer(candidate);
-  } else if (candidate.candidateType === "partner") {
-    created = await convertPartner(candidate);
-  } else if (candidate.candidateType === "task") {
-    created = await convertTask(candidate);
-  } else if (candidate.candidateType === "opportunity") {
-    created = await convertOpportunity(candidate);
-  } else if (candidate.candidateType === "poc") {
-    created = await convertPoc(candidate);
-  } else {
-    throw new Error("unsupported_candidate_type");
-  }
-
-  const updated = await prisma.mailDerivedCandidate.update({
-    where: { id },
-    data: {
-      status: "converted",
-      createdEntityType: candidate.candidateType,
-      createdEntityId: created.id,
-    },
+  const claim = await prisma.mailDerivedCandidate.updateMany({
+    where: { id, status: candidate.status },
+    data: { status: "converting" },
   });
+  if (claim.count === 0) return conversionAlreadyClaimed(id);
+
+  let created: { id: string };
+  let updated;
+  try {
+    if (candidate.candidateType === "customer") {
+      created = await convertCustomer(candidate);
+    } else if (candidate.candidateType === "partner") {
+      created = await convertPartner(candidate);
+    } else if (candidate.candidateType === "task") {
+      created = await convertTask(candidate);
+    } else if (candidate.candidateType === "opportunity") {
+      created = await convertOpportunity(candidate);
+    } else if (candidate.candidateType === "poc") {
+      created = await convertPoc(candidate);
+    } else {
+      throw new Error("unsupported_candidate_type");
+    }
+
+    const converted = await prisma.mailDerivedCandidate.updateMany({
+      where: { id, status: "converting" },
+      data: {
+        status: "converted",
+        createdEntityType: candidate.candidateType,
+        createdEntityId: created.id,
+      },
+    });
+    if (converted.count === 0) throw new CandidateConversionInProgressError(id);
+    updated = await getMailDerivedCandidate(id);
+  } catch (error) {
+    await prisma.mailDerivedCandidate.updateMany({
+      where: { id, status: "converting" },
+      data: { status: candidate.status },
+    });
+    throw error;
+  }
   const projectId = await resolveDefaultProjectId(prisma);
   const domain = gtmDomainForCandidate(candidate.candidateType);
   await recordDecision({
@@ -360,7 +398,7 @@ export async function setCandidateType(
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new Error("candidate_type_conflict");
+      throw new Error("candidate_type_conflict", { cause: error });
     }
     throw error;
   }

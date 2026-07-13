@@ -32,6 +32,10 @@ export interface OpportunityCenterPrisma {
     create: (args: any) => Promise<any>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     update: (args: any) => Promise<any>;
+    updateMany: (args: {
+      where: { id: string; updatedAt: Date };
+      data: Record<string, unknown>;
+    }) => Promise<{ count: number }>;
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   opportunityStageEvent: { create: (args: any) => Promise<any> };
@@ -77,6 +81,7 @@ export const createOpportunitySchema = z.object({
 });
 
 export const updateOpportunitySchema = z.object({
+  expectedUpdatedAt: z.string().datetime().optional(),
   title: z.string().min(2).optional(),
   stage: stageInput.optional(),
   amount: z.number().optional(),
@@ -91,6 +96,26 @@ export const updateOpportunitySchema = z.object({
   lostReason: z.string().nullable().optional(),
   ownerId: z.string().nullable().optional(),
 });
+
+async function updateOpportunityRevision(
+  db: OpportunityCenterPrisma,
+  id: string,
+  data: Record<string, unknown>,
+  expectedUpdatedAt?: string,
+) {
+  if (!expectedUpdatedAt) {
+    return db.opportunity.update({ where: { id }, data });
+  }
+
+  const result = await db.opportunity.updateMany({
+    where: { id, updatedAt: new Date(expectedUpdatedAt) },
+    data,
+  });
+  if (result.count !== 1) {
+    throw new Error("opportunity_conflict");
+  }
+  return db.opportunity.findUniqueOrThrow({ where: { id } });
+}
 
 export const addOpportunityLinkSchema = z.object({
   entityType: z.enum(["poc", "proposal", "partner", "customer"]),
@@ -198,6 +223,12 @@ export async function updateOpportunity(
     where: { id },
     include: { dealRegistration: { select: { regStatus: true } } },
   });
+  if (
+    parsed.expectedUpdatedAt &&
+    new Date(parsed.expectedUpdatedAt).getTime() !== new Date(existing.updatedAt).getTime()
+  ) {
+    throw new Error("opportunity_conflict");
+  }
 
   const data: Record<string, unknown> = {};
   if (parsed.title !== undefined) data.title = parsed.title;
@@ -241,7 +272,12 @@ export async function updateOpportunity(
 
     data.stage = newStage;
     const updated = await db.$transaction(async (tx) => {
-      const result = await tx.opportunity.update({ where: { id }, data });
+      const result = await updateOpportunityRevision(
+        tx,
+        id,
+        data,
+        parsed.expectedUpdatedAt,
+      );
       await tx.opportunityStageEvent.create({
         data: {
           opportunityId: id,
@@ -292,7 +328,12 @@ export async function updateOpportunity(
     return updated;
   }
 
-  const updated = await db.opportunity.update({ where: { id }, data });
+  const updated = await updateOpportunityRevision(
+    db,
+    id,
+    data,
+    parsed.expectedUpdatedAt,
+  );
 
   // S1: capture the human field-edit onto the decision spine (best-effort,
   // outside txn, never throws). Pairs with a stage_transition on the same
@@ -310,11 +351,20 @@ export async function updateOpportunity(
   return updated;
 }
 
-export async function advanceOpportunityStage(id: string) {
+export async function advanceOpportunityStage(id: string, expectedUpdatedAt?: string) {
+  const parsedExpectedUpdatedAt = expectedUpdatedAt
+    ? z.string().datetime().parse(expectedUpdatedAt)
+    : undefined;
   const opp = await realPrisma.opportunity.findUniqueOrThrow({
     where: { id },
     include: { dealRegistration: { select: { regStatus: true } } },
   });
+  if (
+    parsedExpectedUpdatedAt &&
+    new Date(parsedExpectedUpdatedAt).getTime() !== opp.updatedAt.getTime()
+  ) {
+    throw new Error("opportunity_conflict");
+  }
   const fromStage = normalizeOpportunityStage(opp.stage);
   const next = nextOpportunityStage(opp.stage);
   if (!next) throw new Error("cannot_advance_stage");
@@ -330,18 +380,22 @@ export async function advanceOpportunityStage(id: string) {
     throw new Error(`registration_gate:${gate.reason}`);
   }
 
-  const updated = await realPrisma.opportunity.update({
-    where: { id },
-    data: { stage: next },
-  });
-
-  await realPrisma.opportunityStageEvent.create({
-    data: {
-      opportunityId: id,
-      fromStage,
-      toStage: next,
-      note: "단계 진행",
-    },
+  const updated = await realPrisma.$transaction(async (tx) => {
+    const result = await updateOpportunityRevision(
+      tx as unknown as OpportunityCenterPrisma,
+      id,
+      { stage: next },
+      parsedExpectedUpdatedAt,
+    );
+    await tx.opportunityStageEvent.create({
+      data: {
+        opportunityId: id,
+        fromStage,
+        toStage: next,
+        note: "단계 진행",
+      },
+    });
+    return result;
   });
 
   await logStateTransition({

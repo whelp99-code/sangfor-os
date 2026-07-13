@@ -40,9 +40,7 @@ export function DealDetailTabs({ defaultTab, className, children }: DealDetailTa
     setActiveTab(value as DealDetailTab);
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", value);
-    // Sync the URL for deep-link/refresh without the router's Server Component
-    // refetch — that round-trip is what dropped ~half the tab clicks (R3B-3).
-    window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
+    window.history.pushState(null, "", `${pathname}?${params.toString()}`);
   };
 
   return (

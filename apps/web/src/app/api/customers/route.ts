@@ -1,13 +1,15 @@
-import { createCustomer, createCustomerSchema, listCustomers, resolveDefaultProjectSlug } from "@sangfor/business";
+import { createCustomer, createCustomerSchema, listCustomers } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { enforceRequestedProject, resolveProjectScope } from "@/lib/project-scope";
 
 export async function GET(request: Request) {
+  const project = await resolveProjectScope(request);
+  if (!project.ok) return project.response;
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("q") ?? undefined;
   try {
-    const slug = await resolveDefaultProjectSlug();
-    const customers = await listCustomers(slug, search);
+    const customers = await listCustomers(project.scope.projectSlug, search);
     return NextResponse.json({ customers });
   } catch (error) {
     return apiError("list_failed", error, { status: 500 });
@@ -17,6 +19,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const project = await resolveProjectScope(request);
+  if (!project.ok) return project.response;
   let body: unknown;
   try {
     body = await request.json();
@@ -42,8 +46,14 @@ export async function POST(request: Request) {
     );
   }
 
+  const forbidden = enforceRequestedProject(project.scope, result.data.projectSlug);
+  if (forbidden) return forbidden;
+
   try {
-    const customer = await createCustomer(result.data);
+    const customer = await createCustomer({
+      ...result.data,
+      projectSlug: project.scope.projectSlug,
+    });
     return NextResponse.json({ customer }, { status: 201 });
   } catch (error) {
     return apiError("create_failed", error, { status: 400 });

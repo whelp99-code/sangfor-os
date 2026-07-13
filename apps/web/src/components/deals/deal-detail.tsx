@@ -23,6 +23,7 @@ export type OpportunityForDetail = {
   probability: number;
   closeDate: Date | string | null;
   nextAction: string | null;
+  updatedAt: Date | string;
   customer: { name: string } | null;
   partner: { name: string } | null;
   distributor?: { name: string } | null;
@@ -110,9 +111,10 @@ function formatDealType(value: string | null | undefined): string {
 // ---------------------------------------------------------------------------
 type DealDetailProps = {
   opportunity: OpportunityForDetail;
+  readOnly?: boolean;
 };
 
-export function DealDetail({ opportunity }: DealDetailProps) {
+export function DealDetail({ opportunity, readOnly = false }: DealDetailProps) {
   const opp = opportunity;
   const id = opp.id;
 
@@ -129,17 +131,21 @@ export function DealDetail({ opportunity }: DealDetailProps) {
             label="딜명"
             value={opp.title}
             field="title"
+            editable={!readOnly}
             inputType="text"
             opportunityId={id}
+            expectedUpdatedAt={new Date(opp.updatedAt).toISOString()}
             rawValue={opp.title}
           />
           <InlineField
             label="딜 유형"
             value={formatDealType(opp.dealType)}
             field="dealType"
+            editable={!readOnly}
             inputType="select"
             options={DEAL_TYPE_OPTIONS}
             opportunityId={id}
+            expectedUpdatedAt={new Date(opp.updatedAt).toISOString()}
             rawValue={opp.dealType ?? "NEW_BUILD"}
           />
           <InlineField
@@ -152,8 +158,10 @@ export function DealDetail({ opportunity }: DealDetailProps) {
             label="공급가 (KRW)"
             value={formatAmount(opp.amount)}
             field="amount"
+            editable={!readOnly}
             inputType="number"
             opportunityId={id}
+            expectedUpdatedAt={new Date(opp.updatedAt).toISOString()}
             rawValue={opp.amount != null ? Number(opp.amount.toString()) : null}
           />
           <InlineField
@@ -178,17 +186,21 @@ export function DealDetail({ opportunity }: DealDetailProps) {
             label="상태"
             value={<DealStatusPill status={opp.dealStatus} />}
             field="dealStatus"
+            editable={!readOnly}
             inputType="select"
             options={DEAL_STATUS_OPTIONS}
             opportunityId={id}
+            expectedUpdatedAt={new Date(opp.updatedAt).toISOString()}
             rawValue={opp.dealStatus}
           />
           <InlineField
             label="패배 사유"
             value={opp.lostReason ?? "—"}
             field="lostReason"
+            editable={!readOnly}
             inputType="text"
             opportunityId={id}
+            expectedUpdatedAt={new Date(opp.updatedAt).toISOString()}
             rawValue={opp.lostReason}
           />
         </DealDetailSection>
@@ -362,8 +374,10 @@ export function DealDetail({ opportunity }: DealDetailProps) {
             label="마감/납품"
             value={formatDate(opp.closeDate, "—")}
             field="closeDate"
+            editable={!readOnly}
             inputType="date"
             opportunityId={id}
+            expectedUpdatedAt={new Date(opp.updatedAt).toISOString()}
             rawValue={opp.closeDate != null ? formatDate(opp.closeDate, "—") : null}
           />
         </DealDetailSection>
