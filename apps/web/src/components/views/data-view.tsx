@@ -62,53 +62,50 @@ export function DataView<T>({
   const rows = table.getRowModel().rows;
 
   return (
-    <div className="overflow-x-auto rounded-xl border">
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((group) => (
-            <TableRow key={group.id}>
-              {group.headers.map((header) => {
-                const sortable = header.column.getCanSort();
-                const sorted = header.column.getIsSorted();
-                return (
-                  <TableHead
-                    key={header.id}
-                    className={cn(
-                      "text-xs font-medium text-muted-foreground",
-                      sortable && "cursor-pointer select-none hover:text-foreground"
-                    )}
-                    onClick={sortable ? header.column.getToggleSortingHandler() : undefined}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {sortable ? (
-                        sorted === "asc" ? (
-                          <ArrowUp className="size-3" />
-                        ) : sorted === "desc" ? (
-                          <ArrowDown className="size-3" />
-                        ) : (
-                          <ChevronsUpDown className="size-3 opacity-30" />
-                        )
-                      ) : null}
-                    </span>
-                  </TableHead>
-                );
-              })}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {rows.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-40 p-0">
-                <EmptyState inline title={emptyTitle} description={emptyDescription} />
-              </TableCell>
-            </TableRow>
-          ) : (
-            rows.map((row) => (
+    <div className="overflow-hidden rounded-xl border">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((group) => (
+              <TableRow key={group.id}>
+                {group.headers.map((header) => {
+                  const sortable = header.column.getCanSort();
+                  const sorted = header.column.getIsSorted();
+                  return (
+                    <TableHead
+                      key={header.id}
+                      className={cn(
+                        "text-xs font-medium text-muted-foreground",
+                        sortable && "cursor-pointer select-none hover:text-foreground"
+                      )}
+                      onClick={sortable ? header.column.getToggleSortingHandler() : undefined}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {sortable ? (
+                          sorted === "asc" ? (
+                            <ArrowUp className="size-3" />
+                          ) : sorted === "desc" ? (
+                            <ArrowDown className="size-3" />
+                          ) : (
+                            <ChevronsUpDown className="size-3 opacity-30" />
+                          )
+                        ) : null}
+                      </span>
+                    </TableHead>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
               <TableRow
                 key={row.id}
-                className={cn(rowHref && "cursor-pointer")}
+                className={cn(
+                  rowHref &&
+                    "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                )}
                 role={rowHref ? "link" : undefined}
                 tabIndex={rowHref ? 0 : undefined}
                 onClick={rowHref ? () => router.push(rowHref(row.original)) : undefined}
@@ -129,10 +126,13 @@ export function DataView<T>({
                   </TableCell>
                 ))}
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {rows.length === 0 ? (
+        <EmptyState inline title={emptyTitle} description={emptyDescription} />
+      ) : null}
     </div>
   );
 }
