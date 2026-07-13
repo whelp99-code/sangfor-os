@@ -121,6 +121,18 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (raw.startsWith("illegal_stage_transition:")) {
       return apiError(raw.slice("illegal_stage_transition:".length), error, { status: 409 });
     }
+    if (raw.startsWith("No confirmed POC")) {
+      return apiError("conversion_requires_poc", error, {
+        status: 409,
+        message: "확정된 POC를 연결하거나 승인 후 강제 전환해 주세요.",
+      });
+    }
+    if (raw.startsWith("Opportunity stage") && raw.includes("is not convertible")) {
+      return apiError("conversion_stage_not_ready", error, {
+        status: 409,
+        message: "제안 이후 단계에서 프로젝트로 전환할 수 있습니다.",
+      });
+    }
     return apiError("update_failed", error, { status: 400 });
   }
 }

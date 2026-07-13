@@ -40,7 +40,7 @@ export default async function PartnerDetailPage({ params }: PageProps) {
               status: partner.status ?? "active",
             }}
           />
-          <DeleteEntityButton endpoint={`/api/partners/${partner.id}`} redirectTo="/partners" />
+          <DeleteEntityButton endpoint={`/api/partners/${partner.id}`} label="보관" redirectTo="/partners" />
         </div>
       </div>
       <Card>

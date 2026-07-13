@@ -37,6 +37,11 @@ const resourceProjectSchema = z.union([
   z.object({ projectId: z.string() }),
   z.object({ template: z.object({ projectId: z.string() }) }),
   z.object({ opportunity: z.object({ projectId: z.string() }) }),
+  z.object({
+    customer: z.object({ projectId: z.string() }).nullable(),
+    partner: z.object({ projectId: z.string() }).nullable(),
+  }),
+  z.object({ customer: z.object({ projectId: z.string() }) }),
 ]);
 
 class ProjectScopeConfigurationError extends Error {
@@ -113,7 +118,11 @@ export function isResourceInProject(resource: unknown, scope: ProjectScope): boo
   if (!parsed.success) return false;
   if ("projectId" in parsed.data) return parsed.data.projectId === scope.projectId;
   if ("template" in parsed.data) return parsed.data.template.projectId === scope.projectId;
-  return parsed.data.opportunity.projectId === scope.projectId;
+  if ("opportunity" in parsed.data) return parsed.data.opportunity.projectId === scope.projectId;
+  return (
+    parsed.data.customer?.projectId === scope.projectId ||
+    ("partner" in parsed.data && parsed.data.partner?.projectId === scope.projectId)
+  );
 }
 
 async function relatedResourceExists(

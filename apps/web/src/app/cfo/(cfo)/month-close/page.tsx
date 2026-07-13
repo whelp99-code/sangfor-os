@@ -1,5 +1,6 @@
 import { cfoFetch } from "@/lib/cfo-client";
 import { formatKRW } from "@sangfor/shared";
+import { MonthCloseActions } from "@/components/cfo/month-close-actions";
 
 type Checklist = {
   year: number;
@@ -9,15 +10,21 @@ type Checklist = {
   summary: { totalRevenue: number; totalExpense: number; netIncome: number };
 };
 
+type MonthCloseRecord = { status: string } | null;
+
 export default async function MonthClosePage() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
   let data: Checklist | null = null;
+  let close: MonthCloseRecord = null;
   let error: string | null = null;
 
   try {
-    data = await cfoFetch<Checklist>(`month-close/checklist?year=${year}&month=${month}`);
+    [data, close] = await Promise.all([
+      cfoFetch<Checklist>(`month-close/checklist?year=${year}&month=${month}`),
+      cfoFetch<MonthCloseRecord>(`month-close/${year}/${month}`),
+    ]);
   } catch (e: unknown) {
     error = e instanceof Error ? e.message : "API 오류";
   }
@@ -26,17 +33,7 @@ export default async function MonthClosePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">월 마감 — {year}년 {month}월</h1>
-        {data && (
-          <span
-            className="rounded-full px-3 py-1 text-sm font-medium"
-            style={{
-              background: data.ready ? "#dcfce7" : "#fef3c7",
-              color: data.ready ? "#15803d" : "#b45309",
-            }}
-          >
-            {data.ready ? "마감 가능" : "마감 전 확인 필요"}
-          </span>
-        )}
+        {data && <MonthCloseActions year={year} month={month} ready={data.ready} status={close?.status ?? null} />}
       </div>
       {error && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{error}</p>}
       {data && (

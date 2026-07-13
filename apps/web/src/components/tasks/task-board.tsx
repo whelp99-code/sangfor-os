@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { formatDueAt, nextTaskStatus, taskStatusLabel } from "./task-meta";
+import { formatDueAt, nextTaskStatus, taskPriorityLabel, taskStatusLabel } from "./task-meta";
 
 type Task = {
   id: string;
@@ -73,7 +73,7 @@ export function TaskBoard({ tasks }: { tasks: Task[] }) {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline">{task.priority}</Badge>
+              <Badge variant="outline">{taskPriorityLabel(task.priority)}</Badge>
               <Badge>{taskStatusLabel(task.status)}</Badge>
               {nextTaskStatus(task.status) ? (
                 <Button

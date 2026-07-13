@@ -119,6 +119,7 @@ export function EntityEditSheet({
       <SheetTrigger
         render={
           <Button variant="outline" size="sm">
+            <span className="sr-only">{title}: </span>
             수정
           </Button>
         }

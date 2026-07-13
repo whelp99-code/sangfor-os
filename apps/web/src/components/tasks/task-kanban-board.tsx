@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { formatDueAt, nextTaskStatus, taskStatusLabel, TASK_STATUSES } from "./task-meta";
+import { formatDueAt, nextTaskStatus, taskPriorityLabel, taskStatusLabel, TASK_STATUSES } from "./task-meta";
 
 type Task = {
   id: string;
@@ -77,7 +77,7 @@ export function TaskKanbanBoard({ tasks }: { tasks: Task[] }) {
                       {due ? ` · 마감 ${due}` : ""}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
-                      <Badge variant="outline">{task.priority}</Badge>
+                      <Badge variant="outline">{taskPriorityLabel(task.priority)}</Badge>
                       {nextTaskStatus(task.status) ? (
                         <Button
                           size="sm"

@@ -12,9 +12,10 @@ import { getDealRegistration, upsertDealRegistration } from "./deal-registration
 import { getOpportunityDetail } from "./opportunity-center";
 
 const TAG = "__t43a_deal_reg__";
+const integration = process.env.CI_INTEGRATION === "1";
 let opportunityId: string;
 
-describe("deal-registration service", () => {
+describe.skipIf(!integration)("deal-registration service", () => {
   beforeAll(async () => {
     const opp = await createOpportunity({ title: TAG, projectSlug: "demo-project" });
     opportunityId = opp.id;
@@ -22,6 +23,8 @@ describe("deal-registration service", () => {
 
   afterAll(async () => {
     await prisma.dealRegistration.deleteMany({ where: { opportunity: { title: TAG } } });
+    await prisma.domainDecisionLog.deleteMany({ where: { caseRef: `opp:${opportunityId}` } });
+    await prisma.stateTransitionLog.deleteMany({ where: { entityType: "opportunity", entityId: opportunityId } });
     await prisma.opportunity.deleteMany({ where: { title: TAG } });
   });
 

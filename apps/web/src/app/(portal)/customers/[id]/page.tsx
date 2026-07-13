@@ -7,10 +7,29 @@ import { prisma } from "@sangfor/db";
 import { daysUntil, won } from "@/lib/cockpit";
 import { EntityEditSheet } from "@/components/common/entity-edit-sheet";
 import { CreateContactForm } from "@/components/customers/create-contact-form";
+import { DeleteEntityButton } from "@/components/common/delete-entity-button";
 
 const STAGE_KO: Record<string, string> = {
   LEAD: "리드", QUALIFIED: "검증", PROPOSAL: "제안", NEGOTIATION: "협상",
   POC: "PoC", WON: "수주", LOST: "이탈",
+};
+
+const RENEWAL_STATUS_KO: Record<string, string> = {
+  pending: "대상 감지",
+  notified: "안내 발송",
+  quote_requested: "견적 요청",
+  vendor_quote: "총판 견적",
+  delivered: "고객 전달",
+  po: "PO·구매",
+  renewed: "갱신 완료",
+  lost: "갱신 실패",
+};
+
+const ACTIVITY_TYPE_KO: Record<string, string> = {
+  created: "등록",
+  updated: "수정",
+  contact_added: "연락처 등록",
+  partner_linked: "파트너 연결",
 };
 
 export default async function CustomerHubPage({
@@ -58,7 +77,7 @@ export default async function CustomerHubPage({
       kind: "r" as const,
       title: `${r.renewalType ?? "갱신"} 리뉴얼`,
       amount: Number(r.amount ?? 0),
-      sub: `리뉴얼 · ${r.status}`,
+      sub: `리뉴얼 · ${RENEWAL_STATUS_KO[r.status] ?? r.status}`,
     })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
@@ -202,9 +221,23 @@ export default async function CustomerHubPage({
               <p className="empty">연락처가 없습니다.</p>
             ) : (
               (customer.contacts ?? []).slice(0, 5).map((c) => (
-                <div className="kv" key={c.id}>
+                <div className="kv items-center" key={c.id}>
                   <span className="k">{c.name}</span>
-                  <span className="v">{c.role ?? c.email ?? ""}</span>
+                  <span className="v flex items-center gap-2">
+                    {c.role ?? c.email ?? ""}
+                    <EntityEditSheet
+                      title="연락처 수정"
+                      endpoint={`/api/contacts/${c.id}`}
+                      fields={[
+                        { name: "name", label: "이름" },
+                        { name: "email", label: "이메일" },
+                        { name: "phone", label: "전화" },
+                        { name: "role", label: "직책" },
+                      ]}
+                      initial={{ name: c.name, email: c.email ?? "", phone: c.phone ?? "", role: c.role ?? "" }}
+                    />
+                    <DeleteEntityButton endpoint={`/api/contacts/${c.id}`} label="보관" />
+                  </span>
                 </div>
               ))
             )}
@@ -226,7 +259,7 @@ export default async function CustomerHubPage({
                   <div className="rolech sa">SA</div>
                   <div className="x">
                     <b>{a.summary}</b>
-                    <span>{a.activityType ?? "활동"}</span>
+                    <span>{ACTIVITY_TYPE_KO[a.activityType ?? ""] ?? "활동"}</span>
                   </div>
                 </div>
               ))

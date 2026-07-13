@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@sangfor/db";
 import { daysUntil, won } from "@/lib/cockpit";
+import Link from "next/link";
+import { RenewalStatusControl } from "@/components/renewals/renewal-status-control";
 
 const STAGES = [
   { key: "pending", n: "대상 감지\nD-90" },
@@ -149,12 +151,12 @@ export default async function RenewalsPage() {
                 {(r.d ?? 0) <= 0 ? "만료" : `D-${r.d}`}
               </div>
               <div className="x">
-                <b>
-                  {r.customer?.name ?? "고객"} · {r.renewalType ?? "갱신"}
-                </b>
-                <span>영업 AI · 상태 {r.status}</span>
+                <b><Link className="hover:underline" href={`/customers/${r.customerId}`}>{r.customer?.name ?? "고객"}</Link> · {r.renewalType ?? "갱신"}</b>
+                <span>
+                  영업 AI · 현재 단계 {STAGES.find((stage) => stage.key === r.status)?.n ?? r.status}
+                </span>
               </div>
-              <span className="stg-t">{r.status}</span>
+              <RenewalStatusControl id={r.id} status={r.status} />
               <div className="amt">{won(Number(r.amount ?? 0))}</div>
             </div>
           );

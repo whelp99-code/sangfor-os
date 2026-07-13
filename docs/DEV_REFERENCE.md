@@ -213,6 +213,13 @@ POC 확정 시 영업기회를 **멱등·원자적**으로 Engagement(프로젝�
 
 > `memory/`의 [DB uses db push not migrate] 메모는 이 전환으로 갱신 필요(현재 마이그레이션 전환 중).
 
+### 3.K R16–R20 실사용 5라운드 QA (2026-07-13)
+
+- **범위**: 라운드당 10개, 총 50개 시나리오로 교정/보관, 기능 도달성, CFO 진실성, 모바일·한국어·키보드, 동결 회귀를 검증했다. Sol이 격리 환경에서 실행하고 Grok이 각 라운드를 독립 반례검토했다.
+- **주요 착륙**: Contact 교정/soft archive, partner/contact tenant scope, 안정적인 전환 409+명시적 force, renewal 상태 변경, 월마감 실행, VAT 기간 선택, CFO 미수·현금 SSOT, subscription API 계약, CFO-local 404, 모바일/한국어/오류 피드백.
+- **안전/발견**: 기능 쓰기는 QA DB `sangfor_os_uxtest_r16r20`, Redis DB 14, web 3110/api 3230에서 수행했다. 다만 기존 비격리 business 테스트 4개가 루트 `.env` 운영 DB에 감사 로그 34행을 남기는 결함을 발견해 `CI_INTEGRATION=1` 게이트와 cleanup을 추가했다. 남은 운영 로그 삭제는 승인 대기다.
+- **상세 증거**: [`docs/plans/2026-07-13-r16-r20-real-usage-qa.md`](plans/2026-07-13-r16-r20-real-usage-qa.md).
+
 ---
 
 ## 4. 핵심 워크플로우 (개발 순서)
@@ -405,6 +412,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 | `FinanceProject` | +거래처, 시작일, 종료일 |
 | `Invoice` | +발행일 |
 | `AiModel` | 게이팅용(allowedDataClassification, isActive) — 시드 스크립트로 4종 |
+| `Contact` | +`archivedAt?`, +`updatedAt`; 연락처 교정·soft archive용 additive migration `20260713143000_contact_corrections` |
 
 > 전부 **additive/nullable** 원칙. 변경 시 §3.G 안전 절차 준수.
 
@@ -491,3 +499,4 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **2026-07-13 (잔여 정리)**: `apps/api/src/middleware/finance-access.ts`의 제거된 tRPC guard 주석을 삭제했다. Codex `SessionStart`/`Stop` 실패는 Claude 전용 `security-guidance` 플러그인이 지원되지 않는 `metrics` JSON을 stdout에 출력한 것이 원인이었다. `claude-plugins-official` 플러그인 16개를 전역·Orca 계정 등록에서 제거했다. 삭제된 훅 경로를 현재 세션이 다시 호출해 발생한 exit 127은 마지막 Stop까지 유효한 호환 래퍼로 차단하고, Stop 직후 남은 Claude 공식 플러그인 캐시도 제거되도록 구성했다. 새 `codex exec`에서는 나머지 활성 훅이 모두 완료되는 것을 확인했다.
 - **2026-07-13 (Antigravity 스킬 이식)**: Claude의 Fable 계열 스킬(fable-init, fable-agent, fable-dispatch)을 Antigravity 전역 스킬/플러그인으로 포팅 완료 — `~/.gemini/config/plugins/fable/` 하위에 설치. plugin.json, installed_version.json 및 chmod +x script 설정 검증 완료.
 - **2026-07-13 (R11-R15 인계)**: 권한·프로젝트 격리·동시성·AI fallback·반응형 교정과 R15 3-arm 교차검증을 완료했다. 구현 커밋, 검증 수치, QA 원복 상태, 프로덕션 기준선 drift 주의사항과 R16 재개 조건은 [`docs/plans/2026-07-13-r11-r15-claude-handoff.md`](plans/2026-07-13-r11-r15-claude-handoff.md)에 고정했다. 사용자 지시에 따라 R16-R20은 시작하지 않았다.
+- **2026-07-13 (R16-R20 실사용 5라운드)**: Sol 실행 + Grok 독립검토로 50개 시나리오를 수행했다. 연락처/파트너/작업 교정·보관 및 tenant 경계, 전환 409/force, 갱신·월마감·VAT 도달성, CFO 수치·계약·오류 진실성, 모바일·한국어·키보드 피드백을 개선했다. 기존 비격리 테스트가 운영 감사 로그 34행을 남기는 문제도 발견해 integration gate로 재발을 차단했으며, 로그 삭제는 승인 대기다. 상세 매트릭스와 잔여 위험은 [`docs/plans/2026-07-13-r16-r20-real-usage-qa.md`](plans/2026-07-13-r16-r20-real-usage-qa.md)에 기록했다.

@@ -31,6 +31,8 @@ export const ACTION_ERROR_LABELS: Record<string, string> = {
   illegal_stage_regression: "이전 단계로 되돌릴 수 없습니다.",
   stage_is_terminal: "종료된 딜(수주·실패)은 단계를 변경할 수 없습니다.",
   opportunity_conflict: "다른 변경이 먼저 저장되었습니다. 새로고침 후 다시 시도해 주세요.",
+  conversion_requires_poc: "확정된 POC가 필요합니다. POC를 연결하거나 승인 후 강제 전환해 주세요.",
+  conversion_stage_not_ready: "제안 이후 단계에서 프로젝트로 전환할 수 있습니다.",
 };
 
 /**

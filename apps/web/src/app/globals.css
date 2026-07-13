@@ -470,6 +470,13 @@
 .cockpit .rcard .stg-t{font-family:var(--ck-mono);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;padding:2.5px 8px;border-radius:5px;background:rgba(222,119,22,.1);color:#A9530A;flex:0 0 auto}
 .cockpit .rcard .amt{font-family:var(--ck-mono);font-size:13px;font-weight:600;text-align:right;flex:0 0 auto}
 .cockpit .rcard .amt small{display:block;font-size:9px;color:var(--ck-muted);letter-spacing:.06em}
+@media (max-width:640px){
+  .cockpit .flow-row{overflow-x:auto;justify-content:flex-start}
+  .cockpit .flow-row .stg{min-width:74px;flex:0 0 74px}
+  .cockpit .rcard{flex-wrap:wrap}
+  .cockpit .rcard .x{min-width:180px}
+  .cockpit .rcard .amt{margin-left:auto}
+}
 
 /* ── 재무 ── */
 .cockpit .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}

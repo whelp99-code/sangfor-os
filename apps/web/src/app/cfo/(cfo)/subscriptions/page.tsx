@@ -14,6 +14,12 @@ type Subscription = {
   isActive: boolean;
 };
 
+const CYCLE_LABELS: Record<string, string> = {
+  monthly: "매월",
+  yearly: "매년",
+  weekly: "매주",
+};
+
 export default async function SubscriptionsPage() {
   let subs: Subscription[] = [];
   let monthly: { monthlyTotal: number; count: number } | null = null;
@@ -62,7 +68,7 @@ export default async function SubscriptionsPage() {
                   <td className="px-3 py-2 font-medium text-zinc-700">{s.name}</td>
                   <td className="px-3 py-2 text-zinc-600">{s.vendor ?? "-"}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{formatKRW(s.amount)}</td>
-                  <td className="px-3 py-2">{s.cycle}</td>
+                  <td className="px-3 py-2">{CYCLE_LABELS[s.cycle] ?? s.cycle}</td>
                   <td className="px-3 py-2 tabular-nums">{new Date(s.nextBillingDate).toLocaleDateString("ko-KR")}</td>
                   <td className="px-3 py-2">
                     <span className="rounded-full px-2 py-0.5 text-xs" style={{ border: `1px solid ${s.isActive ? "#16a34a" : "#a1a1aa"}33`, color: s.isActive ? "#16a34a" : "#a1a1aa" }}>

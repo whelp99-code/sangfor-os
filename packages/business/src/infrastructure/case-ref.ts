@@ -20,6 +20,7 @@ export type CaseRefEntity =
   | "mailThread"
   | "customer"
   | "partner"
+  | "contact"
   | "task"
   | "proposal"
   | "poc";
@@ -31,6 +32,7 @@ const CASE_REF_PREFIX: Readonly<Record<CaseRefEntity, string>> = Object.freeze({
   mailThread: "mail_thread:",
   customer: "cust:",
   partner: "partner:",
+  contact: "contact:",
   task: "task:",
   proposal: "proposal:",
   poc: "poc:",

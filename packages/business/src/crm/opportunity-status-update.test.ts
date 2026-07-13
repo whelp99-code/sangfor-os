@@ -14,8 +14,9 @@ import {
 } from "./opportunity-center";
 
 const TAG = "__t25_status_update__";
+const integration = process.env.CI_INTEGRATION === "1";
 
-describe("opportunity status-axis update + detail qualification", () => {
+describe.skipIf(!integration)("opportunity status-axis update + detail qualification", () => {
   let oppId: string;
   let qualId: string | undefined;
 
@@ -24,6 +25,8 @@ describe("opportunity status-axis update + detail qualification", () => {
       await prisma.dealQualification.deleteMany({ where: { opportunityId: oppId } });
     }
     await prisma.opportunityStageEvent.deleteMany({ where: { opportunityId: oppId } });
+    await prisma.domainDecisionLog.deleteMany({ where: { caseRef: `opp:${oppId}` } });
+    await prisma.stateTransitionLog.deleteMany({ where: { entityType: "opportunity", entityId: oppId } });
     await prisma.opportunity.deleteMany({ where: { title: TAG } });
   });
 

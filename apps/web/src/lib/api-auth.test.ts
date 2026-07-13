@@ -53,6 +53,21 @@ describe("assertApiAccess", () => {
     const res = assertApiAccess(new Request("http://localhost/api/tasks"));
     expect(res?.status).toBe(401);
   });
+
+  it("accepts the mock session issued by dev login when auth is unconfigured", () => {
+    const originalSecret = process.env.JWT_SECRET;
+    delete process.env.JWT_SECRET;
+    try {
+      const req = new Request("http://localhost/api/tasks", {
+        method: "POST",
+        headers: { authorization: "Bearer mock.session" },
+      });
+      expect(assertApiAccess(req)).toBeNull();
+    } finally {
+      if (originalSecret === undefined) delete process.env.JWT_SECRET;
+      else process.env.JWT_SECRET = originalSecret;
+    }
+  });
 });
 
 describe("assertApiAccess with a configured session", () => {

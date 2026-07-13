@@ -43,6 +43,15 @@ export const createContactSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   role: z.string().optional(),
+}).refine((input) => Boolean(input.customerId) !== Boolean(input.partnerId), {
+  message: "contact_requires_exactly_one_parent",
+});
+
+export const updateContactSchema = z.object({
+  name: z.string().min(2).optional(),
+  email: z.preprocess((value) => value === "" ? null : value, z.string().email().nullable().optional()),
+  phone: z.preprocess((value) => value === "" ? null : value, z.string().nullable().optional()),
+  role: z.preprocess((value) => value === "" ? null : value, z.string().nullable().optional()),
 });
 
 /**
@@ -105,7 +114,7 @@ export async function listCustomers(projectSlug?: string, search?: string) {
     },
     orderBy: { updatedAt: "desc" },
     include: {
-      contacts: true,
+      contacts: { where: { archivedAt: null } },
       partnerLinks: { include: { partner: true } },
       _count: { select: { workTasks: true, activityLogs: true } },
     },
@@ -123,7 +132,7 @@ export async function listCustomersWithOpportunities(projectSlug?: string) {
     where: { projectId, status: { not: "archived" } },
     orderBy: { updatedAt: "desc" },
     include: {
-      contacts: { select: { id: true } },
+      contacts: { where: { archivedAt: null }, select: { id: true } },
       partnerLinks: { select: { id: true } },
       _count: { select: { workTasks: true } },
       opportunities: {
@@ -139,7 +148,7 @@ export async function getCustomerDetail(id: string) {
   return prisma.customer.findUnique({
     where: { id },
     include: {
-      contacts: true,
+      contacts: { where: { archivedAt: null } },
       partnerLinks: { include: { partner: true } },
       activityLogs: { orderBy: { createdAt: "desc" }, take: 20 },
       workTasks: { orderBy: { dueAt: "asc" }, take: 10 },
@@ -228,7 +237,7 @@ export async function listPartners(projectSlug?: string) {
     orderBy: { name: "asc" },
     include: {
       customerLinks: { include: { customer: true } },
-      contacts: { orderBy: { createdAt: "asc" }, take: 1 },
+      contacts: { where: { archivedAt: null }, orderBy: { createdAt: "asc" }, take: 1 },
       _count: { select: { contacts: true, opportunities: true } },
     },
   });
@@ -238,7 +247,7 @@ export async function getPartnerDetail(id: string) {
   return prisma.partner.findUnique({
     where: { id },
     include: {
-      contacts: true,
+      contacts: { where: { archivedAt: null } },
       customerLinks: { include: { customer: true } },
       workTasks: { orderBy: { dueAt: "asc" }, take: 10 },
     },
@@ -303,6 +312,57 @@ export async function createContact(input: z.infer<typeof createContactSchema>) 
     });
   }
 
+  return contact;
+}
+
+export async function getContactDetail(id: string) {
+  return prisma.contact.findUnique({
+    where: { id },
+    include: {
+      customer: { select: { projectId: true } },
+      partner: { select: { projectId: true } },
+    },
+  });
+}
+
+export async function updateContact(id: string, input: z.infer<typeof updateContactSchema>) {
+  const parsed = updateContactSchema.parse(input);
+  const existing = await getContactDetail(id);
+  if (!existing || existing.archivedAt) throw new Error("contact_not_found");
+  const projectId = existing.customer?.projectId ?? existing.partner?.projectId;
+  if (!projectId) throw new Error("contact_parent_required");
+
+  const contact = await prisma.contact.update({ where: { id }, data: parsed });
+  await recordDecision({
+    projectId,
+    domain: "sales",
+    actor: "human",
+    actionType: "entity_edit",
+    caseRef: caseRefFor("contact", id),
+    outcome: "corrected",
+    humanEdit: parsed,
+  });
+  return contact;
+}
+
+export async function archiveContact(id: string) {
+  const existing = await getContactDetail(id);
+  if (!existing) throw new Error("contact_not_found");
+  const projectId = existing.customer?.projectId ?? existing.partner?.projectId;
+  if (!projectId) throw new Error("contact_parent_required");
+
+  const contact = await prisma.contact.update({
+    where: { id },
+    data: { archivedAt: new Date() },
+  });
+  await recordDecision({
+    projectId,
+    domain: "sales",
+    actor: "human",
+    actionType: "entity_archive",
+    caseRef: caseRefFor("contact", id),
+    outcome: "approved",
+  });
   return contact;
 }
 

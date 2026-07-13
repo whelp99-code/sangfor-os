@@ -210,6 +210,13 @@ router.get('/health/ready', ok(() => health.ready()));
 healthRouter.get('/health', ok(() => health.check()));
 healthRouter.get('/health/ready', ok(() => health.ready()));
 
+// Keep unknown CFO endpoints inside the CFO error contract. Without this
+// terminal handler they fall through to the app-level auth middleware and can
+// misleadingly return 401 for a route that simply does not exist.
+router.use((_req, res) => {
+  res.status(404).json({ error: 'not_found' });
+});
+
 export function createCfoHealthRoutes(): Router {
   return healthRouter;
 }
