@@ -48,7 +48,7 @@ TypeScript/Turborepo stack.
 sangfor-os/
   apps/
     web              # Next.js portal, role dashboards, approval UI
-    api              # Express/tRPC API gateway
+    api              # Express REST finance/CFO + integration edge
     voice            # JARVIS/voice assistant app when integrated
   packages/
     domain           # DDD entities/value objects when split from business
@@ -106,7 +106,7 @@ Implementation follows the final package, not ad hoc UI redesign plans.
 | Use cases and workflow orchestration | `packages/application` or focused `packages/business` modules |
 | DB access and migrations | `packages/db`, infrastructure adapters |
 | External systems, mail, file, LLM, RAG | `packages/infrastructure`, `packages/proxy-core`, `services/*` |
-| API surface | `apps/api/src/routers/*`, `apps/web/src/app/api/*` |
+| API surface | `apps/api/src/routes/*`, `apps/web/src/app/api/*` |
 | UI | `apps/web`, `packages/ui` |
 | Verification/evidence | `docs/reports`, `docs/evidence`, service-specific evidence folders |
 
