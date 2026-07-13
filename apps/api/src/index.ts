@@ -13,7 +13,14 @@ import {
   listMcpTools,
   callMcpTool,
 } from "@sangfor/infra";
-import { apiKeyMiddleware, authMiddleware, errorHandler, financeAccessGuard, rateLimiter } from "./middleware";
+import {
+  apiKeyMiddleware,
+  authMiddleware,
+  errorHandler,
+  financeAccessGuard,
+  rateLimiter,
+  systemAdminAccessGuard,
+} from "./middleware";
 import { metrics } from "@sangfor/infra";
 import { createEventRoutes, eventBus } from "./routes/events";
 import { createCfoHealthRoutes, createCfoRoutes } from "./routes/cfo";
@@ -144,11 +151,10 @@ export function createApp(): Express {
     }
   });
 
-  // Invoke an MCP tool through the whelp99 bridge. Arbitrary tool execution —
-  // must sit behind authMiddleware (moved here from before the auth gate,
-  // where it was reachable unauthenticated).
+  // Invoke an MCP tool through the whelp99 bridge. Arbitrary tool execution
+  // requires both authenticated identity and the system_admin business role.
   // Body: { name: string, arguments?: Record<string, unknown> }
-  app.post("/api/whelp99/tools/call", express.json(), async (req, res) => {
+  app.post("/api/whelp99/tools/call", systemAdminAccessGuard, express.json(), async (req, res) => {
     const name = typeof req.body?.name === "string" ? req.body.name : "";
     if (!name) {
       res.status(400).json({ error: "name is required" });
