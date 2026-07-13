@@ -363,6 +363,20 @@ function buildTemplateRevalidation(input: {
   };
 }
 
+function describeRevalidationFallback(error: unknown): string {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (/timeout|timed out|abort/.test(message)) {
+    return "AI 재검증 응답 시간이 초과되어 규칙 기반 검토로 대체했습니다.";
+  }
+  if (/429|rate.?limit|quota/.test(message)) {
+    return "AI 재검증 요청 한도에 도달하여 규칙 기반 검토로 대체했습니다.";
+  }
+  if (/401|403|auth|api.?key|credential/.test(message)) {
+    return "AI 재검증 서비스 인증을 확인할 수 없어 규칙 기반 검토로 대체했습니다.";
+  }
+  return "AI 재검증 서비스를 사용할 수 없어 규칙 기반 검토로 대체했습니다.";
+}
+
 async function callLlmRevalidation(
   candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>,
   duplicateCheck: AiRevalidationResult["duplicateCheck"],
@@ -554,8 +568,16 @@ export async function revalidateMailDerivedCandidate(
       candidate,
       duplicateCheck,
       cacheKey,
-      fallbackReason: error instanceof Error ? error.message : "llm_failed",
+      fallbackReason: describeRevalidationFallback(error),
     });
+  }
+
+  if (
+    revalidation.mode === "template" &&
+    revalidation.fallbackReason &&
+    revalidation.decision === "approve_candidate"
+  ) {
+    revalidation.decision = "needs_human_review";
   }
 
   if (
