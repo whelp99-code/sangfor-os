@@ -75,6 +75,8 @@ Current Node 20 verification after the implementation:
 - `pnpm --filter @sangfor/api test`: 57 passed, 23 skipped, exit 0.
 - Focused Web security/UI suite: 56 passed, exit 0.
 - Focused Business concurrency/AI suite: 32 passed, exit 0.
+- `pnpm --filter @sangfor/api build`: exit 0.
+- `NEXT_DIST_DIR=.next-uxtest-r20 pnpm --filter @sangfor/web build`: exit 0; all 72 static pages generated and dynamic routes compiled.
 - `git diff --check`: exit 0.
 
 With the isolated QA database running earlier in R15:
