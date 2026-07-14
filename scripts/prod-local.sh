@@ -12,7 +12,11 @@ STATE="$ROOT/.local-prod"
 mkdir -p "$STATE"
 
 WEB_PORT="${WEB_PORT:-3100}"
-API_PORT="${API_PORT:-3210}"
+# .env wins: the API binds the port .env declares, so stop/status must probe
+# that same port — otherwise a stale API survives `restart` on the real port
+# while the script reports the default one as down.
+ENV_API_PORT="$(grep '^API_PORT=' "$ROOT/.env" 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+API_PORT="${API_PORT:-${ENV_API_PORT:-3210}}"
 
 load_env() {
   set -a
