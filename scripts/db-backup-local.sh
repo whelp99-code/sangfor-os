@@ -28,7 +28,31 @@ CONTAINER="${PG_CONTAINER:-sangfor-postgres}"
 # and rewrite host:port to the in-container listener.
 DUMP_URL="$(echo "${DATABASE_URL%%\?*}" | sed 's|@[^/]*/|@localhost:5432/|')"
 
-docker exec "$CONTAINER" pg_dump "$DUMP_URL" | gzip > "$OUT"
+# Dump to a temp file and verify before publishing: a failed dump (container
+# down, bad creds) still creates the redirect target, so writing straight to
+# $OUT leaves a 20-byte empty gzip that the rotation then counts as a backup
+# and uses to evict a real one. 2026-07-12's backup was lost exactly this way.
+TMP="$OUT.partial"
+trap 'rm -f "$TMP"' EXIT
+
+docker exec "$CONTAINER" pg_dump "$DUMP_URL" | gzip > "$TMP"
+
+gzip -t "$TMP"
+SIZE=$(wc -c < "$TMP" | tr -d ' ')
+if [ "$SIZE" -lt "${MIN_BACKUP_BYTES:-100000}" ]; then
+  echo "backup FAILED: $TMP is only ${SIZE}B — keeping previous backups untouched" >&2
+  exit 1
+fi
+# grep -c, not -q: -q exits on the first match and SIGPIPEs gzip, which
+# pipefail then reports as a failed pipeline.
+TABLES=$(gzip -dc "$TMP" | grep -c "^CREATE TABLE" || true)
+if [ "$TABLES" -lt 1 ]; then
+  echo "backup FAILED: dump carries no CREATE TABLE — keeping previous backups untouched" >&2
+  exit 1
+fi
+
+mv "$TMP" "$OUT"
+trap - EXIT
 echo "backup written: $OUT ($(du -h "$OUT" | cut -f1))"
 
 # Rotate: keep newest 14
