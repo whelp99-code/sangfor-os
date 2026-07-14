@@ -14,28 +14,40 @@ const APPLY = process.argv.includes("--apply");
 
 type Role = "고객" | "파트너" | "벤더" | "내부";
 
-// persona-entity.md 판정표 중 신뢰도 높음·중간만. 낮음/애매(⚠ 다수)는 사람 확인 대상이라
-// 정책으로 굳히지 않는다 — 틀린 정책은 없는 정책보다 나쁘다.
+// 2026-07-14 대표 확인 완료(데이터확인요청_20260714.xlsx). 메일 분석이 "낮음"으로
+// 남겼던 판정을 사람이 확답했다 — 그중 GSITM·에스지나인·트러스타시큐리티·루키스는
+// 내가 고객으로 본 것이 전부 파트너였다. 추측이 아니라 확인된 사실만 여기 둔다.
 const JUDGMENTS: Array<{ domain: string; company: string; role: Role; evidence: number; note?: string }> = [
-  { domain: "sangfor.com", company: "Sangfor", role: "벤더", evidence: 44, note: "기술 티켓·라이선스 발급을 올려 받는 제조사" },
-  { domain: "gsenc.com", company: "GS건설", role: "고객", evidence: 34, note: "VDI/HCI를 공급받는 최종사용기업. 최대 접점" },
-  { domain: "nexias.co.kr", company: "넥시아스", role: "파트너", evidence: 25, note: "상위 공급선 — 베를로가 견적·라이선스를 의뢰해 받는다" },
-  { domain: "jngsystem.co.kr", company: "JNG System", role: "파트너", evidence: 12, note: "자기 고객(인카금융 등)을 위해 베를로에 발주하는 SI" },
-  { domain: "1an.kr", company: "일에이엔", role: "파트너", evidence: 10, note: "딜 등록·딜 보호를 요청하는 리셀러" },
-  { domain: "syinet.com", company: "세연아이넷", role: "파트너", evidence: 9, note: "상위 HW 공급선 — 서버 견적을 의뢰해 받는다" },
-  { domain: "gsitm.com", company: "GSITM", role: "고객", evidence: 8, note: "구매팀이 라이선스 갱신·발주. SRM 경유" },
-  { domain: "vclink.co.kr", company: "브이씨링크", role: "파트너", evidence: 7, note: "KB손해사정 현장 설치를 함께 수행하는 SI" },
+  { domain: "sangfor.com", company: "Sangfor", role: "벤더", evidence: 44, note: "제조사(상포). 기술 티켓·라이선스 발급을 올려 받는다" },
+  { domain: "gsenc.com", company: "GS건설", role: "고객", evidence: 34, note: "최대 최종고객. 구매는 GSITM이 대행한다" },
+  { domain: "nexias.co.kr", company: "넥시아스", role: "파트너", evidence: 25, note: "Sangfor 총판. 직판은 거의 없고 Sangfor 총판은 모두 여기다" },
+  { domain: "gsitm.com", company: "GSITM", role: "파트너", evidence: 26, note: "GS건설의 구매대행 파트너. 계약번호를 발행한다 — 고객이 아니다" },
+  { domain: "jngsystem.co.kr", company: "JNG System", role: "파트너", evidence: 12, note: "SI. 자기 고객(인카금융 등)을 위해 발주" },
+  { domain: "1an.kr", company: "일에이엔", role: "파트너", evidence: 10, note: "리셀러(부산). 딜 등록·딜 보호를 요청" },
+  { domain: "syinet.com", company: "세연아이넷", role: "파트너", evidence: 9, note: "케이투스 총판 겸 Sangfor 파트너 — 서버 건에서만 총판이다" },
+  { domain: "hyosung.com", company: "효성ITX", role: "파트너", evidence: 3, note: "상포(Sangfor) 총판사" },
+  { domain: "vclink.co.kr", company: "브이씨링크", role: "파트너", evidence: 7, note: "설치 SI. KB손해사정 현장" },
   { domain: "incar.co.kr", company: "인카금융서비스", role: "고객", evidence: 5 },
-  { domain: "itnade.co.kr", company: "아이티네이드", role: "파트너", evidence: 5, note: "동국대병원 발주를 함께 처리하는 SI" },
-  { domain: "sgnine.co.kr", company: "에스지나인", role: "고객", evidence: 5 },
-  { domain: "isd.co.kr", company: "인성디지탈", role: "파트너", evidence: 4 },
-  { domain: "chosun.com", company: "조선일보JNS", role: "고객", evidence: 4 },
+  { domain: "itnade.co.kr", company: "아이티네이드", role: "파트너", evidence: 5, note: "SI. 동국대병원 발주" },
+  { domain: "sgnine.co.kr", company: "에스지나인", role: "파트너", evidence: 8 },
+  { domain: "isd.co.kr", company: "인성디지탈", role: "파트너", evidence: 4, note: "현재 접점 없음" },
+  { domain: "chosun.com", company: "디지틀조선일보", role: "파트너", evidence: 4, note: "조선일보그룹 IT 조달 창구. 계열사(조선일보JNS·게임조선)가 최종고객" },
   { domain: "ipageon.com", company: "아이페이지온", role: "고객", evidence: 4 },
-  { domain: "jinplus.kr", company: "진플러스", role: "파트너", evidence: 4, note: "DRB동일 유지보수를 담당하는 파트너(검증자 교정)" },
+  { domain: "jinplus.kr", company: "진플러스", role: "파트너", evidence: 4, note: "부산회사. DRB동일 유지보수 담당" },
   { domain: "goodus.com", company: "굿어스", role: "파트너", evidence: 3 },
   // 국내 상호는 케이브이머티리얼즈, vitalchem.com은 중국 본사 도메인이다.
   // 도메인 루트("Vitalchem")를 이름으로 쓰면 같은 회사가 두 행으로 갈라진다.
   { domain: "vitalchem.com", company: "케이브이머티리얼즈", role: "고객", evidence: 3 },
+  { domain: "uai.kr", company: "유에이아이", role: "파트너", evidence: 4, note: "설치 SI" },
+  { domain: "hccorp.co.kr", company: "에이치씨코퍼레이션", role: "파트너", evidence: 5, note: "파트너 겸 서버 총판" },
+  { domain: "ocnt.co.kr", company: "오우션테크", role: "파트너", evidence: 2, note: "서버 총판" },
+  { domain: "az-tech.co.kr", company: "아지텍", role: "파트너", evidence: 4 },
+  { domain: "aitgw.co.kr", company: "에이아이티", role: "파트너", evidence: 3, note: "부산" },
+  { domain: "lucis.co.kr", company: "루키스", role: "파트너", evidence: 3, note: "KB손해사정 녹취 솔루션 업체" },
+  { domain: "trustarsecurity.com", company: "트러스타시큐리티", role: "파트너", evidence: 2, note: "선진엔지니어링이 최종고객" },
+  { domain: "sk.com", company: "코원에너지", role: "고객", evidence: 2, note: "SK 자회사" },
+  { domain: "kukjepharm.co.kr", company: "국제약품", role: "고객", evidence: 1 },
+  { domain: "tym.world", company: "TYM", role: "고객", evidence: 1 },
 ];
 
 // 분류기가 실제로 조회하는 타입에 맞춰야 매칭된다. 파트너·벤더는 도메인으로(
