@@ -613,6 +613,10 @@ model MailMessage {
   subject     String
   fromEmail   String   @map("from_email")
   bodyPreview String?  @map("body_preview")
+  // 전문. Graph의 bodyPreview는 255자에서 잘리므로 견적 조건·해결 과정·회신 논지가
+  // 남지 않는다. 업무 방식 학습은 이 컬럼에서만 나온다.
+  body        String?
+  bodyFormat  String?  @map("body_format")
   groupKey    String?  @map("group_key")
   createdAt   DateTime @default(now()) @map("created_at")
 
