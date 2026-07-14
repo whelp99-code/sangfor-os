@@ -8,6 +8,7 @@ import {
   buildDomainHandoff,
 } from "./domain-pipeline";
 import { checkColorGate, type ColorKey } from "./color-agent";
+import { renderCharter } from "./domain-charter";
 import {
   recallFromDb,
   recordDomainDecision,
@@ -114,6 +115,9 @@ export function buildDomainPrompt(
   const lines: string[] = [];
   lines.push(`[도메인] ${def.label} (${domain})`);
   lines.push(`[책임] 산출물: ${def.produces}; 소유 데이터: ${def.ownedEntities.join(", ")}`);
+  // 헌장이 없으면 이 AI는 일반 상식으로 답한다 — 베를로가 유통사라는 것도,
+  // 라이선스 갱신 견적에 SN이 필요하다는 것도 모른 채.
+  lines.push(renderCharter(domain));
   lines.push(`[인입] ${c.subject}`);
   if (c.content) lines.push(`[본문] ${c.content}`);
   lines.push(`[태그] ${c.tags.join(", ")}`);
