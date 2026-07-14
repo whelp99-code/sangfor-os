@@ -1,6 +1,7 @@
 import { prisma } from "@sangfor/db";
 import { deriveEntityFromCandidate, canonicalCompanyKey } from "./mail-entity-quality";
 import { resolveDefaultProjectId } from "../infrastructure/default-project";
+import { normalizeDealTitle, withTag } from "../crm/deal-title";
 
 export interface ConvertResult {
   customersCreated: number;
@@ -131,7 +132,7 @@ export async function convertApprovedMailCandidates(): Promise<ConvertResult> {
   let opportunitiesCreated = 0;
   for (const candidate of approvedOpportunities) {
     // Strip "Opportunity: " prefix (parity with per-record approve path)
-    const title = candidate.title.replace(/^Opportunity:\s*/i, "");
+    const title = withTag(normalizeDealTitle(candidate.title.replace(/^Opportunity:\s*/i, "")));
 
     const existing = await prisma.opportunity.findFirst({
       where: { title, projectId: DEFAULT_PROJECT_ID },

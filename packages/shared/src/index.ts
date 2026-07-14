@@ -3,7 +3,7 @@ export * from "./modes.js";
 export * from "./format.js";
 export * from "./sanitize.js";
 
-export const PROJECT_NAME = "AI Automation Work Portal" as const;
+export const PROJECT_NAME = "AI 업무 자동화 포털" as const;
 export const PROJECT_PHASE = 13 as const;
 export const PROJECT_TAGLINE =
   "AI업무포탈 with an embedded development automation kernel." as const;

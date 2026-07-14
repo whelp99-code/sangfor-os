@@ -2,6 +2,7 @@ import { Prisma } from "@sangfor/db";
 import { sanitizeJsonStrings } from "@sangfor/shared";
 import type { GtmDomain } from "@sangfor/shared/modes";
 
+import { normalizeDealTitle, withTag } from "../crm/deal-title";
 import {
   MailPolicyLookup,
   normalizePolicyKey,
@@ -348,7 +349,7 @@ export function classifyMailCandidateDocument(input: {
   if (opportunityMatches.length > 0) {
     candidates.push({
       candidateType: "opportunity",
-      title: `Opportunity: ${input.title}`.slice(0, 180),
+      title: `Opportunity: ${withTag(normalizeDealTitle(input.title))}`.slice(0, 180),
       summary,
       confidence: Math.min(92, 62 + opportunityMatches.length * 7),
       matchedKeywords: opportunityMatches,
@@ -684,7 +685,7 @@ export function classifyMailInsightThread(
   if (hasEvidence && externalSignal && opportunityMatches.length > 0) {
     candidates.push({
       candidateType: "opportunity",
-      title: `Opportunity: ${thread.threadTitle}`.slice(0, 180),
+      title: `Opportunity: ${withTag(normalizeDealTitle(thread.threadTitle))}`.slice(0, 180),
       summary: thread.summary.slice(0, 420),
       confidence: Math.min(94, 66 + opportunityMatches.length * 6 + (thread.aiEnhanced ? 8 : 0)),
       matchedKeywords: uniquePolicyDomains(opportunityMatches),

@@ -78,7 +78,7 @@ export const CFO_NAV: { title: string; href: string }[] = [
 ];
 
 export const MOCK_USER = {
-  name: "Portal Operator",
+  name: "포털 운영자",
   email: "operator@ai-portal.local",
   role: "owner" as const,
 };

@@ -1,6 +1,7 @@
 import { prisma as realPrisma } from "@sangfor/db";
 import type { GtmDomain } from "@sangfor/shared/modes";
 import type { DomainArtifact, DomainCase } from "./domain-agent-runtime";
+import { normalizeDealTitle, withTag } from "../crm/deal-title";
 import { resolveDomainProjectId } from "./domain-memory";
 
 /**
@@ -93,7 +94,7 @@ export function createDomainPersister(deps: DomainPersisterDeps = {}): DomainPer
           create: {
             id: oppId,
             projectId,
-            title: str(s.opportunityTitle) ?? c.subject,
+            title: withTag(normalizeDealTitle(str(s.opportunityTitle) ?? c.subject)),
             stage: "QUALIFIED",
             probability: num(s.leadScore) ?? 20,
             nextAction: str(s.nextAction) ?? null,
@@ -123,11 +124,11 @@ export function createDomainPersister(deps: DomainPersisterDeps = {}): DomainPer
             id: oppId,
             projectId,
             customerId: custId,
-            title: str(s.opportunityTitle) ?? c.subject,
+            title: withTag(normalizeDealTitle(str(s.opportunityTitle) ?? c.subject)),
             stage: "PROPOSAL",
             amount,
           },
-          update: { customerId: custId, title: str(s.opportunityTitle) ?? c.subject, stage: "PROPOSAL", amount },
+          update: { customerId: custId, title: withTag(normalizeDealTitle(str(s.opportunityTitle) ?? c.subject)), stage: "PROPOSAL", amount },
         });
         persisted.push({ entity: "Opportunity", id: oppId });
 

@@ -16,7 +16,7 @@ export function stageTransitionMessage(raw: string): string {
     case "illegal_stage_regression":
       return "이 단계로 되돌릴 수 없습니다.";
     case "stage_is_terminal":
-      return "수주/실패로 종료된 딜은 단계를 변경할 수 없습니다.";
+      return "수주/실주로 종료된 딜은 단계를 변경할 수 없습니다.";
     case "registration_not_submitted":
       return "딜 등록이 제출되지 않아 다음 단계로 진행할 수 없습니다. 총판을 통해 딜 등록을 먼저 제출하세요.";
     case "registration_rejected":
