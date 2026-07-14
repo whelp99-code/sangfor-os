@@ -3,6 +3,7 @@ import { PROPOSAL_TEMPLATE_KEYS } from "@sangfor/shared";
 import { z } from "zod";
 
 import { createContact, createCustomer } from "../crm/customer-partner";
+import { mailCandidateNextAction, normalizeDealTitle, withTag } from "../crm/deal-title";
 import { addOpportunityLink, createOpportunity, updateOpportunity } from "../crm/opportunity-center";
 import { generateProposal } from "../crm/proposal-generator";
 
@@ -89,7 +90,8 @@ function extractSender(sender?: string | null, fallbackEmail?: string | null) {
 }
 
 function cleanCandidateTitle(candidate: MailCandidateForConnection) {
-  return candidate.title.replace(/^(Customer|Partner|Opportunity|PoC|Follow up):\s*/i, "").trim();
+  const stripped = candidate.title.replace(/^(Customer|Partner|Opportunity|PoC|Follow up):\s*/i, "").trim();
+  return withTag(normalizeDealTitle(stripped));
 }
 
 function domainFromEmail(email: string) {
@@ -265,7 +267,7 @@ export function buildMailCandidateConnectionDefaults(candidate: MailCandidateFor
       : null,
     opportunity: {
       title,
-      nextAction: `Review approved mail candidate: ${candidate.summary.slice(0, 180)}`,
+      nextAction: mailCandidateNextAction(candidate.summary),
       probability: candidate.confidence >= 80 ? 35 : 20,
     },
     proposal: {

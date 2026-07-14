@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatKRW, stageDisplay } from "@/components/deals/stage-meta";
+import { DealTitle } from "@/components/deals/deal-title-display";
+import { DealMobileCard } from "@/components/deals/deal-mobile-card";
 import { regStatusMeta, regStatusBadgeVariant, regStatusBadgeClassName, regStatusInlineClasses } from "@/components/deals/reg-status";
 import type { Deal } from "@/components/deals/types";
 
@@ -160,7 +162,7 @@ const columns: ColumnDef<Deal, unknown>[] = [
     header: "딜 / 고객사",
     cell: ({ row }) => (
       <div>
-        <p className="font-medium leading-tight">{row.original.title}</p>
+        <DealTitle title={row.original.title} className="font-medium leading-tight" />
         <p className="mt-0.5 text-xs text-muted-foreground">
           {row.original.customer ?? "고객 미지정"}
         </p>
@@ -270,6 +272,7 @@ export function DealsTable({ deals }: { deals: Deal[] }) {
       columns={columns}
       data={deals}
       rowHref={(deal) => `/deals/${deal.id}`}
+      renderCard={(deal) => <DealMobileCard deal={deal} />}
       emptyTitle="딜이 없습니다"
       emptyDescription="새 딜을 등록하면 여기에 표시됩니다."
     />

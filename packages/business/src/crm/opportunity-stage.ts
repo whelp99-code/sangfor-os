@@ -22,11 +22,14 @@ const LEGACY_TO_CANONICAL: Record<string, OpportunityStage> = {
   lost: "LOST",
   // Korean display labels (mirrors STAGE_LABELS in apps/web/src/components/deals/stage-meta.ts)
   // so that UI-processed Korean strings normalize to canonical enum values.
+  // "실패" is kept as a legacy alias for pre-unification data/strings; "실주"
+  // is the current STAGE_LABELS display term.
   리드: "LEAD",
   검증: "QUALIFIED",
   제안: "PROPOSAL",
   협상: "NEGOTIATION",
   수주: "WON",
+  실주: "LOST",
   실패: "LOST",
 };
 

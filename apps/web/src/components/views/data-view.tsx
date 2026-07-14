@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import {
@@ -31,6 +32,11 @@ export type DataViewProps<T> = {
   rowHref?: (row: T) => string;
   emptyTitle?: string;
   emptyDescription?: string;
+  /**
+   * 좁은 폭에서 표 대신 쓸 카드. 주면 md 미만에서 카드로 리플로우하고 표는 숨긴다.
+   * 안 주면 기존대로 표만 렌더한다(다른 컬렉션 동작 불변).
+   */
+  renderCard?: (row: T) => ReactNode;
 };
 
 /**
@@ -45,6 +51,7 @@ export function DataView<T>({
   rowHref,
   emptyTitle = "결과가 없습니다",
   emptyDescription,
+  renderCard,
 }: DataViewProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const router = useRouter();
@@ -61,9 +68,39 @@ export function DataView<T>({
 
   const rows = table.getRowModel().rows;
 
+  const cards = renderCard ? (
+    <div className="flex flex-col gap-2 md:hidden">
+      {rows.map((row) => {
+        const card = (
+          <div className="rounded-xl border bg-card p-3.5 transition-colors hover:bg-accent/40">
+            {renderCard(row.original)}
+          </div>
+        );
+        return rowHref ? (
+          <Link
+            key={row.id}
+            href={rowHref(row.original)}
+            className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {card}
+          </Link>
+        ) : (
+          <div key={row.id}>{card}</div>
+        );
+      })}
+    </div>
+  ) : null;
+
   return (
-    <div className="overflow-hidden rounded-xl border">
-      <div className="overflow-x-auto">
+    <div
+      className={cn(
+        renderCard
+          ? "md:overflow-hidden md:rounded-xl md:border"
+          : "overflow-hidden rounded-xl border",
+      )}
+    >
+      {cards}
+      <div className={cn("overflow-x-auto", renderCard && "hidden md:block")}>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((group) => (

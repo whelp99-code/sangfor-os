@@ -2,6 +2,7 @@ import { prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { createCustomer, createPartner } from "../crm/customer-partner";
+import { mailCandidateNextAction, normalizeDealTitle, withTag } from "../crm/deal-title";
 import { createImprovementCandidateFromError } from "../orchestration/improvement-loop";
 import { resolveDefaultProjectId } from "../infrastructure/default-project";
 import { upsertPolicyMemory } from "./mail-policy-memory";
@@ -240,10 +241,10 @@ async function convertTask(candidate: Awaited<ReturnType<typeof getMailDerivedCa
 
 async function convertOpportunity(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
   return createOpportunity({
-    title: candidate.title.replace(/^Opportunity:\s*/i, ""),
+    title: withTag(normalizeDealTitle(candidate.title.replace(/^Opportunity:\s*/i, ""))),
     stage: "lead",
     probability: candidate.confidence >= 80 ? 35 : 20,
-    nextAction: `Review approved mail candidate: ${candidate.summary.slice(0, 180)}`,
+    nextAction: mailCandidateNextAction(candidate.summary),
   });
 }
 

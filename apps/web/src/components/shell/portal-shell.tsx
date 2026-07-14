@@ -207,7 +207,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
             </p>
             <p className="text-sm font-semibold text-sidebar-foreground">SANGFOR Partner OS</p>
             <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/40">
-              Control Tower
+              관제 타워
             </p>
           </div>
           <div className="relative group-data-[collapsible=icon]:hidden">
