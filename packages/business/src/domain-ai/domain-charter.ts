@@ -26,6 +26,8 @@ export interface DomainCharter {
   humanOnly: string[];
   /** 무엇을 갖추면 끝난 것인가 */
   completion: string;
+  /** 금액을 어느 숫자로 잡는가. 틀리면 매출이 통째로 틀어진다. */
+  amountRules?: string[];
 }
 
 /** 전 도메인 공통 사실. 이걸 모르면 상대의 역할부터 틀린다. */
@@ -142,6 +144,12 @@ export const DOMAIN_CHARTERS: Partial<Record<GtmDomain, DomainCharter>> = {
       "SRM 검수승인 건은 세금계산서 XML을 포탈에 업로드한다 — 미업로드 시 대금 지급이 지연된다.",
       "견적서를 재검산한다: 수량 오기, 금액 중복, PDF 변환 누락이 실제로 반복 발생했다.",
     ],
+    amountRules: [
+      "넥시아스(총판)가 보낸 견적서 금액은 **매입가**다. 딜의 공급가(매출)에 넣지 마라.",
+      "내가 보낸 메일의 견적서 금액이 **매출가**다.",
+      "견적 금액과 세금계산서 금액이 다르면 **무조건 세금계산서 금액**으로 산정한다.",
+      "세금계산서의 상대는 최종고객이 아니라 **파트너**다 — 베를로는 파트너에게 매출을 일으키고, 파트너가 최종고객에게 판다.",
+    ],
     requiredInputs: [
       "발주 금액·수량·품목",
       "상대 사업자등록증",
@@ -180,6 +188,9 @@ export function renderCharter(domain: GtmDomain): string {
       "",
       `[완료 조건] ${charter.completion}`,
     );
+    if (charter.amountRules) {
+      lines.push("", "[금액 산정 규칙]", ...charter.amountRules.map((r) => `  - ${r}`));
+    }
   }
 
   lines.push("", "[대표 명의로 글을 쓸 때]", ...VOICE_RULES.map((v) => `  - ${v}`));

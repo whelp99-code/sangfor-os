@@ -56,6 +56,12 @@ describe("도메인 헌장", () => {
     expect(DOMAIN_CHARTERS.sales?.completion).toContain("넥시아스에 구매요청");
   });
 
+  it("재무 AI는 총판 견적을 매출로 잡지 않도록 지시받는다", () => {
+    const text = renderCharter("cfo");
+    expect(text).toContain("매입가");
+    expect(text).toContain("무조건 세금계산서 금액");
+  });
+
   it("실제 프롬프트에 헌장이 실린다", () => {
     const prompt = buildDomainPrompt(
       "sales",
