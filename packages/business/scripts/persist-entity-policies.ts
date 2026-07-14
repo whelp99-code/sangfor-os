@@ -64,7 +64,10 @@ async function main() {
       await upsertPolicyMemory({
         memoryType: entry.type,
         key: entry.key,
-        label: `${j.company} (${j.domain}) → ${j.role}${j.note ? ` — ${j.note}` : ""}`,
+        // label은 설명문이 아니라 회사명이어야 한다 — 분류기가 이 값을 그대로 후보의
+        // 엔티티 이름으로 쓴다(classify-rules.ts). 설명을 넣었더니 "syinet.com → 파트너
+        // (메일 이력 3건 근거)"라는 이름의 후보가 만들어졌다. 근거는 valueJson에 둔다.
+        label: j.company,
         valueJson: {
           source: "mail-history-entity-map",
           company: j.company,
