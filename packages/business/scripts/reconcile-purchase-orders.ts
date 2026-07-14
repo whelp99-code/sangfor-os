@@ -133,6 +133,15 @@ async function main() {
     .map((c) => c.name)
     .filter((n) => n.length >= 2);
 
+  // 메일은 회사를 다르게 쓴다("잉카금융그룹" ↔ 인카금융서비스). PolicyMemory의 별칭
+  // key → 정식 상호 label로 풀어야 발주와 딜이 이어진다.
+  const aliasRows = await prisma.policyMemory.findMany({
+    where: { memoryType: { in: ["known_customer_name", "known_partner_name"] }, status: { in: ["active", "approved"] } },
+    select: { key: true, label: true },
+  });
+  const canonical = new Map(aliasRows.map((a) => [a.key.toLowerCase(), a.label]));
+  const resolve = (name: string) => canonical.get(name.toLowerCase()) ?? name;
+
   // 딜의 고객은 제목에도 있다(customer_id가 비어 있어도). 둘 다 본다.
   const subjectOf = (d: (typeof deals)[number]) => `${d.title} ${d.customer?.name ?? ""}`;
 
@@ -152,15 +161,18 @@ async function main() {
     // 단 후보 딜이 정확히 하나일 때만 — 여럿이면 어느 건인지 모른다.
     if (matched.length === 0) {
       matched = orders.filter((o) => {
-        const company = companyInOrder(o.subject);
-        if (!company || company.length < 2 || !deal.title.includes(company)) return false;
+        const raw = companyInOrder(o.subject);
+        if (!raw || raw.length < 2) return false;
+        const company = resolve(raw);
+        const dealNames = [deal.title, deal.customer?.name ?? ""].join(" ");
+        if (!dealNames.includes(company) && !dealNames.includes(raw)) return false;
         if (!sharesProduct(o.subject, deal.title)) return false;
         const rivals = deals.filter(
           (x) =>
             x.id !== deal.id &&
             x.dealStatus !== "WON" &&
             x.dealStatus !== "LOST" &&
-            x.title.includes(company) &&
+            [x.title, x.customer?.name ?? ""].join(" ").includes(company) &&
             sharesProduct(o.subject, x.title),
         );
         return rivals.length === 0;

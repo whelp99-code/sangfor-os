@@ -53,13 +53,26 @@ const JUDGMENTS: Array<{ domain: string; company: string; role: Role; evidence: 
 // 분류기가 실제로 조회하는 타입에 맞춰야 매칭된다. 파트너·벤더는 도메인으로(
 // known_partner_domain → knownPartnerDomains), 고객은 회사명으로만 조회한다
 // (known_customer_domain 타입이 없다 — 도메인 기반 고객 매칭은 후속 과제).
+// 같은 회사를 메일마다 다르게 쓴다(오타·로마자·구 상호). 별칭 키를 정식 상호 label로
+// 걸어두면 그렇게 들어와도 후보가 정식 상호로 만들어진다 — label이 곧 엔티티 이름이다.
+const ALIASES: Record<string, string[]> = {
+  인카금융서비스: ["Incar", "잉카금융그룹", "잉카금융서비스", "인카금융그룹"],
+  케이브이머티리얼즈: ["Vitalchem", "KV메트리얼즈", "KV머티리얼즈"],
+  GS건설: ["Gsenc", "GS E&C"],
+  디지틀조선일보: ["디지탈조선", "디지털조선"],
+};
+
 function entriesFor(j: { domain: string; company: string; role: Role }) {
+  const nameType = j.role === "고객" ? "known_customer_name" : "known_partner_name";
+  const aliases = (ALIASES[j.company] ?? []).map((key) => ({ type: nameType, key }));
+
   if (j.role === "고객") {
-    return [{ type: "known_customer_name", key: j.company }];
+    return [{ type: nameType, key: j.company }, ...aliases];
   }
   return [
     { type: "known_partner_domain", key: j.domain },
-    { type: "known_partner_name", key: j.company },
+    { type: nameType, key: j.company },
+    ...aliases,
   ];
 }
 
