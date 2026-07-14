@@ -9,6 +9,9 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    // Isolated QA builds set NEXT_DIST_DIR (e.g. .next-uxtest-r20); their
+    // generated output must not be linted as source.
+    ".next-*/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

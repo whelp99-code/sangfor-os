@@ -44,8 +44,8 @@ export class MonthCloseService {
     const netIncome = revenue - expense;
 
     const items = [
-      { key: 'uncategorized', label: '미분류 거래 0건', pass: uncategorizedExpenses === 0, current: uncategorizedExpenses },
-      { key: 'pending_invoices', label: '입금 미확인 인보이스 0건', pass: pendingInvoices === 0, current: pendingInvoices },
+      { key: 'uncategorized', label: '미분류 거래', pass: uncategorizedExpenses === 0, current: uncategorizedExpenses },
+      { key: 'pending_invoices', label: '입금 미확인 인보이스', pass: pendingInvoices === 0, current: pendingInvoices },
     ];
 
     const allPass = items.every((i) => i.pass);

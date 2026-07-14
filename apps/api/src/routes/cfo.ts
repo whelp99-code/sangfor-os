@@ -77,6 +77,29 @@ export function requireHalf(raw: any): 1 | 2 {
   return n as 1 | 2;
 }
 
+const SUBSCRIPTION_CYCLES = ['monthly', 'yearly', 'weekly'];
+
+/** 구독 입력 강제. 불량 nextBillingDate가 Prisma까지 흘러가 500을 내던 문제를 400으로 차단. */
+export function requireSubscriptionInput(body: any, opts: { partial?: boolean } = {}) {
+  const b = body ?? {};
+  const has = (k: string) => b[k] !== undefined && b[k] !== null;
+  const required = !opts.partial;
+
+  if ((required || has('name')) && (typeof b.name !== 'string' || b.name.trim() === '')) {
+    throw new BadRequestError('name은 비어 있을 수 없습니다');
+  }
+  if ((required || has('amount')) && !(Number(b.amount) > 0)) {
+    throw new BadRequestError('amount는 0보다 큰 숫자여야 합니다');
+  }
+  if ((required || has('cycle')) && !SUBSCRIPTION_CYCLES.includes(b.cycle)) {
+    throw new BadRequestError('cycle은 monthly|yearly|weekly 만 허용됩니다');
+  }
+  if ((required || has('nextBillingDate')) && Number.isNaN(new Date(b.nextBillingDate).getTime())) {
+    throw new BadRequestError('nextBillingDate는 유효한 날짜여야 합니다');
+  }
+  return b;
+}
+
 // Dashboard
 router.get('/dashboard/kpi', ok((req: any) => {
   const now = new Date();
@@ -123,8 +146,9 @@ router.delete('/cashflows/:id', ok((req: any) => cashflows.delete(req.params.id)
 router.get('/subscriptions', ok((req: any) => subscriptions.list({
   isActive: q(req, 'isActive') === undefined ? undefined : q(req, 'isActive') === 'true',
 })));
-router.post('/subscriptions', ok((req: any) => subscriptions.create(req.body)));
-router.patch('/subscriptions/:id', ok((req: any) => subscriptions.update(req.params.id, req.body)));
+router.post('/subscriptions', ok((req: any) => subscriptions.create(requireSubscriptionInput(req.body))));
+router.patch('/subscriptions/:id', ok((req: any) =>
+  subscriptions.update(req.params.id, requireSubscriptionInput(req.body, { partial: true }))));
 router.delete('/subscriptions/:id', ok((req: any) => subscriptions.remove(req.params.id)));
 router.post('/subscriptions/:id/advance', ok((req: any) => subscriptions.advanceCycle(req.params.id)));
 router.get('/subscriptions/summary/monthly', ok(() => subscriptions.getTotalMonthlyCost()));
