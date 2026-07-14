@@ -9,6 +9,12 @@ import { prisma } from "@sangfor/db";
 import { MailCandidateActions } from "@/components/development/mail-candidate-actions";
 import { ApproveConnectForm } from "@/components/mail-candidates/approve-connect-form";
 import { CandidateTypeToggle } from "@/components/mail-candidates/candidate-type-toggle";
+import {
+  MailCandidateMetadata,
+  RevalidationFallbackNotice,
+  getRevalidationDecisionLabel,
+  getRevalidationModeLabel,
+} from "@/components/mail-candidates/revalidation-fallback-notice";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -23,19 +29,6 @@ function formatDate(value?: Date | null) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(value);
-}
-
-function metadataEntries(metadata: unknown) {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return [];
-  return Object.entries(metadata as Record<string, unknown>).map(([key, value]) => ({
-    key,
-    value:
-      value && typeof value === "object"
-        ? JSON.stringify(value, null, 2)
-        : Array.isArray(value)
-          ? value.join(", ")
-          : String(value ?? ""),
-  }));
 }
 
 function metadataRecord(metadata: unknown) {
@@ -104,7 +97,7 @@ export default async function MailCandidateApprovalDetailPage({ params }: PagePr
           <Link href="/approvals" className="text-sm text-muted-foreground hover:underline">
             승인 목록으로
           </Link>
-          <h1 className="break-words text-2xl font-semibold tracking-normal">
+          <h1 className="break-keep text-2xl font-semibold tracking-normal [overflow-wrap:anywhere]">
             {candidate.title}
           </h1>
           <div className="flex flex-wrap items-center gap-2">
@@ -242,13 +235,14 @@ export default async function MailCandidateApprovalDetailPage({ params }: PagePr
           {revalidation ? (
             <>
               <div className="grid gap-2 sm:grid-cols-3">
-                <Info label="판정" value={String(revalidation.decision ?? "알 수 없음")} />
-                <Info label="모드" value={String(revalidation.mode ?? "알 수 없음")} />
+                <Info label="판정" value={getRevalidationDecisionLabel(revalidation.decision)} />
+                <Info label="모드" value={getRevalidationModeLabel(revalidation.mode)} />
                 <Info label="신뢰도" value={String(revalidation.confidence ?? candidate.confidence)} />
               </div>
               <p className="break-words text-muted-foreground">
                 {String(revalidation.reasoningSummary ?? "추론 요약 없음.")}
               </p>
+              <RevalidationFallbackNotice reason={revalidation.fallbackReason} />
               <div className="grid gap-3 lg:grid-cols-3">
                 <ListBlock title="근거" items={asObjectArray(revalidation.evidence).map((item) =>
                   `${String(item.sourceType ?? "출처")}: ${String(item.quoteOrSummary ?? item.sourceId ?? "")}`
@@ -317,9 +311,7 @@ export default async function MailCandidateApprovalDetailPage({ params }: PagePr
           <CardTitle>후보 메타데이터</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
-          {metadataEntries(candidate.metadata).map((entry) => (
-            <Info key={entry.key} label={entry.key} value={entry.value || "—"} />
-          ))}
+          <MailCandidateMetadata metadata={candidate.metadata} />
         </CardContent>
       </Card>
     </div>

@@ -7,7 +7,15 @@ import { Button } from "@/components/ui/button";
 
 import { normalizeOpportunityStage } from "@sangfor/business/opportunity-stage";
 
-export function AdvanceOpportunityButton({ id, stage }: { id: string; stage: string }) {
+export function AdvanceOpportunityButton({
+  id,
+  stage,
+  expectedUpdatedAt,
+}: {
+  id: string;
+  stage: string;
+  expectedUpdatedAt: string;
+}) {
   const canonical = normalizeOpportunityStage(stage);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +29,7 @@ export function AdvanceOpportunityButton({ id, stage }: { id: string; stage: str
       const res = await fetch(`/api/opportunities/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "advance" }),
+        body: JSON.stringify({ action: "advance", expectedUpdatedAt }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -39,7 +47,7 @@ export function AdvanceOpportunityButton({ id, stage }: { id: string; stage: str
   return (
     <div className="space-y-1">
       <Button size="sm" onClick={advance} disabled={loading}>
-        {loading ? "진행 중..." : "Advance stage"}
+        {loading ? "진행 중..." : "다음 단계로"}
       </Button>
       {error && (
         <p className="text-xs text-destructive" role="alert">

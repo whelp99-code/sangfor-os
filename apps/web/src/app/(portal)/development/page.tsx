@@ -11,12 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 const DEV_LINKS = [
-  { href: "/development/orchestrator", label: "Orchestrator" },
-  { href: "/development/improvements", label: "Improvements" },
-  { href: "/development/mail-candidates", label: "Mail Candidates" },
-  { href: "/development/codex-tasks", label: "Codex Tasks" },
-  { href: "/development/cursor-sessions", label: "Cursor Sessions" },
-  { href: "/development/github", label: "GitHub Sync" },
+  { href: "/development/orchestrator", label: "오케스트레이터" },
+  { href: "/development/improvements", label: "개선" },
+  { href: "/development/mail-candidates", label: "메일 후보" },
+  { href: "/development/codex-tasks", label: "Codex 작업" },
+  { href: "/development/cursor-sessions", label: "Cursor 세션" },
+  { href: "/development/github", label: "GitHub 동기화" },
 ] as const;
 
 export default async function DevelopmentCenterPage() {
@@ -77,7 +77,7 @@ export default async function DevelopmentCenterPage() {
                 </Badge>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                {change.changedFiles.length} files · build:{" "}
+                {change.changedFiles.length}개 파일 · 빌드:{" "}
                 {change.buildRuns[0]?.status ?? "—"}
               </CardContent>
             </Card>

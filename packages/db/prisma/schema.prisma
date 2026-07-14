@@ -696,14 +696,16 @@ model Partner {
 }
 
 model Contact {
-  id         String   @id @default(cuid())
-  customerId String?  @map("customer_id")
-  partnerId  String?  @map("partner_id")
+  id         String    @id @default(cuid())
+  customerId String?   @map("customer_id")
+  partnerId  String?   @map("partner_id")
   name       String
   email      String?
   phone      String?
   role       String?
-  createdAt  DateTime @default(now()) @map("created_at")
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
   customer        Customer?          @relation(fields: [customerId], references: [id], onDelete: Cascade)
   partner         Partner?           @relation(fields: [partnerId], references: [id], onDelete: Cascade)
@@ -713,6 +715,7 @@ model Contact {
   @@index([customerId])
   @@index([partnerId])
   @@index([email])
+  @@index([archivedAt])
   @@map("contacts")
 }
 

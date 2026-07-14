@@ -13,7 +13,14 @@ import {
   listMcpTools,
   callMcpTool,
 } from "@sangfor/infra";
-import { apiKeyMiddleware, authMiddleware, errorHandler, financeAccessGuard, rateLimiter } from "./middleware";
+import {
+  apiKeyMiddleware,
+  authMiddleware,
+  errorHandler,
+  financeAccessGuard,
+  rateLimiter,
+  systemAdminAccessGuard,
+} from "./middleware";
 import { metrics } from "@sangfor/infra";
 import { createEventRoutes, eventBus } from "./routes/events";
 import { createCfoHealthRoutes, createCfoRoutes } from "./routes/cfo";
@@ -105,20 +112,6 @@ export function createApp(): Express {
     }
   });
 
-  // List MCP tools exposed by the whelp99 bridge.
-  app.get("/api/whelp99/tools", async (_req, res) => {
-    try {
-      const tools = await listMcpTools();
-      res.json({ tools });
-    } catch (error) {
-      console.error("[api] whelp99 tools list failed:", error instanceof Error ? error.stack ?? error.message : error);
-      res.status(502).json({
-        error: "upstream_unavailable",
-        tools: [],
-      });
-    }
-  });
-
   // Slack status — env-based detection
   app.get("/api/slack/status", (_req, res) => {
     const hasWebhook = Boolean(process.env.SLACK_WEBHOOK_URL);
@@ -143,11 +136,25 @@ export function createApp(): Express {
   // Auth middleware for other /api routes
   app.use("/api", authMiddleware);
 
-  // Invoke an MCP tool through the whelp99 bridge. Arbitrary tool execution —
-  // must sit behind authMiddleware (moved here from before the auth gate,
-  // where it was reachable unauthenticated).
+  // List MCP tools — behind auth: the catalog reveals internal tool names and
+  // schemas, so it must not be reachable unauthenticated.
+  app.get("/api/whelp99/tools", async (_req, res) => {
+    try {
+      const tools = await listMcpTools();
+      res.json({ tools });
+    } catch (error) {
+      console.error("[api] whelp99 tools list failed:", error instanceof Error ? error.stack ?? error.message : error);
+      res.status(502).json({
+        error: "upstream_unavailable",
+        tools: [],
+      });
+    }
+  });
+
+  // Invoke an MCP tool through the whelp99 bridge. Arbitrary tool execution
+  // requires both authenticated identity and the system_admin business role.
   // Body: { name: string, arguments?: Record<string, unknown> }
-  app.post("/api/whelp99/tools/call", express.json(), async (req, res) => {
+  app.post("/api/whelp99/tools/call", systemAdminAccessGuard, express.json(), async (req, res) => {
     const name = typeof req.body?.name === "string" ? req.body.name : "";
     if (!name) {
       res.status(400).json({ error: "name is required" });

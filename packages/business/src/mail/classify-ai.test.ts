@@ -224,7 +224,7 @@ describe("revalidateMailDerivedCandidate — customer/partner", () => {
   // -----------------------------------------------------------------------
   // 3. LLM failure → template fallback for ALL types
   // -----------------------------------------------------------------------
-  it("LLM failure → template fallback (old behavior) for customer", async () => {
+  it("LLM failure → safe template fallback for customer", async () => {
     (prisma.mailDerivedCandidate.findUniqueOrThrow as any).mockResolvedValue(
       makeCandidate({
         candidateType: "customer",
@@ -249,7 +249,9 @@ describe("revalidateMailDerivedCandidate — customer/partner", () => {
     // Template fallback: confidence = max(40, min(95, 70 + 0)) = 70
     expect(result.revalidation).not.toBeNull();
     expect(result.revalidation!.mode).toBe("template");
-    expect(typeof result.revalidation!.fallbackReason).toBe("string");
+    expect(result.revalidation!.fallbackReason).toBe(
+      "AI 재검증 서비스를 사용할 수 없어 규칙 기반 검토로 대체했습니다.",
+    );
     // Template keeps its own confidence logic
     expect(result.revalidation!.confidence).toBeGreaterThanOrEqual(40);
   });
@@ -270,7 +272,29 @@ describe("revalidateMailDerivedCandidate — customer/partner", () => {
 
     expect(result.revalidation).not.toBeNull();
     expect(result.revalidation!.mode).toBe("template");
-    expect(result.revalidation!.fallbackReason).toContain("openai_timeout");
+    expect(result.revalidation!.decision).toBe("needs_human_review");
+    expect(result.revalidation!.fallbackReason).toBe(
+      "AI 재검증 응답 시간이 초과되어 규칙 기반 검토로 대체했습니다.",
+    );
+    expect(result.revalidation!.fallbackReason).not.toContain("openai_timeout");
+  });
+
+  it("high-confidence LLM failure never approves the template fallback", async () => {
+    (prisma.mailDerivedCandidate.findUniqueOrThrow as any).mockResolvedValue(
+      makeOpportunityCandidate({ confidence: 90 }),
+    );
+
+    const result = await revalidateMailDerivedCandidate("test-id", {
+      callLLM: async () => {
+        throw new Error("upstream request timed out after 30s");
+      },
+    });
+
+    expect(result.revalidation).toMatchObject({
+      mode: "template",
+      decision: "needs_human_review",
+      fallbackReason: "AI 재검증 응답 시간이 초과되어 규칙 기반 검토로 대체했습니다.",
+    });
   });
 
   // -----------------------------------------------------------------------

@@ -102,7 +102,13 @@ describe("proxy (Next.js proxy/middleware convention — apps/web/src/proxy.ts)"
     });
 
     it("passes a request with a valid session token", async () => {
-      const token = createSessionToken({ id: "u1", email: "a@b.com", role: "admin" });
+      const token = createSessionToken({
+        id: "u1",
+        email: "a@b.com",
+        role: "admin",
+        projectId: "project-1",
+        projectSlug: "demo-project",
+      });
       const res = await proxy(
         req("/api/opportunities", { method: "GET", cookie: `session=${token}` }),
       );

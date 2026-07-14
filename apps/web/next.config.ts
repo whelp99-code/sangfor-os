@@ -12,7 +12,22 @@ const monorepoRoot = path.resolve(
 loadEnv({ path: path.join(monorepoRoot, ".env") });
 loadEnv({ path: path.join(monorepoRoot, ".env.local"), override: true });
 
+const requestedDistDir = process.env.NEXT_DIST_DIR;
+const distDir = requestedDistDir === undefined ? ".next" : path.normalize(requestedDistDir.trim());
+
+if (
+  distDir.length === 0 ||
+  distDir === "." ||
+  distDir === ".." ||
+  path.isAbsolute(distDir) ||
+  distDir.startsWith(`..${path.sep}`)
+) {
+  throw new TypeError("NEXT_DIST_DIR must be a non-empty directory relative to apps/web");
+}
+
 const nextConfig: NextConfig = {
+  distDir,
+  allowedDevOrigins: ["127.0.0.1"],
   output: "standalone",
   transpilePackages: ["@sangfor/agent", "@sangfor/business", "@sangfor/db", "@sangfor/infra", "@sangfor/shared"],
   turbopack: {

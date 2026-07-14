@@ -82,7 +82,7 @@ export function LlmSettingsCard() {
         </div>
 
         <label className="block text-sm">
-          <span className="text-muted-foreground">API Key</span>
+          <span className="text-muted-foreground">API 키</span>
           <input
             type="password"
             value={apiKey}
@@ -95,7 +95,7 @@ export function LlmSettingsCard() {
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block text-sm">
-            <span className="text-muted-foreground">Base URL (선택)</span>
+            <span className="text-muted-foreground">기본 URL (선택)</span>
             <input
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}

@@ -95,7 +95,7 @@ export class SubscriptionsService {
           break;
       }
     }
-    return Math.round(total);
+    return { monthlyTotal: Math.round(total), count: subs.length };
   }
 
   async getUpcomingRenewals(days = 7) {

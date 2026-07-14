@@ -26,8 +26,8 @@ export async function cfoFetch<T = unknown>(
   } as any);
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`CFO API ${res.status}: ${text}`);
+    console.error(`[cfoFetch] upstream ${res.status}:`, text);
+    throw new Error(`재무 데이터를 불러오지 못했습니다. (${res.status})`);
   }
   return res.json() as Promise<T>;
 }
-

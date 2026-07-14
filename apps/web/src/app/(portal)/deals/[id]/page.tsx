@@ -15,6 +15,7 @@ import {
 import { buildOpportunityOrchestratorSummary } from "@sangfor/business/skills";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { Edit, ActivitySquare, Gauge } from "lucide-react";
 
 import {
@@ -28,13 +29,18 @@ import { DealRecordHeader, DealStagePath } from "@/components/deals/deal-record-
 import { DealStageGuide } from "@/components/deals/deal-stage-guide";
 import { DealAiRail } from "@/components/deals/deal-ai-rail";
 import { DealDetail } from "@/components/deals/deal-detail";
-import { DealDetailTabs, DEAL_DETAIL_TABS, type DealDetailTab } from "@/components/deals/deal-detail-tabs";
+import { DealDetailTabs } from "@/components/deals/deal-detail-tabs";
+import { DEAL_DETAIL_TABS, type DealDetailTab } from "@/components/deals/deal-detail-tabs.constants";
+import { winProbabilityLabel } from "@/components/deals/win-probability";
+import { stageLabel } from "@/components/deals/stage-meta";
+import { activityNoteLabel } from "@/components/deals/activity-labels";
 import { DealWorkTab } from "@/components/deals/deal-work-tab";
 import { RegistrationPanel } from "@/components/deals/registration-panel";
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { verifySessionToken } from "@/lib/auth/session";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -49,6 +55,8 @@ function daysSince(from: Date | null | undefined): number | null {
 export default async function DealDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const { tab: tabParam } = await searchParams;
+  const session = verifySessionToken((await cookies()).get("session")?.value);
+  const readOnly = session?.role === "viewer";
   const activeTab: DealDetailTab = DEAL_DETAIL_TABS.includes(tabParam as DealDetailTab)
     ? (tabParam as DealDetailTab)
     : "작업";
@@ -211,16 +219,18 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         }
         actions={
           <>
-            <Badge>{stage}</Badge>
-            <Badge variant="outline">{opportunity.probability}%</Badge>
-            <Link
-              href={`/deals/${opportunity.id}?tab=상세`}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="딜 상세 편집"
-            >
-              <Edit className="size-3.5" aria-hidden="true" />
-              편집
-            </Link>
+            <Badge>{stageLabel(stage)}</Badge>
+            <Badge variant="outline">{winProbabilityLabel(opportunity.probability, stage)}</Badge>
+            {!readOnly ? (
+              <Link
+                href={`/deals/${opportunity.id}?tab=상세`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="딜 상세 편집"
+              >
+                <Edit className="size-3.5" aria-hidden="true" />
+                편집
+              </Link>
+            ) : null}
             <Link
               href={`/deals/${opportunity.id}?tab=활동`}
               className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -229,8 +239,16 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
               <ActivitySquare className="size-3.5" aria-hidden="true" />
               활동 기록
             </Link>
-            <AdvanceOpportunityButton id={opportunity.id} stage={opportunity.stage} />
-            <ConvertToProjectButton id={opportunity.id} engagementId={existingEngagement?.id} />
+            {!readOnly ? (
+              <>
+                <AdvanceOpportunityButton
+                  id={opportunity.id}
+                  stage={opportunity.stage}
+                  expectedUpdatedAt={opportunity.updatedAt.toISOString()}
+                />
+                <ConvertToProjectButton id={opportunity.id} engagementId={existingEngagement?.id} />
+              </>
+            ) : null}
           </>
         }
       />
@@ -249,7 +267,10 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         </TabsList>
 
         {/* 작업 tab: stage work panel + stage history */}
-        <TabsContent value="작업" className="space-y-4 pt-4">
+        <TabsContent
+          value="작업"
+          className={`space-y-4 pt-4 ${readOnly ? "[&_button]:hidden [&_input]:hidden [&_select]:hidden [&_textarea]:hidden" : ""}`}
+        >
           <DealWorkTab
             opportunity={{
               id: opportunity.id,
@@ -290,8 +311,8 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
               ) : (
                 opportunity.stageEvents.map((e) => (
                   <div key={e.id} className="flex justify-between">
-                    <span>{e.fromStage ?? "—"} → {e.toStage}</span>
-                    <Badge variant="outline">{e.note ?? ""}</Badge>
+                    <span>{e.fromStage ? stageLabel(e.fromStage) : "—"} → {stageLabel(e.toStage)}</span>
+                    <Badge variant="outline">{e.note ? activityNoteLabel(e.note) : ""}</Badge>
                   </div>
                 ))
               )}
@@ -302,6 +323,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         {/* 상세 tab: DealDetail inline editor (default) */}
         <TabsContent value="상세" className="pt-4">
           <DealDetail
+            readOnly={readOnly}
             opportunity={{
               ...opportunity,
               closeDate: opportunity.closeDate
@@ -347,15 +369,17 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
           <Card>
             <CardHeader><CardTitle>연결 항목</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <AddOpportunityLinkForm
-                opportunityId={opportunity.id}
-                linkOptions={{
-                  poc: pocProjects.map((p) => ({ id: p.id, label: p.title })),
-                  proposal: proposals.map((d) => ({ id: d.id, label: d.title })),
-                  partner: partnerOptions,
-                  customer: customerOptions,
-                }}
-              />
+              {!readOnly ? (
+                <AddOpportunityLinkForm
+                  opportunityId={opportunity.id}
+                  linkOptions={{
+                    poc: pocProjects.map((p) => ({ id: p.id, label: p.title })),
+                    proposal: proposals.map((d) => ({ id: d.id, label: d.title })),
+                    partner: partnerOptions,
+                    customer: customerOptions,
+                  }}
+                />
+              ) : null}
               <div className="space-y-2 text-sm">
                 {enrichedLinks.length === 0 ? (
                   <p className="text-muted-foreground">아직 연결된 항목이 없습니다.</p>
@@ -373,7 +397,9 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                       </span>
                       <div className="flex items-center gap-1">
                         <Badge variant="secondary">{link.linkType}</Badge>
-                        <RemoveOpportunityLinkButton opportunityId={opportunity.id} linkId={link.id} />
+                        {!readOnly ? (
+                          <RemoveOpportunityLinkButton opportunityId={opportunity.id} linkId={link.id} />
+                        ) : null}
                       </div>
                     </div>
                   ))
@@ -385,7 +411,10 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         </TabsContent>
 
         {/* 채널·등록 tab: deal registration panel */}
-        <TabsContent value="채널·등록" className="pt-4">
+        <TabsContent
+          value="채널·등록"
+          className={`pt-4 ${readOnly ? "[&_button]:hidden [&_input]:hidden [&_select]:hidden [&_textarea]:hidden" : ""}`}
+        >
           <RegistrationPanel
             opportunityId={opportunity.id}
             customerName={opportunity.customer?.name ?? null}
@@ -445,10 +474,10 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                       />
                       <div className="flex flex-col gap-0.5">
                         <span className="font-semibold">
-                          {e.fromStage ?? "시작"}{" "}→{" "}{e.toStage}
+                          {e.fromStage ? stageLabel(e.fromStage) : "시작"}{" "}→{" "}{stageLabel(e.toStage)}
                         </span>
                         {e.note ? (
-                          <span className="text-xs text-muted-foreground">{e.note}</span>
+                          <span className="text-xs text-muted-foreground">{activityNoteLabel(e.note)}</span>
                         ) : null}
                       </div>
                     </li>
@@ -490,14 +519,18 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
             )}
           </CardContent>
         </Card>
-        <DealAiRail stage={stage} />
-        <PortalOrchestratorRunPanel
-          title="Phase 13 오케스트레이터"
-          buttonLabel="오케스트레이터 실행"
-          inputSummary={buildOpportunityOrchestratorSummary(opportunity)}
-          sourceEntityType="opportunity"
-          sourceEntityId={opportunity.id}
-        />
+        {!readOnly ? (
+          <>
+            <DealAiRail stage={stage} />
+            <PortalOrchestratorRunPanel
+              title="Phase 13 오케스트레이터"
+              buttonLabel="오케스트레이터 실행"
+              inputSummary={buildOpportunityOrchestratorSummary(opportunity)}
+              sourceEntityType="opportunity"
+              sourceEntityId={opportunity.id}
+            />
+          </>
+        ) : null}
       </div>
       </div>
     </div>

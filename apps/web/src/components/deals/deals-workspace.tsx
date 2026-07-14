@@ -90,6 +90,7 @@ export function DealsWorkspace({
 
   async function moveDeal(id: string, toStage: string) {
     const previous = items;
+    const expectedUpdatedAt = items.find((deal) => deal.id === id)?.updatedAt;
     setMoveError(null);
     setItems((current) =>
       current.map((deal) => (deal.id === id ? { ...deal, stage: toStage } : deal))
@@ -98,7 +99,7 @@ export function DealsWorkspace({
       const res = await fetch(`/api/opportunities/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stage: toStage }),
+        body: JSON.stringify({ stage: toStage, expectedUpdatedAt }),
       });
       if (!res.ok) {
         // Surface the server's rejection reason (e.g. registration gate,

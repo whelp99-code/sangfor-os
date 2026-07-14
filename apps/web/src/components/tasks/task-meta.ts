@@ -37,6 +37,10 @@ export const PRIORITY_OPTIONS = [
   { value: "urgent", label: "긴급" },
 ] as const;
 
+export function taskPriorityLabel(priority: string): string {
+  return PRIORITY_OPTIONS.find((option) => option.value === priority)?.label ?? priority;
+}
+
 /** Format a dueAt value (Date | ISO string | null) as a short ko date label. */
 export function formatDueAt(dueAt: string | Date | null | undefined): string | null {
   if (!dueAt) return null;

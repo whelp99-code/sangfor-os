@@ -18,7 +18,7 @@ export function buildProposalActionGuards(status: string): ProposalActionGuards 
 }
 
 export const proposalActionLabels: Record<ProposalAction, string> = {
-  send: "Send",
-  export: "Export",
-  share: "Share",
+  send: "발송",
+  export: "내보내기",
+  share: "공유",
 };

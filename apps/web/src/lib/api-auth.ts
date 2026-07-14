@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { isAuthConfigured } from "@/lib/auth/config";
 import { verifySessionToken } from "@/lib/auth/session";
 
 /**
@@ -43,14 +42,19 @@ export function assertApiAccess(request: Request): NextResponse | null {
   if (isAuthBypassEnabled()) {
     return null;
   }
-  if (isAuthConfigured()) {
-    const cookie = request.headers.get("cookie") ?? "";
-    const token =
-      cookie.match(/(?:^|;\s*)session=([^;]+)/)?.[1] ??
-      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-    if (verifySessionToken(token)) {
-      return null;
+  const cookie = request.headers.get("cookie") ?? "";
+  const token =
+    cookie.match(/(?:^|;\s*)session=([^;]+)/)?.[1] ??
+    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  const session = verifySessionToken(token);
+  if (session) {
+    if (
+      session.role === "viewer" &&
+      !["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase())
+    ) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
+    return null;
   }
   return NextResponse.json(
     { error: "unauthorized", message: "Authentication required" },

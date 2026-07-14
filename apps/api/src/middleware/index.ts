@@ -4,3 +4,4 @@ export * from './rate-limiter';
 export * from './rbac';
 export * from './api-key';
 export * from './finance-access';
+export * from './system-admin-access';

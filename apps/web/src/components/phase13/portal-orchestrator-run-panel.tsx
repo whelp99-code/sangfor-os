@@ -212,7 +212,7 @@ export function PortalOrchestratorRunPanel({
                     <tr className="border-b text-left">
                       <th className="p-2">제목</th>
                       <th className="p-2">영역</th>
-                      <th className="p-2">Agent</th>
+                      <th className="p-2">에이전트</th>
                       <th className="p-2">제안</th>
                       <th className="p-2">담당</th>
                       <th className="p-2">위험도</th>

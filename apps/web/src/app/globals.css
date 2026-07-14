@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@source "../../../../packages/ui/src";
 /* 계기판(Instrument) fonts loaded via <link> in layout.tsx (Pretendard, IBM Plex Sans KR, IBM Plex Mono) */
 
 @custom-variant dark (&:is(.dark *));
@@ -175,6 +176,11 @@
   }
 }
 
+*:focus-visible {
+  outline: 2px solid #a9822e;
+  outline-offset: 2px;
+}
+
 /* Smooth transitions for interactive elements */
 @layer utilities {
   .transition-smooth {
@@ -239,8 +245,9 @@
 .cockpit .chip b{font-weight:600;color:var(--ck-ink)}
 .cockpit .chip s{text-decoration:none;color:var(--ck-muted)}
 
-.cockpit .ck-cols{display:grid;grid-template-columns:1fr 314px;gap:22px}
-@media (max-width:1024px){.cockpit .ck-cols{grid-template-columns:1fr}}
+.cockpit .ck-cols{display:grid;grid-template-columns:minmax(0,1fr) 314px;gap:22px}
+@media (max-width:1024px){.cockpit .ck-cols{grid-template-columns:minmax(0,1fr)}}
+.cockpit .ck-cols>*{min-width:0}
 .cockpit .sh{display:flex;align-items:center;gap:10px;margin:2px 2px 13px}
 .cockpit .sh h2{font-family:var(--ck-disp);font-size:14.5px;font-weight:600;letter-spacing:-.01em}
 .cockpit .sh .n{font-family:var(--ck-mono);font-size:11px;font-weight:600;color:#fff;background:var(--ck-ink);border-radius:20px;padding:1px 8px}
@@ -314,6 +321,13 @@
 .cockpit .ibx .x span em{font-style:normal;color:var(--ck-blue);font-weight:600}
 .cockpit .tap{font-size:11.5px;font-weight:600;color:var(--ck-brass-ink);border:1px solid var(--ck-brass-line);background:var(--ck-brass-bg);padding:5px 10px;border-radius:7px;cursor:pointer;white-space:nowrap}
 .cockpit .empty{font-size:13px;color:var(--ck-muted);padding:6px 2px}
+
+@media (max-width:640px){
+  .cockpit{padding:18px 16px 48px}
+  .cockpit .sh,.cockpit .console,.cockpit .act{flex-wrap:wrap}
+  .cockpit .sh .flow,.cockpit .act .ago{width:100%;margin-left:0}
+  .cockpit .brief p,.cockpit .slip .draft,.cockpit .itm .prev{font-size:16px;word-break:keep-all;overflow-wrap:anywhere}
+}
 
 /* ═══ 계기판 — 추가 화면 컴포넌트 (딜상세·고객허브·기술지원·AI팀·리뉴얼·재무·인입함) ═══ */
 
@@ -456,6 +470,13 @@
 .cockpit .rcard .stg-t{font-family:var(--ck-mono);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;padding:2.5px 8px;border-radius:5px;background:rgba(222,119,22,.1);color:#A9530A;flex:0 0 auto}
 .cockpit .rcard .amt{font-family:var(--ck-mono);font-size:13px;font-weight:600;text-align:right;flex:0 0 auto}
 .cockpit .rcard .amt small{display:block;font-size:9px;color:var(--ck-muted);letter-spacing:.06em}
+@media (max-width:640px){
+  .cockpit .flow-row{overflow-x:auto;justify-content:flex-start}
+  .cockpit .flow-row .stg{min-width:74px;flex:0 0 74px}
+  .cockpit .rcard{flex-wrap:wrap}
+  .cockpit .rcard .x{min-width:180px}
+  .cockpit .rcard .amt{margin-left:auto}
+}
 
 /* ── 재무 ── */
 .cockpit .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}

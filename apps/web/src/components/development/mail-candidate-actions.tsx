@@ -2,9 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useToast } from "@sangfor/ui";
 
 import { Button } from "@/components/ui/button";
 import { actionErrorMessage } from "@/lib/action-error-labels";
+
+const ACTION_SUCCESS: Record<"approve" | "reject" | "revalidate", string> = {
+  approve: "후보를 승인했습니다.",
+  reject: "후보를 반려했습니다.",
+  revalidate: "재검증을 요청했습니다.",
+};
 
 type Props = {
   candidateId?: string;
@@ -47,6 +54,7 @@ export function GenerateMailCandidatesButton() {
 
 export function MailCandidateActions({ candidateId, status, requiresAiCheck = false }: Props) {
   const router = useRouter();
+  const toast = useToast();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reasonCode, setReasonCode] = useState("weak_evidence");
@@ -61,10 +69,13 @@ export function MailCandidateActions({ candidateId, status, requiresAiCheck = fa
       body: JSON.stringify({ action, ...(action === "reject" ? { reasonCode } : {}) }),
     });
     if (res.ok) {
+      toast.success(ACTION_SUCCESS[action]);
       router.refresh();
     } else {
       const data = await res.json();
-      setError(actionErrorMessage(data.error, actionErrorMessage("patch_failed")));
+      const message = actionErrorMessage(data.error, actionErrorMessage("patch_failed"));
+      setError(message);
+      toast.error(message);
     }
     setLoading(null);
   }

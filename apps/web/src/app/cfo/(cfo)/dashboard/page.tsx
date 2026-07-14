@@ -2,6 +2,22 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { prisma } from "@sangfor/db";
+import { cfoFetch } from "@/lib/cfo-client";
+
+type DashboardKpi = {
+  outstandingAmount: number;
+  outstandingCount: number;
+};
+
+type CashflowForecast = {
+  currentCash: number | null;
+};
+
+type ReceivablesSummary = {
+  total: number;
+  count: number;
+  rows: Array<{ buyer: string; status: string; remaining: number }>;
+};
 
 function won(n: number): string {
   const m = n / 1_000_000;
@@ -10,17 +26,16 @@ function won(n: number): string {
 }
 
 export default async function CfoDashboardPage() {
-  const [invoices, cashflows] = await Promise.all([
+  const [invoices, cashflows, kpi, forecast, receivables] = await Promise.all([
     prisma.invoice.findMany({ orderBy: { issueDate: "desc" }, take: 200 }),
     prisma.cashflow.findMany({ orderBy: { date: "desc" }, take: 400 }),
+    cfoFetch<DashboardKpi>("dashboard/kpi"),
+    cfoFetch<CashflowForecast>("dashboard/cashflow-forecast?days=30"),
+    cfoFetch<ReceivablesSummary>("dashboard/receivables?limit=5"),
   ]);
 
   const receivable = invoices.filter((i) => i.depositStatus === "미수");
-  const partial = invoices.filter((i) => i.depositStatus === "부분");
   const settled = invoices.filter((i) => i.depositStatus === "완료");
-  const receivableSum =
-    receivable.reduce((s, i) => s + Number(i.total ?? 0), 0) +
-    partial.reduce((s, i) => s + Number(i.total ?? 0), 0);
   const settledSum = settled.reduce((s, i) => s + Number(i.total ?? 0), 0);
 
   // 월별 순증(cashChange)
@@ -34,8 +49,7 @@ export default async function CfoDashboardPage() {
   const maxAbs = Math.max(1, ...months.map(([, v]) => Math.abs(v)));
   const thisMonthKey = new Date().toISOString().slice(0, 7);
   const thisMonthNet = byMonth.get(thisMonthKey) ?? 0;
-  const cashBalance =
-    cashflows.find((c) => c.balanceAfter != null)?.balanceAfter ?? null;
+  const cashBalance = forecast.currentCash;
 
   return (
     <div className="cockpit ck-flush ck-grain">
@@ -64,8 +78,8 @@ export default async function CfoDashboardPage() {
         </div>
         <div className="kpi">
           <div className="k">미수금</div>
-          <div className="v">{won(receivableSum)}</div>
-          <div className="d">{receivable.length + partial.length}건 · 미수·부분</div>
+          <div className="v">{won(kpi.outstandingAmount)}</div>
+          <div className="d">{kpi.outstandingCount}건 · 잔액 기준 전체</div>
         </div>
         <div className="kpi">
           <div className="k">현금 잔액</div>
@@ -75,14 +89,14 @@ export default async function CfoDashboardPage() {
         <div className="kpi">
           <div className="k">인보이스</div>
           <div className="v">{invoices.length}</div>
-          <div className="d">완료 {settled.length} · 미수 {receivable.length}</div>
+          <div className="d">최근 200건 · 완료 {settled.length} · 미수 {receivable.length}</div>
         </div>
       </div>
 
       <div className="spine-row">
         <div className="sn"><div className="c">{invoices.length}</div><div className="a">발행</div><div className="n">인보이스</div></div>
         <div className="sn"><div className="c">{settled.length}</div><div className="a">{won(settledSum)}</div><div className="n">입금 완료</div></div>
-        <div className="sn"><div className="c">{receivable.length}</div><div className="a">{won(receivable.reduce((s, i) => s + Number(i.total ?? 0), 0))}</div><div className="n">미수</div></div>
+        <div className="sn"><div className="c">{receivables.count}</div><div className="a">{won(receivables.total)}</div><div className="n">미수 잔액</div></div>
         <div className="sn"><div className="c">{cashflows.length}</div><div className="a">현금 이벤트</div><div className="n">현금흐름</div></div>
         <div className="sn"><div className="c">—</div><div className="a">외부 연동</div><div className="n">세금계산서</div></div>
       </div>
@@ -120,20 +134,17 @@ export default async function CfoDashboardPage() {
               <b>미수금</b>
               <span className="co mlbl">입금 대기</span>
             </div>
-            {receivable.length === 0 && partial.length === 0 ? (
+            {receivables.rows.length === 0 ? (
               <p className="empty">미수금이 없습니다.</p>
             ) : (
-              [...receivable, ...partial].slice(0, 5).map((i) => (
-                <div className="tx" key={i.id}>
-                  <span className={`std ${i.depositStatus === "미수" ? "rd" : "wa"}`} />
+              receivables.rows.map((row) => (
+                <div className="tx" key={`${row.buyer}-${row.status}-${row.remaining}`}>
+                  <span className={`std ${row.status === "미수" ? "rd" : "wa"}`} />
                   <div className="x">
-                    <b>{i.buyer ?? "거래처"}</b>
-                    <span>
-                      {i.depositStatus} ·{" "}
-                      {i.issueDate ? new Date(i.issueDate).toLocaleDateString("ko-KR") : ""}
-                    </span>
+                    <b>{row.buyer}</b>
+                    <span>{row.status} · 남은 금액</span>
                   </div>
-                  <span className="a">{won(Number(i.total ?? 0))}</span>
+                  <span className="a">{won(row.remaining)}</span>
                 </div>
               ))
             )}
@@ -147,7 +158,7 @@ export default async function CfoDashboardPage() {
               <span className="std ok" />
               <div className="x">
                 <b>미수금 리마인더 후보</b>
-                <span>미수 {receivable.length}건 · 초안 대기</span>
+                <span>미수 {receivables.count}건 · 초안 대기</span>
               </div>
             </div>
             <p className="empty" style={{ paddingTop: 8 }}>

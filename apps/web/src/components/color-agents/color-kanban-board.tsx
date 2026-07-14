@@ -50,10 +50,10 @@ function columnLabel(name: string): string {
 }
 
 function PriorityIndicator({ priority }: { priority: KanbanCard["priority"] }) {
-  if (priority === "critical") return <AlertTriangle className="h-3 w-3 text-red-500" role="img" aria-label="Critical priority" />;
-  if (priority === "high") return <AlertTriangle className="h-3 w-3 text-amber-500" role="img" aria-label="High priority" />;
-  if (priority === "medium") return <Clock className="h-3 w-3 text-blue-500" role="img" aria-label="Medium priority" />;
-  return <Clock className="h-3 w-3 text-gray-400" role="img" aria-label="Low priority" />;
+  if (priority === "critical") return <AlertTriangle className="h-3 w-3 text-red-500" role="img" aria-label="긴급 우선순위" />;
+  if (priority === "high") return <AlertTriangle className="h-3 w-3 text-amber-500" role="img" aria-label="높은 우선순위" />;
+  if (priority === "medium") return <Clock className="h-3 w-3 text-blue-500" role="img" aria-label="보통 우선순위" />;
+  return <Clock className="h-3 w-3 text-gray-400" role="img" aria-label="낮은 우선순위" />;
 }
 
 function StatusBadge({ status }: { status: KanbanCard["status"] }) {

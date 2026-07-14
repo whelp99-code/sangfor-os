@@ -10,7 +10,7 @@ This file is the agent entry point — a map, not an encyclopedia. Follow the po
 
 ```
 apps/       web  (Next.js 16, App Router) — the PRIMARY product backend
-            api  (Express 4 + tRPC 11)    — finance/CFO + webhooks/metrics/MCP edge
+            api  (Express 4 REST)         — finance/CFO + webhooks/metrics/MCP edge
 packages/   business (domain core, hub) · db (Prisma, ~150 models, formal migrations)
             agent · infra · auth · mail-intelligence · persona · shared · ui · config · health · api-utils
 services/   sangfor-engineer-mcp (bridge :3600 · operator :3502 · mock :3400)

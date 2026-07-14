@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntityEditSheet } from "@/components/common/entity-edit-sheet";
+import { DeleteEntityButton } from "@/components/common/delete-entity-button";
+import { taskPriorityLabel, taskStatusLabel } from "@/components/tasks/task-meta";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -43,8 +45,7 @@ export default async function TaskDetailPage({ params }: PageProps) {
               ]}
               initial={{ title: task.title, status: task.status, priority: task.priority }}
             />
-            {/* Delete button intentionally absent: archiveWorkTask is still a
-                hard prisma.delete — delete UX returns with soft-delete (PLAN §7). */}
+            <DeleteEntityButton endpoint={`/api/tasks/${task.id}`} label="보관" redirectTo="/tasks" />
           </div>
         </div>
       </div>
@@ -52,8 +53,8 @@ export default async function TaskDetailPage({ params }: PageProps) {
         <CardHeader><CardTitle>상세 정보</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex gap-2">
-            <Badge>{task.status}</Badge>
-            <Badge variant="outline">{task.priority}</Badge>
+            <Badge>{taskStatusLabel(task.status)}</Badge>
+            <Badge variant="outline">{taskPriorityLabel(task.priority)}</Badge>
           </div>
           {task.dueAt && <p>마감일: {task.dueAt.toISOString().slice(0, 10)}</p>}
         </CardContent>

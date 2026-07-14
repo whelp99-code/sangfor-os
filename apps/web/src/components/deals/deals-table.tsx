@@ -67,7 +67,7 @@ function RowActions({ deal }: { deal: Deal }) {
 
   async function handleDelete() {
     if (deleting) return;
-    if (!confirm(`"${deal.title}" 딜을 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return;
+    if (!confirm(`"${deal.title}" 딜을 보관하시겠습니까? 목록에서 숨겨지며 데이터는 삭제되지 않습니다.`)) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/opportunities/${deal.id}`, { method: "DELETE" });
@@ -106,7 +106,7 @@ function RowActions({ deal }: { deal: Deal }) {
             void handleDelete();
           }}
         >
-          {deleting ? "삭제 중..." : "삭제"}
+          {deleting ? "보관 중..." : "보관"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -235,7 +235,7 @@ const columns: ColumnDef<Deal, unknown>[] = [
     accessorKey: "nextAction",
     header: "다음 액션",
     cell: ({ row }) => (
-      <span className="line-clamp-1 text-sm text-muted-foreground">
+      <span className="block max-w-[280px] truncate text-sm text-muted-foreground">
         {row.original.nextAction ?? "미정"}
       </span>
     ),

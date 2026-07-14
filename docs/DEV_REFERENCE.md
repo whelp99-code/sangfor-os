@@ -2,7 +2,7 @@
 
 > **목적**: 개발할 때마다 펴보는 단일 진입점. 시스템 지도 · 워크스트림 · 소스 인벤토리 · 명령어 · 데이터모델 · 알려진 이슈를 한 곳에.
 > **유지 규칙**: 작업이 끝날 때마다 이 문서를 갱신한다. 새 워크스트림은 §3에 한 섹션 추가, 명령은 §5, 파일은 §6, 모델 변경은 §7, 이슈는 §8. 맨 아래 **변경 이력** 한 줄 추가.
-> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-07-09
+> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-07-13
 
 ---
 
@@ -200,7 +200,7 @@ POC 확정 시 영업기회를 **멱등·원자적**으로 Engagement(프로젝�
 - **무엇**: 받은 세금계산서(매입) 완전 자동(수집→복호화→파싱→매입 TaxInvoice+Expense+원장 멱등 반영) + 발행(매출) 작성·원장 자동(국세청 전송만 수동, 교체형 어댑터). **팝빌 없음.**
 - **핵심**: 국세청 홈택스 발급 메일 첨부 `NTS_eTaxInvoice.html`은 보안메일(암호화). 국세청 공개 `cri_ems_nt.js` 로직 재현 → `Base64+XOR0x6b 헤더 → SEED/AES-CBC(키=MD5(회사 사업자번호), IV=0) → Base64 디코드 → 표준 TaxInvoice XML`. 실제 메일로 검증. 엔진: `apps/api/src/services/finance/hometax-securemail/`(벤더링 CryptoJS rollup).
 - **안전장치**: 승인번호(`issueId @unique`)+P2002 멱등 / 실패격리(`failed`) / 사업자번호 불일치(`skipped_not_ours`) / 원장실패(`ledger_failed`) / KST 작성일자. 회사 사업자번호=복호화 키는 설정 DB(`CompanySettings`).
-- **연동**: Outlook 동기화(`apps/web/.../outlook-graph.ts`) 시 홈택스 메일 자동 인입 + `.html` 수동 업로드 폴백. UI: `cfo/(cfo)/tax-invoices`(매입/매출) + 설정 사업자번호. REST `/api/cfo/tax-invoices`·`/company-settings` + tRPC.
+- **연동**: Outlook 동기화(`apps/web/.../outlook-graph.ts`) 시 홈택스 메일 자동 인입 + `.html` 수동 업로드 폴백. UI: `cfo/(cfo)/tax-invoices`(매입/매출) + 설정 사업자번호. REST `/api/cfo/tax-invoices`·`/company-settings`.
 - **테스트**: 단위+통합 31/31(통합은 `CI_INTEGRATION=1`, 공유 DB라 직렬 — `vitest.config.ts fileParallelism`). 서브에이전트 TDD + 최종 전체리뷰 통과.
 - **마이그레이션**: §3.G 전환에 맞춰 `db push` 대신 정식 마이그레이션 생성(`migrate diff` + shadow DB). 설계/계획: `docs/superpowers/{specs,plans}/2026-06-29-cfo-tax-invoice-automation*`.
 
@@ -212,6 +212,13 @@ POC 확정 시 영업기회를 **멱등·원자적**으로 Engagement(프로젝�
 - **규칙**: 스키마 변경 전 반드시 `git diff origin/main -- packages/db/prisma/schema.prisma` 확인. `db push --accept-data-loss` 금지.
 
 > `memory/`의 [DB uses db push not migrate] 메모는 이 전환으로 갱신 필요(현재 마이그레이션 전환 중).
+
+### 3.K R16–R20 실사용 5라운드 QA (2026-07-13)
+
+- **범위**: 라운드당 10개, 총 50개 시나리오로 교정/보관, 기능 도달성, CFO 진실성, 모바일·한국어·키보드, 동결 회귀를 검증했다. Sol이 격리 환경에서 실행하고 Grok이 각 라운드를 독립 반례검토했다.
+- **주요 착륙**: Contact 교정/soft archive, partner/contact tenant scope, 안정적인 전환 409+명시적 force, renewal 상태 변경, 월마감 실행, VAT 기간 선택, CFO 미수·현금 SSOT, subscription API 계약, CFO-local 404, 모바일/한국어/오류 피드백.
+- **안전/발견**: 기능 쓰기는 QA DB `sangfor_os_uxtest_r16r20`, Redis DB 14, web 3110/api 3230에서 수행했다. 다만 기존 비격리 business 테스트 4개가 루트 `.env` 운영 DB에 감사 로그 34행을 남기는 결함을 발견해 `CI_INTEGRATION=1` 게이트와 cleanup을 추가했다. 남은 운영 로그 삭제는 승인 대기다.
+- **상세 증거**: [`docs/plans/2026-07-13-r16-r20-real-usage-qa.md`](plans/2026-07-13-r16-r20-real-usage-qa.md).
 
 ---
 
@@ -405,6 +412,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 | `FinanceProject` | +거래처, 시작일, 종료일 |
 | `Invoice` | +발행일 |
 | `AiModel` | 게이팅용(allowedDataClassification, isActive) — 시드 스크립트로 4종 |
+| `Contact` | +`archivedAt?`, +`updatedAt`; 연락처 교정·soft archive용 additive migration `20260713143000_contact_corrections` |
 
 > 전부 **additive/nullable** 원칙. 변경 시 §3.G 안전 절차 준수.
 
@@ -486,3 +494,9 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **2026-07-10 (W2~W4)**: M1 1차 고도화 마감 — 실측으로 Phase 2·3·4가 이미 머지돼 있음을 확인(로드맵 항목이 낡아 있었음), 실제 잔여만 실행: ①ADR-002 작성(web=BFF 채택, tRPC 도입 폐기, phase-6 문서 배너 — 사용자 승인 대기) ②`dashboard/[role]` prisma 12건을 `role-dashboard-data.ts`로 추출(응답 9종 바이트 동일 검증, 라우트 127→22줄) ③죽은 헬퍼 2종(extractCompanyFromDomain/extractContactFromEmail, 스테일 berlo 라벨) 제거 ④02 게이트 G1~G4+golden+시나리오1 통과 — 재연 중 `mail-candidates-convert.ts` task 분기의 createdEntityId 미설정 실버그 발견·수정·회귀테스트 추가·댕글링 3건 백필(converted 후보 linkage 무결 100%). M1 종료 기준 4/5(잔여: 데일리 배치 3일 연속, 2026-07-13 관측). 증거 `.agents/results/2026-07-10-w2-w4-gate.md`.
 - **2026-07-10/11 (M2·M3)**: 피어 협업+Sonnet 서브에이전트로 M2·M3 코드 전량 랜딩(PR #113~#124, 12건). M2: 스파인 수렴 A-0~A-8(우회 writer 0, 라이브 재연 3종 — 재연이 updateOpportunity actor 불일치까지 검출·통일), 파트너 49행, 백업드릴+죽은백업 수정, sales_support 도메인. M3: AutonomyPolicy+autopilot(연속3회 뒤집힘 자동강등)+launchd 파이프라인 4잡 가동+실쿼리 브리핑+와치독+관제화면/kill-switch(DB+env). 정밀도 51→38%는 정크청소 반작용으로 정직 기록. 관찰 대기: 24h 무인 로그·auto 승격(표본 축적 후)·뒤집힘율. 게이트 기록 `.agents/results/2026-07-11-m2-m3-gate.md`.
 - **2026-07-07**: **v1 완성 웨이브 — WP-A~E + e2e 6PR(#96~#101) 전부 main 머지 완료**(#101은 2026-07-07T10:44:29Z 머지, `22de4b5`), 상세는 `docs/master-plan/01-development-plan.md` 및 `.agents/results/2026-07-07-*`.
+- **2026-07-13**: Claude의 Fable 계열을 Codex 전역 스킬로 이식 — `~/.codex/skills/fable-init`, `fable-agent`, `fable-dispatch`. 실제 Claude 원본은 `fable-agents`(복수)·`fable-dispatch`였으며 별도 `fable-init`은 없어, Codex용 `fable-init`은 내장 init 역할과 Fable 독트린을 결합했다. 세 스킬 구조 검증 통과, dispatch JSONL 원장 정상·오류 경로 실행 검증 완료.
+- **2026-07-13 (Fable 지침 감사)**: 루트·하위 에이전트 지침 18개와 1-hop 참조를 감사해 F1–F14 직접 정의/상속 및 링크 무결성을 확인했다. 제거된 tRPC 표면이 현재 구성으로 남아 있던 `AGENTS.md`·`apps/api/AGENTS.md`·`ARCHITECTURE.md`·본 문서의 표현을 Express REST 기준으로 정정했다. Node 20에서 lint·typecheck·build는 exit 0; test는 PostgreSQL `localhost:5434` 미기동으로 17건 실패(71 files/648 tests pass)해 미통과로 기록했다. 새 Codex 세션에서 API 형태와 F6/F13 지침 로드를 재현했다.
+- **2026-07-13 (잔여 정리)**: `apps/api/src/middleware/finance-access.ts`의 제거된 tRPC guard 주석을 삭제했다. Codex `SessionStart`/`Stop` 실패는 Claude 전용 `security-guidance` 플러그인이 지원되지 않는 `metrics` JSON을 stdout에 출력한 것이 원인이었다. `claude-plugins-official` 플러그인 16개를 전역·Orca 계정 등록에서 제거했다. 삭제된 훅 경로를 현재 세션이 다시 호출해 발생한 exit 127은 마지막 Stop까지 유효한 호환 래퍼로 차단하고, Stop 직후 남은 Claude 공식 플러그인 캐시도 제거되도록 구성했다. 새 `codex exec`에서는 나머지 활성 훅이 모두 완료되는 것을 확인했다.
+- **2026-07-13 (Antigravity 스킬 이식)**: Claude의 Fable 계열 스킬(fable-init, fable-agent, fable-dispatch)을 Antigravity 전역 스킬/플러그인으로 포팅 완료 — `~/.gemini/config/plugins/fable/` 하위에 설치. plugin.json, installed_version.json 및 chmod +x script 설정 검증 완료.
+- **2026-07-13 (R11-R15 인계)**: 권한·프로젝트 격리·동시성·AI fallback·반응형 교정과 R15 3-arm 교차검증을 완료했다. 구현 커밋, 검증 수치, QA 원복 상태, 프로덕션 기준선 drift 주의사항과 R16 재개 조건은 [`docs/plans/2026-07-13-r11-r15-claude-handoff.md`](plans/2026-07-13-r11-r15-claude-handoff.md)에 고정했다. 사용자 지시에 따라 R16-R20은 시작하지 않았다.
+- **2026-07-13 (R16-R20 실사용 5라운드)**: Sol 실행 + Grok 독립검토로 50개 시나리오를 수행했다. 연락처/파트너/작업 교정·보관 및 tenant 경계, 전환 409/force, 갱신·월마감·VAT 도달성, CFO 수치·계약·오류 진실성, 모바일·한국어·키보드 피드백을 개선했다. 기존 비격리 테스트가 운영 감사 로그 34행을 남기는 문제도 발견해 integration gate로 재발을 차단했으며, 로그 삭제는 승인 대기다. 상세 매트릭스와 잔여 위험은 [`docs/plans/2026-07-13-r16-r20-real-usage-qa.md`](plans/2026-07-13-r16-r20-real-usage-qa.md)에 기록했다.

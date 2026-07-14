@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -69,6 +70,13 @@ function formatRevenue(count: number): string {
   return `${count}건`;
 }
 
+function partnerTypeLabel(partnerType: string | null): string | null {
+  if (!partnerType) return null;
+  if (partnerType === "mail-derived") return "메일 유래";
+  if (partnerType.startsWith("ground-truth-")) return null;
+  return partnerType;
+}
+
 interface PartnerFilterTableProps {
   partners: Partner[];
   total: number;
@@ -76,6 +84,7 @@ interface PartnerFilterTableProps {
 
 export function PartnerFilterTable({ partners, total }: PartnerFilterTableProps) {
   const [activeFilter, setActiveFilter] = useState<FilterChip>("all");
+  const router = useRouter();
 
   const filtered =
     activeFilter === "all"
@@ -144,14 +153,27 @@ export function PartnerFilterTable({ partners, total }: PartnerFilterTableProps)
                 const dealCount = partner._count.opportunities;
                 const linkCount = partner.customerLinks.length;
                 const displayCount = dealCount > 0 ? dealCount : linkCount > 0 ? linkCount : 0;
+                const typeLabel = partnerTypeLabel(partner.partnerType);
 
                 return (
-                  <TableRow key={partner.id}>
+                  <TableRow
+                    key={partner.id}
+                    className="cursor-pointer"
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => router.push(`/partners/${partner.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        router.push(`/partners/${partner.id}`);
+                      }
+                    }}
+                  >
                     {/* 이름 */}
                     <TableCell>
                       <div className="font-bold text-foreground">{partner.name}</div>
-                      {partner.partnerType && (
-                        <div className="text-xs text-muted-foreground mt-0.5">{partner.partnerType}</div>
+                      {typeLabel && (
+                        <div className="text-xs text-muted-foreground mt-0.5">{typeLabel}</div>
                       )}
                     </TableCell>
 

@@ -21,6 +21,8 @@ export function stageTransitionMessage(raw: string): string {
       return "딜 등록이 제출되지 않아 다음 단계로 진행할 수 없습니다. 총판을 통해 딜 등록을 먼저 제출하세요.";
     case "registration_rejected":
       return "딜 등록이 거절되어 다음 단계로 진행할 수 없습니다. 등록 상태를 먼저 해결하세요.";
+    case "opportunity_conflict":
+      return "다른 변경이 먼저 저장되었습니다. 새로고침 후 다시 시도해 주세요.";
     case "update_failed":
     default:
       return "단계 이동에 실패했습니다. 잠시 후 다시 시도해 주세요.";

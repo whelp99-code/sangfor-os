@@ -7,6 +7,8 @@ import {
 } from "./mail-candidates";
 import type { AiClassificationResult } from "./mail-candidates";
 
+const integration = process.env.CI_INTEGRATION === "1";
+
 describe("mail candidate classification", () => {
   // Runs against the SHARED dev DB, not a sandbox — a prior version of this
   // file left fixture rows behind permanently (381-row cleanup incident).
@@ -289,7 +291,7 @@ describe("mail candidate classification", () => {
     expect(result.excluded).toHaveLength(0);
   });
 
-  it("suppresses existing proposed promotional fallback customer candidates", async () => {
+  it.skipIf(!integration)("suppresses existing proposed promotional fallback customer candidates", async () => {
     const { prisma } = await import("@sangfor/db");
     const { generateMailDerivedCandidates } = await import("./mail-candidates");
     const { resolveProjectId } = await import("./mail-policy-memory");
@@ -323,7 +325,7 @@ describe("mail candidate classification", () => {
     });
   });
 
-  it("processes legacy knowledge fallback documents even when mail insight threads exist", async () => {
+  it.skipIf(!integration)("processes legacy knowledge fallback documents even when mail insight threads exist", async () => {
     const { prisma } = await import("@sangfor/db");
     const { generateMailDerivedCandidates } = await import("./mail-candidates");
     const { resolveProjectId } = await import("./mail-policy-memory");

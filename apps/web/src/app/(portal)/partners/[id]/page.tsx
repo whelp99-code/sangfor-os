@@ -22,10 +22,6 @@ export default async function PartnerDetailPage({ params }: PageProps) {
             endpoint={`/api/partners/${partner.id}`}
             fields={[
               { name: "name", label: "이름" },
-              { name: "partnerType", label: "파트너 유형", type: "select", options: [
-                { value: "reseller", label: "리셀러" },
-                { value: "integration", label: "통합" },
-              ]},
               { name: "kind", label: "구분", type: "select", options: [
                 { value: "", label: "미지정" },
                 { value: "VENDOR", label: "벤더" },
@@ -40,12 +36,11 @@ export default async function PartnerDetailPage({ params }: PageProps) {
             ]}
             initial={{
               name: partner.name,
-              partnerType: partner.partnerType ?? "",
               kind: partner.kind ?? "",
               status: partner.status ?? "active",
             }}
           />
-          <DeleteEntityButton endpoint={`/api/partners/${partner.id}`} redirectTo="/partners" />
+          <DeleteEntityButton endpoint={`/api/partners/${partner.id}`} label="보관" redirectTo="/partners" />
         </div>
       </div>
       <Card>

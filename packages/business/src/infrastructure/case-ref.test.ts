@@ -7,6 +7,7 @@ describe("caseRefFor", () => {
     expect(caseRefFor("opportunity", "x")).toBe("opp:x");
     expect(caseRefFor("engagement", "x")).toBe("eng:x");
     expect(caseRefFor("mailCandidate", "x")).toBe("mail_candidate:x");
+    expect(caseRefFor("contact", "x")).toBe("contact:x");
   });
 
   it("is stable per entity so a decision row and its correction row pair on one caseRef", () => {

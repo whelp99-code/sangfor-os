@@ -72,7 +72,7 @@ export const STAGE_LABELS: Record<string, string> = {
   POC: "PoC",
   NEGOTIATION: "협상",
   WON: "수주",
-  LOST: "실패",
+  LOST: "실주",
 };
 
 export const STAGE_ACCENT: Record<string, string> = {

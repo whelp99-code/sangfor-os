@@ -14,6 +14,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import express, { Express } from 'express';
+import type { AddressInfo } from 'node:net';
 import { createCfoRoutes } from './cfo';
 
 const integration = process.env.CI_INTEGRATION === '1';
@@ -74,6 +75,20 @@ describe('createCfoRoutes – tax-invoice + company-settings route registration'
       .filter((l: any) => l.route)
       .map((l: any) => `${Object.keys(l.route.methods)[0].toUpperCase()} ${l.route.path}`);
     expect(routes).toContain('POST /company-settings');
+  });
+
+  it('returns a CFO-local 404 for an unknown route', async () => {
+    const server = app.listen(0);
+    try {
+      const { port } = server.address() as AddressInfo;
+      const response = await fetch(`http://127.0.0.1:${port}/api/cfo/not-a-route`);
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toEqual({ error: 'not_found' });
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
   });
 });
 

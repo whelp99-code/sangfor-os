@@ -21,7 +21,7 @@ export function RoleDashboard({ role, sections }: RoleDashboardProps) {
           <p className="text-sm font-medium text-gray-400">Sangfor Agentic OS</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{role}</h1>
           <p className="mt-2 text-sm text-gray-400">
-            Role-based operational dashboard
+            역할 기반 운영 대시보드
           </p>
         </div>
       </div>

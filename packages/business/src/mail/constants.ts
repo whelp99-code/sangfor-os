@@ -14,6 +14,7 @@ export const mailCandidateStatusSchema = z.enum([
   "needs_revalidation",
   "proposed",
   "approved",
+  "converting",
   "rejected",
   "converted",
   "knowledge_only",

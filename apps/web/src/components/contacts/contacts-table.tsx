@@ -24,7 +24,7 @@ export type ContactRow = {
 
 const ROLE_CHIP_FILTERS = [
   { label: "전체", value: "" },
-  { label: "실구매 결정자(Economic Buyer)", value: "economic buyer" },
+  { label: "실구매 결정자", value: "economic buyer" },
   { label: "챔피언", value: "champion" },
   { label: "기술", value: "기술" },
   { label: "구매", value: "구매" },

@@ -114,7 +114,7 @@ export function DataTable<T extends Record<string, any>>({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border">
+      <div className="overflow-x-auto rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>

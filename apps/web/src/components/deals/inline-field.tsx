@@ -6,6 +6,7 @@ import { Pencil } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { actionErrorMessage } from "@/lib/action-error-labels";
 import { cn } from "@/lib/utils";
 
 export type InlineFieldProps = {
@@ -20,6 +21,7 @@ export type InlineFieldProps = {
   inputType?: "text" | "number" | "date" | "select";
   options?: { value: string; label: string }[];
   opportunityId: string;
+  expectedUpdatedAt?: string;
   /** Current raw value for the editor */
   rawValue?: string | number | null;
 };
@@ -33,6 +35,7 @@ export function InlineField({
   inputType = "text",
   options,
   opportunityId,
+  expectedUpdatedAt,
   rawValue,
 }: InlineFieldProps) {
   const router = useRouter();
@@ -51,6 +54,7 @@ export function InlineField({
     setError(null);
     try {
       const body: Record<string, unknown> = {};
+      if (expectedUpdatedAt) body.expectedUpdatedAt = expectedUpdatedAt;
       if (inputType === "number") {
         body[field] = draft === "" ? null : Number(draft);
       } else if (inputType === "date") {
@@ -65,7 +69,12 @@ export function InlineField({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError((data as { error?: string }).error ?? "저장 실패");
+        setError(
+          actionErrorMessage(
+            (data as { error?: string }).error,
+            "저장하지 못했습니다.",
+          ),
+        );
         return;
       }
       setEditing(false);

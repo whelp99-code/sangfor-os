@@ -16,12 +16,12 @@ export default async function CommandsPage() {
     <div className="space-y-6">
       <RegistryPageView
         pageKey="commands"
-        title="Command Center"
-        description="Create command runs with intent/risk analysis and workflow planning."
+        title="커맨드 센터"
+        description="의도/위험 분석과 워크플로 계획으로 커맨드 실행을 생성합니다."
       />
       <CreateCommandForm />
       {runs.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No command runs yet.</p>
+        <p className="text-sm text-muted-foreground">아직 커맨드 실행이 없습니다.</p>
       ) : (
         <div className="grid gap-3">
           {runs.map((command) => (
@@ -44,12 +44,12 @@ export default async function CommandsPage() {
                     className={buttonVariants({ variant: "outline", size: "sm" })}
                     href={`/commands/${command.id}`}
                   >
-                    Open detail
+                    상세 보기
                   </Link>
                 </div>
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground">
-                Project: {command.project.name} · ID: {command.id}
+                프로젝트: {command.project.name} · ID: {command.id}
               </CardContent>
             </Card>
           ))}

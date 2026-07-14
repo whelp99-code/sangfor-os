@@ -39,9 +39,16 @@ function resolveDefaultPeriod(now: Date): { year: number; half: 1 | 2; priorPend
   return { year: y, half: currentHalf, priorPending: false };
 }
 
-export default async function VatPage() {
+export default async function VatPage({ searchParams }: { searchParams: Promise<{ year?: string; half?: string }> }) {
   const now = new Date();
-  const { year, half, priorPending } = resolveDefaultPeriod(now);
+  const defaults = resolveDefaultPeriod(now);
+  const query = await searchParams;
+  const requestedYear = Number(query.year);
+  const requestedHalf = Number(query.half);
+  const customPeriod = Number.isInteger(requestedYear) && requestedYear >= 2000 && (requestedHalf === 1 || requestedHalf === 2);
+  const year = customPeriod ? requestedYear : defaults.year;
+  const half = (customPeriod ? requestedHalf : defaults.half) as 1 | 2;
+  const priorPending = !customPeriod && defaults.priorPending;
   let vat: VatSummary | null = null;
   let error: string | null = null;
 
@@ -57,6 +64,20 @@ export default async function VatPage() {
         title="부가세"
         right={<span className="text-sm" style={{ color: CFO.muted }}>{year}년 {half}기 {priorPending ? "확정신고" : "예정"}</span>}
       />
+      <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4" method="get">
+        <label className="grid gap-1 text-sm">
+          <span className="text-zinc-500">연도</span>
+          <input className="h-9 rounded-md border px-3" name="year" type="number" min="2000" max="9999" defaultValue={year} />
+        </label>
+        <label className="grid gap-1 text-sm">
+          <span className="text-zinc-500">기수</span>
+          <select className="h-9 rounded-md border px-3" name="half" defaultValue={half}>
+            <option value="1">1기</option>
+            <option value="2">2기</option>
+          </select>
+        </label>
+        <button className="h-9 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" type="submit">조회</button>
+      </form>
       {priorPending && (
         <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
           {year}년 {half}기 부가세 신고기한이 임박했습니다. 직전 반기 확정 실적을 표시합니다.

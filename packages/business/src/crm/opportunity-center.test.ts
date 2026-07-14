@@ -22,6 +22,7 @@ const defaultFindUniqueResult: Record<string, unknown> = {
   projectId: "proj-1",
   dealType: null,
   dealRegistration: null,
+  updatedAt: new Date("2026-07-13T00:00:00.000Z"),
 };
 
 /** Call-recording fake, following domain-persistence.test.ts's fakePrisma() style. */
@@ -56,6 +57,11 @@ function fakePrisma() {
       update: vi.fn(async (args: { where: { id: string }; data: Record<string, unknown> }) => {
         record("opportunity.update", args);
         return { id: args.where.id, ...args.data };
+      }),
+      updateMany: vi.fn(async (args: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+        record("opportunity.updateMany", args);
+        findUniqueOrThrowResult = { ...findUniqueOrThrowResult, ...args.data };
+        return { count: 1 };
       }),
     },
     opportunityStageEvent: {
@@ -191,6 +197,43 @@ describe("opportunity-center characterization", () => {
         expect.objectContaining({ actionType: "entity_edit", outcome: "corrected" }),
       );
       expect(updated.title).toBe("New Title");
+    });
+
+    it("rejects a stale expectedUpdatedAt without writing", async () => {
+      const { db, calls } = fakePrisma();
+
+      await expect(
+        updateOpportunity(
+          "opp-1",
+          { title: "Stale title", expectedUpdatedAt: "2026-07-12T00:00:00.000Z" },
+          { prisma: db },
+        ),
+      ).rejects.toThrow("opportunity_conflict");
+
+      expect(calls["opportunity.update"]).toBeUndefined();
+      expect(calls["opportunity.updateMany"]).toBeUndefined();
+      expect(recordDecision).not.toHaveBeenCalled();
+    });
+
+    it("uses a compare-and-swap update for a matching expectedUpdatedAt", async () => {
+      const { db, calls } = fakePrisma();
+
+      const updated = await updateOpportunity(
+        "opp-1",
+        {
+          title: "CAS title",
+          expectedUpdatedAt: "2026-07-13T00:00:00.000Z",
+        },
+        { prisma: db },
+      );
+
+      expect(calls["opportunity.update"]).toBeUndefined();
+      expect(calls["opportunity.updateMany"]).toHaveLength(1);
+      expect(calls["opportunity.updateMany"]?.[0]).toEqual({
+        where: { id: "opp-1", updatedAt: new Date("2026-07-13T00:00:00.000Z") },
+        data: { title: "CAS title" },
+      });
+      expect(updated.title).toBe("CAS title");
     });
 
     it("captures both stage_transition and entity_edit when stage AND other fields change", async () => {

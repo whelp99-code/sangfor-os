@@ -23,6 +23,16 @@ export const ACTION_ERROR_LABELS: Record<string, string> = {
   create_failed: "생성에 실패했습니다.",
   // phase13 run panel
   phase13_run_failed: "Phase 13 실행에 실패했습니다.",
+  // opportunity stage advance / registration gate
+  registration_not_submitted: "딜 등록 승인이 필요한 단계입니다. 채널·등록 탭에서 딜 등록을 제출·승인받아 주세요.",
+  registration_rejected: "딜 등록이 반려되어 다음 단계로 진행할 수 없습니다. 등록 상태를 확인해 주세요.",
+  cannot_advance_stage: "더 진행할 다음 단계가 없습니다.",
+  stage_skip_forward: "단계를 건너뛸 수 없습니다. 한 단계씩 진행해 주세요.",
+  illegal_stage_regression: "이전 단계로 되돌릴 수 없습니다.",
+  stage_is_terminal: "종료된 딜(수주·실패)은 단계를 변경할 수 없습니다.",
+  opportunity_conflict: "다른 변경이 먼저 저장되었습니다. 새로고침 후 다시 시도해 주세요.",
+  conversion_requires_poc: "확정된 POC가 필요합니다. POC를 연결하거나 승인 후 강제 전환해 주세요.",
+  conversion_stage_not_ready: "제안 이후 단계에서 프로젝트로 전환할 수 있습니다.",
 };
 
 /**

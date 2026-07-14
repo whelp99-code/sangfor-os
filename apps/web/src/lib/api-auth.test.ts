@@ -53,6 +53,21 @@ describe("assertApiAccess", () => {
     const res = assertApiAccess(new Request("http://localhost/api/tasks"));
     expect(res?.status).toBe(401);
   });
+
+  it("accepts the mock session issued by dev login when auth is unconfigured", () => {
+    const originalSecret = process.env.JWT_SECRET;
+    delete process.env.JWT_SECRET;
+    try {
+      const req = new Request("http://localhost/api/tasks", {
+        method: "POST",
+        headers: { authorization: "Bearer mock.session" },
+      });
+      expect(assertApiAccess(req)).toBeNull();
+    } finally {
+      if (originalSecret === undefined) delete process.env.JWT_SECRET;
+      else process.env.JWT_SECRET = originalSecret;
+    }
+  });
 });
 
 describe("assertApiAccess with a configured session", () => {
@@ -71,7 +86,13 @@ describe("assertApiAccess with a configured session", () => {
 
   it("passes with a valid session cookie (logged-in user must not be 401'd)", async () => {
     const { createSessionToken } = await import("@/lib/auth/session");
-    const token = createSessionToken({ id: "u1", email: "u@test.local", role: "operator" });
+    const token = createSessionToken({
+      id: "u1",
+      email: "u@test.local",
+      role: "operator",
+      projectId: "project-1",
+      projectSlug: "demo-project",
+    });
     const req = new Request("http://localhost/api/tasks", {
       headers: { cookie: `session=${token}` },
     });
@@ -80,11 +101,39 @@ describe("assertApiAccess with a configured session", () => {
 
   it("passes with a valid Bearer token", async () => {
     const { createSessionToken } = await import("@/lib/auth/session");
-    const token = createSessionToken({ id: "u1", email: "u@test.local", role: "operator" });
+    const token = createSessionToken({
+      id: "u1",
+      email: "u@test.local",
+      role: "operator",
+      projectId: "project-1",
+      projectSlug: "demo-project",
+    });
     const req = new Request("http://localhost/api/tasks", {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(assertApiAccess(req)).toBeNull();
+  });
+
+  it("allows viewer reads but rejects viewer mutations", async () => {
+    const { createSessionToken } = await import("@/lib/auth/session");
+    const token = createSessionToken({
+      id: "viewer-1",
+      email: "viewer@test.local",
+      role: "viewer",
+      projectId: "project-1",
+      projectSlug: "demo-project",
+    });
+    const headers = { authorization: `Bearer ${token}` };
+
+    expect(
+      assertApiAccess(new Request("http://localhost/api/customers", { headers })),
+    ).toBeNull();
+
+    const denied = assertApiAccess(
+      new Request("http://localhost/api/customers", { method: "POST", headers }),
+    );
+    expect(denied?.status).toBe(403);
+    await expect(denied?.json()).resolves.toEqual({ error: "forbidden" });
   });
 
   it("still 401s a tampered session token", () => {

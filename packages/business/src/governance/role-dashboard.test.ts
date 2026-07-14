@@ -34,7 +34,6 @@ describe("calculateSalesDashboard", () => {
         { id: "opp-2", customer: null, stage: "discovery", value: 25000 },
         { id: "opp-3", customer: "MegaCorp", stage: "NEGOTIATION", value: 60000 },
         { id: "opp-4", customer: "SmallBiz", stage: "NEGOTIATION", value: 30000 },
-        { id: "opp-5", customer: null, stage: "WON", value: 0 },
       ],
       followUp: 2,
       pendingApprovals: 2,

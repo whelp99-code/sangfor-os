@@ -1,6 +1,14 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockApprove, mockGet, mockRevalidate, mockReject, mockSetCandidateType } = vi.hoisted(() => ({
+const {
+  CandidateConversionInProgressError,
+  mockApprove,
+  mockGet,
+  mockRevalidate,
+  mockReject,
+  mockSetCandidateType,
+} = vi.hoisted(() => ({
+  CandidateConversionInProgressError: class extends Error {},
   mockApprove: vi.fn(),
   mockGet: vi.fn(),
   mockRevalidate: vi.fn(),
@@ -10,6 +18,7 @@ const { mockApprove, mockGet, mockRevalidate, mockReject, mockSetCandidateType }
 
 vi.mock("@sangfor/business/mail-candidates", () => ({
   approveMailDerivedCandidate: mockApprove,
+  CandidateConversionInProgressError,
   getMailDerivedCandidate: mockGet,
   revalidateMailDerivedCandidate: mockRevalidate,
   rejectMailDerivedCandidate: mockReject,
@@ -75,6 +84,16 @@ describe("PATCH /api/mail-candidates/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(mockApprove).toHaveBeenCalledWith("cand-1");
+  });
+
+  it("returns 409 while another approval is converting the candidate", async () => {
+    mockApprove.mockRejectedValueOnce(new CandidateConversionInProgressError());
+
+    const res = await PATCH(req({ action: "approve" }), params());
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.error).toBe("candidate_conversion_in_progress");
   });
 
   it("still routes action=reject to rejectMailDerivedCandidate with reasonCode", async () => {

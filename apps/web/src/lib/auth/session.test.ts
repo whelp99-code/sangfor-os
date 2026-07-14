@@ -29,15 +29,41 @@ describe("verifySessionToken — signed tokens", () => {
   });
 
   it("round-trips a token it signed itself", () => {
-    const token = createSessionToken({ id: "u1", email: "u@test.local", role: "operator" });
+    const token = createSessionToken({
+      id: "u1",
+      email: "u@test.local",
+      role: "operator",
+      projectId: "project-1",
+      projectSlug: "demo-project",
+    });
     const user = verifySessionToken(token);
     expect(user?.id).toBe("u1");
     expect(user?.role).toBe("operator");
+    expect(user?.projectId).toBe("project-1");
+    expect(user?.projectSlug).toBe("demo-project");
   });
 
   it("rejects a tampered signature", () => {
-    const token = createSessionToken({ id: "u1", email: "u@test.local", role: "operator" });
+    const token = createSessionToken({
+      id: "u1",
+      email: "u@test.local",
+      role: "operator",
+      projectId: "project-1",
+      projectSlug: "demo-project",
+    });
     const [body] = token.split(".");
     expect(verifySessionToken(`${body}.forged-signature`)).toBeNull();
+  });
+
+  it("rejects a validly signed legacy token without project scope", () => {
+    const legacyToken = createSessionToken({
+      id: "u1",
+      email: "u@test.local",
+      role: "operator",
+      projectId: "",
+      projectSlug: "",
+    });
+
+    expect(verifySessionToken(legacyToken)).toBeNull();
   });
 });
