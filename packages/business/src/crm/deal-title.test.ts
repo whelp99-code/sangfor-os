@@ -14,6 +14,12 @@ describe("mailCandidateNextAction", () => {
   it("drops the dash when there is no summary to show", () => {
     expect(mailCandidateNextAction("   ")).toBe("승인된 메일 후보 검토");
   });
+
+  it("cuts at the mail transcript instead of slicing addresses into the cell", () => {
+    const summary =
+      "대화 1건 (받은 1 / 보낸 0).\n[받은] srm@gsitm.com → jm.park@blro.co.kr: 견적 요청드립니다";
+    expect(mailCandidateNextAction(summary)).toBe("승인된 메일 후보 검토 — 대화 1건 (받은 1 / 보낸 0).");
+  });
 });
 
 describe("normalizeDealTitle", () => {

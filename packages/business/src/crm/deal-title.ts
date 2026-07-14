@@ -62,18 +62,16 @@ export function withTag({ title, tag }: NormalizedDealTitle): string {
   return tag ? `[${tag}] ${title}` : title;
 }
 
+const NEXT_ACTION_LABEL = "승인된 메일 후보 검토";
 const NEXT_ACTION_MAX = 60;
 
-/**
- * 승인된 메일 후보에서 만드는 "다음 액션" 카피.
- *
- * 메일 요약 180자를 그대로 붙이던 탓에 딜 표의 셀이 메일 본문 덤프가 됐다.
- * 목록에서 한 줄로 읽히도록 한국어 카피 + 짧은 맥락만 남긴다.
- */
+// 요약은 "대화 N건 (…)" 한 줄 뒤에 메일 전문이 그대로 이어붙는다. 글자수로만 자르면
+// 주소·본문 조각이 섞여 나오므로, 전문이 시작되는 표식에서 끊는다.
+const MAIL_TRANSCRIPT = /\n|\[받은\]|\[보낸\]/;
+
+/** 메일 요약 180자를 그대로 붙이던 탓에 딜 셀이 메일 덤프가 됐다. 한 줄로 읽히게 줄인다. */
 export function mailCandidateNextAction(summary: string): string {
-  const context = (summary ?? "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, NEXT_ACTION_MAX);
-  return context ? `승인된 메일 후보 검토 — ${context}` : "승인된 메일 후보 검토";
+  const headline = (summary ?? "").split(MAIL_TRANSCRIPT)[0] ?? "";
+  const context = headline.replace(/\s+/g, " ").trim().slice(0, NEXT_ACTION_MAX);
+  return context ? `${NEXT_ACTION_LABEL} — ${context}` : NEXT_ACTION_LABEL;
 }
