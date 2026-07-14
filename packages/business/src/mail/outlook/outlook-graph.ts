@@ -9,6 +9,7 @@
  */
 import { prisma } from "@sangfor/db";
 import { cfoFetch } from "../../finance/cfo-client";
+import { extractMailBody } from "./mail-body";
 
 const AUTH_HOST = "https://login.microsoftonline.com";
 const GRAPH = "https://graph.microsoft.com/v1.0";
@@ -159,6 +160,7 @@ interface GraphMessage {
   id: string;
   subject?: string;
   bodyPreview?: string;
+  body?: { contentType?: string; content?: string };
   conversationId?: string;
   receivedDateTime?: string;
   from?: { emailAddress?: { address?: string } };
@@ -187,7 +189,8 @@ async function fetchFolderMessages(
   folder: "inbox" | "sentitems",
   maxMessages: number,
 ): Promise<GraphMessage[]> {
-  const select = "id,subject,from,toRecipients,bodyPreview,receivedDateTime,conversationId";
+  const select =
+    "id,subject,from,toRecipients,bodyPreview,body,receivedDateTime,conversationId";
   let url: string | null = `${GRAPH}/me/mailFolders/${folder}/messages?$top=${GRAPH_PAGE_SIZE}&$select=${select}&$orderby=receivedDateTime desc`;
   const out: GraphMessage[] = [];
   while (url && out.length < maxMessages) {
@@ -348,12 +351,15 @@ export async function syncDelegatedOutlook(
     const fromEmail = sanitizeText(msg.from?.emailAddress?.address) || "unknown";
     const toEmail = sanitizeText(msg.toRecipients?.[0]?.emailAddress?.address) || null;
     const conversationId = msg.conversationId || msg.id;
+    const extracted = extractMailBody(msg.body);
     const base = {
       accountId: account.id,
       subject: sanitizeText(msg.subject) || "(no subject)",
       fromEmail,
       toEmail,
       bodyPreview: sanitizeText(msg.bodyPreview),
+      body: extracted.body ? sanitizeText(extracted.body) : null,
+      bodyFormat: extracted.format,
       conversationId,
       direction,
       receivedAt: msg.receivedDateTime ? new Date(msg.receivedDateTime) : null,
