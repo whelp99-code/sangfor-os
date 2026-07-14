@@ -97,10 +97,27 @@ async function main() {
     if (d.length) domainsOfDeal.set(l.createdEntityId!, d as string[]);
   }
 
-  // 2) CRM 임포트 딜 — 고객명으로 스레드를 역추적해 그 고객을 다룬 파트너를 찾는다.
-  const threads = await prisma.mailInsightThread.findMany({
-    select: { threadTitle: true, summary: true, participantDomains: true },
-  });
+  // 2) CRM 임포트 딜 — 고객명으로 메일을 역추적해 그 고객을 다룬 파트너를 찾는다.
+  // 스레드 제목·요약만으로는 놓친다(서울도시가스: 스레드 0건 / 본문 3건). 최종고객은
+  // 제목이 아니라 본문에 적히기 때문이다 — 복구한 body를 반드시 함께 본다.
+  const [threads, mails] = await Promise.all([
+    prisma.mailInsightThread.findMany({
+      select: { threadTitle: true, summary: true, participantDomains: true },
+    }),
+    prisma.mailMessage.findMany({
+      where: { conversationId: { not: null } },
+      select: { conversationId: true, subject: true, body: true, fromEmail: true },
+    }),
+  ]);
+
+  const domainsOfConversation = new Map<string, Set<string>>();
+  for (const m of mails) {
+    const d = m.fromEmail.split("@")[1]?.toLowerCase();
+    if (!d) continue;
+    const set = domainsOfConversation.get(m.conversationId!) ?? new Set<string>();
+    set.add(d);
+    domainsOfConversation.set(m.conversationId!, set);
+  }
 
   let updated = 0;
   const rows: string[] = [];
@@ -111,12 +128,22 @@ async function main() {
     if (!domains) {
       const customerName = customers.find((c) => c.id === deal.customerId)?.name;
       if (customerName && customerName.length >= 2) {
-        const hits = threads.filter(
-          (t) =>
-            (t.threadTitle ?? "").includes(customerName) ||
-            (t.summary ?? "").includes(customerName),
-        );
-        const merged = [...new Set(hits.flatMap((t) => (t.participantDomains ?? []) as string[]))];
+        const fromThreads = threads
+          .filter(
+            (t) =>
+              (t.threadTitle ?? "").includes(customerName) ||
+              (t.summary ?? "").includes(customerName),
+          )
+          .flatMap((t) => (t.participantDomains ?? []) as string[]);
+
+        const fromBodies = mails
+          .filter(
+            (m) =>
+              (m.subject ?? "").includes(customerName) || (m.body ?? "").includes(customerName),
+          )
+          .flatMap((m) => [...(domainsOfConversation.get(m.conversationId!) ?? [])]);
+
+        const merged = [...new Set([...fromThreads, ...fromBodies])];
         if (merged.length) domains = merged;
       }
     }
