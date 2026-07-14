@@ -33,7 +33,9 @@ const JUDGMENTS: Array<{ domain: string; company: string; role: Role; evidence: 
   { domain: "ipageon.com", company: "아이페이지온", role: "고객", evidence: 4 },
   { domain: "jinplus.kr", company: "진플러스", role: "파트너", evidence: 4, note: "DRB동일 유지보수를 담당하는 파트너(검증자 교정)" },
   { domain: "goodus.com", company: "굿어스", role: "파트너", evidence: 3 },
-  { domain: "vitalchem.com", company: "VitalChem", role: "고객", evidence: 3 },
+  // 국내 상호는 케이브이머티리얼즈, vitalchem.com은 중국 본사 도메인이다.
+  // 도메인 루트("Vitalchem")를 이름으로 쓰면 같은 회사가 두 행으로 갈라진다.
+  { domain: "vitalchem.com", company: "케이브이머티리얼즈", role: "고객", evidence: 3 },
 ];
 
 // 분류기가 실제로 조회하는 타입에 맞춰야 매칭된다. 파트너·벤더는 도메인으로(
