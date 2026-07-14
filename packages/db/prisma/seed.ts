@@ -72,22 +72,22 @@ async function main() {
   const project = await prisma.project.upsert({
     where: { slug: "demo-project" },
     update: {
-      name: "Demo Project",
+      name: "베를로",
       description: "Local demo project for SANGFOR Partner OS verification.",
     },
     create: {
       slug: "demo-project",
-      name: "Demo Project",
+      name: "베를로",
       description: "Local demo project for SANGFOR Partner OS verification.",
     },
   });
 
   await prisma.user.upsert({
     where: { email: "operator@sangfor-os.local" },
-    update: { name: "Portal Operator" },
+    update: { name: "포털 운영자" },
     create: {
       email: "operator@sangfor-os.local",
-      name: "Portal Operator",
+      name: "포털 운영자",
     },
   });
 
