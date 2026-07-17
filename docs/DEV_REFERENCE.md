@@ -2,7 +2,9 @@
 
 > **목적**: 개발할 때마다 펴보는 단일 진입점. 시스템 지도 · 워크스트림 · 소스 인벤토리 · 명령어 · 데이터모델 · 알려진 이슈를 한 곳에.
 > **유지 규칙**: 작업이 끝날 때마다 이 문서를 갱신한다. 새 워크스트림은 §3에 한 섹션 추가, 명령은 §5, 파일은 §6, 모델 변경은 §7, 이슈는 §8. 맨 아래 **변경 이력** 한 줄 추가.
-> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-07-13
+> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-07-17
+
+> **Canonical requirement/acceptance 진입점**: [ID registry](01_SPEC/Requirement_ID_Registry.md) → [requirement source](01_SPEC/Requirements_MoSCoW.md) / [acceptance source](08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md) → [99-row machine manifest](12_VERIFICATION/acceptance-manifest.json) / [evidence schema](12_VERIFICATION/acceptance-evidence.schema.json). 구현 분모는 28 requirements와 71 acceptance이며 C1–C5/W1–W5는 제외한다.
 
 ---
 
@@ -473,11 +475,13 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 | Engagement 전환 | `docs/plans/opportunity-to-project-conversion.md` |
 | 메일 하드닝 | `docs/12_VERIFICATION/real-mail-hardening-runbook.md` |
 | 검증 매트릭스 | `docs/12_VERIFICATION/verification-command-matrix.md`, `unsafe-action-matrix.md` |
+| Requirement/acceptance registry | `docs/01_SPEC/Requirement_ID_Registry.md`, `docs/12_VERIFICATION/acceptance-manifest.json`, `acceptance-evidence.schema.json`, `test-alias-map.json` |
 | 에이전트 메모리 | `memory/` (AGENTS.memory.md 계약), `MEMORY.md`(자동 메모리) |
 
 ---
 
 ## 변경 이력
+- **2026-07-17**: Canonical requirement/acceptance registry 동결 — 28 requirements, 71 acceptance, 99-row owner/closure manifest, evidence schema, 23-alias/63-step execution map, exact-set validator를 연결하고 C1–C5/W1–W5 제외 범위를 명시했다.
 - **2026-06-29**: 최초 작성. 2026-06-28 7개 워크스트림(A 도메인 / B CFO / C MCP / D Engagement / E 웹LLM / F 메일 / G DB마이그레이션) 일괄 정리.
 - **2026-06-29**: 워킹트리 thrashing 손상 치유 — `origin/main`(99c69e9) 동기화 → 작업 브랜치 `dev-clean`, 손상본 `backup/worktree-thrashing-2026-06-29` 백업. thrashing 근원(동시 워크트리) 규명·기록(§8).
 - **2026-06-29**: 후속 개발 4종(브랜치 `feat-domain-followups`): D 기본 생성기 디폴트화(`bc37df1`) · A 구조화→실 DB 매핑(`0c82a31`) · B 대시보드 SSE+상세(`edeb114`) · C CFO ledger 테마 확장(`08e7550`). 전부 TDD/typecheck/lint 통과, B는 실 DB 검증.

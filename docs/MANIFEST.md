@@ -1,6 +1,17 @@
 # Manifest
 
+## Canonical requirements and acceptance
+
+- [Canonical ID registry](01_SPEC/Requirement_ID_Registry.md) — precedence, aliases, 28-requirement/71-acceptance scope, and C/W exclusions.
+- [Requirements — MoSCoW](01_SPEC/Requirements_MoSCoW.md) — canonical requirement source.
+- [Acceptance Criteria & Test Plan](08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md) — canonical acceptance source.
+- [Acceptance manifest](12_VERIFICATION/acceptance-manifest.json) — 99-row owner/execution/closure/test manifest.
+- [Acceptance evidence schema](12_VERIFICATION/acceptance-evidence.schema.json) — evidence receipt contract.
+
+## Package file index
+
 - `00_EXECUTIVE/Executive_Brief.md`
+- `01_SPEC/Requirement_ID_Registry.md`
 - `01_SPEC/Requirements_MoSCoW.md`
 - `01_SPEC/SPEC-3-Agentic-Company-OS-SANGFOR-Partner-OS-Final.md`
 - `01_SPEC/SPEC-3.1-Code-Skeleton-Governance-Patch.md`
@@ -42,6 +53,9 @@
 - `10_CODE_SKELETON/seed/sangfor_industry_pack_v3.json`
 - `11_REFERENCES/References.md`
 - `12_VERIFICATION/Final_Document_Coverage_Check_Report_V3_1.md`
+- `12_VERIFICATION/acceptance-manifest.json`
+- `12_VERIFICATION/acceptance-evidence.schema.json`
+- `12_VERIFICATION/test-alias-map.json`
 - `MANIFEST.md`
 - `README_전체_진행_가이드.md`
 
