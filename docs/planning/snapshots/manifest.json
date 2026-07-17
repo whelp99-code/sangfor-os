@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "kind": "pre-implementation-planning-snapshot",
+  "publisher": "PLAN-PUBLISH/v1",
+  "baselineSha": "081a1c0c708104f7d0dd50667a261ea84e9ce85c",
+  "targetBranch": "codex/system-refactor-w0-w6",
+  "provenance": {
+    "mode": "pre-implementation-byte-copy",
+    "sourceWorkspaceHead": "d3ebfd8ecca0c2db8c7d152137e176d05ad11e30",
+    "copiedBeforeUnitDispatch": true
+  },
+  "sourceCount": 4,
+  "files": [
+    {
+      "name": "canonical-design-ledger.md",
+      "destination": "docs/planning/snapshots/canonical-design-ledger.md",
+      "sourceRelativePath": ".omo/drafts/canonical-design-ledger.md",
+      "sha256": "34a35cd718fbf1cbda43d4f7b87279b5e77c5e6035bf9fbf3510bc57767933a6",
+      "bytes": 30797
+    },
+    {
+      "name": "api-inventory.json",
+      "destination": "docs/planning/snapshots/api-inventory.json",
+      "sourceRelativePath": ".omo/drafts/sangfor-os-refactor-audit-evidence/api-inventory.json",
+      "sha256": "cb129e3eb74c78d405e6d7fc7571f0296024872ffb30eeb048f1bd0395dfc045",
+      "bytes": 29232
+    },
+    {
+      "name": "units.md",
+      "destination": "docs/planning/snapshots/units.md",
+      "sourceRelativePath": ".omo/drafts/sangfor-os-system-refactor-units.md",
+      "sha256": "5acc9ee2bae2bb69892abb5b54f7a728a8d5ab9b0ebba3d6fc0fbd374a8e7037",
+      "bytes": 23575
+    },
+    {
+      "name": "traceability.md",
+      "destination": "docs/planning/snapshots/traceability.md",
+      "sourceRelativePath": ".omo/drafts/sangfor-os-system-refactor-traceability.md",
+      "sha256": "6a242a372d486d9c938a6971ea27b3295d129005f69a519a49eef294aa347132",
+      "bytes": 14935
+    }
+  ]
+}
