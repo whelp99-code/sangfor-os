@@ -82,6 +82,41 @@ export const SCOPE_INVENTORY_BASELINE: ScopeInventoryBaseline = Object.freeze({
   }),
 });
 
+export interface RegisteredAddition {
+  model: string;
+  unit: string;
+  category: ScopeCategory;
+}
+
+/**
+ * Every model a later additive migration registered on top of `SCOPE_INVENTORY_BASELINE`, one
+ * entry per unit per model, in landing order. `SCOPE_INVENTORY_BASELINE` itself never changes;
+ * this list is how `expectedCurrentModelCount`/`expectedCategoryCounts` derive the CURRENT
+ * expected totals (baseline + registered additions) that `buildScopeInventoryReport` validates
+ * against once the live schema reaches that count.
+ */
+export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
+  { model: 'ScopeBackfillQuarantine', unit: 'U011', category: 'GLOBAL_SHARED' },
+];
+
+export function expectedCurrentModelCount(
+  baseline: ScopeInventoryBaseline = SCOPE_INVENTORY_BASELINE,
+  additions: RegisteredAddition[] = REGISTERED_ADDITIONS,
+): number {
+  return baseline.modelCount + additions.length;
+}
+
+export function expectedCategoryCounts(
+  baseline: ScopeInventoryBaseline = SCOPE_INVENTORY_BASELINE,
+  additions: RegisteredAddition[] = REGISTERED_ADDITIONS,
+): Record<ScopeCategory, number> {
+  const counts = { ...baseline.categoryCounts };
+  for (const addition of additions) {
+    counts[addition.category] += 1;
+  }
+  return counts;
+}
+
 /**
  * Every model present in the schema at `SCOPE_INVENTORY_BASELINE.baseSha`, classified exactly
  * once. See the module doc comment above for category semantics and the U010 dispatch for the
@@ -211,6 +246,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   RoleChangeRequest: { model: 'RoleChangeRequest', category: 'GLOBAL_SHARED' },
   RunTimelineItem: { model: 'RunTimelineItem', category: 'PROJECT_ROOT' },
   RuntimePolicy: { model: 'RuntimePolicy', category: 'COMPANY_ROOT' },
+  ScopeBackfillQuarantine: { model: 'ScopeBackfillQuarantine', category: 'GLOBAL_SHARED' },
   SizingTemplate: { model: 'SizingTemplate', category: 'COMPANY_ROOT' },
   SkillCatalogItem: { model: 'SkillCatalogItem', category: 'COMPANY_ROOT' },
   SkillRun: { model: 'SkillRun', category: 'PROJECT_ROOT' },
@@ -355,12 +391,14 @@ export function buildScopeInventoryReport(
     });
   }
 
-  if (currentModelNames.length === baseline.modelCount && duplicateModels.length === 0) {
-    for (const category of Object.keys(baseline.categoryCounts) as ScopeCategory[]) {
-      if (tallies[category] !== baseline.categoryCounts[category]) {
+  const expectedCount = expectedCurrentModelCount(baseline);
+  const expectedTallies = expectedCategoryCounts(baseline);
+  if (currentModelNames.length === expectedCount && duplicateModels.length === 0) {
+    for (const category of Object.keys(expectedTallies) as ScopeCategory[]) {
+      if (tallies[category] !== expectedTallies[category]) {
         errors.push({
           code: 'TALLY_MISMATCH',
-          message: `category ${category} tally ${tallies[category]} does not match baseline ${baseline.categoryCounts[category]}`,
+          message: `category ${category} tally ${tallies[category]} does not match expected ${expectedTallies[category]} (baseline ${baseline.categoryCounts[category]} + registered additions)`,
         });
       }
     }

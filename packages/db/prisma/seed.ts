@@ -69,26 +69,55 @@ async function seedDashboardRegistry() {
 }
 
 async function main() {
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: "demo-tenant" },
+    update: { name: "Demo Tenant", status: "active" },
+    create: { slug: "demo-tenant", name: "Demo Tenant", status: "active" },
+  });
+
+  const existingCompany = await prisma.company.findFirst({
+    where: { tenantId: tenant.id, slug: "demo-company" },
+  });
+  const company = existingCompany
+    ? await prisma.company.update({ where: { id: existingCompany.id }, data: { name: "Demo Company" } })
+    : await prisma.company.create({ data: { tenantId: tenant.id, slug: "demo-company", name: "Demo Company" } });
+
+  // company_id is assigned directly here as a known, explicit fact — never left null for the
+  // scope backfill classifier to guess at.
   const project = await prisma.project.upsert({
     where: { slug: "demo-project" },
     update: {
       name: "베를로",
       description: "Local demo project for SANGFOR Partner OS verification.",
+      companyId: company.id,
     },
     create: {
       slug: "demo-project",
       name: "베를로",
       description: "Local demo project for SANGFOR Partner OS verification.",
+      companyId: company.id,
     },
   });
 
-  await prisma.user.upsert({
+  const operator = await prisma.user.upsert({
     where: { email: "operator@sangfor-os.local" },
     update: { name: "포털 운영자" },
     create: {
       email: "operator@sangfor-os.local",
       name: "포털 운영자",
     },
+  });
+
+  await prisma.userCompanyRole.upsert({
+    where: { userId_companyId_role: { userId: operator.id, companyId: company.id, role: "member" } },
+    update: {},
+    create: { userId: operator.id, companyId: company.id, role: "member" },
+  });
+
+  await prisma.projectMember.upsert({
+    where: { projectId_userId: { projectId: project.id, userId: operator.id } },
+    update: {},
+    create: { projectId: project.id, userId: operator.id, role: "member" },
   });
 
   await upsertPolicyMemory(project.id, "internal_domain", "blro.co.kr", "BLRO internal domain");

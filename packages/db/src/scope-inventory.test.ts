@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import {
   MODEL_SCOPE_INVENTORY,
+  REGISTERED_ADDITIONS,
   SCOPE_INVENTORY_BASELINE,
   assertNoRoleChangeRequestScopeExpansion,
   assertScopeBridgeOnDelete,
   buildScopeInventoryReport,
   classifyModel,
   deriveStructuralMismatches,
+  expectedCategoryCounts,
+  expectedCurrentModelCount,
   validateChildViaFkEntries,
   type DmmfRelationField,
   type ScopeInventoryEntry,
@@ -41,12 +44,48 @@ describe('classifyModel', () => {
 });
 
 describe('buildScopeInventoryReport — real inventory', () => {
-  it('reports ok with exact 150 / 13-1-32-44-60 tallies against its own model list', () => {
+  it('reports ok with exact 151 / 14-1-32-44-60 tallies against its own model list', () => {
     const report = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
-    expect(report.currentModelCount).toBe(150);
-    expect(report.tallies).toEqual(SCOPE_INVENTORY_BASELINE.categoryCounts);
+    expect(report.currentModelCount).toBe(151);
+    expect(report.tallies).toEqual({
+      GLOBAL_SHARED: 14,
+      TENANT_ROOT: 1,
+      COMPANY_ROOT: 32,
+      PROJECT_ROOT: 44,
+      CHILD_VIA_FK: 60,
+    });
+  });
+});
+
+describe('REGISTERED_ADDITIONS — U011 model registration', () => {
+  it('registers exactly ScopeBackfillQuarantine as GLOBAL_SHARED for U011', () => {
+    expect(REGISTERED_ADDITIONS).toEqual([
+      { model: 'ScopeBackfillQuarantine', unit: 'U011', category: 'GLOBAL_SHARED' },
+    ]);
+  });
+
+  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count is 151', () => {
+    expect(SCOPE_INVENTORY_BASELINE.modelCount).toBe(150);
+    expect(expectedCurrentModelCount()).toBe(151);
+  });
+
+  it('derives expected category counts as baseline plus exactly one registered GLOBAL_SHARED addition', () => {
+    expect(expectedCategoryCounts()).toEqual({
+      GLOBAL_SHARED: 14,
+      TENANT_ROOT: 1,
+      COMPANY_ROOT: 32,
+      PROJECT_ROOT: 44,
+      CHILD_VIA_FK: 60,
+    });
+  });
+
+  it('classifies ScopeBackfillQuarantine as GLOBAL_SHARED in the live inventory', () => {
+    expect(classifyModel('ScopeBackfillQuarantine')).toEqual({
+      model: 'ScopeBackfillQuarantine',
+      category: 'GLOBAL_SHARED',
+    });
   });
 });
 
@@ -212,7 +251,7 @@ describe('deriveStructuralMismatches — failing-first fixtures', () => {
     expect(errors.some((e) => e.code === 'DEAD_END_CHAIN' && e.model === 'ForcedChild')).toBe(true);
   });
 
-  it('passes the real 150-model inventory against its own live mandatory-FK relation graph', () => {
+  it('passes the real current-model inventory against its own live mandatory-FK relation graph', () => {
     const dmmf: DmmfRelationField[] = REAL_ENTRIES.filter(
       (e): e is Extract<ScopeInventoryEntry, { category: 'CHILD_VIA_FK' }> => e.category === 'CHILD_VIA_FK',
     ).map((e) => ({

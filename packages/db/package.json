@@ -28,7 +28,9 @@
     "backfill:finance-engagement": "tsx scripts/backfill-finance-engagement.ts",
     "check:engagement-orphans": "tsx scripts/check-engagement-orphans.ts",
     "scope:check": "tsx scripts/check-scope-inventory.ts",
-    "scope:migration:verify": "node scripts/verify-scope-migration.mjs"
+    "scope:migration:verify": "node scripts/verify-scope-migration.mjs",
+    "scope:backfill": "tsx scripts/backfill-canonical-scope.ts",
+    "db:contract": "tsx scripts/run-db-contract.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

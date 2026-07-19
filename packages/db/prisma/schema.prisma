@@ -1964,6 +1964,7 @@ model Company {
   userCompanyRoles UserCompanyRole[]
   personas        Persona[]
   projects        Project[]
+  roleChangeRequests RoleChangeRequest[]
 
   @@index([tenantId])
   @@map("companies")
@@ -1991,9 +1992,13 @@ model RoleChangeRequest {
   status      String   @default("pending")
   requestedBy String   @map("requested_by")
   approvedBy  String?  @map("approved_by")
+  companyId   String?  @map("company_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
   @@index([userId, status])
+  @@index([companyId])
   @@map("role_change_requests")
 }
 
@@ -2556,4 +2561,26 @@ model AutonomyPolicy {
 
   @@unique([domain, decisionType])
   @@map("autonomy_policies")
+}
+
+// --- Scope backfill (U011) ---
+
+model ScopeBackfillQuarantine {
+  id                 String    @id @default(cuid())
+  sourceModel        String    @map("source_model")
+  sourceId           String    @map("source_id")
+  reasonCode         String    @map("reason_code")
+  sourceRowJson      Json      @map("source_row_json")
+  sourceRowHash      String    @map("source_row_hash")
+  candidateScopeJson Json      @map("candidate_scope_json")
+  reviewDigest       String?   @map("review_digest")
+  quarantinedAt      DateTime  @default(now()) @map("quarantined_at")
+  resolvedAt         DateTime? @map("resolved_at")
+  resolvedBy         String?   @map("resolved_by")
+  resolutionJson     Json?     @map("resolution_json")
+  firstSeenAt        DateTime  @default(now()) @map("first_seen_at")
+  lastSeenAt         DateTime  @default(now()) @map("last_seen_at")
+
+  @@unique([sourceModel, sourceId])
+  @@map("scope_backfill_quarantine")
 }
