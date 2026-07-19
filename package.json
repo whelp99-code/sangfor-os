@@ -2,7 +2,7 @@
   "name": "sangfor-agentic-os",
   "version": "1.0.0",
   "private": true,
-  "description": "Sangfor Agentic Company OS — 통합 비즈니스 플랫폼",
+  "description": "Sangfor Agentic Company OS \u2014 \ud1b5\ud569 \ube44\uc988\ub2c8\uc2a4 \ud50c\ub7ab\ud3fc",
   "packageManager": "pnpm@10.28.1",
   "type": "module",
   "scripts": {
@@ -54,5 +54,8 @@
     "@prisma/client": "^6.19.3",
     "prisma": "^6.19.3",
     "zod": "^3.23.8"
+  },
+  "engines": {
+    "node": ">=20 <21"
   }
 }

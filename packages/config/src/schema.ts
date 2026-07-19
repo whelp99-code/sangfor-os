@@ -75,7 +75,7 @@ export const OptionalSecretsSchema = z.object({
 
 /** 공통 설정 스키마 */
 export const CommonConfigSchema = z.object({
-  PORT: z.coerce.number().int().positive().default(PORT_REGISTRY.PORTAL),
+  PORT: z.coerce.number().int().positive().default(PORT_REGISTRY.SANGFOR_WEB),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 });

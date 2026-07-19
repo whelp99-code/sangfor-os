@@ -2,7 +2,7 @@
   "name": "sangfor-mcp-workflow",
   "version": "0.1.0",
   "private": true,
-  "description": "Sangfor Engineer MCP Workflow Automation — 3대 핵심 워크플로우 자동화",
+  "description": "Sangfor Engineer MCP Workflow Automation \u2014 3\ub300 \ud575\uc2ec \uc6cc\ud06c\ud50c\ub85c\uc6b0 \uc790\ub3d9\ud654",
   "packageManager": "pnpm@10.28.1",
   "scripts": {
     "dev:mcp": "tsx apps/mcp-server/src/index.ts",
@@ -35,7 +35,7 @@
     "vitest": "^3.2.4"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22 <23"
   },
   "dependencies": {
     "@sangfor/chrome": "file:../sangfor-engineer-mcp/packages/sangfor-chrome",

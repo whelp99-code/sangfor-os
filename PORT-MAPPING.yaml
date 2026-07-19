@@ -40,10 +40,6 @@ services:
     port: 3010
     service: mail-intelligence
     description: Mail Intelligence service
-  whelp99-mcp:
-    port: 3600
-    service: whelp99-mcp
-    description: Whelp99 MCP bridge
   # cfo-aios: [DEPRECATED — merged into sangfor-api:3200]
   # cfo-aios:
   #   port: 4100
