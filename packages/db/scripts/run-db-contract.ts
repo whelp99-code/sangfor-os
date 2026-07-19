@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +17,13 @@ const OWNER_UNIT = 'U011';
 const PURPOSE = 'scope-backfill';
 const IMAGE_DIGEST = 'sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777';
 
-const ALLOWED_SUITES = new Set(['scope-backfill']);
+// U012 — scope-closure suite (registered alongside U011's scope-backfill suite above; the
+// scope-backfill functions/fixture are untouched reuse, see the U012 dispatch file boundary).
+const NEW_MIGRATION_NAME_U012 = '20260715120000_scope_closure_constraints';
+const OWNER_UNIT_U012 = 'U012';
+const PURPOSE_U012 = 'scope-closure';
+
+const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure']);
 
 const EXIT = Object.freeze({
   SUCCESS: 0,
@@ -116,7 +123,22 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
   if (!includeNewMigration) {
     const target = join(dir, 'migrations', NEW_MIGRATION_NAME);
     if (existsSync(target)) rmSync(target, { recursive: true, force: true });
+    // U012's migration depends on the U011 quarantine table, so it must stay excluded from this
+    // pre-U011 prefix too — otherwise it deploys before U011 and fails on a missing relation.
+    const targetU012 = join(dir, 'migrations', NEW_MIGRATION_NAME_U012);
+    if (existsSync(targetU012)) rmSync(targetU012, { recursive: true, force: true });
   }
+  return dir;
+}
+
+/** A temp prisma copy deployed through U011 only (every real migration except U012's). Used by
+ * scope-backfill scenarios that need `migrate: true`-equivalent full-chain behavior without
+ * pulling in U012's CHECK constraint, which is U012's contract, not U011's. */
+function makeThroughU011PrismaCopy(label: string): string {
+  const dir = mkdtempSync(join(tmpdir(), `u011-prisma-through-u011-${label}-`));
+  cpSync(REAL_PRISMA_DIR, dir, { recursive: true });
+  const targetU012 = join(dir, 'migrations', NEW_MIGRATION_NAME_U012);
+  if (existsSync(targetU012)) rmSync(targetU012, { recursive: true, force: true });
   return dir;
 }
 
@@ -208,8 +230,8 @@ async function seedFixture(containerName: string, conn: { user: string; password
   await execSql(containerName, conn, SCOPE_BACKFILL_CONTRACT_FIXTURE_SQL);
 }
 
-async function labelResourceCounts(runId: string) {
-  const filters = [`label=${LABEL_RUN}=${runId}`, `label=${LABEL_UNIT}=${OWNER_UNIT}`, `label=${LABEL_PURPOSE}=${PURPOSE}`];
+async function labelResourceCounts(runId: string, ownerUnit: string = OWNER_UNIT, purpose: string = PURPOSE) {
+  const filters = [`label=${LABEL_RUN}=${runId}`, `label=${LABEL_UNIT}=${ownerUnit}`, `label=${LABEL_PURPOSE}=${purpose}`];
   const countFor = (argvBase: string[]) =>
     spawnCapture([...argvBase, ...filters.flatMap((f) => ['--filter', f])], sanitizedEnv({})).then((r) =>
       r.stdout.trim() ? r.stdout.trim().split('\n').filter(Boolean).length : 0,
@@ -449,10 +471,23 @@ async function runFixtureScenario(evidenceDir: string, runId: string) {
 
 async function runEmptyDatabaseScenario(evidenceDir: string, runId: string) {
   const evidence: Record<string, unknown> = {};
+  let tmpPrismaDir: string | null = null;
   await withIsolatedPostgres(
-    { runId, ownerUnit: OWNER_UNIT, purpose: `${PURPOSE}-empty`, evidenceDir: join(evidenceDir, 'empty-scenario'), imageDigest: IMAGE_DIGEST, migrate: true },
+    { runId, ownerUnit: OWNER_UNIT, purpose: `${PURPOSE}-empty`, evidenceDir: join(evidenceDir, 'empty-scenario'), imageDigest: IMAGE_DIGEST, migrate: false },
     async (ctx: any) => {
       const conn = parseConn(ctx.databaseUrl);
+
+      // This is U011's own contract proof: deploy through U011 only, so U012's CHECK constraint
+      // is absent and the deliberately-unscoped project insert below can still exercise U011's
+      // block-not-replace assertion, exactly as it did before U012's migration existed.
+      tmpPrismaDir = makeThroughU011PrismaCopy(runId);
+      const throughU011SchemaPath = join(tmpPrismaDir, 'schema.prisma');
+      const realSchemaPath = join(REAL_PRISMA_DIR, 'schema.prisma');
+      const gen = await runWorkspaceGenerate(realSchemaPath);
+      if (gen.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `generate failed: ${gen.stderr || gen.stdout}`);
+      const deploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, throughU011SchemaPath);
+      if (deploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (through U011) failed: ${deploy.stderr || deploy.stdout}`);
+
       const sentinel = await execSql(
         ctx.containerName,
         conn,
@@ -486,15 +521,397 @@ async function runEmptyDatabaseScenario(evidenceDir: string, runId: string) {
   return evidence;
 }
 
-async function main(): Promise<number> {
-  let args;
-  try {
-    args = parseArgs(process.argv.slice(2));
-  } catch (error) {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    return error instanceof ContractFailure ? error.exitCode : EXIT.CONFIG;
+// ─────────────────────────────────────────────────────────────────────────
+// U012 — scope-closure suite
+// ─────────────────────────────────────────────────────────────────────────
+
+async function runScopeValidate(databaseUrl: string): Promise<CaptureResult> {
+  const argv = ['bash', join(REPO_ROOT, 'scripts/run-workspace-runtime.sh'), 'root', '--', 'corepack', 'pnpm', '--filter', '@sangfor/db', 'exec', 'tsx', 'scripts/validate-scope-closure.ts'];
+  return spawnCapture(argv, sanitizedEnv({ DATABASE_URL: databaseUrl }));
+}
+
+function sha256File(path: string): string {
+  return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
+
+/** Every migration directory name up to and including U010's, excluding the U011/U012 ones added
+ * by this and the previous unit — the exact prefix the legacy lifecycle proof deploys first. */
+function listMigrationsThroughU010(): string[] {
+  return readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .filter((name) => name !== NEW_MIGRATION_NAME && name !== NEW_MIGRATION_NAME_U012)
+    .sort();
+}
+
+interface MigrationView {
+  dir: string;
+  schemaPath: string;
+  migrationsDir: string;
+  membership: Record<string, string>;
+}
+
+/** Builds a task-temp read-only migration view made only of symlinks to the canonical
+ * migration_lock.toml and each migration's `migration.sql` — the runner never copies/edits/
+ * renames migration SQL. Each migration gets a real (empty) directory rather than a directory
+ * symlink: on this filesystem `fs.Dirent.isDirectory()` reports `false` for a symlink-to-directory
+ * (readdir surfaces the DT_LNK type, not the resolved target's type), which makes Prisma's own
+ * migration-folder discovery see zero migrations through a directory-symlinked view. Symlinking at
+ * the `migration.sql` file level sidesteps that while keeping the actual SQL content — the only
+ * thing that can be tampered with — a genuine, hash-verifiable symlink to the canonical file, never
+ * a copy. `membership` records each symlink's SHA-256 target hash for the evidence receipt. */
+function buildReadOnlyMigrationView(label: string, migrationNames: string[]): MigrationView {
+  const dir = mkdtempSync(join(tmpdir(), `u012-view-${label}-`));
+  cpSync(join(REAL_PRISMA_DIR, 'schema.prisma'), join(dir, 'schema.prisma'));
+  const migrationsDir = join(dir, 'migrations');
+  mkdirSync(migrationsDir);
+  const membership: Record<string, string> = {};
+  const lockTarget = join(REAL_PRISMA_DIR, 'migrations', 'migration_lock.toml');
+  symlinkSync(lockTarget, join(migrationsDir, 'migration_lock.toml'));
+  membership['migration_lock.toml'] = sha256File(lockTarget);
+  for (const name of migrationNames) {
+    const targetDir = join(REAL_PRISMA_DIR, 'migrations', name);
+    mkdirSync(join(migrationsDir, name));
+    symlinkSync(join(targetDir, 'migration.sql'), join(migrationsDir, name, 'migration.sql'));
+    membership[name] = sha256File(join(targetDir, 'migration.sql'));
   }
-  mkdirSync(args.evidence, { recursive: true });
+  return { dir, schemaPath: join(dir, 'schema.prisma'), migrationsDir, membership };
+}
+
+function addMigrationToView(view: MigrationView, name: string) {
+  const targetDir = join(REAL_PRISMA_DIR, 'migrations', name);
+  mkdirSync(join(view.migrationsDir, name));
+  symlinkSync(join(targetDir, 'migration.sql'), join(view.migrationsDir, name, 'migration.sql'));
+  view.membership[name] = sha256File(join(targetDir, 'migration.sql'));
+}
+
+/** Re-reads every symlink THROUGH the view and re-hashes, proving each one still resolves to
+ * exactly the canonical bytes recorded in `membership` (hash-verified, not merely present). */
+function verifyViewIntegrity(view: MigrationView, migrationNames: string[]) {
+  const lockViaSymlink = sha256File(join(view.migrationsDir, 'migration_lock.toml'));
+  if (lockViaSymlink !== view.membership['migration_lock.toml']) {
+    throw new ContractFailure(EXIT.CONTRACT, 'legacy migration view: migration_lock.toml symlink hash mismatch');
+  }
+  for (const name of migrationNames) {
+    const viaSymlink = sha256File(join(view.migrationsDir, name, 'migration.sql'));
+    if (viaSymlink !== view.membership[name]) {
+      throw new ContractFailure(EXIT.CONTRACT, `legacy migration view: migration ${name} symlink hash mismatch`);
+    }
+  }
+}
+
+interface QaAttempt {
+  label: string;
+  expect: 'ok' | 'reject';
+  sql: string;
+}
+
+/** Runs one INSERT wrapped in a DO block that catches any error and reports SQLSTATE + the
+ * violated constraint name via GET STACKED DIAGNOSTICS, so the real-surface QA log carries the
+ * exact SQLSTATE/constraint pair the dispatch requires without regex-parsing error text. */
+async function attemptQaInsert(containerName: string, conn: { user: string; password: string; database: string }, attempt: QaAttempt): Promise<string> {
+  const wrapped = `DO $qa$
+DECLARE
+  v_constraint text;
+BEGIN
+  ${attempt.sql}
+  RAISE NOTICE 'QA_RESULT|%|OK|-', '${attempt.label}';
+EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
+  RAISE NOTICE 'QA_RESULT|%|%|%', '${attempt.label}', SQLSTATE, COALESCE(v_constraint, '-');
+END $qa$;`;
+  const r = await spawnCapture(
+    ['docker', 'exec', '-i', '-e', `PGPASSWORD=${conn.password}`, containerName, 'psql', '-h', '127.0.0.1', '-U', conn.user, '-d', conn.database, '-v', 'ON_ERROR_STOP=1', '-c', wrapped],
+    sanitizedEnv({}),
+  );
+  if (r.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `QA attempt "${attempt.label}" harness failed: ${r.stderr || r.stdout}`);
+  const match = /QA_RESULT\|([^|]*)\|([^|]*)\|(.*)/.exec(r.stdout + r.stderr);
+  if (!match) throw new ContractFailure(EXIT.CONTRACT, `QA attempt "${attempt.label}" produced no QA_RESULT line: ${r.stdout}\n${r.stderr}`);
+  const [, label, outcome, constraint] = match;
+  const line = `[${attempt.expect === 'ok' ? 'valid' : 'invalid'}] ${label}: outcome=${outcome} constraint=${constraint}`;
+  if (attempt.expect === 'ok' && outcome !== 'OK') {
+    throw new ContractFailure(EXIT.CONTRACT, `QA attempt "${label}" expected to succeed but got ${outcome} (${constraint})`);
+  }
+  if (attempt.expect === 'reject' && outcome === 'OK') {
+    throw new ContractFailure(EXIT.CONTRACT, `QA attempt "${label}" expected to be rejected but succeeded`);
+  }
+  return line;
+}
+
+async function runLegacyLifecycleScenario(evidenceDir: string, runId: string) {
+  const evidence: Record<string, unknown> = {};
+  let view: MigrationView | null = null;
+  const scenarioEvidenceDir = join(evidenceDir, 'legacy-scenario');
+
+  try {
+    await withIsolatedPostgres(
+      { runId, ownerUnit: OWNER_UNIT_U012, purpose: `${PURPOSE_U012}-legacy`, evidenceDir: scenarioEvidenceDir, imageDigest: IMAGE_DIGEST, migrate: false },
+      async (ctx: any) => {
+        const conn = parseConn(ctx.databaseUrl);
+        const throughU010 = listMigrationsThroughU010();
+
+        view = buildReadOnlyMigrationView('legacy', throughU010);
+        verifyViewIntegrity(view, throughU010);
+        evidence.viewMembershipThroughU010 = { ...view.membership };
+
+        const genPrefix = await runWorkspaceGenerate(join(REAL_PRISMA_DIR, 'schema.prisma'));
+        if (genPrefix.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `generate failed: ${genPrefix.stderr || genPrefix.stdout}`);
+
+        const deployPrefix = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (deployPrefix.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (through U010, symlink view) failed: ${deployPrefix.stderr || deployPrefix.stdout}`);
+        evidence.deployThroughU010 = { migrated: true, migrationCount: throughU010.length };
+
+        // Load the legacy fixture strictly between the U010-prefix deploy and adding the U011
+        // migration symlink, so U011 finds non-empty data (loading it after U011 is a test
+        // failure per the dispatch).
+        await seedFixture(ctx.containerName, conn);
+
+        addMigrationToView(view, NEW_MIGRATION_NAME);
+        verifyViewIntegrity(view, [...throughU010, NEW_MIGRATION_NAME]);
+        evidence.viewMembershipWithU011 = { ...view.membership };
+
+        const deployU011 = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (deployU011.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (+U011, symlink view) failed: ${deployU011.stderr || deployU011.stdout}`);
+
+        const noEmptySentinel = await execSql(ctx.containerName, conn, `SELECT count(*) FROM scope_backfill_quarantine WHERE source_model = '__ScopeBackfillControl';`);
+        if (noEmptySentinel !== '0') {
+          throw new ContractFailure(EXIT.CONTRACT, `U011 must create no empty sentinel on a non-empty database, found ${noEmptySentinel} control row(s)`);
+        }
+        evidence.u011CreatedNoEmptySentinel = true;
+
+        const dryRunBefore = await execSql(ctx.containerName, conn, `SELECT count(*) FROM projects WHERE company_id IS NULL;`);
+        const dryRun = await runBackfillScript(ctx.databaseUrl);
+        if (dryRun.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U011 dry run failed: ${dryRun.stdout}\n${dryRun.stderr}`);
+        const dryRunJson: DryRunReport = JSON.parse(dryRun.stdout);
+        const dryRunAfter = await execSql(ctx.containerName, conn, `SELECT count(*) FROM projects WHERE company_id IS NULL;`);
+        if (dryRunBefore !== dryRunAfter) throw new ContractFailure(EXIT.CONTRACT, `U011 dry run wrote non-zero writes: before=${dryRunBefore} after=${dryRunAfter}`);
+
+        const reviewFile = buildReviewFile(dryRunJson, 'u012-legacy-lifecycle-reviewer');
+        writeFileSync(join(scenarioEvidenceDir, 'scope-review.json'), `${JSON.stringify(reviewFile, null, 2)}\n`);
+        const reviewFilePath = join(mkdtempSync(join(tmpdir(), 'u012-review-')), 'scope-review.json');
+        writeFileSync(reviewFilePath, JSON.stringify(reviewFile));
+
+        const apply = await runBackfillScript(ctx.databaseUrl, { APPLY: '1', SCOPE_REVIEW_FILE: reviewFilePath });
+        if (apply.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U011 reviewed apply failed: ${apply.stdout}\n${apply.stderr}`);
+        const applyJson = JSON.parse(apply.stdout);
+        writeFileSync(join(scenarioEvidenceDir, 'scope-apply.json'), `${JSON.stringify(applyJson, null, 2)}\n`);
+
+        const rerun = await runBackfillScript(ctx.databaseUrl, { APPLY: '1', SCOPE_REVIEW_FILE: reviewFilePath });
+        if (rerun.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U011 rerun failed: ${rerun.stdout}\n${rerun.stderr}`);
+        const rerunJson = JSON.parse(rerun.stdout);
+        if (rerunJson.changedCount !== 0) throw new ContractFailure(EXIT.CONTRACT, `U011 rerun changedCount expected 0, got ${rerunJson.changedCount}`);
+
+        const controlRowMode = await execSql(ctx.containerName, conn, `SELECT reason_code FROM scope_backfill_quarantine WHERE source_model='__ScopeBackfillControl' AND source_id='scope-closure/v1';`);
+        if (controlRowMode !== 'scope_backfill_reviewed_apply') {
+          throw new ContractFailure(EXIT.CONTRACT, `expected a reviewed_apply control row after U011 apply, got "${controlRowMode}"`);
+        }
+
+        writeFileSync(join(evidenceDir, 'closure-before.json'), `${JSON.stringify({ dryRun: dryRunJson, apply: applyJson, rerun: rerunJson }, null, 2)}\n`);
+        evidence.u011Apply = { reviewDigest: applyJson.reviewDigest, conservation: applyJson.conservation, changedCount: applyJson.changedCount, controlOutcome: applyJson.controlOutcome };
+        evidence.u011RerunChangedCount = rerunJson.changedCount;
+
+        addMigrationToView(view, NEW_MIGRATION_NAME_U012);
+        verifyViewIntegrity(view, [...throughU010, NEW_MIGRATION_NAME, NEW_MIGRATION_NAME_U012]);
+        evidence.viewMembershipWithU012 = { ...view.membership };
+
+        const genFull = await runWorkspaceGenerate(join(REAL_PRISMA_DIR, 'schema.prisma'));
+        if (genFull.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `generate (full schema) failed: ${genFull.stderr || genFull.stdout}`);
+
+        const deployU012 = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (deployU012.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (+U012, symlink view) failed: ${deployU012.stderr || deployU012.stdout}`);
+        evidence.deployU012 = { migrated: true };
+
+        const scopeCheck = await runScopeCheck();
+        if (scopeCheck.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed after U012: ${scopeCheck.stdout}\n${scopeCheck.stderr}`);
+        const scopeCheckJson = JSON.parse(scopeCheck.stdout);
+        if (scopeCheckJson.currentModelCount !== 151 || scopeCheckJson.ok !== true) {
+          throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true currentModelCount=151 after U012: ${scopeCheck.stdout}`);
+        }
+        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 61 || scopeCheckJson.tallies.GLOBAL_SHARED !== 13) {
+          throw new ContractFailure(EXIT.CONTRACT, `scope:check tallies do not reflect the U012 RoleChangeRequest reclassification: ${JSON.stringify(scopeCheckJson.tallies)}`);
+        }
+        writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
+
+        const scopeValidate = await runScopeValidate(ctx.databaseUrl);
+        const scopeValidateJson = JSON.parse(scopeValidate.stdout);
+        writeFileSync(join(evidenceDir, 'scope-validate.json'), `${JSON.stringify(scopeValidateJson, null, 2)}\n`);
+        if (scopeValidate.code !== 0 || scopeValidateJson.ok !== true || scopeValidateJson.blockers.length !== 0) {
+          throw new ContractFailure(EXIT.CONTRACT, `scope:validate reported blockers on the valid closed fixture: ${scopeValidate.stdout}`);
+        }
+        evidence.scopeValidate = { ok: scopeValidateJson.ok, blockerCount: scopeValidateJson.blockers.length };
+
+        const pgConstraintTsv = await execSqlTsv(
+          ctx.containerName,
+          conn,
+          `SELECT conname, contype, convalidated FROM pg_constraint WHERE conname IN (
+             'companies_tenant_id_id_key','projects_company_id_id_key','user_company_roles_id_company_id_key',
+             'projects_company_id_required_for_new_rows_check','role_change_requests_company_id_fkey'
+           ) ORDER BY conname;`,
+        );
+        writeFileSync(join(evidenceDir, 'pg-constraint.tsv'), pgConstraintTsv);
+        // execSqlTsv runs psql without -t (tuples-only), so the output carries a header row and a
+        // "(N rows)" footer around the data — keep only lines shaped like "name\ttype\nt|f".
+        const constraintRows = pgConstraintTsv
+          .trim()
+          .split('\n')
+          .filter((line) => /^\S+\t[a-z]\t[tf]$/.test(line));
+        if (constraintRows.length !== 5) {
+          throw new ContractFailure(EXIT.CONTRACT, `expected exactly 5 new/verified named constraints in pg_constraint, got ${constraintRows.length}: ${pgConstraintTsv}`);
+        }
+        for (const line of constraintRows) {
+          const [name, , validated] = line.split('\t');
+          if (validated !== 't') throw new ContractFailure(EXIT.CONTRACT, `constraint ${name} is not convalidated=true`);
+        }
+
+        const dmmfUnique = await execSql(ctx.containerName, conn, `SELECT count(*) FROM pg_constraint WHERE conname = 'user_company_roles_id_company_id_key' AND contype = 'u';`);
+        if (dmmfUnique !== '1') throw new ContractFailure(EXIT.CONTRACT, 'user_company_roles_id_company_id_key composite unique constraint missing');
+        evidence.userCompanyRoleCompositeUnique = true;
+
+        const resolvedProjectId = reviewFile.entries.find((e) => e.decision === 'assign')?.sourceId;
+        const resolvedProjectCompanyId = resolvedProjectId
+          ? await execSql(ctx.containerName, conn, `SELECT company_id FROM projects WHERE id = '${resolvedProjectId}';`)
+          : null;
+        const otherCompanyId = await execSql(ctx.containerName, conn, `SELECT id FROM companies WHERE id <> '${resolvedProjectCompanyId}' LIMIT 1;`);
+
+        await execSql(
+          ctx.containerName,
+          conn,
+          `CREATE TABLE demo_scoped_assignment (
+             id text PRIMARY KEY,
+             assignment_company_id text NOT NULL,
+             project_id text NOT NULL,
+             FOREIGN KEY (project_id, assignment_company_id) REFERENCES projects(id, company_id)
+           );`,
+        );
+
+        const qaLines: string[] = [];
+        qaLines.push(
+          await attemptQaInsert(ctx.containerName, conn, {
+            label: 'same-company composite assignment',
+            expect: 'ok',
+            sql: `INSERT INTO demo_scoped_assignment (id, assignment_company_id, project_id) VALUES ('qa-valid-1', '${resolvedProjectCompanyId}', '${resolvedProjectId}');`,
+          }),
+        );
+        qaLines.push(
+          await attemptQaInsert(ctx.containerName, conn, {
+            label: 'cross-company composite assignment',
+            expect: 'reject',
+            sql: `INSERT INTO demo_scoped_assignment (id, assignment_company_id, project_id) VALUES ('qa-invalid-1', '${otherCompanyId}', '${resolvedProjectId}');`,
+          }),
+        );
+        qaLines.push(
+          await attemptQaInsert(ctx.containerName, conn, {
+            label: 'new Project with NULL company_id',
+            expect: 'reject',
+            sql: `INSERT INTO projects (id, slug, name, company_id, created_at, updated_at) VALUES ('qa-invalid-project', 'qa-invalid-project', 'QA', NULL, now(), now());`,
+          }),
+        );
+        qaLines.push(
+          await attemptQaInsert(ctx.containerName, conn, {
+            label: 'RoleChangeRequest NULL company_id',
+            expect: 'reject',
+            sql: `INSERT INTO role_change_requests (id, user_id, from_role, to_role, status, requested_by, created_at) VALUES ('qa-invalid-rcr-null', 'fx-user-resolver', 'member', 'admin', 'pending', 'fx-user-resolver', now());`,
+          }),
+        );
+        qaLines.push(
+          await attemptQaInsert(ctx.containerName, conn, {
+            label: 'RoleChangeRequest company_id references a missing company',
+            expect: 'reject',
+            sql: `INSERT INTO role_change_requests (id, user_id, from_role, to_role, status, requested_by, company_id, created_at) VALUES ('qa-invalid-rcr-fk', 'fx-user-resolver', 'member', 'admin', 'pending', 'fx-user-resolver', 'company-does-not-exist', now());`,
+          }),
+        );
+        writeFileSync(join(evidenceDir, 'constraint-negative.log'), `${qaLines.join('\n')}\n`);
+
+        await execSql(ctx.containerName, conn, `DROP TABLE demo_scoped_assignment;`);
+
+        const redeploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (redeploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy re-run was not reproducible: ${redeploy.stderr || redeploy.stdout}`);
+        evidence.migrateDeployReproducible = true;
+
+        const diff = await runMigrateDiff(ctx.databaseUrl);
+        const diffText = diff.stdout.trim();
+        const isEmptyDiff = diff.code === 0 && (diffText.length === 0 || diffText === '-- This is an empty migration.');
+        writeFileSync(join(evidenceDir, 'migration-diff.sql'), '');
+        if (!isEmptyDiff) {
+          throw new ContractFailure(EXIT.CONTRACT, `schema diff not empty after full deploy: exit=${diff.code} stdout=${diff.stdout}`);
+        }
+        evidence.emptySchemaDiff = true;
+
+        return evidence;
+      },
+    );
+  } finally {
+    if (view) {
+      const viewDirToRemove = (view as MigrationView).dir;
+      rmSync(viewDirToRemove, { recursive: true, force: true });
+      const canonicalLockHash = sha256File(join(REAL_PRISMA_DIR, 'migrations', 'migration_lock.toml'));
+      const recordedLockHash = (evidence.viewMembershipWithU012 as Record<string, string> | undefined)?.['migration_lock.toml'];
+      evidence.viewRemovedInFinally = true;
+      evidence.canonicalMigrationLockUntouchedAfterCleanup = recordedLockHash === undefined ? null : canonicalLockHash === recordedLockHash;
+    }
+  }
+
+  return evidence;
+}
+
+async function runEmptyLifecycleScenario(evidenceDir: string, runId: string) {
+  const evidence: Record<string, unknown> = {};
+  await withIsolatedPostgres(
+    { runId, ownerUnit: OWNER_UNIT_U012, purpose: `${PURPOSE_U012}-empty`, evidenceDir: join(evidenceDir, 'empty-scenario'), imageDigest: IMAGE_DIGEST, migrate: true },
+    async (ctx: any) => {
+      const conn = parseConn(ctx.databaseUrl);
+
+      const sentinel = await execSql(
+        ctx.containerName,
+        conn,
+        `SELECT reason_code || '|' || resolved_by FROM scope_backfill_quarantine WHERE source_model = '__ScopeBackfillControl' AND source_id = 'scope-closure/v1';`,
+      );
+      if (sentinel !== 'scope_backfill_empty_database|migration:20260715110000_scope_backfill_quarantine') {
+        throw new ContractFailure(EXIT.CONTRACT, `full-chain empty deploy missing exact U011 empty sentinel: got "${sentinel}"`);
+      }
+      evidence.emptyDatabaseSentinelConsumedByU012 = sentinel;
+
+      const projectsCount = await execSql(ctx.containerName, conn, `SELECT count(*) FROM projects;`);
+      const rcrCount = await execSql(ctx.containerName, conn, `SELECT count(*) FROM role_change_requests;`);
+      if (projectsCount !== '0' || rcrCount !== '0') {
+        throw new ContractFailure(EXIT.CONTRACT, `empty-path scenario expected both source tables empty, got projects=${projectsCount} role_change_requests=${rcrCount}`);
+      }
+      evidence.bothSourceTablesEmpty = true;
+
+      const pgConstraintTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT conname, contype, convalidated FROM pg_constraint WHERE conname IN (
+           'companies_tenant_id_id_key','projects_company_id_id_key','user_company_roles_id_company_id_key',
+           'projects_company_id_required_for_new_rows_check','role_change_requests_company_id_fkey'
+         ) ORDER BY conname;`,
+      );
+      const emptyPathConstraintRows = pgConstraintTsv
+        .trim()
+        .split('\n')
+        .filter((line) => /^\S+\t[a-z]\t[tf]$/.test(line));
+      if (emptyPathConstraintRows.length !== 5) {
+        throw new ContractFailure(EXIT.CONTRACT, `expected exactly 5 constraints in the empty-path pg_constraint check, got ${emptyPathConstraintRows.length}: ${pgConstraintTsv}`);
+      }
+      for (const line of emptyPathConstraintRows) {
+        const [name, , validated] = line.split('\t');
+        if (validated !== 't') throw new ContractFailure(EXIT.CONTRACT, `empty-path constraint ${name} is not convalidated=true`);
+      }
+      evidence.emptyPathConstraintsConvalidated = true;
+
+      const scopeValidate = await runScopeValidate(ctx.databaseUrl);
+      const scopeValidateJson = JSON.parse(scopeValidate.stdout);
+      writeFileSync(join(evidenceDir, 'scope-validate-empty-path.json'), `${JSON.stringify(scopeValidateJson, null, 2)}\n`);
+      if (scopeValidate.code !== 0 || scopeValidateJson.ok !== true || scopeValidateJson.blockers.length !== 0) {
+        throw new ContractFailure(EXIT.CONTRACT, `scope:validate reported blockers on the empty-path closed fixture: ${scopeValidate.stdout}`);
+      }
+      evidence.scopeValidate = { ok: scopeValidateJson.ok, blockerCount: scopeValidateJson.blockers.length };
+    },
+  );
+  return evidence;
+}
+
+async function runScopeBackfillSuite(evidenceDir: string): Promise<number> {
   const runId = `u011${Date.now().toString(36)}`;
   const startedAt = new Date().toISOString();
 
@@ -502,8 +919,8 @@ async function main(): Promise<number> {
   let fixtureEvidence: Record<string, unknown> | null = null;
   let emptyEvidence: Record<string, unknown> | null = null;
   try {
-    fixtureEvidence = await runFixtureScenario(args.evidence, runId);
-    emptyEvidence = await runEmptyDatabaseScenario(args.evidence, runId);
+    fixtureEvidence = await runFixtureScenario(evidenceDir, runId);
+    emptyEvidence = await runEmptyDatabaseScenario(evidenceDir, runId);
   } catch (error) {
     caughtError = error;
   }
@@ -523,7 +940,7 @@ async function main(): Promise<number> {
     startedAt,
     finishedAt: new Date().toISOString(),
   };
-  writeFileSync(join(args.evidence, 'cleanup.json'), `${JSON.stringify(cleanup, null, 2)}\n`);
+  writeFileSync(join(evidenceDir, 'cleanup.json'), `${JSON.stringify(cleanup, null, 2)}\n`);
 
   if (!cleanupOk) {
     process.stderr.write(`run-db-contract: cleanup verification failed: ${JSON.stringify(cleanup)}\n`);
@@ -535,10 +952,79 @@ async function main(): Promise<number> {
   }
 
   writeFileSync(
-    join(args.evidence, 'db-contract-receipt.json'),
-    `${JSON.stringify({ schemaVersion: 1, unit: OWNER_UNIT, suite: args.suite, result: 'PASS', fixtureEvidence, emptyEvidence, cleanup, startedAt, finishedAt: new Date().toISOString() }, null, 2)}\n`,
+    join(evidenceDir, 'db-contract-receipt.json'),
+    `${JSON.stringify({ schemaVersion: 1, unit: OWNER_UNIT, suite: 'scope-backfill', result: 'PASS', fixtureEvidence, emptyEvidence, cleanup, startedAt, finishedAt: new Date().toISOString() }, null, 2)}\n`,
   );
   return EXIT.SUCCESS;
+}
+
+async function runScopeClosureSuite(evidenceDir: string): Promise<number> {
+  const runId = `u012${Date.now().toString(36)}`;
+  const startedAt = new Date().toISOString();
+
+  let caughtError: unknown = null;
+  let legacyEvidence: Record<string, unknown> | null = null;
+  let emptyEvidence: Record<string, unknown> | null = null;
+  try {
+    legacyEvidence = await runLegacyLifecycleScenario(evidenceDir, runId);
+    emptyEvidence = await runEmptyLifecycleScenario(evidenceDir, runId);
+  } catch (error) {
+    caughtError = error;
+  }
+
+  const [legacyCounts, emptyCounts] = await Promise.all([
+    labelResourceCounts(runId, OWNER_UNIT_U012, `${PURPOSE_U012}-legacy`),
+    labelResourceCounts(runId, OWNER_UNIT_U012, `${PURPOSE_U012}-empty`),
+  ]);
+  const totalCounts = {
+    containers: legacyCounts.containers + emptyCounts.containers,
+    networks: legacyCounts.networks + emptyCounts.networks,
+    volumes: legacyCounts.volumes + emptyCounts.volumes,
+  };
+  const cleanupOk = totalCounts.containers === 0 && totalCounts.networks === 0 && totalCounts.volumes === 0;
+  const cleanup = {
+    schemaVersion: 1,
+    unit: OWNER_UNIT_U012,
+    purpose: PURPOSE_U012,
+    runId,
+    postgres: totalCounts,
+    http: null,
+    httpReason: 'U012 owns no HTTP server surface — scope closure is a DB-only migration/script unit with no web/API process to bind or tear down.',
+    childProcesses: 0,
+    result: cleanupOk ? 'PASS' : 'FAIL',
+    startedAt,
+    finishedAt: new Date().toISOString(),
+  };
+  writeFileSync(join(evidenceDir, 'cleanup.json'), `${JSON.stringify(cleanup, null, 2)}\n`);
+
+  if (!cleanupOk) {
+    process.stderr.write(`run-db-contract: cleanup verification failed: ${JSON.stringify(cleanup)}\n`);
+    return EXIT.CLEANUP;
+  }
+  if (caughtError) {
+    process.stderr.write(`${caughtError instanceof Error ? (caughtError.stack ?? caughtError.message) : String(caughtError)}\n`);
+    return caughtError instanceof ContractFailure ? caughtError.exitCode : EXIT.CONTRACT;
+  }
+
+  writeFileSync(
+    join(evidenceDir, 'db-contract-receipt.json'),
+    `${JSON.stringify({ schemaVersion: 1, unit: OWNER_UNIT_U012, suite: 'scope-closure', result: 'PASS', legacyEvidence, emptyEvidence, cleanup, startedAt, finishedAt: new Date().toISOString() }, null, 2)}\n`,
+  );
+  return EXIT.SUCCESS;
+}
+
+async function main(): Promise<number> {
+  let args;
+  try {
+    args = parseArgs(process.argv.slice(2));
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    return error instanceof ContractFailure ? error.exitCode : EXIT.CONFIG;
+  }
+  mkdirSync(args.evidence, { recursive: true });
+
+  if (args.suite === 'scope-backfill') return runScopeBackfillSuite(args.evidence);
+  return runScopeClosureSuite(args.evidence);
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

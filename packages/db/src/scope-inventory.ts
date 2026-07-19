@@ -18,9 +18,11 @@
  *   chain reaching a scoped root and is conceptually delivered/used within one project's
  *   workspace. Many of these carry a bare `projectId`-shaped column without a formal Prisma
  *   relation (pre-dating this bridge); their own column is the "root basis", not a chain.
- * - GLOBAL_SHARED: no tenant/company/project scope at all — pure platform infra, a global
- *   identity/catalog, or (for `RoleChangeRequest`) a legacy/unscoped shape this unit does not
- *   touch (see point 10 of the U010 dispatch — do not add scope authority to it here).
+ * - GLOBAL_SHARED: no tenant/company/project scope at all — pure platform infra or a global
+ *   identity/catalog. At the U010 baseline this also held `RoleChangeRequest` (see point 10 of
+ *   the U010 dispatch — a legacy/unscoped shape that unit deliberately did not touch); U012
+ *   reclassifies it to CHILD_VIA_FK once `companyId` becomes a mandatory FK (see
+ *   `RECLASSIFIED_MODELS` below).
  * - CHILD_VIA_FK: inherits scope ONLY through a mandatory (non-null) Prisma relation chain to
  *   exactly one root (TENANT_ROOT/COMPANY_ROOT/PROJECT_ROOT — never a GLOBAL_SHARED target,
  *   since that would confer no scope). Optional-only chains, ambiguous multi-root chains, and
@@ -99,6 +101,28 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   { model: 'ScopeBackfillQuarantine', unit: 'U011', category: 'GLOBAL_SHARED' },
 ];
 
+export interface ReclassifiedModel {
+  model: string;
+  unit: string;
+  fromCategory: ScopeCategory;
+  toCategory: ScopeCategory;
+}
+
+/**
+ * Every EXISTING (already-counted-in-`SCOPE_INVENTORY_BASELINE`) model whose category a later
+ * unit legitimately changed, without adding or removing a model (so `expectedCurrentModelCount`
+ * is unaffected — only the category tally shifts). U012 reclassifies `RoleChangeRequest` from its
+ * U010-baseline `GLOBAL_SHARED` (a deliberate "this unit does not touch it" placeholder — see the
+ * U010 dispatch point 10 and the category doc comment above) to `CHILD_VIA_FK` once its
+ * `companyId` FK to `Company` becomes mandatory: the model now has a real, DB-enforced mandatory
+ * FK chain to a scope root, which is exactly the CHILD_VIA_FK definition. `SCOPE_INVENTORY_BASELINE`
+ * itself is never edited — it stays the immutable historical record of what the model set looked
+ * like at U010's `baseSha`.
+ */
+export const RECLASSIFIED_MODELS: ReclassifiedModel[] = [
+  { model: 'RoleChangeRequest', unit: 'U012', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
+];
+
 export function expectedCurrentModelCount(
   baseline: ScopeInventoryBaseline = SCOPE_INVENTORY_BASELINE,
   additions: RegisteredAddition[] = REGISTERED_ADDITIONS,
@@ -109,10 +133,15 @@ export function expectedCurrentModelCount(
 export function expectedCategoryCounts(
   baseline: ScopeInventoryBaseline = SCOPE_INVENTORY_BASELINE,
   additions: RegisteredAddition[] = REGISTERED_ADDITIONS,
+  reclassifications: ReclassifiedModel[] = RECLASSIFIED_MODELS,
 ): Record<ScopeCategory, number> {
   const counts = { ...baseline.categoryCounts };
   for (const addition of additions) {
     counts[addition.category] += 1;
+  }
+  for (const reclass of reclassifications) {
+    counts[reclass.fromCategory] -= 1;
+    counts[reclass.toCategory] += 1;
   }
   return counts;
 }
@@ -243,7 +272,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   Repository: { model: 'Repository', category: 'COMPANY_ROOT' },
   ReviewThread: { model: 'ReviewThread', category: 'PROJECT_ROOT' },
   RiskAnalysis: { model: 'RiskAnalysis', category: 'CHILD_VIA_FK', parentModel: 'CommandRun', relationField: 'commandRun', scalarFkField: 'commandRunId', nullable: false },
-  RoleChangeRequest: { model: 'RoleChangeRequest', category: 'GLOBAL_SHARED' },
+  RoleChangeRequest: { model: 'RoleChangeRequest', category: 'CHILD_VIA_FK', parentModel: 'Company', relationField: 'company', scalarFkField: 'companyId', nullable: false },
   RunTimelineItem: { model: 'RunTimelineItem', category: 'PROJECT_ROOT' },
   RuntimePolicy: { model: 'RuntimePolicy', category: 'COMPANY_ROOT' },
   ScopeBackfillQuarantine: { model: 'ScopeBackfillQuarantine', category: 'GLOBAL_SHARED' },

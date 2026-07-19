@@ -46,6 +46,14 @@ model Project {
   domainMemories     DomainMemory[]
   domainDecisionLogs DomainDecisionLog[]
 
+  // U012: companyId stays optional here (full NOT NULL is deferred to U073 — see
+  // packages/db/src/scope-closure.ts) because a live legacy-null Project can be a genuinely
+  // pending U011 quarantine decision, not a defect. The DB layer still forbids new unscoped rows
+  // via the named, validated CHECK `projects_company_id_required_for_new_rows_check` added in
+  // migration 20260715120000 (a row created before that migration's watermark is grandfathered;
+  // any row created at or after it must carry a companyId). Prisma optionality is therefore an
+  // ORM-level convenience, not the closure guarantee — the DB check is.
+  @@unique([companyId, id], map: "projects_company_id_id_key")
   @@index([companyId])
   @@map("projects")
 }
@@ -1966,6 +1974,7 @@ model Company {
   projects        Project[]
   roleChangeRequests RoleChangeRequest[]
 
+  @@unique([tenantId, id], map: "companies_tenant_id_id_key")
   @@index([tenantId])
   @@map("companies")
 }
@@ -1981,9 +1990,13 @@ model UserCompanyRole {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([userId, companyId, role])
+  @@unique([id, companyId], map: "user_company_roles_id_company_id_key")
   @@map("user_company_roles")
 }
 
+// U012: companyId is required (backed by the U011 reviewed backfill's zero-live-null proof — see
+// packages/db/src/scope-closure.ts) with a validated FK; the model is now classified CHILD_VIA_FK
+// of Company in packages/db/src/scope-inventory.ts (RECLASSIFIED_MODELS).
 model RoleChangeRequest {
   id          String   @id @default(cuid())
   userId      String   @map("user_id")
@@ -1992,10 +2005,10 @@ model RoleChangeRequest {
   status      String   @default("pending")
   requestedBy String   @map("requested_by")
   approvedBy  String?  @map("approved_by")
-  companyId   String?  @map("company_id")
+  companyId   String   @map("company_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  company Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   @@index([userId, status])
   @@index([companyId])

@@ -30,6 +30,7 @@
     "scope:check": "tsx scripts/check-scope-inventory.ts",
     "scope:migration:verify": "node scripts/verify-scope-migration.mjs",
     "scope:backfill": "tsx scripts/backfill-canonical-scope.ts",
+    "scope:validate": "tsx scripts/validate-scope-closure.ts",
     "db:contract": "tsx scripts/run-db-contract.ts"
   },
   "dependencies": {

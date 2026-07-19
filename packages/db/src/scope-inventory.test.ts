@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   MODEL_SCOPE_INVENTORY,
+  RECLASSIFIED_MODELS,
   REGISTERED_ADDITIONS,
   SCOPE_INVENTORY_BASELINE,
   assertNoRoleChangeRequestScopeExpansion,
@@ -44,17 +45,17 @@ describe('classifyModel', () => {
 });
 
 describe('buildScopeInventoryReport — real inventory', () => {
-  it('reports ok with exact 151 / 14-1-32-44-60 tallies against its own model list', () => {
+  it('reports ok with exact 151 / 13-1-32-44-61 tallies against its own model list (post-U012 RoleChangeRequest reclassification)', () => {
     const report = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
     expect(report.currentModelCount).toBe(151);
     expect(report.tallies).toEqual({
-      GLOBAL_SHARED: 14,
+      GLOBAL_SHARED: 13,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
       PROJECT_ROOT: 44,
-      CHILD_VIA_FK: 60,
+      CHILD_VIA_FK: 61,
     });
   });
 });
@@ -71,8 +72,8 @@ describe('REGISTERED_ADDITIONS — U011 model registration', () => {
     expect(expectedCurrentModelCount()).toBe(151);
   });
 
-  it('derives expected category counts as baseline plus exactly one registered GLOBAL_SHARED addition', () => {
-    expect(expectedCategoryCounts()).toEqual({
+  it('derives expected category counts as baseline plus exactly one registered GLOBAL_SHARED addition (reclassifications isolated out)', () => {
+    expect(expectedCategoryCounts(SCOPE_INVENTORY_BASELINE, REGISTERED_ADDITIONS, [])).toEqual({
       GLOBAL_SHARED: 14,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
@@ -85,6 +86,40 @@ describe('REGISTERED_ADDITIONS — U011 model registration', () => {
     expect(classifyModel('ScopeBackfillQuarantine')).toEqual({
       model: 'ScopeBackfillQuarantine',
       category: 'GLOBAL_SHARED',
+    });
+  });
+});
+
+describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest reclassification', () => {
+  it('reclassifies exactly RoleChangeRequest from GLOBAL_SHARED to CHILD_VIA_FK for U012', () => {
+    expect(RECLASSIFIED_MODELS).toEqual([
+      { model: 'RoleChangeRequest', unit: 'U012', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
+    ]);
+  });
+
+  it('leaves SCOPE_INVENTORY_BASELINE immutable (RoleChangeRequest stays GLOBAL_SHARED in the historical baseline)', () => {
+    expect(SCOPE_INVENTORY_BASELINE.categoryCounts.GLOBAL_SHARED).toBe(13);
+    expect(SCOPE_INVENTORY_BASELINE.categoryCounts.CHILD_VIA_FK).toBe(60);
+  });
+
+  it('derives expected category counts as baseline plus one registered GLOBAL_SHARED addition minus one reclassified GLOBAL_SHARED->CHILD_VIA_FK', () => {
+    expect(expectedCategoryCounts()).toEqual({
+      GLOBAL_SHARED: 13,
+      TENANT_ROOT: 1,
+      COMPANY_ROOT: 32,
+      PROJECT_ROOT: 44,
+      CHILD_VIA_FK: 61,
+    });
+  });
+
+  it('classifies RoleChangeRequest as CHILD_VIA_FK of Company via mandatory companyId in the live inventory', () => {
+    expect(classifyModel('RoleChangeRequest')).toEqual({
+      model: 'RoleChangeRequest',
+      category: 'CHILD_VIA_FK',
+      parentModel: 'Company',
+      relationField: 'company',
+      scalarFkField: 'companyId',
+      nullable: false,
     });
   });
 });
