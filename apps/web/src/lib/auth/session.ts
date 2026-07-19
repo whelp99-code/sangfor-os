@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
 import { getJwtSecret, isAuthConfigured } from "@/lib/auth/config";
+import { isLocalMockAuthProfile } from "@/lib/auth/runtime-profile";
 
 const sessionUserSchema = z.object({
   id: z.string().min(1),
@@ -12,6 +13,15 @@ const sessionUserSchema = z.object({
 });
 
 export type SessionUser = z.infer<typeof sessionUserSchema>;
+
+export class SessionAuthenticationError extends Error {
+  readonly code = "UNAUTHENTICATED" as const;
+
+  constructor() {
+    super("A verified session is required");
+    this.name = "SessionAuthenticationError";
+  }
+}
 
 const MOCK_USER: SessionUser = {
   id: "mock-user",
@@ -38,7 +48,7 @@ export function verifySessionToken(token: string | null | undefined): SessionUse
   // configured they must be rejected — otherwise `session=mock.x` grants
   // admin in production, bypassing the HMAC check entirely.
   if (token.startsWith("mock.")) {
-    return isAuthConfigured() ? null : MOCK_USER;
+    return !isAuthConfigured() && isLocalMockAuthProfile() ? MOCK_USER : null;
   }
 
   let secret: string;
@@ -64,7 +74,9 @@ export function verifySessionToken(token: string | null | undefined): SessionUse
 }
 
 export function getSessionFromRequest(request: Request): SessionUser {
-  return getVerifiedSessionFromRequest(request) ?? MOCK_USER;
+  const session = getVerifiedSessionFromRequest(request);
+  if (!session) throw new SessionAuthenticationError();
+  return session;
 }
 
 export function getVerifiedSessionFromRequest(request: Request): SessionUser | null {

@@ -1,31 +1,90 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createSessionToken, verifySessionToken } from "./session";
+import {
+  createSessionToken,
+  getSessionFromRequest,
+  SessionAuthenticationError,
+  verifySessionToken,
+} from "./session";
 
 const SECRET_KEY = "JWT_SECRET";
-const originalSecret = process.env[SECRET_KEY];
-
-afterEach(() => {
-  if (originalSecret === undefined) delete process.env[SECRET_KEY];
-  else process.env[SECRET_KEY] = originalSecret;
-});
+const PROFILE_KEY = "AUTH_PROFILE";
+const NODE_ENV_KEY = "NODE_ENV";
+afterEach(() => vi.unstubAllEnvs());
 
 describe("verifySessionToken — mock tokens", () => {
-  it("accepts mock tokens only while auth is unconfigured (dev/demo)", () => {
-    delete process.env[SECRET_KEY];
-    expect(verifySessionToken("mock.session")?.role).toBe("admin");
+  it("rejects mock tokens when the local_mock profile is absent in development", () => {
+    // Given
+    vi.stubEnv(SECRET_KEY, "");
+    vi.stubEnv(PROFILE_KEY, "");
+    vi.stubEnv(NODE_ENV_KEY, "development");
+
+    // When
+    const user = verifySessionToken("mock.session");
+
+    // Then
+    expect(user).toBeNull();
+  });
+
+  it("accepts the fixed mock principal under the explicit local_mock test profile", () => {
+    // Given
+    vi.stubEnv(SECRET_KEY, "");
+    vi.stubEnv(PROFILE_KEY, "local_mock");
+    vi.stubEnv(NODE_ENV_KEY, "test");
+
+    // When
+    const user = verifySessionToken("mock.session");
+
+    // Then
+    expect(user).toMatchObject({
+      id: "mock-user",
+      email: "operator@demo.local",
+      role: "admin",
+    });
+  });
+
+  it("rejects mock tokens under the local_mock profile in production", () => {
+    // Given
+    vi.stubEnv(SECRET_KEY, "");
+    vi.stubEnv(PROFILE_KEY, "local_mock");
+    vi.stubEnv(NODE_ENV_KEY, "production");
+
+    // When
+    const user = verifySessionToken("mock.session");
+
+    // Then
+    expect(user).toBeNull();
   });
 
   it("rejects mock tokens once a real secret is configured", () => {
-    process.env[SECRET_KEY] = "test-secret-at-least-16-chars";
+    // Given
+    vi.stubEnv(SECRET_KEY, "test-secret-at-least-16-chars");
+
+    // When / Then
     expect(verifySessionToken("mock.session")).toBeNull();
     expect(verifySessionToken("mock.anything-else")).toBeNull();
   });
 });
 
+describe("getSessionFromRequest", () => {
+  it("does not augment an unverified request with the mock user", () => {
+    // Given
+    vi.stubEnv(SECRET_KEY, "");
+    vi.stubEnv(PROFILE_KEY, "");
+    vi.stubEnv(NODE_ENV_KEY, "development");
+    const request = new Request("http://localhost/api/private");
+
+    // When
+    const readSession = () => getSessionFromRequest(request);
+
+    // Then
+    expect(readSession).toThrowError(SessionAuthenticationError);
+  });
+});
+
 describe("verifySessionToken — signed tokens", () => {
   beforeEach(() => {
-    process.env[SECRET_KEY] = "test-secret-at-least-16-chars";
+    vi.stubEnv(SECRET_KEY, "test-secret-at-least-16-chars");
   });
 
   it("round-trips a token it signed itself", () => {

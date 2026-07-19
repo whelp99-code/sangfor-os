@@ -33,7 +33,8 @@ describe("action-connector-runtime metadata", () => {
     delete process.env.GITHUB_TOKEN;
     process.env.CONNECTOR_STAGING_MODE = "mock";
     const result = validateAction("github.sync-pr");
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("external_mutation_contained");
     expect(result.warnings.some((w) => w.includes("GITHUB_TOKEN"))).toBe(true);
     expect(result.connector?.effectiveMode).toBe("mock");
   });
@@ -59,7 +60,9 @@ describe("action-connector-runtime metadata", () => {
       registryStatusByConnector: { github: "read_only" },
     });
     expect(result.valid).toBe(false);
-    expect(result.errors).toContain("read_only_connector_blocks_action");
+    expect(result.errors).toContain("external_mutation_contained");
+    expect(result.connector?.effectiveMode).toBe("read_only");
+    expect(result.connector?.realCapable).toBe(false);
   });
 
   it("allows mail.read on read_only mail-intelligence connector", () => {

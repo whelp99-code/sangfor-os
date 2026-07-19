@@ -1,5 +1,28 @@
 import { prisma } from '@sangfor/db';
 
+export const EXTERNAL_FINANCE_MUTATION_CONTAINMENT_CODE = 'EXTERNAL_MUTATION_CONTAINED' as const;
+
+export type ExternalFinanceMutationOperation =
+  | 'codef.connect_account'
+  | 'codef.sync_transactions'
+  | 'popbill.issue'
+  | 'popbill.collect_purchase';
+
+export class ExternalFinanceMutationContainmentError extends Error {
+  readonly code = EXTERNAL_FINANCE_MUTATION_CONTAINMENT_CODE;
+  readonly operation: ExternalFinanceMutationOperation;
+
+  constructor(operation: ExternalFinanceMutationOperation) {
+    super(EXTERNAL_FINANCE_MUTATION_CONTAINMENT_CODE);
+    this.name = 'ExternalFinanceMutationContainmentError';
+    this.operation = operation;
+  }
+}
+
+export function denyExternalFinanceMutation(operation: ExternalFinanceMutationOperation): never {
+  throw new ExternalFinanceMutationContainmentError(operation);
+}
+
 export class CodefService {
   readonly enabled: boolean;
 
@@ -14,15 +37,8 @@ export class CodefService {
     return this.enabled;
   }
 
-  async connectAccount(input: { type: 'bank' | 'card'; organization: string; accountName: string; accountNum?: string; memo?: string }) {
-    const connectedId = this.enabled ? null : `MOCK_CID_${Date.now()}`;
-    return prisma.financeAccount.create({
-      data: {
-        type: input.type, organization: input.organization, accountName: input.accountName,
-        accountNum: input.accountNum, connectedId, memo: input.memo,
-        lastSyncedAt: this.enabled ? new Date() : null,
-      },
-    });
+  async connectAccount(_input: { type: 'bank' | 'card'; organization: string; accountName: string; accountNum?: string; memo?: string }) {
+    denyExternalFinanceMutation('codef.connect_account');
   }
 
   async listAccounts(type?: 'bank' | 'card') {
@@ -32,14 +48,8 @@ export class CodefService {
     });
   }
 
-  async syncTransactions(accountId: string, fromDate: Date, toDate: Date) {
-    const account = await prisma.financeAccount.findUnique({ where: { id: accountId } });
-    if (!account) throw new Error('계좌 없음');
-    if (!this.enabled) {
-      console.log(`mock sync for ${account.accountName}`);
-      return { ok: true, mock: true, count: 0, message: 'CODEF 미설정, mock 응답' };
-    }
-    return { ok: true, mock: false, count: 0, message: 'CODEF SDK 호출 코드를 추가하세요' };
+  async syncTransactions(_accountId: string, _fromDate: Date, _toDate: Date) {
+    denyExternalFinanceMutation('codef.sync_transactions');
   }
 
   async getExpiringSoon(days = 7) {

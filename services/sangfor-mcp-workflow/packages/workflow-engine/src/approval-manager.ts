@@ -3,6 +3,10 @@
  */
 
 import { nowId, nowISO, createLogger } from '@sangfor/workflow-shared';
+import {
+  requireOperatorPrincipal,
+  type AuthContext,
+} from '../../shared/src/mutation-policy.js';
 import type {
   Workflow,
   ApprovalRequest,
@@ -53,7 +57,8 @@ export class ApprovalManager {
   }
 
   // 승인 처리
-  approve(workflowId: string, approvedBy: string): Workflow {
+  approve(workflowId: string, actor: AuthContext): Workflow {
+    const principalId = requireOperatorPrincipal(actor);
     const workflow = this.pendingApprovals.get(workflowId);
     if (!workflow) {
       throw new Error(`Workflow not found: ${workflowId}`);
@@ -61,23 +66,24 @@ export class ApprovalManager {
 
     workflow.status = 'approved';
     workflow.approvedAt = nowISO();
-    workflow.approvedBy = approvedBy;
+    workflow.approvedBy = principalId;
     workflow.updatedAt = nowISO();
 
     this.pendingApprovals.delete(workflowId);
     this.approvalHistory.push({
       workflowId,
       action: 'approved',
-      by: approvedBy,
+      by: principalId,
       at: nowISO(),
     });
 
-    log.info(`Workflow approved: ${workflowId} by ${approvedBy}`);
+    log.info(`Workflow approved: ${workflowId} by ${principalId}`);
     return workflow;
   }
 
   // 거절 처리
-  reject(workflowId: string, reason: string, rejectedBy?: string): Workflow {
+  reject(workflowId: string, reason: string, actor: AuthContext): Workflow {
+    const principalId = requireOperatorPrincipal(actor);
     const workflow = this.pendingApprovals.get(workflowId);
     if (!workflow) {
       throw new Error(`Workflow not found: ${workflowId}`);
@@ -91,7 +97,7 @@ export class ApprovalManager {
     this.approvalHistory.push({
       workflowId,
       action: 'rejected',
-      by: rejectedBy || 'system',
+      by: principalId,
       at: nowISO(),
       reason,
     });
@@ -185,46 +191,48 @@ export class ApprovalManager {
   /**
    * Operation 승인 처리
    */
-  approveOperation(operationId: string, approvedBy: string): void {
+  approveOperation(operationId: string, actor: AuthContext): void {
+    const principalId = requireOperatorPrincipal(actor);
     const request = this.operationApprovals.get(operationId);
     if (!request) {
       throw new Error(`Operation approval request not found: ${operationId}`);
     }
 
     request.status = 'approved';
-    request.approvedBy = approvedBy;
+    request.approvedBy = principalId;
 
     // history 기록 (risk 정보 포함)
     this.operationHistory.push({
       operationId,
       action: 'approved',
-      by: approvedBy,
+      by: principalId,
       at: nowISO(),
       riskLevel: request.plan.risk.level,
       riskCategories: request.plan.risk.categories,
     });
 
-    log.info(`Operation approved: ${operationId} by ${approvedBy}`);
+    log.info(`Operation approved: ${operationId} by ${principalId}`);
   }
 
   /**
    * Operation 거절 처리 — 반려된 plan이 실행 큐에 남지 않도록 cleanup
    */
-  rejectOperation(operationId: string, reason: string, rejectedBy: string): void {
+  rejectOperation(operationId: string, reason: string, actor: AuthContext): void {
+    const principalId = requireOperatorPrincipal(actor);
     const request = this.operationApprovals.get(operationId);
     if (!request) {
       throw new Error(`Operation approval request not found: ${operationId}`);
     }
 
     request.status = 'rejected';
-    request.rejectedBy = rejectedBy;
+    request.rejectedBy = principalId;
     request.reason = reason;
 
     // history 기록 (risk 정보 포함)
     this.operationHistory.push({
       operationId,
       action: 'rejected',
-      by: rejectedBy,
+      by: principalId,
       at: nowISO(),
       reason,
       riskLevel: request.plan.risk.level,
@@ -234,7 +242,7 @@ export class ApprovalManager {
     // 반려된 plan은 pending 큐에서 제거 (cleanup)
     this.operationApprovals.delete(operationId);
 
-    log.info(`Operation rejected: ${operationId} by ${rejectedBy} — ${reason}`);
+    log.info(`Operation rejected: ${operationId} by ${principalId} — ${reason}`);
   }
 
   /**

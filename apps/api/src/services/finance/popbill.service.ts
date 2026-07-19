@@ -1,4 +1,5 @@
 import { prisma } from '@sangfor/db';
+import { denyExternalFinanceMutation } from './codef.service';
 
 export interface IssueTaxInvoiceInput {
   invoiceId?: string;
@@ -43,21 +44,7 @@ export class PopbillService {
     const linkId = process.env.POPBILL_LINK_ID;
     const secretKey = process.env.POPBILL_SECRET_KEY;
     this.enabled = Boolean(linkId && secretKey);
-    if (this.enabled) {
-      try {
-        this.popbill = require('popbill');
-        this.popbill.config({
-          LinkID: linkId,
-          SecretKey: secretKey,
-          IsTest: process.env.POPBILL_IS_TEST === 'true',
-          defaultErrorHandler: (e: any) => console.error(`팝빌 에러: ${e?.message ?? e}`),
-        });
-        console.log(`팝빌 연동 활성화 (테스트모드=${process.env.POPBILL_IS_TEST === 'true'})`);
-      } catch (e: any) {
-        console.warn(`팝빌 SDK 로드 실패: ${e?.message ?? e}`);
-        this.popbill = null;
-      }
-    } else {
+    if (!this.enabled) {
       console.warn('팝빌 API 키 미설정 → 모의(mock) 발행 모드');
     }
   }
@@ -86,6 +73,8 @@ export class PopbillService {
   }
 
   async issue(input: IssueTaxInvoiceInput) {
+    denyExternalFinanceMutation('popbill.issue');
+
     if (input.supplyAmount + input.vatAmount !== input.totalAmount) {
       throw new Error('공급가액+세액 = 합계가 일치해야 합니다.');
     }
@@ -150,7 +139,9 @@ export class PopbillService {
     }
   }
 
-  async collectPurchaseTaxInvoices(year: number, month: number) {
+  async collectPurchaseTaxInvoices(_year: number, _month: number) {
+    denyExternalFinanceMutation('popbill.collect_purchase');
+
     if (!this.isEnabled()) {
       return { ok: true, mock: true, count: 0, message: '팝빌 미설정, mock 응답' };
     }

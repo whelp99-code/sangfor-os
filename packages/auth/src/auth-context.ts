@@ -13,6 +13,17 @@ const SCOPED_BODY_FIELDS = new Set([
   'persona_id',
 ]);
 
+const CALLER_IDENTITY_FIELDS: ReadonlySet<string> = new Set([
+  'approvedBy',
+  'actorId',
+  'requestedBy',
+  'requester',
+  'approver',
+  'approverId',
+  'approverPersonaId',
+  'personaId',
+]);
+
 const businessRbac = new BusinessRBAC();
 
 export interface AuthContextFallback {
@@ -70,16 +81,65 @@ export function assertNoUntrustedScopeFields(input: unknown): void {
   }
 }
 
-function findUntrustedScopeFieldsInValue(input: unknown, path = ''): string[] {
-  if (!input || typeof input !== 'object') return [];
+export function findCallerIdentityConflicts(
+  input: unknown,
+  principalId: string,
+): string[] {
+  return findCallerIdentityConflictsInValue(input, principalId);
+}
 
+export function stripCallerIdentityFields(
+  input: Readonly<Record<string, unknown>>,
+): Record<string, unknown>;
+export function stripCallerIdentityFields(input: unknown): unknown;
+export function stripCallerIdentityFields(input: unknown): unknown {
+  if (Array.isArray(input)) return input.map(stripCallerIdentityFields);
+  if (!isUnknownRecord(input)) return input;
+  return Object.fromEntries(
+    Object.entries(input)
+      .filter(([key]) => !CALLER_IDENTITY_FIELDS.has(key))
+      .map(([key, value]) => [key, stripCallerIdentityFields(value)]),
+  );
+}
+
+function findUntrustedScopeFieldsInValue(input: unknown, path = ''): string[] {
   if (Array.isArray(input)) {
     return input.flatMap((entry, index) => findUntrustedScopeFieldsInValue(entry, `${path}[${index}]`));
   }
 
-  return Object.entries(input as Record<string, unknown>).flatMap(([key, value]) => {
+  if (!isUnknownRecord(input)) return [];
+
+  return Object.entries(input).flatMap(([key, value]) => {
     const fieldPath = path ? `${path}.${key}` : key;
     const ownMatch = SCOPED_BODY_FIELDS.has(key) ? [fieldPath] : [];
     return [...ownMatch, ...findUntrustedScopeFieldsInValue(value, fieldPath)];
   });
+}
+
+function findCallerIdentityConflictsInValue(
+  input: unknown,
+  principalId: string,
+  path = '',
+): string[] {
+  if (Array.isArray(input)) {
+    return input.flatMap((entry, index) =>
+      findCallerIdentityConflictsInValue(entry, principalId, `${path}[${index}]`),
+    );
+  }
+
+  if (!isUnknownRecord(input)) return [];
+
+  return Object.entries(input).flatMap(([key, value]) => {
+    const fieldPath = path ? `${path}.${key}` : key;
+    const ownConflict =
+      CALLER_IDENTITY_FIELDS.has(key) && value !== principalId ? [fieldPath] : [];
+    return [
+      ...ownConflict,
+      ...findCallerIdentityConflictsInValue(value, principalId, fieldPath),
+    ];
+  });
+}
+
+function isUnknownRecord(input: unknown): input is Record<string, unknown> {
+  return input !== null && typeof input === 'object';
 }

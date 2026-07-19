@@ -1,4 +1,6 @@
 /** Shared JWT auth gate — safe for Edge middleware and Node routes. */
+export const AUTH_CONFIGURATION_UNAVAILABLE = "AUTH_CONFIGURATION_UNAVAILABLE" as const;
+
 export function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET?.trim();
   if (!secret || secret.length < 16) {

@@ -6,6 +6,7 @@
  */
 
 import { nowId, nowISO, createLogger } from '@sangfor/workflow-shared';
+import { denyWorkflowMutation, type AuthContext } from '../../shared/src/mutation-policy.js';
 
 const log = createLogger('breakglass-policy');
 
@@ -73,9 +74,10 @@ export class BreakGlassPolicy {
    */
   requestBreakGlass(
     reason: string,
-    requestedBy: string,
+    actor: AuthContext,
     durationMinutes?: number,
   ): BreakGlassRequest {
+    denyWorkflowMutation('breakglass_request');
     // duration 검증
     const duration = this.validateDuration(durationMinutes);
 
@@ -88,7 +90,7 @@ export class BreakGlassPolicy {
     const request: BreakGlassRequest = {
       id: requestId,
       reason,
-      requestedBy,
+      requestedBy: actor.principalId,
       requestedAt,
       status: this.config.approvalRequired ? 'pending' : 'approved',
       expiresAt,
@@ -107,11 +109,11 @@ export class BreakGlassPolicy {
     this.requests.set(requestId, request);
 
     // 감사 로그 기록
-    this.addAuditEntry(requestId, 'requested', requestedBy, `사유: ${reason}`);
+    this.addAuditEntry(requestId, 'requested', actor.principalId, `사유: ${reason}`);
 
     log.info(
       `Break-glass request created: ${requestId} ` +
-      `by ${requestedBy} (expires: ${expiresAt}, ` +
+      `by ${actor.principalId} (expires: ${expiresAt}, ` +
       `approval: ${this.config.approvalRequired})`,
     );
 
@@ -121,7 +123,8 @@ export class BreakGlassPolicy {
   /**
    * Break-glass 승인 처리
    */
-  approveBreakGlass(requestId: string, approvedBy: string): BreakGlassRequest {
+  approveBreakGlass(requestId: string, actor: AuthContext): BreakGlassRequest {
+    denyWorkflowMutation('breakglass_approval');
     const request = this.requests.get(requestId);
     if (!request) {
       throw new Error(`Break-glass request not found: ${requestId}`);
@@ -142,15 +145,15 @@ export class BreakGlassPolicy {
     }
 
     request.status = 'approved';
-    request.approvedBy = approvedBy;
+    request.approvedBy = actor.principalId;
     request.approvedAt = nowISO();
 
     this.addAuditEntry(
-      requestId, 'approved', approvedBy,
+      requestId, 'approved', actor.principalId,
       `승인 완료 (만료: ${request.expiresAt})`,
     );
 
-    log.info(`Break-glass approved: ${requestId} by ${approvedBy}`);
+    log.info(`Break-glass approved: ${requestId} by ${actor.principalId}`);
 
     return request;
   }
@@ -158,7 +161,8 @@ export class BreakGlassPolicy {
   /**
    * Break-glass 요청 거절
    */
-  denyBreakGlass(requestId: string, deniedBy: string, reason: string): BreakGlassRequest {
+  denyBreakGlass(requestId: string, actor: AuthContext, reason: string): BreakGlassRequest {
+    denyWorkflowMutation('breakglass_denial');
     const request = this.requests.get(requestId);
     if (!request) {
       throw new Error(`Break-glass request not found: ${requestId}`);
@@ -172,13 +176,13 @@ export class BreakGlassPolicy {
     }
 
     request.status = 'revoked';
-    request.revokedBy = deniedBy;
+    request.revokedBy = actor.principalId;
     request.revokedAt = nowISO();
     request.metadata = { ...request.metadata, denyReason: reason };
 
-    this.addAuditEntry(requestId, 'denied', deniedBy, `거절 사유: ${reason}`);
+    this.addAuditEntry(requestId, 'denied', actor.principalId, `거절 사유: ${reason}`);
 
-    log.info(`Break-glass denied: ${requestId} by ${deniedBy} — ${reason}`);
+    log.info(`Break-glass denied: ${requestId} by ${actor.principalId} — ${reason}`);
 
     return request;
   }
@@ -245,7 +249,8 @@ export class BreakGlassPolicy {
   /**
    * Break-glass 세션 강제 해지
    */
-  revokeBreakGlass(requestId: string, revokedBy: string, reason: string): BreakGlassRequest {
+  revokeBreakGlass(requestId: string, actor: AuthContext, reason: string): BreakGlassRequest {
+    denyWorkflowMutation('breakglass_revocation');
     const request = this.requests.get(requestId);
     if (!request) {
       throw new Error(`Break-glass request not found: ${requestId}`);
@@ -259,13 +264,13 @@ export class BreakGlassPolicy {
     }
 
     request.status = 'revoked';
-    request.revokedBy = revokedBy;
+    request.revokedBy = actor.principalId;
     request.revokedAt = nowISO();
     request.metadata = { ...request.metadata, revokeReason: reason };
 
-    this.addAuditEntry(requestId, 'revoked', revokedBy, `해지 사유: ${reason}`);
+    this.addAuditEntry(requestId, 'revoked', actor.principalId, `해지 사유: ${reason}`);
 
-    log.info(`Break-glass revoked: ${requestId} by ${revokedBy} — ${reason}`);
+    log.info(`Break-glass revoked: ${requestId} by ${actor.principalId} — ${reason}`);
 
     return request;
   }

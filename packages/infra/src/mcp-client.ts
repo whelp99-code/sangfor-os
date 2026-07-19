@@ -34,8 +34,23 @@ export interface McpClientOptions {
   fetchImpl?: typeof fetch;
 }
 
+export class McpClientConfigurationError extends Error {
+  readonly name = 'McpClientConfigurationError';
+  readonly code = 'UNSAFE_AUTH_CONFIGURATION';
+
+  constructor() {
+    super('UNSAFE_AUTH_CONFIGURATION');
+  }
+}
+
 function bridgeBaseUrl(override?: string): string {
   return override ?? process.env.WHELP99_MCP_HTTP_URL ?? getUrl('WHELP99_MCP_BRIDGE');
+}
+
+function serverAuthorization(): string {
+  const apiKey = process.env.SANGFOR_API_KEY?.trim();
+  if (!apiKey) throw new McpClientConfigurationError();
+  return `Bearer ${apiKey}`;
 }
 
 function withTimeout(timeoutMs: number): { signal: AbortSignal; clear: () => void } {
@@ -46,10 +61,14 @@ function withTimeout(timeoutMs: number): { signal: AbortSignal; clear: () => voi
 
 /** List the MCP tools the bridge exposes. */
 export async function listMcpTools(opts: McpClientOptions = {}): Promise<McpTool[]> {
+  const authorization = serverAuthorization();
   const doFetch = opts.fetchImpl ?? fetch;
   const { signal, clear } = withTimeout(opts.timeoutMs ?? 30_000);
   try {
-    const res = await doFetch(`${bridgeBaseUrl(opts.baseUrl)}/tools`, { signal });
+    const res = await doFetch(`${bridgeBaseUrl(opts.baseUrl)}/tools`, {
+      headers: { authorization },
+      signal,
+    });
     const body = (await res.json()) as { tools?: McpTool[]; error?: string };
     if (!res.ok || body.error) {
       throw new Error(body.error ?? `MCP bridge /tools failed: HTTP ${res.status}`);
@@ -72,12 +91,13 @@ export async function callMcpTool(
 ): Promise<McpCallResult> {
   if (!name) throw new Error('callMcpTool: tool name is required');
 
+  const authorization = serverAuthorization();
   const doFetch = opts.fetchImpl ?? fetch;
   const { signal, clear } = withTimeout(opts.timeoutMs ?? 30_000);
   try {
     const res = await doFetch(`${bridgeBaseUrl(opts.baseUrl)}/tools/call`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { authorization, 'content-type': 'application/json' },
       body: JSON.stringify({ name, arguments: args }),
       signal,
     });

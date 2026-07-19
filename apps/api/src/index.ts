@@ -25,8 +25,133 @@ import { metrics } from "@sangfor/infra";
 import { createEventRoutes, eventBus } from "./routes/events";
 import { createCfoHealthRoutes, createCfoRoutes } from "./routes/cfo";
 import { OutlookWebhookHandler } from "@sangfor/api-utils";
+import {
+  findCallerIdentityConflicts,
+  stripCallerIdentityFields,
+} from "@sangfor/auth";
 
-const PORT = process.env.API_PORT || 3200;
+const PORT = Number(process.env.API_PORT ?? 3200);
+const HOST = process.env.HOST || "127.0.0.1";
+const U002_IPC_PROTOCOL = "u002-containment-ipc/v1" as const;
+
+type ApiIpcState = "idle" | "armed" | "captured" | "released" | "complete";
+type ApiIpcMessage = {
+  readonly protocol: typeof U002_IPC_PROTOCOL;
+  readonly type: "arm" | "release";
+  readonly boundary: "api-to-infra";
+  readonly nonce: string;
+};
+
+let apiIpcState: ApiIpcState = "idle";
+let apiIpcNonce = "";
+let apiIpcRelease: (() => void) | undefined;
+let apiIpcDisconnect: ((error: Error) => void) | undefined;
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseApiIpcMessage(value: unknown): ApiIpcMessage | undefined {
+  if (!isRecord(value)) return undefined;
+  if (value.protocol !== U002_IPC_PROTOCOL) return undefined;
+  if (value.type !== "arm" && value.type !== "release") return undefined;
+  if (value.boundary !== "api-to-infra" || typeof value.nonce !== "string") return undefined;
+  return {
+    protocol: U002_IPC_PROTOCOL,
+    type: value.type,
+    boundary: "api-to-infra",
+    nonce: value.nonce,
+  };
+}
+
+function sendApiIpcMessage(message: Readonly<Record<string, unknown>>): Promise<void> {
+  const send = process.send;
+  if (typeof send !== "function" || process.connected !== true) return Promise.resolve();
+  return new Promise<void>((resolveSend, rejectSend) => {
+    send.call(process, message, (error: Error | null) => {
+      if (error) rejectSend(error);
+      else resolveSend();
+    });
+  });
+}
+
+function onApiIpcMessage(value: unknown): void {
+  const message = parseApiIpcMessage(value);
+  if (!message) return;
+  if (message.type === "arm" && apiIpcState === "idle") {
+    apiIpcNonce = message.nonce;
+    apiIpcState = "armed";
+    void sendApiIpcMessage({
+      protocol: U002_IPC_PROTOCOL,
+      type: "armed",
+      boundary: "api-to-infra",
+      nonce: apiIpcNonce,
+    }).catch(() => {
+      apiIpcState = "idle";
+      apiIpcNonce = "";
+    });
+    return;
+  }
+  if (message.nonce !== apiIpcNonce) return;
+  if (message.type === "release" && apiIpcState === "captured") {
+    apiIpcState = "released";
+    apiIpcRelease?.();
+  }
+}
+
+function onApiIpcDisconnect(): void {
+  if (apiIpcState !== "captured") return;
+  apiIpcDisconnect?.(new Error("U002_IPC_DISCONNECTED"));
+}
+
+if (typeof process.send === "function" && process.connected === true) {
+  process.on("message", onApiIpcMessage);
+  process.on("disconnect", onApiIpcDisconnect);
+}
+
+async function awaitApiIpcRelease(
+  toolName: string,
+  argumentsValue: Readonly<Record<string, unknown>>,
+): Promise<void> {
+  if (apiIpcState !== "armed") return;
+  apiIpcState = "captured";
+  const releasePromise = new Promise<void>((resolveRelease, rejectRelease) => {
+    apiIpcRelease = resolveRelease;
+    apiIpcDisconnect = rejectRelease;
+  });
+  await sendApiIpcMessage({
+    protocol: U002_IPC_PROTOCOL,
+    type: "capture",
+    boundary: "api-to-infra",
+    nonce: apiIpcNonce,
+    toolName,
+    arguments: argumentsValue,
+  });
+  await releasePromise;
+  apiIpcRelease = undefined;
+  apiIpcDisconnect = undefined;
+}
+
+async function completeApiIpc(outcome: "returned" | "threw"): Promise<void> {
+  if (apiIpcState !== "released") return;
+  try {
+    await sendApiIpcMessage({
+      protocol: U002_IPC_PROTOCOL,
+      type: "complete",
+      boundary: "api-to-infra",
+      nonce: apiIpcNonce,
+      outcome,
+    });
+  } finally {
+    apiIpcState = "complete";
+    process.off("message", onApiIpcMessage);
+    process.off("disconnect", onApiIpcDisconnect);
+  }
+}
+
+function isUnknownRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
 
 export function createApp(): Express {
   const app = express();
@@ -47,14 +172,67 @@ export function createApp(): Express {
     next();
   });
 
+  app.use(
+    "/api/cfo",
+    apiKeyMiddleware,
+    financeAccessGuard,
+    createCfoHealthRoutes(),
+    createCfoRoutes(),
+  );
+
+  app.get("/api/whelp99/tools", apiKeyMiddleware, systemAdminAccessGuard, async (_req, res) => {
+    try {
+      const tools = await listMcpTools();
+      res.json({ tools });
+    } catch (error) {
+      console.error("[api] whelp99 tools list failed:", error instanceof Error ? error.stack ?? error.message : error);
+      res.status(502).json({ error: "upstream_unavailable", tools: [] });
+    }
+  });
+
+  app.post("/api/whelp99/tools/call", apiKeyMiddleware, systemAdminAccessGuard, async (req, res) => {
+    const body: unknown = req.body;
+    const name = isUnknownRecord(body) && typeof body.name === "string" ? body.name : "";
+    if (!name) {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    const principalId = req.authContext?.userId;
+    const rawArguments = isUnknownRecord(body) ? body.arguments ?? body.args ?? {} : {};
+    if (!principalId || !isUnknownRecord(rawArguments)) {
+      res.status(400).json({ error: "invalid arguments" });
+      return;
+    }
+    if (findCallerIdentityConflicts(body, principalId).length > 0) {
+      res.status(400).json({ error: "IDENTITY_CONFLICT" });
+      return;
+    }
+    const sanitizedArguments = stripCallerIdentityFields(rawArguments);
+    if (!isUnknownRecord(sanitizedArguments)) {
+      res.status(400).json({ error: "invalid arguments" });
+      return;
+    }
+    try {
+      await awaitApiIpcRelease(name, sanitizedArguments);
+      const result = await callMcpTool(name, sanitizedArguments);
+      await completeApiIpc("returned");
+      res.status(result.error ? 502 : 200).json(result);
+    } catch (error) {
+      await completeApiIpc("threw").catch(() => undefined);
+      console.error("[api] whelp99 tool call failed:", error instanceof Error ? error.stack ?? error.message : error);
+      res.status(500).json({ error: "upstream_unavailable" });
+    }
+  });
+
+  app.use("/api", authMiddleware, systemAdminAccessGuard);
+
   // Prometheus metrics endpoint
   app.get("/api/metrics", (_req, res) => {
     metrics.setGauge("active_sse_connections", eventBus.getClientCount());
     res.type("text/plain").send(metrics.getMetrics());
   });
 
-  // Health check (before auth middleware, so it's always accessible)
-  app.get("/health", (_req, res) => {
+  app.get("/health", authMiddleware, systemAdminAccessGuard, (_req, res) => {
     res.json({
       status: "ok",
       version: "0.1.0",
@@ -125,52 +303,7 @@ export function createApp(): Express {
     });
   });
 
-  // Event routes (SSE - before auth middleware)
   app.use("/api", createEventRoutes());
-
-  // CFO health is public; all other CFO REST routes require API key auth.
-  app.use("/api/cfo", createCfoHealthRoutes());
-
-  app.use("/api/cfo", apiKeyMiddleware, financeAccessGuard, createCfoRoutes());
-
-  // Auth middleware for other /api routes
-  app.use("/api", authMiddleware);
-
-  // List MCP tools — behind auth: the catalog reveals internal tool names and
-  // schemas, so it must not be reachable unauthenticated.
-  app.get("/api/whelp99/tools", async (_req, res) => {
-    try {
-      const tools = await listMcpTools();
-      res.json({ tools });
-    } catch (error) {
-      console.error("[api] whelp99 tools list failed:", error instanceof Error ? error.stack ?? error.message : error);
-      res.status(502).json({
-        error: "upstream_unavailable",
-        tools: [],
-      });
-    }
-  });
-
-  // Invoke an MCP tool through the whelp99 bridge. Arbitrary tool execution
-  // requires both authenticated identity and the system_admin business role.
-  // Body: { name: string, arguments?: Record<string, unknown> }
-  app.post("/api/whelp99/tools/call", systemAdminAccessGuard, express.json(), async (req, res) => {
-    const name = typeof req.body?.name === "string" ? req.body.name : "";
-    if (!name) {
-      res.status(400).json({ error: "name is required" });
-      return;
-    }
-    try {
-      const args = (req.body?.arguments ?? req.body?.args ?? {}) as Record<string, unknown>;
-      const result = await callMcpTool(name, args);
-      res.status(result.error ? 502 : 200).json(result);
-    } catch (error) {
-      console.error("[api] whelp99 tool call failed:", error instanceof Error ? error.stack ?? error.message : error);
-      res.status(500).json({
-        error: "upstream_unavailable",
-      });
-    }
-  });
 
   // Webhook routes
   const outlookWebhook = new OutlookWebhookHandler(
@@ -236,7 +369,7 @@ const isEntrypoint = process.argv[1] === fileURLToPath(import.meta.url);
 
 if (isEntrypoint) {
   const app = createApp();
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, HOST, () => {
     console.log(`🚀 AIOS API Server running on port ${PORT}`);
     console.log(`   Health: http://localhost:${PORT}/health`);
     console.log(`   Health (api): http://localhost:${PORT}/api/health`);

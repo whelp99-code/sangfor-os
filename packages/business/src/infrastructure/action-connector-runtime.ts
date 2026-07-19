@@ -1,5 +1,6 @@
 import { prisma } from "@sangfor/db";
 import { z } from "zod";
+import { EXTERNAL_MUTATION_CONTAINMENT_CODE } from "../governance/external-mutation-containment";
 import { traceWorkflowEvent } from "../platform/langfuse-observability";
 
 /**
@@ -270,6 +271,12 @@ export function resolveConnectorRuntimeState(
     realCapable = false;
   }
 
+  if (defn.connectorKey === "github") {
+    if (effectiveMode === "real") effectiveMode = "read_only";
+    realCapable = false;
+    warnings.push("github: external mutation containment is active.");
+  }
+
   return {
     ...defn,
     effectiveMode,
@@ -385,10 +392,10 @@ export function validateAction(
   const warnings = [...connector.warnings];
 
   if (
-    connector.effectiveMode === "read_only" &&
     action.capabilities.some((cap) => WRITE_BLOCKED_CAPABILITIES.has(cap))
   ) {
-    errors.push("read_only_connector_blocks_action");
+    errors.push("external_mutation_contained");
+    warnings.push(EXTERNAL_MUTATION_CONTAINMENT_CODE);
   }
 
   if (connector.effectiveMode === "mock" && stagingMode() === "mock") {

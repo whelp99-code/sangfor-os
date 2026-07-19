@@ -34,8 +34,19 @@ import {
 } from '../../../packages/sangfor-product-adapters/src/index.js';
 import { buildSettingGuidePptx, buildOperationsGuidePptx } from '../../../packages/sangfor-pptx/src/index.js';
 import { captureProductScreenshots } from '../../../packages/sangfor-screenshot/src/index.js';
+import {
+  authenticateApiKey,
+  containedMutationForTool,
+  enforceProductionAuthPreflight,
+  extractMcpApiKey,
+  findCallerIdentityConflict,
+  isOperatorContext,
+  withServerActor,
+} from '../../../packages/shared/src/mutation-policy.js';
 
-type JsonRpcRequest = { jsonrpc: '2.0'; id?: string | number; method: string; params?: any };
+enforceProductionAuthPreflight();
+
+type JsonRpcRequest = { readonly jsonrpc: '2.0'; readonly id?: string | number; readonly method: string; readonly params?: unknown };
 
 type ToolHandler = (args: any) => unknown | Promise<unknown>;
 
@@ -399,7 +410,37 @@ function listTools() {
   }));
 }
 
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseRequest(value: unknown): JsonRpcRequest | undefined {
+  if (!isRecord(value) || value.jsonrpc !== '2.0' || typeof value.method !== 'string') return undefined;
+  const id = value.id;
+  if (id !== undefined && typeof id !== 'string' && typeof id !== 'number') return undefined;
+  const params = value.params;
+  if (params !== undefined && !isRecord(params) && !Array.isArray(params)) return undefined;
+  return {
+    jsonrpc: '2.0',
+    method: value.method,
+    ...(id === undefined ? {} : { id }),
+    ...(params === undefined ? {} : { params }),
+  };
+}
+
 async function handle(req: JsonRpcRequest) {
+  if (req.method !== 'initialize' && req.method !== 'tools/list' && req.method !== 'tools/call') {
+    return { jsonrpc: '2.0', id: req.id, error: { code: -32601, message: `Method not found: ${req.method}` } };
+  }
+
+  const context = authenticateApiKey(extractMcpApiKey(req.params));
+  if (!context) {
+    return { jsonrpc: '2.0', id: req.id, error: { code: -32001, message: 'UNAUTHENTICATED' } };
+  }
+  if (!isOperatorContext(context)) {
+    return { jsonrpc: '2.0', id: req.id, error: { code: -32003, message: 'FORBIDDEN' } };
+  }
+
   try {
     if (req.method === 'initialize') {
       return { jsonrpc: '2.0', id: req.id, result: { protocolVersion: '2025-06-18', serverInfo: { name: 'sangfor-engineer-mcp', version: '0.1.0' }, capabilities: { tools: { listChanged: false } } } };
@@ -408,25 +449,53 @@ async function handle(req: JsonRpcRequest) {
       return { jsonrpc: '2.0', id: req.id, result: { tools: listTools() } };
     }
     if (req.method === 'tools/call') {
-      const name = req.params?.name;
-      const args = req.params?.arguments ?? {};
+      const params = isRecord(req.params) ? req.params : {};
+      const name = params.name;
+      const args = params.arguments ?? {};
+      if (typeof name !== 'string') return { jsonrpc: '2.0', id: req.id, error: { code: -32602, message: 'Invalid tools/call params' } };
       const tool = tools[name];
       if (!tool) throw new Error(`Unknown tool: ${name}`);
-      const result = await tool.handler(args);
+      if (findCallerIdentityConflict(args, context)) {
+        return { jsonrpc: '2.0', id: req.id, error: { code: -32602, message: 'IDENTITY_CONFLICT' } };
+      }
+      if (containedMutationForTool(name, args)) {
+        return { jsonrpc: '2.0', id: req.id, error: { code: -32003, message: 'FORBIDDEN' } };
+      }
+      const result = await tool.handler(withServerActor(args, context));
       return { jsonrpc: '2.0', id: req.id, result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result, isError: false } };
     }
     return { jsonrpc: '2.0', id: req.id, error: { code: -32601, message: `Method not found: ${req.method}` } };
   } catch (error) {
-    return { jsonrpc: '2.0', id: req.id, result: { content: [{ type: 'text', text: String(error instanceof Error ? error.message : error) }], isError: true } };
+    return { jsonrpc: '2.0', id: req.id, error: { code: -32603, message: error instanceof Error ? error.message : String(error) } };
   }
 }
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false });
-rl.on('line', async (line) => {
+const writeError = (id: string | number | undefined, code: number, message: string): void => {
+  process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...(id === undefined ? {} : { id }), error: { code, message } })}\n`);
+};
+const processLine = async (line: string): Promise<void> => {
   if (!line.trim()) return;
-  const req = JSON.parse(line) as JsonRpcRequest;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    writeError(undefined, -32700, 'Parse error');
+    return;
+  }
+  const req = parseRequest(parsed);
+  if (!req) {
+    const id = isRecord(parsed) && (typeof parsed.id === 'string' || typeof parsed.id === 'number') ? parsed.id : undefined;
+    writeError(id, -32600, 'Invalid Request');
+    return;
+  }
   const res = await handle(req);
   process.stdout.write(`${JSON.stringify(res)}\n`);
+};
+rl.on('line', (line) => {
+  void processLine(line).catch((error: unknown) => {
+    writeError(undefined, -32603, error instanceof Error ? error.message : String(error));
+  });
 });
 
 process.stderr.write('sangfor-engineer-mcp stdio server started\n');

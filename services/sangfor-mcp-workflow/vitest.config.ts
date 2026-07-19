@@ -5,7 +5,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    include: [
+      'tests/**/*.test.ts',
+      'apps/operator-console/tests/auth-containment.test.ts',
+      'apps/operator-console/tests/health-api.test.ts',
+      'apps/operator-console/tests/server-split-regression.test.ts',
+      'apps/mcp-server/src/tool-catalog.test.ts',
+    ],
     exclude: ['**/node_modules/**', '**/dist/**'],
     testTimeout: 30000,
   },

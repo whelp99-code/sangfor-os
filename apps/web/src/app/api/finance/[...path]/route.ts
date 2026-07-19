@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildFinanceProxyUrl } from "@/lib/finance-proxy";
-import { assertApiAccess } from "@/lib/api-auth";
-import { requireRole } from "@/lib/auth/rbac";
+import {
+  authorizeOperatorRequest,
+  findCallerIdentityConflicts,
+  stripCallerIdentityFields,
+} from "@/lib/api-auth";
 
 type ParsedFinanceResponse =
   | { ok: true; data: unknown }
@@ -20,18 +23,19 @@ function parseFinanceResponse(text: string): ParsedFinanceResponse {
 }
 
 async function proxy(req: NextRequest, method: string) {
-  // The proxy injects a real upstream API key (FINANCE_API_KEY||API_KEY), so
-  // every method must be authenticated — otherwise an unauthenticated client
-  // could perform CFO financial CRUD (role gate bypass). In dev/demo this
-  // passes when AUTH_BYPASS_ENABLED=1; in prod it hard-blocks with 401.
-  const denied = assertApiAccess(req);
-  if (denied) return denied;
-  const forbidden = requireRole(req, ["admin", "operator", "finance"]);
-  if (forbidden) return forbidden;
+  const authorization = authorizeOperatorRequest(req);
+  if (authorization instanceof NextResponse) return authorization;
+
+  const financeApiKey = process.env.FINANCE_API_KEY?.trim();
+  if (!financeApiKey) {
+    return NextResponse.json({ error: "AUTH_CONFIGURATION_UNAVAILABLE" }, { status: 503 });
+  }
 
   const url = buildFinanceProxyUrl(req.nextUrl.pathname, req.nextUrl.search);
   const headers: Record<string, string> = {
-    "X-API-Key": process.env.FINANCE_API_KEY || process.env.API_KEY || "",
+    "X-API-Key": financeApiKey,
+    "X-Actor-Id": authorization.principalId,
+    "X-Business-Role": authorization.businessRole,
   };
   const init: RequestInit & { headers: Record<string, string> } = {
     method,
@@ -40,8 +44,11 @@ async function proxy(req: NextRequest, method: string) {
   if (method !== "GET" && method !== "HEAD") {
     const body = await req.json().catch(() => undefined);
     if (body) {
+      if (findCallerIdentityConflicts(body, authorization.principalId).length > 0) {
+        return NextResponse.json({ error: "IDENTITY_CONFLICT" }, { status: 400 });
+      }
       headers["Content-Type"] = "application/json";
-      init.body = JSON.stringify(body);
+      init.body = JSON.stringify(stripCallerIdentityFields(body));
     }
   }
   try {

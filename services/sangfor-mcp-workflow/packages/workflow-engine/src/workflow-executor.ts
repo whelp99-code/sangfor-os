@@ -15,6 +15,7 @@ import { ExecutionLogger } from './execution-logger.js';
 import { ErrorHandler } from './error-handler.js';
 import { ApprovalManager } from './approval-manager.js';
 import { BreakGlassPolicy } from './breakglass-policy.js';
+import { denyWorkflowMutation } from '../../shared/src/mutation-policy.js';
 
 const log = createLogger('workflow-executor');
 
@@ -45,6 +46,7 @@ export class WorkflowExecutor {
 
   // 워크플로우 실행
   async executeWorkflow(workflow: Workflow): Promise<WorkflowExecutionResult> {
+    denyWorkflowMutation('workflow_execution');
     const startedAt = nowISO();
     workflow.status = 'running';
     workflow.updatedAt = nowISO();

@@ -2,7 +2,7 @@
 /**
  * Live approval smoke for Slack, GitHub, and whelp99 safe tool call.
  * Default: --dry-run (409 pending only, no approve, no external fetch)
- * Execute: --execute (requires SLACK_WEBHOOK_URL, GITHUB_TOKEN, env smoke targets)
+ * Live execution is quarantined until the external-mutation successor unit lands.
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -13,8 +13,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 const BASE = process.env.PORTAL_BASE_URL ?? "http://127.0.0.1:3110";
 
-const execute = process.argv.includes("--execute");
-const dryRun = !execute;
+if (process.argv.includes("--execute")) {
+  process.stderr.write("EXTERNAL_MUTATION_CONTAINED\n");
+  process.exit(77);
+}
+
+const dryRun = true;
 
 function loadEnvLocal() {
   const path = join(ROOT, ".env.local");
@@ -47,7 +51,6 @@ async function approve(approvalId) {
   return postJson("/api/approvals", {
     approvalId,
     status: "approved",
-    resolvedBy: "live-smoke-script",
     resolution: "Phase 8 live approval smoke",
   });
 }
@@ -55,7 +58,6 @@ async function approve(approvalId) {
 async function smokeSlack() {
   console.log("\n=== Slack send ===");
   const pending = await postJson("/api/slack/send", {
-    requestedBy: "live-smoke",
     text: `[AIOSv2] integration smoke ${new Date().toISOString()}`,
   });
   console.log("pending", pending.res.status, pending.data.approvalStatus ?? pending.data.error);
@@ -71,7 +73,6 @@ async function smokeSlack() {
   await approve(pending.data.approval.id);
   const live = await postJson("/api/slack/send", {
     approvalId: pending.data.approval.id,
-    requestedBy: "live-smoke",
     text: `[AIOSv2] LIVE smoke ${new Date().toISOString()}`,
   });
   console.log("live", live.res.status, live.data);
@@ -91,7 +92,6 @@ async function smokeGithub() {
   }
 
   const pending = await postJson("/api/github/branches", {
-    requestedBy: "live-smoke",
     owner,
     repo,
     branch,
@@ -110,7 +110,6 @@ async function smokeGithub() {
   await approve(pending.data.approval.id);
   const branchLive = await postJson("/api/github/branches", {
     approvalId: pending.data.approval.id,
-    requestedBy: "live-smoke",
     owner,
     repo,
     branch,
@@ -119,7 +118,6 @@ async function smokeGithub() {
   console.log("branch live", branchLive.res.status);
 
   const prPending = await postJson("/api/github/pull-requests", {
-    requestedBy: "live-smoke",
     owner,
     repo,
     title: `AIOSv2 integration smoke ${new Date().toISOString()}`,
@@ -133,7 +131,6 @@ async function smokeGithub() {
   await approve(prPending.data.approval.id);
   const prLive = await postJson("/api/github/pull-requests", {
     approvalId: prPending.data.approval.id,
-    requestedBy: "live-smoke",
     owner,
     repo,
     title: prPending.data.approval?.target ?? `AIOSv2 smoke PR`,
@@ -148,7 +145,6 @@ async function smokeGithub() {
 async function smokeWhelp99() {
   console.log("\n=== whelp99 safe tool ===");
   const pending = await postJson("/api/whelp99/tools/call", {
-    requestedBy: "live-smoke",
     name: "sangfor.products",
     arguments: {},
   });
@@ -165,7 +161,6 @@ async function smokeWhelp99() {
   await approve(pending.data.approval.id);
   const live = await postJson("/api/whelp99/tools/call", {
     approvalId: pending.data.approval.id,
-    requestedBy: "live-smoke",
     name: "sangfor.products",
     arguments: {},
   });

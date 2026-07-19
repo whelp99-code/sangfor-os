@@ -49,6 +49,11 @@ function attachAuthContext(req: Request, authContext: AuthContext): void {
   };
 }
 
+export function isLocalMockAuthEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const localRuntime = env.NODE_ENV === 'development' || env.NODE_ENV === 'test';
+  return localRuntime && env.AUTH_PROFILE === 'local_mock' && env.AUTH_BYPASS_ENABLED === '1';
+}
+
 export function rejectUntrustedScopeFields(req: Request, res: Response, next: NextFunction): void {
   try {
     assertNoUntrustedScopeFields(req.body);
@@ -75,8 +80,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     }
   }
 
-  // 명시적 bypass 플래그 (개발 전용, 프로덕션에서는 사용 금지)
-  if (process.env.AUTH_BYPASS_ENABLED === '1' && process.env.NODE_ENV === 'development') {
+  if (isLocalMockAuthEnabled()) {
     attachAuthContext(req, createDevelopmentAuthContext({ userId: 'dev-user', businessRole: 'system_admin' }));
     next();
     return;

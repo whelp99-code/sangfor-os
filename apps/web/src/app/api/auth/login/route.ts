@@ -1,9 +1,17 @@
+import { z } from "zod";
+
+import { AUTH_CONFIGURATION_UNAVAILABLE } from "@/lib/auth/config";
+import { isLocalMockAuthProfile } from "@/lib/auth/runtime-profile";
 import { createSessionToken, isAuthConfigured } from "@/lib/auth/session";
 import { checkRateLimit, clientIp } from "@/lib/api-auth";
 import { resolveDefaultProjectScope } from "@/lib/project-scope";
 import { NextResponse } from "next/server";
 
 const DEMO_EMAIL = "operator@demo.local";
+const loginBodySchema = z.object({
+  email: z.string().optional(),
+  password: z.string().optional(),
+});
 
 function demoPassword(): string | null {
   const password = process.env.AUTH_DEMO_PASSWORD?.trim();
@@ -11,6 +19,15 @@ function demoPassword(): string | null {
 }
 
 export async function POST(request: Request) {
+  const jwtConfigured = isAuthConfigured();
+  const localMockEnabled = isLocalMockAuthProfile();
+  if (!jwtConfigured && !localMockEnabled) {
+    return NextResponse.json(
+      { error: AUTH_CONFIGURATION_UNAVAILABLE },
+      { status: 503 },
+    );
+  }
+
   // IP-based rate limit to blunt credential stuffing / brute force.
   const { allowed, retryAfterSec } = checkRateLimit(`login:${clientIp(request)}`, {
     limit: 10,
@@ -23,19 +40,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json().catch(() => ({}));
-
-  // WARNING: when JWT_SECRET is unset the service runs in "mock" mode and issues
-  // an unauthenticated **admin** token to any caller. This is intended for
-  // dev/demo only — a prod deploy that forgets to set JWT_SECRET would expose
-  // admin access. `isAuthConfigured()` gates the real credential check below.
-  if (!isAuthConfigured()) {
-    console.warn(
-      "[auth] JWT_SECRET not configured — issuing mock admin token (dev/demo only, unsafe for prod)",
-    );
+  const bodyResult = loginBodySchema.safeParse(
+    await request.json().then(
+      (value: unknown) => value,
+      () => null,
+    ),
+  );
+  if (!bodyResult.success) {
+    return NextResponse.json({ error: "invalid request" }, { status: 400 });
   }
 
-  if (isAuthConfigured()) {
+  const body = bodyResult.data;
+  if (jwtConfigured) {
     const expected = demoPassword();
     if (!expected) {
       return NextResponse.json(
@@ -49,29 +65,29 @@ export async function POST(request: Request) {
     }
   }
 
-  const email =
-    typeof body.email === "string" && body.email.length > 0 ? body.email : DEMO_EMAIL;
-  // Clients must never be allowed to set their own role.
-  const role = isAuthConfigured() ? "operator" : "admin";
-
-  // In mock mode createSessionToken would throw (no JWT_SECRET); issue the
-  // `mock.` token that verifySessionToken already recognizes instead of 500ing.
-  const projectScope = isAuthConfigured()
-    ? await resolveDefaultProjectScope()
-    : null;
-  const token = projectScope
-    ? createSessionToken({
-        id: "user-demo",
-        email,
-        role,
-        projectId: projectScope.projectId,
-        projectSlug: projectScope.projectSlug,
-      })
-    : "mock.session";
+  const email = jwtConfigured && body.email?.length ? body.email : DEMO_EMAIL;
+  const role = jwtConfigured ? "operator" : "admin";
+  let token = "mock.session";
+  if (jwtConfigured) {
+    const projectScope = await resolveDefaultProjectScope();
+    if (!projectScope) {
+      return NextResponse.json(
+        { error: AUTH_CONFIGURATION_UNAVAILABLE },
+        { status: 503 },
+      );
+    }
+    token = createSessionToken({
+      id: "user-demo",
+      email,
+      role,
+      projectId: projectScope.projectId,
+      projectSlug: projectScope.projectSlug,
+    });
+  }
 
   const response = NextResponse.json({
     token,
-    authMode: isAuthConfigured() ? "jwt" : "mock",
+    authMode: jwtConfigured ? "jwt" : "mock",
     user: { email, role },
   });
 

@@ -12,7 +12,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Constraints
 - **Every mutating route gates access:** call `assertApiAccess(request)` (`src/lib/api-auth.ts`). Sessions are HMAC-SHA256 JWTs verified against `JWT_SECRET`.
-- **Dev-only escape hatches, never in prod:** unset `JWT_SECRET` → login issues a mock admin token; `AUTH_BYPASS_ENABLED=1` disables the guard. Both are unsafe outside local dev.
+- **Fail closed by default:** missing/short `JWT_SECRET` returns `AUTH_CONFIGURATION_UNAVAILABLE`; a fixed mock principal exists only for `AUTH_PROFILE=local_mock` in development/tests. `AUTH_BYPASS_ENABLED=1` applies only to ordinary local/test route guards and never creates an operator context.
+- **Operator metadata is server-derived:** MCP/finance operator routes require an authenticated context with `businessRole=system_admin`; caller actor/approver fields cannot grant authority. The only credential-free U002 liveness routes live in the workflow/engineer services; Web exposes no public diagnostic or metadata exception.
 - **Next.js 16 has breaking changes** (see the block above) — read `node_modules/next/dist/docs/` before using unfamiliar APIs.
 - Finance goes through `src/lib/finance-proxy.ts` → `:3200/api/cfo`; never hit the DB for CFO data here.
 - Env via `src/lib/env.ts`; irreversible/approval-gated actions still route through `@sangfor/business` governance.

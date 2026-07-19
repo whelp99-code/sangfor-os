@@ -1,6 +1,23 @@
 import { NextResponse } from "next/server";
 
-import { verifySessionToken } from "@/lib/auth/session";
+import { getVerifiedSessionFromRequest } from "@/lib/auth/session";
+import { isLocalTestRuntime } from "@/lib/auth/runtime-profile";
+
+const CALLER_IDENTITY_FIELDS: ReadonlySet<string> = new Set([
+  "approvedBy",
+  "actorId",
+  "requestedBy",
+  "requester",
+  "approver",
+  "approverId",
+  "approverPersonaId",
+  "personaId",
+]);
+
+export type WebOperatorContext = {
+  readonly principalId: string;
+  readonly businessRole: "system_admin";
+};
 
 /**
  * Purpose:
@@ -28,7 +45,7 @@ import { verifySessionToken } from "@/lib/auth/session";
 export function isAuthBypassEnabled(
   source: Record<string, string | undefined> = process.env,
 ): boolean {
-  return source.AUTH_BYPASS_ENABLED?.trim() === "1";
+  return source.AUTH_BYPASS_ENABLED?.trim() === "1" && isLocalTestRuntime(source);
 }
 
 /**
@@ -42,11 +59,7 @@ export function assertApiAccess(request: Request): NextResponse | null {
   if (isAuthBypassEnabled()) {
     return null;
   }
-  const cookie = request.headers.get("cookie") ?? "";
-  const token =
-    cookie.match(/(?:^|;\s*)session=([^;]+)/)?.[1] ??
-    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  const session = verifySessionToken(token);
+  const session = getVerifiedSessionFromRequest(request);
   if (session) {
     if (
       session.role === "viewer" &&
@@ -56,6 +69,68 @@ export function assertApiAccess(request: Request): NextResponse | null {
     }
     return null;
   }
+  return unauthorizedResponse();
+}
+
+export function authorizeOperatorRequest(
+  request: Request,
+): WebOperatorContext | NextResponse {
+  const session = getVerifiedSessionFromRequest(request);
+  if (!session) return unauthorizedResponse();
+  if (session.role !== "admin") {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  return { principalId: session.id, businessRole: "system_admin" };
+}
+
+export function findCallerIdentityConflicts(
+  input: unknown,
+  principalId: string,
+): string[] {
+  return findCallerIdentityConflictsInValue(input, principalId);
+}
+
+export function stripCallerIdentityFields(
+  input: Readonly<Record<string, unknown>>,
+): Record<string, unknown>;
+export function stripCallerIdentityFields(input: unknown): unknown;
+export function stripCallerIdentityFields(input: unknown): unknown {
+  if (Array.isArray(input)) return input.map(stripCallerIdentityFields);
+  if (!isUnknownRecord(input)) return input;
+  return Object.fromEntries(
+    Object.entries(input)
+      .filter(([key]) => !CALLER_IDENTITY_FIELDS.has(key))
+      .map(([key, value]) => [key, stripCallerIdentityFields(value)]),
+  );
+}
+
+function findCallerIdentityConflictsInValue(
+  input: unknown,
+  principalId: string,
+  path = "",
+): string[] {
+  if (Array.isArray(input)) {
+    return input.flatMap((entry, index) =>
+      findCallerIdentityConflictsInValue(entry, principalId, `${path}[${index}]`),
+    );
+  }
+  if (!isUnknownRecord(input)) return [];
+  return Object.entries(input).flatMap(([key, value]) => {
+    const fieldPath = path ? `${path}.${key}` : key;
+    const ownConflict =
+      CALLER_IDENTITY_FIELDS.has(key) && value !== principalId ? [fieldPath] : [];
+    return [
+      ...ownConflict,
+      ...findCallerIdentityConflictsInValue(value, principalId, fieldPath),
+    ];
+  });
+}
+
+function isUnknownRecord(input: unknown): input is Record<string, unknown> {
+  return input !== null && typeof input === "object";
+}
+
+function unauthorizedResponse(): NextResponse {
   return NextResponse.json(
     { error: "unauthorized", message: "Authentication required" },
     { status: 401 },
@@ -115,6 +190,9 @@ export function checkRateLimit(
 /** Best-effort client IP from standard proxy headers. */
 export function clientIp(request: Request): string {
   const fwd = request.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim();
+  if (fwd) {
+    const [firstForwardedIp] = fwd.split(",");
+    return firstForwardedIp?.trim() || "unknown";
+  }
   return request.headers.get("x-real-ip")?.trim() || "unknown";
 }

@@ -19,6 +19,7 @@ import {
   type FormField,
   DEFAULT_CDP_PORT,
 } from '@sangfor/chrome';
+import { denyContainedMutation } from '../../shared/src/mutation-policy.js';
 
 export type OperatorMode = 'mock' | 'lab' | 'poc' | 'customer_readonly' | 'customer_write' | 'production';
 
@@ -121,6 +122,15 @@ export function readConsoleState(sessionId: string): Record<string, unknown> {
 }
 
 export function executeConsoleAction(sessionId: string, action: ConsoleAction): ConsoleActionResult {
+  if (requestsLiveMutation(action)) {
+    const containment = denyContainedMutation('live_device');
+    return {
+      ok: false,
+      dryRun: false,
+      approvalRequired: true,
+      message: containment.code,
+    };
+  }
   const session = getOperatorSession(sessionId);
   const dryRun = action.dryRun !== false;
   const approval = requiresApprovalForAction(action);
@@ -286,6 +296,15 @@ export async function readLiveConsoleState(input: { sessionId: string }): Promis
 // ─── Live Execute ─────────────────────────────────────────────────────────────
 
 export async function executeLiveConsoleAction(input: LiveConsoleActionInput): Promise<ConsoleActionResult> {
+  if (requestsLiveMutation(input.action)) {
+    const containment = denyContainedMutation('live_device');
+    return {
+      ok: false,
+      dryRun: false,
+      approvalRequired: true,
+      message: containment.code,
+    };
+  }
   const session = getOperatorSession(input.sessionId);
   const action = { ...input.action, dryRun: input.action.dryRun !== false ? true : false };
   const approval = requiresApprovalForAction(action);
@@ -430,4 +449,8 @@ export function killSession(sessionId: string): OperatorSession {
     stopChrome(session.cdpPort);
   }
   return session;
+}
+
+function requestsLiveMutation(action: ConsoleAction): boolean {
+  return action.dryRun === false;
 }

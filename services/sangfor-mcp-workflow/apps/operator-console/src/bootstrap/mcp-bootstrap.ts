@@ -2,10 +2,14 @@
  * MCP bootstrap — sangfor-engineer-mcp 연결 및 ToolRegistry wiring
  */
 
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { createLogger } from '@sangfor/workflow-shared';
-import { McpStdioClient, type ToolRegistry } from '@sangfor/workflow-engine';
+import {
+  createDomainSeparatedEngineerMcpClient,
+  type McpStdioClient,
+  type McpSpawnOptions,
+  type ToolRegistry,
+} from '@sangfor/workflow-engine';
 
 const log = createLogger('mcp-bootstrap');
 
@@ -22,64 +26,40 @@ function resolveMcpCwd(workflowCwd: string): string {
   // Default to the in-repo sibling service (services/sangfor-engineer-mcp);
   // workflowCwd is services/sangfor-mcp-workflow. Previously this pointed at a
   // hardcoded ~/Documents clone, which silently fell back to stub tools.
-  return process.env.SANGFOR_MCP_CWD ?? join(workflowCwd, '..', 'sangfor-engineer-mcp');
-}
-
-function resolveTsxCli(mcpCwd: string): string {
-  const pnpmTsx = join(
-    mcpCwd,
-    'node_modules/.pnpm/tsx@4.22.4/node_modules/tsx/dist/cli.mjs',
+  return resolve(
+    process.env.SANGFOR_MCP_CWD ?? join(workflowCwd, '..', 'sangfor-engineer-mcp'),
   );
-  if (existsSync(pnpmTsx)) return pnpmTsx;
-
-  const localTsx = join(mcpCwd, 'node_modules/tsx/dist/cli.mjs');
-  if (existsSync(localTsx)) return localTsx;
-
-  return 'tsx';
 }
 
 export async function bootstrapMcpClient(
   toolRegistry: ToolRegistry,
   workflowCwd: string,
-): Promise<McpStdioClient | null> {
+  createClient?: (
+    serverPath: string,
+    spawnOptions: McpSpawnOptions,
+  ) => McpStdioClient,
+): Promise<McpStdioClient> {
   const mcpCwd = resolveMcpCwd(workflowCwd);
-  if (!existsSync(join(mcpCwd, 'apps/mcp-server/src/index.ts'))) {
-    log.warn(
-      `Engineer MCP not found at ${mcpCwd} — using STUB tools. ` +
-        'Ensure services/sangfor-engineer-mcp is present and provisioned ' +
-        '(pnpm install && pnpm exec prisma generate), or set SANGFOR_MCP_CWD.',
-    );
-    return null;
-  }
-
-  const tsxCli = resolveTsxCli(mcpCwd);
-  const tsxArgs = tsxCli.endsWith('.mjs')
-    ? [tsxCli, 'apps/mcp-server/src/index.ts']
-    : ['apps/mcp-server/src/index.ts'];
-
-  const client = new McpStdioClient('apps/mcp-server/src/index.ts', {
-    cwd: mcpCwd,
-    command: 'node',
-    args: ['--import', 'tsx', 'apps/mcp-server/src/index.ts'],
-    env: {
-      SANGFOR_DB_ENABLED: '0',
-      SANGFOR_OCR_DIR: join(workflowCwd, 'outputs', 'captcha-ocr'),
-      PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH ?? ''}`,
-    },
+  const client = createDomainSeparatedEngineerMcpClient({
+    workflowRoot: workflowCwd,
+    engineerRoot: mcpCwd,
+    environment: process.env,
     requestTimeoutMs: 30_000,
-  });
+  }, createClient);
 
   try {
     await client.start();
     toolRegistry.setMcpClient(client);
     await toolRegistry.registerFromMcpServer();
     wireWorkflowToolAliases(toolRegistry, client);
+    if (!toolRegistry.hasTool('sangfor.products') || !toolRegistry.hasTool('search_manuals')) {
+      throw new Error('Engineer MCP tool registration incomplete');
+    }
     log.info('MCP tools registered successfully');
     return client;
   } catch (error) {
-    log.warn(`MCP bootstrap failed — using stub tools: ${error}`);
-    client.stop();
-    return null;
+    await client.stop();
+    throw error;
   }
 }
 

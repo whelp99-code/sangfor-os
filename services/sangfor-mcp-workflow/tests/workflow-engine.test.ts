@@ -21,6 +21,12 @@ import {
   PlaybookRegistry,
 } from '@sangfor/workflow-engine';
 
+const OPERATOR_CONTEXT = {
+  principalId: 'workflow-test-operator',
+  role: 'operator',
+  source: 'api_key',
+} as const;
+
 describe('ToolRegistry', () => {
   let registry: ToolRegistry;
 
@@ -223,9 +229,9 @@ describe('ApprovalManager', () => {
     const workflow = { id: 'wf-1', name: 'Test', status: 'draft' } as any;
     manager.requestApproval(workflow);
 
-    const approved = manager.approve('wf-1', 'test-user');
+    const approved = manager.approve('wf-1', OPERATOR_CONTEXT);
     expect(approved.status).toBe('approved');
-    expect(approved.approvedBy).toBe('test-user');
+    expect(approved.approvedBy).toBe(OPERATOR_CONTEXT.principalId);
     expect(manager.isPending('wf-1')).toBe(false);
   });
 
@@ -233,7 +239,7 @@ describe('ApprovalManager', () => {
     const workflow = { id: 'wf-1', name: 'Test', status: 'draft' } as any;
     manager.requestApproval(workflow);
 
-    const rejected = manager.reject('wf-1', 'Not enough info');
+    const rejected = manager.reject('wf-1', 'Not enough info', OPERATOR_CONTEXT);
     expect(rejected.status).toBe('rejected');
     expect(manager.isPending('wf-1')).toBe(false);
   });
@@ -255,7 +261,7 @@ describe('ApprovalManager', () => {
 
     manager.requestApproval(workflow1);
     manager.requestApproval(workflow2);
-    manager.approve('wf-1', 'user');
+    manager.approve('wf-1', OPERATOR_CONTEXT);
 
     const stats = manager.getStats();
     expect(stats.pending).toBe(1);
@@ -438,15 +444,15 @@ describe('WorkflowExecutor Safety', () => {
       metadata: {},
     };
 
-    const result = await executor.executeWorkflow(workflow);
-
-    expect(attempts).toBe(3);
-    expect(result.stepsFailed).toBe(1);
-    expect(result.status).toBe('failed');
+    await expect(executor.executeWorkflow(workflow)).rejects.toMatchObject({
+      code: 'MUTATION_CONTAINMENT_ACTIVE',
+    });
+    expect(attempts).toBe(0);
   });
 
   it('should block sensitive mutation step when workflow is not approved', async () => {
     const registry = new ToolRegistry();
+    let handlerCalls = 0;
     registry.register({
       name: 'apply_sensitive_config',
       description: 'mutation',
@@ -456,7 +462,10 @@ describe('WorkflowExecutor Safety', () => {
       estimatedDuration: '1s',
       riskLevel: 'high',
       requiresApproval: true,
-      handler: async () => ({ ok: true }),
+      handler: async () => {
+        handlerCalls += 1;
+        return { ok: true };
+      },
     });
     const executor = new WorkflowExecutor(registry, new ExecutionLogger(), new ErrorHandler());
     const workflow: any = {
@@ -484,9 +493,10 @@ describe('WorkflowExecutor Safety', () => {
       metadata: {},
     };
 
-    const result = await executor.executeWorkflow(workflow);
-    expect(result.stepsFailed).toBe(1);
-    expect(result.errors[0]?.error).toContain('Execution blocked');
+    await expect(executor.executeWorkflow(workflow)).rejects.toMatchObject({
+      code: 'MUTATION_CONTAINMENT_ACTIVE',
+    });
+    expect(handlerCalls).toBe(0);
   });
 });
 
