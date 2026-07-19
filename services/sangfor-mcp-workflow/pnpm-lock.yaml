@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@sangfor/chrome':
-        specifier: file:../sangfor-engineer-mcp/packages/sangfor-chrome
-        version: file:../sangfor-engineer-mcp/packages/sangfor-chrome
       '@sangfor/health-checker':
         specifier: workspace:*
         version: link:packages/health-checker
@@ -39,6 +36,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.20
+      esbuild:
+        specifier: 0.28.0
+        version: 0.28.0
       eslint:
         specifier: ^9.0.0
         version: 9.39.4
@@ -72,6 +72,15 @@ importers:
       '@sangfor/workflow-shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
+      playwright:
+        specifier: ^1.61.0
+        version: 1.61.0
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
     devDependencies:
       tsx:
         specifier: ^4.19.0
@@ -91,9 +100,21 @@ importers:
       cors:
         specifier: ^2.8.5
         version: 2.8.6
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       express:
         specifier: ^5.1.0
         version: 5.2.1
+      multer:
+        specifier: ^2.1.1
+        version: 2.1.1
+      playwright:
+        specifier: ^1.61.0
+        version: 1.61.0
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -671,9 +692,6 @@ packages:
     resolution: {integrity: sha512-X+zaP2x+j4RXGfbp/seSoRHWnPxzApilDszisZxbYH5C/jTxFhCtDNdPGZb9lJyYPs24wGxruPF7Y+sIXt9Gzw==}
     cpu: [x64]
     os: [win32]
-
-  '@sangfor/chrome@file:../sangfor-engineer-mcp/packages/sangfor-chrome':
-    resolution: {directory: ../sangfor-engineer-mcp/packages/sangfor-chrome, type: directory}
 
   '@types/body-parser@1.19.6':
     resolution: {integrity: sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==}
@@ -2010,10 +2028,6 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.61.1':
     optional: true
-
-  '@sangfor/chrome@file:../sangfor-engineer-mcp/packages/sangfor-chrome':
-    dependencies:
-      playwright: 1.61.0
 
   '@types/body-parser@1.19.6':
     dependencies:

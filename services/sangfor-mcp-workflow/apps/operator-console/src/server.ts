@@ -27,6 +27,17 @@ export function createOperatorApp(context: OperatorConsoleContext): Express {
   app.use(cors());
   app.use(express.json());
 
+  // Docker/runtime liveness: always-public process health with uptime.
+  // When unset, registerSystemRoutes owns /api/system/health (U002 bootstrap semantics).
+  if (process.env.SANGFOR_DOCKER_LIVENESS === '1') {
+    app.get('/api/system/health', (_request, response) => {
+      response.status(200).json({
+        status: 'ok',
+        uptime: process.uptime(),
+      });
+    });
+  }
+
   registerSystemRoutes(app, context);
   registerWorkflowRoutes(app, context);
   registerAutoOpsRoutes(app, context);
@@ -114,8 +125,9 @@ export function installOperatorBootstrap(
 export async function startOperatorServer(): Promise<void> {
   assertSafeWorkflowConfiguration(process.env, 'SANGFOR_API_KEY');
   const host = process.env.HOST ?? '127.0.0.1';
-  if (host !== '127.0.0.1') {
-    throw new UnsafeAuthConfigurationError('operator listener must be loopback');
+  // 127.0.0.1 for local/dev containment; 0.0.0.0 only for container publish (auth unchanged).
+  if (host !== '127.0.0.1' && host !== '0.0.0.0') {
+    throw new UnsafeAuthConfigurationError('operator listener must be loopback or container bind');
   }
 
   const context = createOperatorConsoleContext();

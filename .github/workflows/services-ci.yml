@@ -49,13 +49,7 @@ jobs:
       - name: Assert runtime matrix
         run: '[ "$(node -p ''process.versions.node.split(".")[0]'')" = "22" ] && [ "$(corepack pnpm --version)" = "10.28.1" ]'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run --if-present typecheck
-      # Pre-existing defect in apps/operator-console (missing explicit .js
-      # extensions required by NodeNext moduleResolution, an unresolvable
-      # ./health.routes import, 2 implicit-`any` params) makes a clean
-      # `tsc -b` fail; reproduces identically under TS 5.7 and 5.9, so it
-      # predates and is unrelated to this CI job. See task-8-1-report.md.
-      # Non-blocking until a follow-up fixes apps/operator-console.
-      - run: pnpm run --if-present build
-        continue-on-error: true
-      - run: pnpm run --if-present test -- --run
+      - run: pnpm lint
+      - run: pnpm test -- --run
+      - run: pnpm build
+      - run: pnpm test:production

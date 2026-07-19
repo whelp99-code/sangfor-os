@@ -2,6 +2,8 @@
  * 실장비 점검기 — EPP/IAG/CC 정기 정책 상태 확인
  */
 
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { nowId, nowISO, createLogger, type Logger } from '@sangfor/workflow-shared';
 import type {
   HealthCheckConfig,
@@ -9,6 +11,7 @@ import type {
   HealthCheckItemResult,
   HealthAlert,
   AlertCondition,
+  HealthCheckItem,
 } from '@sangfor/workflow-core';
 
 const log = createLogger('health-checker');
@@ -82,8 +85,8 @@ export async function runHealthCheck(config: HealthCheckConfig): Promise<HealthC
 
 async function collectData(
   config: HealthCheckConfig,
-  checkItem: any
-): Promise<any> {
+  checkItem: HealthCheckItem,
+): Promise<Record<string, unknown>> {
   // TODO: 실제 sangfor-engineer-mcp 연동
   // 현재는 목업 데이터 반환
   return {
@@ -98,8 +101,8 @@ async function collectData(
 // ─── 알림 조건 검사 ─────────────────────────────────────────────────────────
 
 function checkAlertConditions(
-  checkItem: any,
-  collectedData: any
+  checkItem: HealthCheckItem,
+  collectedData: Record<string, unknown>,
 ): HealthAlert[] {
   const alerts: HealthAlert[] = [];
 
@@ -126,11 +129,16 @@ function checkAlertConditions(
   return alerts;
 }
 
-function getNestedValue(obj: any, path: string): any {
-  return path.split('.').reduce((current, key) => current?.[key], obj);
+function getNestedValue(obj: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((current, key) => {
+    if (current !== null && typeof current === 'object' && key in (current as Record<string, unknown>)) {
+      return (current as Record<string, unknown>)[key];
+    }
+    return undefined;
+  }, obj);
 }
 
-function evaluateCondition(actualValue: any, condition: AlertCondition): boolean {
+function evaluateCondition(actualValue: unknown, condition: AlertCondition): boolean {
   switch (condition.operator) {
     case 'equals':
       return actualValue === condition.value;
@@ -148,9 +156,6 @@ function evaluateCondition(actualValue: any, condition: AlertCondition): boolean
 }
 
 // ─── 스냅샷 저장 ────────────────────────────────────────────────────────────
-
-import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 export function saveHealthCheckSnapshot(
   result: HealthCheckResult,
@@ -171,7 +176,7 @@ export function saveHealthCheckSnapshot(
 
 export function loadHealthCheckSnapshot(filepath: string): HealthCheckResult {
   const content = readFileSync(filepath, 'utf-8');
-  return JSON.parse(content);
+  return JSON.parse(content) as HealthCheckResult;
 }
 
 export function listHealthCheckSnapshots(outputDir: string): string[] {
@@ -179,7 +184,6 @@ export function listHealthCheckSnapshots(outputDir: string): string[] {
     return [];
   }
 
-  const { readdirSync } = require('node:fs');
   return readdirSync(outputDir)
     .filter((f: string) => f.endsWith('.json'))
     .sort()

@@ -12,7 +12,10 @@
     "@sangfor/workflow-core": "workspace:*",
     "@sangfor/health-checker": "workspace:*",
     "@sangfor/wiki-sync": "workspace:*",
-    "@sangfor/workflow-shared": "workspace:*"
+    "@sangfor/workflow-shared": "workspace:*",
+    "dotenv": "^17.4.2",
+    "playwright": "^1.61.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "tsx": "^4.19.0",

@@ -40,8 +40,30 @@ async function closeContext(context: WorkflowToolContext): Promise<void> {
   context.runtime.ready = false;
 }
 
+/**
+ * MCP tool-context init failure policy (D3 fail-closed gate).
+ * Soft-fail only when containerLiveness is true (SANGFOR_DOCKER_LIVENESS=1);
+ * production/default rethrows so the process exits.
+ * Exported for unit tests that assert both branches.
+ */
+export function applyMcpInitFailurePolicy(
+  error: unknown,
+  context: { runtime: { ready: boolean } },
+  containerLiveness: boolean,
+): void {
+  if (containerLiveness) {
+    process.stderr.write(
+      `[mcp-init] ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    context.runtime.ready = false;
+    return;
+  }
+  throw error;
+}
+
 async function startWorkflowMcpServer(): Promise<void> {
   const preflight = assertWorkflowMcpPreflight(process.env);
+  const containerLiveness = process.env.SANGFOR_DOCKER_LIVENESS === '1';
   const [handlerModule, catalogModule, contextModule] = await Promise.all([
     import('./json-rpc-handler.js'),
     import('./tool-catalog.js'),
@@ -52,7 +74,11 @@ async function startWorkflowMcpServer(): Promise<void> {
   const { createWorkflowToolContext, initializeWorkflowToolContext } = contextModule;
   const context = createWorkflowToolContext();
   const catalog = createWorkflowToolCatalog(context);
-  await initializeWorkflowToolContext(context);
+  try {
+    await initializeWorkflowToolContext(context);
+  } catch (error: unknown) {
+    applyMcpInitFailurePolicy(error, context, containerLiveness);
+  }
 
   const input = readline.createInterface({
     input: process.stdin,

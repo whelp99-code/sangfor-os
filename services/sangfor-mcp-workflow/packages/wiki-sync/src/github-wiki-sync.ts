@@ -3,7 +3,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { nowId, nowISO, createLogger, type Logger } from '@sangfor/workflow-shared';
 import type { WikiUpdateProposal } from '@sangfor/workflow-core';
@@ -139,7 +139,6 @@ export function listGitHubWikiPages(config: GitHubWikiConfig): string[] {
     return [];
   }
 
-  const { readdirSync } = require('node:fs');
   return readdirSync(localPath)
     .filter((f: string) => f.endsWith('.md'))
     .map((f: string) => f.replace('.md', ''));

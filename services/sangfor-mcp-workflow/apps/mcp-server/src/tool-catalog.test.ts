@@ -5,6 +5,7 @@ import {
   McpStdioClient,
   type McpSpawnOptions,
 } from '@sangfor/workflow-engine';
+import { applyMcpInitFailurePolicy } from './index.js';
 import { handleWorkflowJsonRpc } from './json-rpc-handler.js';
 import { createWorkflowToolCatalog, listWorkflowTools } from './tool-catalog.js';
 import {
@@ -345,5 +346,36 @@ describe('workflow MCP tool catalog', () => {
 
     // Then: it stays within the card ceiling.
     expect(indexLines).toBeLessThanOrEqual(200);
+  });
+
+  describe('D3 applyMcpInitFailurePolicy (fail-closed vs docker liveness)', () => {
+    it('rethrows when containerLiveness is false (production fail-closed)', () => {
+      // Given: production/default path (SANGFOR_DOCKER_LIVENESS unset → false)
+      const context = { runtime: { ready: true } };
+      const initError = new Error('engineer MCP child unavailable');
+
+      // When/Then: init failure rethrows so startWorkflowMcpServer aborts
+      expect(() => applyMcpInitFailurePolicy(initError, context, false)).toThrow(
+        'engineer MCP child unavailable',
+      );
+      expect(context.runtime.ready).toBe(true);
+    });
+
+    it('swallows and sets ready=false when containerLiveness is true', () => {
+      // Given: Docker smoke path (SANGFOR_DOCKER_LIVENESS=1)
+      const context = { runtime: { ready: true } };
+      const initError = new Error('engineer MCP child unavailable');
+      const writeSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+      // When: soft-fail branch runs
+      expect(() => applyMcpInitFailurePolicy(initError, context, true)).not.toThrow();
+
+      // Then: process continues degraded
+      expect(context.runtime.ready).toBe(false);
+      expect(writeSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[mcp-init] engineer MCP child unavailable'),
+      );
+      writeSpy.mockRestore();
+    });
   });
 });

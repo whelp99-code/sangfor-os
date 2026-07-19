@@ -1,7 +1,8 @@
-import { parseExcelFile } from '@sangfor/workflow-engine';
+import { parseExcelFile, VendorComparator } from '@sangfor/workflow-engine';
 import { searchObsidianNotes } from '@sangfor/wiki-sync';
 import { denyWorkflowMutation } from '../../../../packages/shared/src/mutation-policy.js';
 import type { ToolDefinition, WorkflowToolContext } from '../tool-types.js';
+import vendorDB from '../../../../data/vendors/vendor-database.json' with { type: 'json' };
 
 function requiredString(args: Readonly<Record<string, unknown>>, key: string): string {
   const value = args[key];
@@ -22,6 +23,42 @@ function stringArray(args: Readonly<Record<string, unknown>>, key: string): stri
     ? value.filter((item): item is string => typeof item === 'string')
     : [];
 }
+
+type VendorCategoryRecord = {
+  readonly id: string;
+  readonly name: string;
+  readonly vendors: readonly unknown[];
+  readonly marketSize?: string;
+  readonly growthRate?: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseBundledVendorDatabase(value: unknown): {
+  categories: VendorCategoryRecord[];
+} {
+  if (!isRecord(value) || !Array.isArray(value.categories)) {
+    throw new TypeError('Invalid bundled vendor database');
+  }
+  const categories = value.categories.map((category): VendorCategoryRecord => {
+    if (!isRecord(category) || typeof category.id !== 'string' || typeof category.name !== 'string') {
+      throw new TypeError('Invalid bundled vendor category');
+    }
+    return {
+      id: category.id,
+      name: category.name,
+      vendors: Array.isArray(category.vendors) ? category.vendors : [],
+      marketSize: typeof category.marketSize === 'string' ? category.marketSize : undefined,
+      growthRate: typeof category.growthRate === 'string' ? category.growthRate : undefined,
+    };
+  });
+  return { categories };
+}
+
+const bundledVendorDatabase = parseBundledVendorDatabase(vendorDB);
+const bundledVendorComparator = new VendorComparator(bundledVendorDatabase);
 
 export function createIntegrationTools(
   context: WorkflowToolContext,
@@ -94,7 +131,7 @@ export function createIntegrationTools(
         properties: { category: { type: 'string' }, requirement: { type: 'string' } },
         required: ['category'],
       },
-      handler: (args) => context.vendorComparator.compareByCategory(
+      handler: (args) => bundledVendorComparator.compareByCategory(
         requiredString(args, 'category'),
         optionalString(args, 'requirement') ?? '',
       ),
@@ -106,7 +143,7 @@ export function createIntegrationTools(
         properties: { category: { type: 'string' } },
         required: ['category'],
       },
-      handler: (args) => context.vendorComparator.compareSangforVsCompetitors(
+      handler: (args) => bundledVendorComparator.compareSangforVsCompetitors(
         requiredString(args, 'category'),
       ),
     },
@@ -170,7 +207,7 @@ export function createIntegrationTools(
     list_vendor_categories: {
       description: 'List protected vendor category metadata.',
       inputSchema: { type: 'object', properties: {} },
-      handler: () => context.vendorDatabase.categories.map((category) => ({
+      handler: () => bundledVendorDatabase.categories.map((category) => ({
         id: category.id,
         name: category.name,
         vendorCount: category.vendors.length,

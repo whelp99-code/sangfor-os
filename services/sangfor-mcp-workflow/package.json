@@ -9,9 +9,12 @@
     "dev:web": "tsx -r dotenv/config apps/operator-console/src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:production": "node --test scripts/build-production.test.mjs",
     "lint": "eslint .",
     "audit:console": "node scripts/audit-operator-console.mjs",
-    "build": "tsc -b",
+    "build:types": "tsc -b",
+    "build:production": "node scripts/build-production.mjs",
+    "build": "pnpm build:types && pnpm build:production",
     "health:check": "tsx scripts/run-health-check.ts",
     "e2e:sangfor": "tsx scripts/run-sangfor-readonly-e2e.ts",
     "e2e:auto-ops": "tsx scripts/run-auto-ops-device-e2e.ts",
@@ -27,6 +30,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/node": "^22.0.0",
+    "esbuild": "0.28.0",
     "eslint": "^9.0.0",
     "globals": "^17.6.0",
     "tsx": "^4.19.0",
@@ -38,7 +42,6 @@
     "node": ">=22 <23"
   },
   "dependencies": {
-    "@sangfor/chrome": "file:../sangfor-engineer-mcp/packages/sangfor-chrome",
     "@sangfor/health-checker": "workspace:*",
     "@sangfor/wiki-sync": "workspace:*",
     "@types/multer": "^2.1.0",
