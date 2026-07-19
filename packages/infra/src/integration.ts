@@ -1,5 +1,5 @@
 /**
- * @sangfor/infra - Integration Registry & Probes
+ * @sangfor/infra - Integration Registry & Probes (transport/probe ADAPTER)
  *
  * Real wiring between the monorepo and the containerized MCP services that live
  * under services/* (see docker-compose.yml). Replaces the previous stubs that
@@ -8,6 +8,11 @@
  * Targets are resolved against the single source of truth for ports
  * (@sangfor/config PORT_REGISTRY) and probed over HTTP against the health
  * endpoint each service actually exposes.
+ *
+ * U006: env overrides are honored for every target so surface QA / tests can
+ * point probes at loopback fixtures without hard-coding hosts in callers.
+ * Canonical criticality/enabled/remediation live in @sangfor/health — this
+ * module is transport only (do not grow a second product registry here).
  */
 
 import { getUrl } from '@sangfor/config';
@@ -31,9 +36,34 @@ function joinUrl(base: string, path: string): string {
   return `${base.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
 }
 
+/**
+ * Resolve a base URL from env override or PORT_REGISTRY default.
+ * Empty/whitespace env values are treated as unset.
+ */
+function resolveBaseUrl(
+  envKey: string,
+  portName: Parameters<typeof getUrl>[0],
+): string {
+  const override = process.env[envKey]?.trim();
+  if (override) return override.replace(/\/$/, '');
+  return getUrl(portName);
+}
+
 /** Resolve the MCP HTTP bridge base URL (env override → port registry default). */
 function bridgeBaseUrl(): string {
-  return process.env.WHELP99_MCP_HTTP_URL ?? getUrl('WHELP99_MCP_BRIDGE');
+  return resolveBaseUrl('WHELP99_MCP_HTTP_URL', 'WHELP99_MCP_BRIDGE');
+}
+
+function workflowBaseUrl(): string {
+  return resolveBaseUrl('SANGFOR_MCP_URL', 'SANGFOR_MCP');
+}
+
+function operatorBaseUrl(): string {
+  return resolveBaseUrl('WHELP99_OPERATOR_CONSOLE_URL', 'WHELP99_OPERATOR_CONSOLE');
+}
+
+function mockConsoleBaseUrl(): string {
+  return resolveBaseUrl('SANGFOR_MOCK_CONSOLE_URL', 'SANGFOR_MOCK_CONSOLE');
 }
 
 /**
@@ -46,15 +76,15 @@ const REGISTRY: Record<string, { upstream: () => string; readinessNote: string }
     readinessNote: 'MCP HTTP bridge (stdio MCP wrapper) — GET /health',
   },
   'sangfor-mcp-workflow': {
-    upstream: () => getUrl('SANGFOR_MCP', '/api/system/health'),
+    upstream: () => joinUrl(workflowBaseUrl(), '/api/system/health'),
     readinessNote: 'Operator console / workflow engine — GET /api/system/health',
   },
   'sangfor-engineer-operator-console': {
-    upstream: () => getUrl('WHELP99_OPERATOR_CONSOLE', '/api/health/store'),
+    upstream: () => joinUrl(operatorBaseUrl(), '/api/health/store'),
     readinessNote: 'Engineer operator console — GET /api/health/store',
   },
   'sangfor-mock-console': {
-    upstream: () => getUrl('SANGFOR_MOCK_CONSOLE', '/'),
+    upstream: () => joinUrl(mockConsoleBaseUrl(), '/'),
     readinessNote: 'Mock Sangfor console — GET /',
   },
 };

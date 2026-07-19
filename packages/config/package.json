@@ -8,7 +8,8 @@
   "exports": {
     ".": "./dist/index.js",
     "./ports": "./dist/ports.js",
-    "./schema": "./dist/schema.js"
+    "./schema": "./dist/schema.js",
+    "./profiles": "./dist/profiles.js"
   },
   "scripts": {
     "build": "tsc",

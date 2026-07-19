@@ -15,6 +15,7 @@
     "@sangfor/api-utils": "workspace:*",
     "@sangfor/auth": "workspace:^",
     "@sangfor/business": "workspace:*",
+    "@sangfor/config": "workspace:*",
     "@sangfor/db": "workspace:*",
     "@sangfor/infra": "workspace:*",
     "@sangfor/persona": "workspace:*",

@@ -63,8 +63,9 @@ export function applyMcpInitFailurePolicy(
 
 async function startWorkflowMcpServer(): Promise<void> {
   const preflight = assertWorkflowMcpPreflight(process.env);
-  const containerLiveness = process.env.SANGFOR_DOCKER_LIVENESS === '1';
-  const [handlerModule, catalogModule, contextModule] = await Promise.all([
+  // U006 process identity (nested workspace: U002 preflight is the production gate).
+  process.env.SANGFOR_PROCESS_NAME ??= 'workflow-mcp';
+  const containerLiveness = process.env.SANGFOR_DOCKER_LIVENESS === '1';  const [handlerModule, catalogModule, contextModule] = await Promise.all([
     import('./json-rpc-handler.js'),
     import('./tool-catalog.js'),
     import('./tool-context.js'),

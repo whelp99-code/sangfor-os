@@ -78,6 +78,8 @@ export const CommonConfigSchema = z.object({
   PORT: z.coerce.number().int().positive().default(PORT_REGISTRY.SANGFOR_WEB),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  /** U006 process profile (local | test | production). Optional; inferred from NODE_ENV when unset. */
+  SANGFOR_PROCESS_PROFILE: z.enum(['local', 'test', 'production']).optional(),
 });
 
 /** 전체 통합 스키마 */

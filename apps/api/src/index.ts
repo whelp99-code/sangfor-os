@@ -29,6 +29,7 @@ import {
   findCallerIdentityConflicts,
   stripCallerIdentityFields,
 } from "@sangfor/auth";
+import { assertProcessProfile } from "@sangfor/config";
 
 const PORT = Number(process.env.API_PORT ?? 3200);
 const HOST = process.env.HOST || "127.0.0.1";
@@ -368,6 +369,9 @@ export function createApp(): Express {
 const isEntrypoint = process.argv[1] === fileURLToPath(import.meta.url);
 
 if (isEntrypoint) {
+  // U006 process profile fail-closed (production); local/test skip heavy secrets.
+  assertProcessProfile("api");
+
   const app = createApp();
   const server = app.listen(PORT, HOST, () => {
     console.log(`🚀 AIOS API Server running on port ${PORT}`);

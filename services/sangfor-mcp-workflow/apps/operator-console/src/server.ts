@@ -124,6 +124,9 @@ export function installOperatorBootstrap(
 
 export async function startOperatorServer(): Promise<void> {
   assertSafeWorkflowConfiguration(process.env, 'SANGFOR_API_KEY');
+  // U006 process identity (nested workspace: U002 assertSafeWorkflowConfiguration
+  // is the production gate; monorepo packages/config mirrors the same predicates).
+  process.env.SANGFOR_PROCESS_NAME ??= 'workflow-operator';
   const host = process.env.HOST ?? '127.0.0.1';
   // 127.0.0.1 for local/dev containment; 0.0.0.0 only for container publish (auth unchanged).
   if (host !== '127.0.0.1' && host !== '0.0.0.0') {

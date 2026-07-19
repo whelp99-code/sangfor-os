@@ -63,6 +63,9 @@ importers:
       '@sangfor/business':
         specifier: workspace:*
         version: link:../../packages/business
+      '@sangfor/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@sangfor/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -124,9 +127,15 @@ importers:
       '@sangfor/business':
         specifier: workspace:*
         version: link:../../packages/business
+      '@sangfor/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@sangfor/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@sangfor/health':
+        specifier: workspace:*
+        version: link:../../packages/health
       '@sangfor/infra':
         specifier: workspace:*
         version: link:../../packages/infra
@@ -346,6 +355,9 @@ importers:
       '@sangfor/config':
         specifier: workspace:*
         version: link:../config
+      '@sangfor/infra':
+        specifier: workspace:*
+        version: link:../infra
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -356,6 +368,9 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
 
   packages/infra:
     dependencies:

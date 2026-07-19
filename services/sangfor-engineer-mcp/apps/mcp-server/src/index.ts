@@ -45,6 +45,9 @@ import {
 } from '../../../packages/shared/src/mutation-policy.js';
 
 enforceProductionAuthPreflight();
+// U006 process identity (nested workspace: U002 preflight is the production gate;
+// monorepo packages/config profiles mirror the same predicates).
+process.env.SANGFOR_PROCESS_NAME ??= 'engineer-mcp';
 
 type JsonRpcRequest = { readonly jsonrpc: '2.0'; readonly id?: string | number; readonly method: string; readonly params?: unknown };
 

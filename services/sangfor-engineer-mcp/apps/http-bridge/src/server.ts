@@ -339,6 +339,10 @@ export function createHttpBridgeServer(dependencies: HttpBridgeDependencies = {}
 
 export function startHttpBridgeServer(): http.Server {
   enforceProductionAuthPreflight();
+  // U006: process identity for operators. Nested workspace cannot depend on
+  // monorepo @sangfor/config; production fail-closed is the U002 preflight above
+  // (mirrors packages/config productionAuthConfigurationIssues predicates).
+  process.env.SANGFOR_PROCESS_NAME ??= "engineer-bridge";
   const server = createHttpBridgeServer();
   server.listen(PORT, HOST, () => process.stdout.write(`whelp99 MCP HTTP bridge listening on http://${HOST}:${PORT}\n`));
   const shutdown = (): void => {

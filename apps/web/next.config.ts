@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
   distDir,
   allowedDevOrigins: ["127.0.0.1"],
   output: "standalone",
-  transpilePackages: ["@sangfor/agent", "@sangfor/business", "@sangfor/db", "@sangfor/infra", "@sangfor/shared"],
+  transpilePackages: ["@sangfor/agent", "@sangfor/business", "@sangfor/db", "@sangfor/health", "@sangfor/infra", "@sangfor/shared"],
   turbopack: {
     root: monorepoRoot,
   },
