@@ -26,7 +26,9 @@
     "berllo:enrich": "tsx scripts/berllo-enrich.ts",
     "backfill:project-scope": "tsx scripts/backfill-project-scope.ts",
     "backfill:finance-engagement": "tsx scripts/backfill-finance-engagement.ts",
-    "check:engagement-orphans": "tsx scripts/check-engagement-orphans.ts"
+    "check:engagement-orphans": "tsx scripts/check-engagement-orphans.ts",
+    "scope:check": "tsx scripts/check-scope-inventory.ts",
+    "scope:migration:verify": "node scripts/verify-scope-migration.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

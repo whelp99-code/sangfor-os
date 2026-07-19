@@ -33,9 +33,11 @@ model Project {
   slug        String   @unique
   name        String
   description String?
+  companyId   String?  @map("company_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  company     Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
   members     ProjectMember[]
   commandRuns CommandRun[]
   mailInsightThreads MailInsightThread[]
@@ -44,6 +46,7 @@ model Project {
   domainMemories     DomainMemory[]
   domainDecisionLogs DomainDecisionLog[]
 
+  @@index([companyId])
   @@map("projects")
 }
 
@@ -1960,6 +1963,7 @@ model Company {
   tenant          Tenant            @relation(fields: [tenantId], references: [id])
   userCompanyRoles UserCompanyRole[]
   personas        Persona[]
+  projects        Project[]
 
   @@index([tenantId])
   @@map("companies")

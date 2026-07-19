@@ -159,3 +159,33 @@ backups / archives
  → support case owner 재배정
  → audit event 기록
 ```
+
+## U010 — Scope Inventory (Tenant/Company/Project scope classification)
+
+`packages/db/src/scope-inventory.ts`가 classifier의 유일한 추적 source다. `packages/db/scripts/check-scope-inventory.ts`는
+`prisma generate`가 만든 라이브 DMMF를 읽어 현재 schema model set과 category tally를 이 파일과 대조한다 (`scope:check`).
+
+### Category 의미
+
+| Category | 의미 |
+|---|---|
+| `TENANT_ROOT` | tenant 자체 (`Tenant` 하나). |
+| `COMPANY_ROOT` | company 단위 scope를 정의하는 model. `Company`(Tenant로의 mandatory FK를 갖지만 그 자체가 company 단위를 정의) 또는, 다른 model로의 mandatory FK 체인이 없고 회사 전체에 걸쳐 공유되는 최상위 business/governance object (CFO 원장류, 회사 거버넌스 정책, Repository 등). |
+| `PROJECT_ROOT` | project 단위 scope를 정의하는 model. `Project` 자체, 또는 scope root로의 mandatory FK 체인이 없고 하나의 project workspace 안에서 사용/전달되는 최상위 business object (Customer, Opportunity 등). 다수는 formal Prisma relation 없는 bare `projectId` 컬럼을 갖는다 (이 bridge 이전부터 존재하던 correlation). |
+| `GLOBAL_SHARED` | tenant/company/project scope가 전혀 없는 model. 순수 플랫폼 인프라, 전역 identity/카탈로그, 또는 `RoleChangeRequest`처럼 legacy/unscoped 형태를 U010이 건드리지 않은 경우. |
+| `CHILD_VIA_FK` | mandatory(non-null) Prisma relation 체인을 통해서만 정확히 하나의 root(TENANT_ROOT/COMPANY_ROOT/PROJECT_ROOT)로부터 scope를 상속한다. optional-only 체인, 둘 이상 root로 모호한 체인, nullable correlation field(예: `Project.companyId`)는 CHILD_VIA_FK 근거가 될 수 없다. |
+
+### Immutable 150 baseline
+
+`SCOPE_INVENTORY_BASELINE` (`packages/db/src/scope-inventory.ts`)은 SHA `448289b355b6395d2744102398dcec967b705de9`
+시점의 정확히 150개 Prisma model에 대한 immutable provenance다: `GLOBAL_SHARED=13`, `TENANT_ROOT=1`, `COMPANY_ROOT=32`,
+`PROJECT_ROOT=44`, `CHILD_VIA_FK=60` (합 150). 이 값들은 이후 어떤 unit도 수정하지 않는다.
+
+### 후속 additive unit 등록 규칙
+
+- baseline 150은 "그 시점의" model 수이지 영구 current model count가 아니다.
+- 새 Prisma model을 추가하는 모든 후속 additive migration unit은 자신이 추가한 model을 **같은 atomic commit에서** `MODEL_SCOPE_INVENTORY`에 정확히 한 번 등록하고, 관련 current-count/report fixture를 갱신한다.
+- `SCOPE_INVENTORY_BASELINE`은 절대 수정하지 않는다 — 그것은 baseline SHA 시점의 provenance일 뿐이다.
+- `check-scope-inventory.ts`는 항상 "현재 schema model set == 현재 `MODEL_SCOPE_INVENTORY` key set"의 완전 일치를 강제한다 (신규/누락/중복/count drift/ambiguous root 모두 실패).
+- 종결 unit `U073`은 `baseline 150 + 계획에 등록된 additive model 수 == 당시 current Prisma model count`를 재검증한다.
+- `role_change_requests`(legacy/unscoped)에 scope authority를 부여하려는 후속 unit은 U011의 lossless backfill/quarantine owner와 U012의 required-constraint owner를 함께 명시한 plan revision 없이는 nullable scope column을 추가할 수 없다.
