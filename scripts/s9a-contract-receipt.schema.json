@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sangfor-s9a-contract-receipt-v1",
+  "title": "S9aContractReceipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "unit",
+    "alias",
+    "runId",
+    "finalCandidateSha",
+    "lockFileSha256",
+    "imageDigest",
+    "postgresMajor",
+    "restoreDrill",
+    "cleanup",
+    "result",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "unit": { "const": "U009" },
+    "alias": { "const": "T-OPS" },
+    "runId": { "type": "string", "minLength": 1 },
+    "finalCandidateSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "lockFileSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "imageDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "postgresMajor": { "const": 16 },
+    "restoreDrill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["argv", "exitCode", "rawReceiptRelativePath", "rawReceiptSha256", "checks"],
+      "properties": {
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "exitCode": { "const": 0 },
+        "rawReceiptRelativePath": { "const": "raw/receipt.json" },
+        "rawReceiptSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dump",
+            "restore",
+            "schema",
+            "tableCount",
+            "contentHash",
+            "sequence",
+            "constraint",
+            "migrationIdempotency",
+            "rpo",
+            "rto"
+          ],
+          "properties": {
+            "dump": { "const": "PASS" },
+            "restore": { "const": "PASS" },
+            "schema": { "const": "PASS" },
+            "tableCount": { "const": "PASS" },
+            "contentHash": { "const": "PASS" },
+            "sequence": { "const": "PASS" },
+            "constraint": { "const": "PASS" },
+            "migrationIdempotency": { "const": "PASS" },
+            "rpo": { "const": "PASS" },
+            "rto": { "const": "PASS" }
+          }
+        }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target"],
+      "properties": {
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["containers", "networks", "volumes"],
+          "properties": {
+            "containers": { "const": 0 },
+            "networks": { "const": 0 },
+            "volumes": { "const": 0 }
+          }
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["containers", "networks", "volumes"],
+          "properties": {
+            "containers": { "const": 0 },
+            "networks": { "const": 0 },
+            "volumes": { "const": 0 }
+          }
+        }
+      }
+    },
+    "result": { "const": "PASS" },
+    "createdAt": { "type": "string", "minLength": 1 }
+  }
+}

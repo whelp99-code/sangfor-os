@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sangfor-restore-drill-receipt-v1",
+  "title": "RestoreDrillReceipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "unit",
+    "runId",
+    "lifecycleProvider",
+    "imageDigest",
+    "postgresMajor",
+    "fixtureSha256",
+    "exitCode",
+    "result",
+    "sourceSentinelMatch",
+    "targetSentinelMatch",
+    "checks",
+    "rpo",
+    "rto",
+    "cleanup",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "unit": { "const": "U009" },
+    "runId": { "type": "string", "minLength": 1 },
+    "lifecycleProvider": {
+      "const": "scripts/lib/isolated-postgres.mjs#withIsolatedPostgresPair"
+    },
+    "imageDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "postgresMajor": { "const": 16 },
+    "fixtureSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "exitCode": { "type": "integer", "enum": [0, 64, 65, 66, 67, 68] },
+    "result": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "failureScenario": {
+      "type": "string",
+      "enum": [
+        "corrupt-dump",
+        "target-restore-failure",
+        "content-hash-mismatch",
+        "sequence-mismatch",
+        "validation-timeout"
+      ]
+    },
+    "primaryFailureCode": { "type": "integer", "enum": [64, 65, 66, 67, 68] },
+    "failureStage": {
+      "type": "string",
+      "enum": ["config", "backup", "restore", "validation", "cleanup"]
+    },
+    "sourceSentinelMatch": { "type": "boolean" },
+    "targetSentinelMatch": { "type": "boolean" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dump",
+        "restore",
+        "schema",
+        "tableCount",
+        "contentHash",
+        "sequence",
+        "constraint",
+        "migrationIdempotency",
+        "rpo",
+        "rto"
+      ],
+      "properties": {
+        "dump": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] },
+        "restore": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] },
+        "schema": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] },
+        "tableCount": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] },
+        "contentHash": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] },
+        "sequence": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] },
+        "constraint": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] },
+        "migrationIdempotency": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] },
+        "rpo": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] },
+        "rto": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] }
+      }
+    },
+    "rpo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measuredMs", "thresholdMs", "provisional", "status"],
+      "properties": {
+        "measuredMs": { "type": "integer", "minimum": 0 },
+        "thresholdMs": { "const": 90000000 },
+        "provisional": { "const": true },
+        "status": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] }
+      }
+    },
+    "rto": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measuredMs", "thresholdMs", "provisional", "status"],
+      "properties": {
+        "measuredMs": { "type": "integer", "minimum": 0 },
+        "thresholdMs": { "const": 900000 },
+        "provisional": { "const": true },
+        "status": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target"],
+      "properties": {
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["containers", "networks", "volumes"],
+          "properties": {
+            "containers": { "type": "integer", "minimum": 0 },
+            "networks": { "type": "integer", "minimum": 0 },
+            "volumes": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["containers", "networks", "volumes"],
+          "properties": {
+            "containers": { "type": "integer", "minimum": 0 },
+            "networks": { "type": "integer", "minimum": 0 },
+            "volumes": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "createdAt": { "type": "string", "minLength": 1 }
+  }
+}

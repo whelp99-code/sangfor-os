@@ -1,0 +1,17 @@
+[
+  { "name": "docker-compose-exec", "snippet": "```bash\ndocker compose exec sangfor-postgres psql -U sangfor -d sangfor_os\n```\n" },
+  { "name": "docker-direct", "snippet": "```bash\ndocker exec sangfor-postgres pg_isready\n```\n" },
+  { "name": "docker-compose-keyword", "snippet": "```bash\ndocker-compose up -d postgres\n```\n" },
+  { "name": "pg-dump", "snippet": "```bash\npg_dump -h localhost -U sangfor sangfor_os > backup.sql\n```\n" },
+  { "name": "pg-restore", "snippet": "```bash\npg_restore -d sangfor_os_drill backup.dump\n```\n" },
+  { "name": "psql-direct", "snippet": "```bash\npsql -U sangfor -d sangfor_os -c 'SELECT 1;'\n```\n" },
+  { "name": "createdb", "snippet": "```bash\ncreatedb sangfor_os_drill\n```\n" },
+  { "name": "dropdb", "snippet": "```bash\ndropdb sangfor_os_drill\n```\n" },
+  { "name": "database-url-env", "snippet": "```bash\nexport DATABASE_URL=postgresql://sangfor:sangfor@localhost:5434/sangfor_os\n```\n" },
+  { "name": "home-backups-path", "snippet": "Restore from `~/Backups/sangfor-os/latest.sql.gz`.\n" },
+  { "name": "absolute-user-path", "snippet": "Backups live under `/Users/operator/backups/` on the operator laptop.\n" },
+  { "name": "fixed-db-name", "snippet": "```bash\npsql -d sangfor_os_drill\n```\n" },
+  { "name": "fixed-container-name", "snippet": "Target the running `sangfor-postgres` container directly.\n" },
+  { "name": "fixed-volume-name", "snippet": "```bash\ndocker volume rm sangfor_pgdata\n```\n" },
+  { "name": "drop-database", "snippet": "```sql\nDROP DATABASE sangfor_os_drill;\n```\n" }
+]
