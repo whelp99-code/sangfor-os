@@ -42,6 +42,9 @@
     "learn:nightly": "pnpm run learn:all && pnpm run learn:kb:full && pnpm run rag:reembed",
     "smoke:mcp": "node scripts/smoke-mcp-tools.mjs",
     "check:mcp-scorecard": "node scripts/check-mcp-scorecard.mjs",
+    "knip": "knip",
+    "knip:baseline": "knip --no-exit-code",
+    "knip:check": "knip",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
@@ -64,6 +67,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "knip": "5.88.1",
     "prisma": "^6.19.3",
     "tsx": "^4.19.2",
     "typescript": "^5.9.3",

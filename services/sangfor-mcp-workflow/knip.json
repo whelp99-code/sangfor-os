@@ -1,0 +1,55 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/**/*.{ts,mjs,cjs}"
+      ],
+      "project": [
+        "scripts/**/*.{ts,mjs,cjs}"
+      ]
+    },
+    "apps/mcp-server": {
+      "entry": [
+        "src/index.ts"
+      ]
+    },
+    "apps/operator-console": {
+      "entry": [
+        "src/server.ts",
+        "src/routes/index.ts",
+        "src/public/app.js"
+      ]
+    },
+    "packages/*": {}
+  },
+  "ignore": [],
+  "ignoreDependencies": [
+    "@sangfor/chrome",
+    "@sangfor/health-checker",
+    "@sangfor/workflow-core",
+    "@sangfor/workflow-engine",
+    "dotenv",
+    "multer",
+    "playwright",
+    "xlsx",
+    "zod"
+  ],
+  "ignoreIssues": {
+    "packages/shared/src/mutation-policy.ts": [
+      "types"
+    ],
+    "packages/workflow-engine/src/sangfor-auto-config.ts": [
+      "types"
+    ],
+    "packages/workflow-engine/src/ai-feature-extractor.ts": [
+      "types"
+    ],
+    "packages/workflow-engine/src/autopilot-policy.ts": [
+      "types"
+    ],
+    "scripts/workspace-source-plugin.mjs": [
+      "duplicates"
+    ]
+  }
+}

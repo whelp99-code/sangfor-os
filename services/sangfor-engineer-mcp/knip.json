@@ -1,0 +1,99 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/**/*.{ts,mjs,cjs}"
+      ],
+      "project": [
+        "scripts/**/*.{ts,mjs,cjs}"
+      ]
+    },
+    "apps/mcp-server": {
+      "entry": [
+        "src/index.ts"
+      ]
+    },
+    "apps/http-bridge": {
+      "entry": [
+        "src/server.ts"
+      ]
+    },
+    "apps/mock-sangfor-console": {
+      "entry": [
+        "src/server.ts"
+      ]
+    },
+    "apps/operator-console": {
+      "entry": [
+        "src/server.ts"
+      ]
+    },
+    "packages/*": {},
+    "packages/sangfor-evals": {
+      "ignoreDependencies": [
+        "@sangfor/shared"
+      ]
+    },
+    "packages/sangfor-store": {
+      "ignoreDependencies": [
+        "@sangfor/shared"
+      ]
+    },
+    "packages/sangfor-product-adapters": {
+      "ignoreDependencies": [
+        "@sangfor/approval",
+        "@sangfor/operator"
+      ]
+    }
+  },
+  "ignore": [
+    "packages/sangfor-knowledge/src/operations-procedures.ts",
+    "packages/sangfor-knowledge/src/product-guides.ts"
+  ],
+  "ignoreDependencies": [
+    "@modelcontextprotocol/sdk",
+    "@sangfor/product-adapters",
+    "@sangfor/shared",
+    "zod"
+  ],
+  "ignoreIssues": {
+    "packages/sangfor-rag/src/embedding-provider.ts": [
+      "exports",
+      "types"
+    ],
+    "packages/sangfor-rag/src/litellm-config.ts": [
+      "exports"
+    ],
+    "packages/shared/src/mutation-policy.ts": [
+      "exports",
+      "types"
+    ],
+    "apps/operator-console/src/api.ts": [
+      "exports"
+    ],
+    "packages/sangfor-collector/src/one-session.ts": [
+      "exports",
+      "types"
+    ],
+    "packages/sangfor-rag/src/litellm-provider.ts": [
+      "exports"
+    ],
+    "packages/sangfor-rag/src/rapid-mlx-provider.ts": [
+      "exports"
+    ],
+    "packages/sangfor-rag/src/mimo-config.ts": [
+      "exports",
+      "types"
+    ],
+    "packages/sangfor-rag/src/openai-embeddings-client.ts": [
+      "types"
+    ],
+    "packages/sangfor-collector/src/learn-pipeline.ts": [
+      "types"
+    ],
+    "packages/sangfor-collector/src/demo-docs.ts": [
+      "types"
+    ]
+  }
+}

@@ -25,7 +25,10 @@
     "iag:learn": "tsx scripts/run-device-learn.ts -- --product IAG",
     "pipeline:run": "tsx scripts/run-project-pipeline.ts",
     "gen:sample-excel": "node scripts/generate-sample-checklist.mjs",
-    "wiki:sync": "tsx scripts/run-wiki-sync.ts"
+    "wiki:sync": "tsx scripts/run-wiki-sync.ts",
+    "knip": "knip",
+    "knip:baseline": "knip --no-exit-code",
+    "knip:check": "knip"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -33,6 +36,7 @@
     "esbuild": "0.28.0",
     "eslint": "^9.0.0",
     "globals": "^17.6.0",
+    "knip": "5.88.1",
     "tsx": "^4.19.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.61.1",
