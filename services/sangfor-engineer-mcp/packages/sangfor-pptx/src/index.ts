@@ -4,7 +4,7 @@
  */
 import PptxGenJS from 'pptxgenjs';
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { generateExcelBasedChangePlan, type ExcelBasedChangePlan, type ExcelWorkPlanItem } from '@sangfor/product-adapters';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -14,6 +14,41 @@ export interface PptxGuideOptions {
   outputPath?: string;
   plan?: ExcelBasedChangePlan;
   screenshotDir?: string;
+}
+
+/**
+ * Resolve PPTX write path with test/evidence isolation.
+ * Explicit outputPath wins; otherwise root comes from outputRoot / SANGFOR_OUTPUT_ROOT /
+ * production default cwd/outputs. Test env without a root throws (never silent cwd/outputs).
+ */
+export function resolvePptxOutputPath(options: {
+  outputPath?: string;
+  outputRoot?: string;
+  defaultFilename: string;
+}): string {
+  const isTestEnv = process.env.VITEST === 'true' || process.env.NODE_ENV === 'test';
+
+  if (typeof options.outputPath === 'string' && options.outputPath.length > 0) {
+    return resolve(options.outputPath);
+  }
+
+  const root =
+    options.outputRoot ??
+    process.env.SANGFOR_OUTPUT_ROOT ??
+    (isTestEnv ? null : join(process.cwd(), 'outputs'));
+
+  if (root === null) {
+    throw new Error('PPTX_OUTPUT_ROOT_REQUIRED');
+  }
+
+  const resolvedRoot = resolve(root);
+  const candidate = resolve(resolvedRoot, options.defaultFilename);
+
+  if (candidate !== resolvedRoot && !candidate.startsWith(resolvedRoot + sep)) {
+    throw new Error('PPTX_OUTPUT_PATH_ESCAPE');
+  }
+
+  return candidate;
 }
 
 export interface PptxGuideResult {
@@ -583,10 +618,10 @@ export async function buildSettingGuidePptx(options: PptxGuideOptions): Promise<
   addCustomerChecklistSlide(pptx);
 
   // Output
-  const outDir = options.outputPath
-    ? dirname(options.outputPath)
-    : join(process.cwd(), 'outputs');
-  const pptxPath = options.outputPath ?? join(outDir, 'Sangfor_설정가이드_MCP.pptx');
+  const pptxPath = resolvePptxOutputPath({
+    outputPath: options.outputPath,
+    defaultFilename: 'Sangfor_설정가이드_MCP.pptx',
+  });
 
   mkdirSync(dirname(pptxPath), { recursive: true });
   const buffer = await pptx.write({ outputType: 'nodebuffer' });
@@ -632,10 +667,10 @@ export async function buildOperationsGuidePptx(options: PptxGuideOptions): Promi
   addCustomerChecklistSlide(pptx);
 
   // Output
-  const outDir = options.outputPath
-    ? dirname(options.outputPath)
-    : join(process.cwd(), 'outputs');
-  const pptxPath = options.outputPath ?? join(outDir, 'Sangfor_운영가이드_MCP.pptx');
+  const pptxPath = resolvePptxOutputPath({
+    outputPath: options.outputPath,
+    defaultFilename: 'Sangfor_운영가이드_MCP.pptx',
+  });
 
   mkdirSync(dirname(pptxPath), { recursive: true });
   const buffer = await pptx.write({ outputType: 'nodebuffer' });

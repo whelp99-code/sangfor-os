@@ -1,14 +1,39 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { buildSettingGuidePptx, buildOperationsGuidePptx } from '../packages/sangfor-pptx/src/index.js';
+
+const engineerRoot = resolve(import.meta.dirname, '..');
+const leakWatchRoots = [
+  join(engineerRoot, 'outputs'),
+  join(engineerRoot, '.evidence'),
+  join(engineerRoot, 'data', 'evidence'),
+];
+
+function listFilesRecursive(root: string): string[] {
+  if (!existsSync(root)) return [];
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else out.push(full);
+    }
+  };
+  walk(root);
+  return out.sort();
+}
+
+const leakBaseline = new Map<string, string[]>(
+  leakWatchRoots.map((root) => [root, listFilesRecursive(root)]),
+);
 
 // ─── Test Helpers ───────────────────────────────────────────────────────────
 
-function createItacFixtureXlsx(): string {
-  const dir = join(tmpdir(), `itac-pptx-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+function createItacFixtureXlsx(): { xlsxPath: string; fixtureDir: string } {
+  const dir = mkdtempSync(join(tmpdir(), 'u005-itac-'));
   const workbookDir = join(dir, 'xl');
   const relDir = join(workbookDir, '_rels');
   const sheetDir = join(workbookDir, 'worksheets');
@@ -51,7 +76,7 @@ ${row(10, { B: '6', C: 'Security system', D: 'Anti-Virus', E: 'Malware Infection
 </sheetData></worksheet>`);
   const xlsxPath = join(dir, 'itac-fixture.xlsx');
   execFileSync('zip', ['-qr', xlsxPath, '.'], { cwd: dir });
-  return xlsxPath;
+  return { xlsxPath, fixtureDir: dir };
 }
 
 function row(rowNumber: number, values: Record<string, string>): string {
@@ -65,69 +90,103 @@ function escapeXml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function cleanupTempDir(dir: string): void {
+  rmSync(dir, { recursive: true, force: true });
+  expect(existsSync(dir)).toBe(false);
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 describe('PPTX Guide Builder', () => {
   it('generates setting guide PPTX from ITAC Excel', async () => {
-    const filePath = createItacFixtureXlsx();
-    const outDir = join(tmpdir(), `pptx-test-${Date.now()}`);
-    mkdirSync(outDir, { recursive: true });
-    const outputPath = join(outDir, 'Sangfor_설정가이드_MCP.pptx');
+    const { xlsxPath: filePath, fixtureDir } = createItacFixtureXlsx();
+    const outDir = mkdtempSync(join(tmpdir(), 'u005-pptx-'));
+    try {
+      const outputPath = join(outDir, 'Sangfor_설정가이드_MCP.pptx');
 
-    const result = await buildSettingGuidePptx({ filePath, outputPath });
+      const result = await buildSettingGuidePptx({ filePath, outputPath });
 
-    expect(result.pptxPath).toBe(outputPath);
-    expect(existsSync(outputPath)).toBe(true);
-    expect(result.size).toBeGreaterThan(0);
-    expect(result.slideCount).toBeGreaterThan(5);
-    expect(result.totalItems).toBe(6);
-    expect(result.consoleItems).toBe(4);
-    expect(result.manualItems).toBe(2);
-    expect(result.products).toContain('ENDPOINT_SECURE');
-    expect(result.products).toContain('IAG');
-    expect(result.products).toContain('NDR');
-    expect(result.products).toContain('HCI_SCP');
+      expect(result.pptxPath).toBe(outputPath);
+      expect(existsSync(outputPath)).toBe(true);
+      expect(result.size).toBeGreaterThan(0);
+      expect(result.slideCount).toBeGreaterThan(5);
+      expect(result.totalItems).toBe(6);
+      expect(result.consoleItems).toBe(4);
+      expect(result.manualItems).toBe(2);
+      expect(result.products).toContain('ENDPOINT_SECURE');
+      expect(result.products).toContain('IAG');
+      expect(result.products).toContain('NDR');
+      expect(result.products).toContain('HCI_SCP');
+    } finally {
+      cleanupTempDir(outDir);
+      cleanupTempDir(fixtureDir);
+    }
   });
 
   it('generates operations guide PPTX', async () => {
-    const outDir = join(tmpdir(), `pptx-ops-${Date.now()}`);
-    mkdirSync(outDir, { recursive: true });
-    const outputPath = join(outDir, 'Sangfor_운영가이드_MCP.pptx');
+    const outDir = mkdtempSync(join(tmpdir(), 'u005-pptx-'));
+    try {
+      const outputPath = join(outDir, 'Sangfor_운영가이드_MCP.pptx');
 
-    const result = await buildOperationsGuidePptx({ outputPath });
+      const result = await buildOperationsGuidePptx({ outputPath });
 
-    expect(result.pptxPath).toBe(outputPath);
-    expect(existsSync(outputPath)).toBe(true);
-    expect(result.size).toBeGreaterThan(0);
-    expect(result.slideCount).toBe(6);
-    expect(result.planId).toBe('ops_guide');
+      expect(result.pptxPath).toBe(outputPath);
+      expect(existsSync(outputPath)).toBe(true);
+      expect(result.size).toBeGreaterThan(0);
+      expect(result.slideCount).toBe(6);
+      expect(result.planId).toBe('ops_guide');
+    } finally {
+      cleanupTempDir(outDir);
+    }
   });
 
-  it('generates PPTX with default output path', async () => {
-    const filePath = createItacFixtureXlsx();
-    const result = await buildSettingGuidePptx({ filePath });
+  it('generates PPTX with explicit output path under task-owned temp dir', async () => {
+    const { xlsxPath: filePath, fixtureDir } = createItacFixtureXlsx();
+    const outDir = mkdtempSync(join(tmpdir(), 'u005-pptx-'));
+    try {
+      const outputPath = join(outDir, 'Sangfor_설정가이드_MCP.pptx');
+      const result = await buildSettingGuidePptx({ filePath, outputPath });
 
-    expect(existsSync(result.pptxPath)).toBe(true);
-    expect(result.pptxPath).toContain('outputs');
-    expect(result.pptxPath).toContain('.pptx');
+      expect(existsSync(result.pptxPath)).toBe(true);
+      expect(result.pptxPath).toBe(outputPath);
+      expect(result.pptxPath).toContain('.pptx');
+      expect(statSync(result.pptxPath).size).toBeGreaterThan(0);
+    } finally {
+      cleanupTempDir(outDir);
+      cleanupTempDir(fixtureDir);
+    }
   });
 
   it('generates PPTX files with reasonable sizes', async () => {
-    const filePath = createItacFixtureXlsx();
-    const outDir = join(tmpdir(), `pptx-size-${Date.now()}`);
-    mkdirSync(outDir, { recursive: true });
+    const { xlsxPath: filePath, fixtureDir } = createItacFixtureXlsx();
+    const outDir = mkdtempSync(join(tmpdir(), 'u005-pptx-'));
+    try {
+      const settingResult = await buildSettingGuidePptx({
+        filePath,
+        outputPath: join(outDir, 'setting.pptx'),
+      });
 
-    const settingResult = await buildSettingGuidePptx({
-      filePath,
-      outputPath: join(outDir, 'setting.pptx'),
-    });
+      const opsResult = await buildOperationsGuidePptx({
+        outputPath: join(outDir, 'ops.pptx'),
+      });
 
-    const opsResult = await buildOperationsGuidePptx({
-      outputPath: join(outDir, 'ops.pptx'),
-    });
-
-    // Setting guide should be larger than operations guide (more content)
-    expect(settingResult.size).toBeGreaterThan(1000);
-    expect(opsResult.size).toBeGreaterThan(500);
+      // Setting guide should be larger than operations guide (more content)
+      expect(settingResult.size).toBeGreaterThan(1000);
+      expect(opsResult.size).toBeGreaterThan(500);
+      expect(existsSync(settingResult.pptxPath)).toBe(true);
+      expect(existsSync(opsResult.pptxPath)).toBe(true);
+    } finally {
+      cleanupTempDir(outDir);
+      cleanupTempDir(fixtureDir);
+    }
   });
+});
+
+afterAll(() => {
+  for (const root of leakWatchRoots) {
+    const before = leakBaseline.get(root) ?? [];
+    const after = listFilesRecursive(root);
+    const added = after.filter((f) => !before.includes(f));
+    expect(added, `no new files under ${root}`).toEqual([]);
+  }
 });

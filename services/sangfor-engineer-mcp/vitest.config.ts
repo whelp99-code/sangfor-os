@@ -18,7 +18,7 @@ export default defineConfig({
     }
   },
   test: {
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.ts', 'packages/sangfor-pptx/src/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**']
   }
 });
