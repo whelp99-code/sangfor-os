@@ -1,37 +1,17 @@
 /**
- * LM Studio availability probe for integration tests.
- * Skips slow LLM tests when LM Studio is offline or CI without LM_STUDIO_TEST=1.
+ * U007 — minimal LM Studio helper (fixture-oriented; no runtime skip).
  */
-
 import type { LLMClient } from '@sangfor/workflow-engine';
 
-const PROBE_TIMEOUT_MS = 3_000;
-
+/** Always true: release lane uses in-process fixture, never external LM. */
 export function shouldRunLmStudioIntegrationTests(): boolean {
-  if (process.env.CI === 'true' && process.env.LM_STUDIO_TEST !== '1') {
-    return false;
-  }
   return true;
 }
 
+/** Probe fixture client health (no skip path). */
 export async function probeLmStudio(client: LLMClient): Promise<boolean> {
-  if (!shouldRunLmStudioIntegrationTests()) {
-    return false;
-  }
-
   try {
-    if (!(await client.healthCheck())) {
-      return false;
-    }
-
-    const result = await Promise.race([
-      client.testConnection(),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('LM Studio probe timeout')), PROBE_TIMEOUT_MS),
-      ),
-    ]);
-
-    return result.available === true;
+    return (await client.healthCheck()) === true;
   } catch {
     return false;
   }

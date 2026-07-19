@@ -225,29 +225,29 @@ export function createApp(): Express {
     }
   });
 
-  app.use("/api", authMiddleware, systemAdminAccessGuard);
-
-  // Prometheus metrics endpoint
-  app.get("/api/metrics", (_req, res) => {
-    metrics.setGauge("active_sse_connections", eventBus.getClientCount());
-    res.type("text/plain").send(metrics.getMetrics());
-  });
-
-  app.get("/health", authMiddleware, systemAdminAccessGuard, (_req, res) => {
+  // U007 production probe: unauthenticated liveness on /health (and /api/health).
+  // Register before the /api auth gate so production-start and load balancers get 200.
+  app.get("/health", (_req, res) => {
     res.json({
       status: "ok",
       version: "0.1.0",
       timestamp: new Date().toISOString(),
     });
   });
-
-  // Also expose health under /api path for F-aios-v3 proxy compatibility
   app.get("/api/health", (_req, res) => {
     res.json({
       status: "ok",
       version: "0.1.0",
       timestamp: new Date().toISOString(),
     });
+  });
+
+  app.use("/api", authMiddleware, systemAdminAccessGuard);
+
+  // Prometheus metrics endpoint
+  app.get("/api/metrics", (_req, res) => {
+    metrics.setGauge("active_sse_connections", eventBus.getClientCount());
+    res.type("text/plain").send(metrics.getMetrics());
   });
 
   // whelp99 health bridge — HTTP probe against the MCP HTTP bridge (/health)
@@ -366,22 +366,33 @@ export function createApp(): Express {
   return app;
 }
 
-const isEntrypoint = process.argv[1] === fileURLToPath(import.meta.url);
+// Bundled direct entrypoint only: import of createApp must not open a listener.
+const isEntrypoint =
+  typeof process.argv[1] === "string" &&
+  process.argv[1] === fileURLToPath(import.meta.url);
 
 if (isEntrypoint) {
   // U006 process profile fail-closed (production); local/test skip heavy secrets.
   assertProcessProfile("api");
 
+  const listenPort = Number(process.env.API_PORT ?? PORT);
   const app = createApp();
-  const server = app.listen(PORT, HOST, () => {
-    console.log(`🚀 AIOS API Server running on port ${PORT}`);
-    console.log(`   Health: http://localhost:${PORT}/health`);
-    console.log(`   Health (api): http://localhost:${PORT}/api/health`);
+  const server = app.listen(listenPort, HOST, () => {
+    console.log(`🚀 AIOS API Server running on port ${listenPort}`);
+    console.log(`   Health: http://127.0.0.1:${listenPort}/health`);
+    console.log(`   Health (api): http://127.0.0.1:${listenPort}/api/health`);
   });
 
   // Handle server-level errors (e.g. EADDRINUSE, EACCES) so an unhandled
   // 'error' event does not crash the process.
   server.on("error", (err: NodeJS.ErrnoException) => {
-    console.error(`[Server] listen error on port ${PORT}:`, err.code ?? err.message, err);
+    console.error(`[Server] listen error on port ${listenPort}:`, err.code ?? err.message, err);
   });
+
+  const shutdown = () => {
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 5_000).unref();
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 }

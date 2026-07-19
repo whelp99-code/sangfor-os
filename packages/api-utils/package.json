@@ -8,9 +8,10 @@
     "build": "tsc",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests\""
+    "test": "vitest run src/index.test.ts"
   },
   "devDependencies": {
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "3.2.6"
   }
 }

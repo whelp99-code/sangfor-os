@@ -20,6 +20,44 @@ jobs:
           ! grep -rn "sk-[a-zA-Z0-9]" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.mjs" apps/ packages/ | grep -v "\.test\." | grep -v "example\|placeholder\|your_"
           echo "No secrets detected in source code"
 
+  # U007: same release-gate manifest + strict acceptance wrapper.
+  # Full detached-mirror acceptance is dispatcher-owned with leases.
+  # CI runs the tracked unit-lane contract + false-green scan + strict parser.
+  release-gate-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - name: Assert runtime matrix
+        run: '[ "$(node -p ''process.versions.node.split(".")[0]'')" = "20" ] && [ "$(corepack pnpm --version)" = "10.28.1" ]'
+      - run: pnpm install --frozen-lockfile
+      - name: Root unit lane (release-gate manifest argv)
+        run: |
+          bash scripts/run-workspace-runtime.sh root -- node --test \
+            scripts/verify-release.test.mjs \
+            scripts/check-no-false-green-tests.test.mjs \
+            scripts/release-state-receipt.test.mjs \
+            scripts/lib/strict-command-result.test.mjs \
+            scripts/lib/resource-lease.test.mjs \
+            scripts/lib/sanitized-process-env.test.mjs \
+            scripts/lib/detached-release-mirror.test.mjs \
+            scripts/run-detached-release-mirror.test.mjs \
+            scripts/lib/isolated-postgres.test.mjs \
+            scripts/run-with-isolated-postgres.test.mjs \
+            scripts/run-playwright-acceptance.test.mjs
+      - name: False-green scan (must report @sangfor/ui until U030)
+        run: |
+          set +e
+          bash scripts/run-workspace-runtime.sh root -- node scripts/check-no-false-green-tests.mjs
+          code=$?
+          set -e
+          # non-zero is expected while @sangfor/ui has echo No tests
+          test "$code" -ne 0
+
   static-checks:
     runs-on: ubuntu-latest
     services:
@@ -44,10 +82,6 @@ jobs:
       - name: Assert runtime matrix
         run: '[ "$(node -p ''process.versions.node.split(".")[0]'')" = "20" ] && [ "$(corepack pnpm --version)" = "10.28.1" ]'
       - run: pnpm install --frozen-lockfile
-      # apps/web lint runs `eslint . && tsc --noEmit`, which needs the generated
-      # Prisma client and the workspace *library* packages' built dist/types —
-      # not a full `pnpm build` (that would also run `next build` and apps/api's
-      # tsc build, which lint doesn't need).
       - run: pnpm db:generate
       - run: pnpm --filter "./packages/**" build
       - run: pnpm lint
@@ -116,7 +150,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    needs: [static-checks, test]
+    needs: [static-checks, test, release-gate-unit]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -128,6 +162,7 @@ jobs:
         run: '[ "$(node -p ''process.versions.node.split(".")[0]'')" = "20" ] && [ "$(corepack pnpm --version)" = "10.28.1" ]'
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
+      - run: pnpm --filter "./packages/**" build
       - run: pnpm build
 
   e2e:

@@ -1,63 +1,51 @@
 /**
- * AI Workflow Generator 테스트 — LM Studio 연동 검증
- *
- * LM Studio 통합 테스트는 로컬에서 LM Studio가 실행 중일 때만 수행됩니다.
- * CI에서는 LM_STUDIO_TEST=1 환경 변수가 설정된 경우에만 실행됩니다.
+ * AI Workflow Generator tests — in-process LM Studio fixture (U007).
+ * No localhost:1234, no runtime skip(), no LM_STUDIO_TEST gate.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { LLMClient, getLLMClient, resetLLMClient } from '@sangfor/workflow-engine';
 import { AIWorkflowGenerator } from '@sangfor/workflow-engine';
-import { probeLmStudio, shouldRunLmStudioIntegrationTests } from './helpers/lm-studio.js';
+import { startLmStudioFixture, type LmStudioFixture } from './helpers/lm-studio-fixture.js';
+import { probeLmStudio } from './helpers/lm-studio.js';
 
-function skipWithoutLmStudio(available: boolean, skip: (reason?: string) => void): void {
-  if (!available) {
-    skip(shouldRunLmStudioIntegrationTests()
-      ? 'LM Studio not available'
-      : 'LM Studio integration skipped in CI (set LM_STUDIO_TEST=1 to enable)');
-  }
-}
-
-describe('LLM Client — LM Studio 연결', () => {
+describe('LLM Client — LM Studio fixture contract', () => {
+  let fixture: LmStudioFixture;
   let client: LLMClient;
-  let lmStudioAvailable = false;
 
   beforeAll(async () => {
+    fixture = await startLmStudioFixture();
     resetLLMClient();
-    client = getLLMClient({ baseUrl: 'http://localhost:1234/v1' });
-    lmStudioAvailable = await probeLmStudio(client);
+    client = getLLMClient({ baseUrl: fixture.baseUrl });
+    const ok = await probeLmStudio(client);
+    expect(ok).toBe(true);
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     resetLLMClient();
+    await fixture.close();
+    expect(fixture.listenerCount()).toBe(0);
   });
 
-  it('should connect to LM Studio health check', async () => {
+  it('should connect to fixture health check', async () => {
     const isHealthy = await client.healthCheck();
-    expect(typeof isHealthy).toBe('boolean');
+    expect(isHealthy).toBe(true);
   });
 
-  it('should list available models when LM Studio is running', async ({ skip }) => {
-    skipWithoutLmStudio(lmStudioAvailable, skip);
-
+  it('should list available models from fixture', async () => {
     const models = await client.listModels();
     expect(Array.isArray(models)).toBe(true);
-    if (models.length > 0) {
-      expect(models[0].id).toBeDefined();
-    }
+    expect(models.length).toBeGreaterThan(0);
+    expect(models[0].id).toBeDefined();
   });
 
-  it('should get current model', async ({ skip }) => {
-    skipWithoutLmStudio(lmStudioAvailable, skip);
-
+  it('should get current model', async () => {
     const model = await client.getCurrentModel();
     expect(model).toBeTruthy();
     expect(model).not.toContain('embedding');
   });
 
-  it('should test connection with simple prompt', async ({ skip }) => {
-    skipWithoutLmStudio(lmStudioAvailable, skip);
-
+  it('should test connection with simple prompt', async () => {
     const result = await client.testConnection();
     expect(result).toHaveProperty('available');
     expect(result).toHaveProperty('model');
@@ -66,41 +54,55 @@ describe('LLM Client — LM Studio 연결', () => {
     expect(result.available).toBe(true);
   });
 
-  it('should complete a simple chat request', async ({ skip }) => {
-    skipWithoutLmStudio(lmStudioAvailable, skip);
-
+  it('should complete a simple chat request', async () => {
     const result = await client.chat(
       [{ role: 'user', content: 'Say "hello"' }],
       { maxTokens: 10 },
     );
-
     expect(result.choices.length).toBeGreaterThan(0);
   });
 
-  it('should complete JSON request', async ({ skip }) => {
-    skipWithoutLmStudio(lmStudioAvailable, skip);
-
+  it('should complete JSON request', async () => {
     const result = await client.completeJSON<{ greeting: string }>(
       'Return JSON: {"greeting": "hello"}',
       'You must respond with valid JSON only.',
     );
-
     expect(result.greeting).toBeDefined();
   }, 30_000);
+
+  it('should surface fixture error responses', async () => {
+    // Direct fetch against fixture error path
+    const res = await fetch(`${fixture.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-fixture-error': '1',
+      },
+      body: JSON.stringify({
+        model: 'fixture-model',
+        messages: [{ role: 'user', content: 'x' }],
+      }),
+    });
+    expect(res.status).toBe(500);
+  });
 });
 
 describe('AIWorkflowGenerator — AI 기반 워크플로우 생성', () => {
+  let fixture: LmStudioFixture;
   let generator: AIWorkflowGenerator;
-  let lmStudioAvailable = false;
 
   beforeAll(async () => {
+    fixture = await startLmStudioFixture();
     resetLLMClient();
-    generator = new AIWorkflowGenerator(undefined, { baseUrl: 'http://localhost:1234/v1' });
-    lmStudioAvailable = await probeLmStudio(generator.getLLMClient());
+    generator = new AIWorkflowGenerator(undefined, { baseUrl: fixture.baseUrl });
+    const ok = await probeLmStudio(generator.getLLMClient());
+    expect(ok).toBe(true);
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     resetLLMClient();
+    await fixture.close();
+    expect(fixture.listenerCount()).toBe(0);
   });
 
   it('should check LLM status', async () => {
@@ -122,9 +124,7 @@ describe('AIWorkflowGenerator — AI 기반 워크플로우 생성', () => {
     expect(profile.requirements.length).toBe(2);
   });
 
-  it('should generate workflow with AI when LM Studio is available', async ({ skip }) => {
-    skipWithoutLmStudio(lmStudioAvailable, skip);
-
+  it('should generate workflow with AI against fixture', async () => {
     generator.setUseAI(true);
 
     const profile = await generator.analyzeInput({
@@ -133,19 +133,15 @@ describe('AIWorkflowGenerator — AI 기반 워크플로우 생성', () => {
       requirements: ['URL 필터링 설정', '스캐너 캡처'],
     });
 
-    try {
-      const workflow = await Promise.race([
-        generator.generateWorkflow(profile),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('workflow generate timeout')), 25_000),
-        ),
-      ]);
+    const workflow = await Promise.race([
+      generator.generateWorkflow(profile),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('workflow generate timeout')), 25_000),
+      ),
+    ]);
 
-      expect(workflow.reasoning).toBeDefined();
-      expect(workflow.steps.length).toBeGreaterThan(0);
-    } catch (error) {
-      skip(`LM Studio workflow generation failed or timed out: ${error}`);
-    }
+    expect(workflow.reasoning).toBeDefined();
+    expect(workflow.steps.length).toBeGreaterThan(0);
   }, 30_000);
 
   it('should fallback to rules when AI is disabled', async () => {
@@ -163,9 +159,14 @@ describe('AIWorkflowGenerator — AI 기반 워크플로우 생성', () => {
     expect(workflow.steps.length).toBeGreaterThan(0);
   });
 
-  it('should fallback to rules when LM Studio is unavailable', async () => {
+  it('should fallback to rules when fixture is closed (offline)', async () => {
     resetLLMClient();
-    const offlineGenerator = new AIWorkflowGenerator(undefined, { baseUrl: 'http://localhost:99999/v1' });
+    const offline = await startLmStudioFixture();
+    const offlineUrl = offline.baseUrl;
+    await offline.close();
+    const offlineGenerator = new AIWorkflowGenerator(undefined, {
+      baseUrl: offlineUrl,
+    });
 
     const profile = await offlineGenerator.analyzeInput({
       customerName: '오프라인 테스트',

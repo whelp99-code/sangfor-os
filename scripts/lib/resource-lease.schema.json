@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sangfor-resource-lease-v1",
+  "title": "ResourceLease",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["runId", "ownerUnit", "webPort", "apiPort", "issuedAt", "expiresAt"],
+  "properties": {
+    "runId": { "type": "string", "minLength": 1 },
+    "ownerUnit": {
+      "type": "string",
+      "pattern": "^U0(0[1-9]|[1-6][0-9]|7[0-6])$"
+    },
+    "webPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "apiPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "issuedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" }
+  }
+}
