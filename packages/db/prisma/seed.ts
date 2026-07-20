@@ -99,12 +99,16 @@ async function main() {
     },
   });
 
+  // U014/SEC-01: the seed is one of the only two paths allowed to write status="active" (the
+  // other being an explicitly reviewed provisioning path), and it must do so explicitly, never by
+  // relying on the column's own DEFAULT (which is "legacy_pending", i.e. inactive).
   const operator = await prisma.user.upsert({
     where: { email: "operator@sangfor-os.local" },
-    update: { name: "포털 운영자" },
+    update: { name: "포털 운영자", status: "active", disabledAt: null, disabledReason: null },
     create: {
       email: "operator@sangfor-os.local",
       name: "포털 운영자",
+      status: "active",
     },
   });
 

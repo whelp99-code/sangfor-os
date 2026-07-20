@@ -45,39 +45,40 @@ describe('classifyModel', () => {
 });
 
 describe('buildScopeInventoryReport — real inventory', () => {
-  it('reports ok with exact 151 / 13-1-32-44-61 tallies against its own model list (post-U012 RoleChangeRequest reclassification)', () => {
+  it('reports ok with exact 152 / 13-1-32-45-61 tallies against its own model list (post-U012 RoleChangeRequest reclassification, post-U014 AuthSession registration)', () => {
     const report = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
-    expect(report.currentModelCount).toBe(151);
+    expect(report.currentModelCount).toBe(152);
     expect(report.tallies).toEqual({
       GLOBAL_SHARED: 13,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
-      PROJECT_ROOT: 44,
+      PROJECT_ROOT: 45,
       CHILD_VIA_FK: 61,
     });
   });
 });
 
 describe('REGISTERED_ADDITIONS — U011 model registration', () => {
-  it('registers exactly ScopeBackfillQuarantine as GLOBAL_SHARED for U011', () => {
+  it('registers exactly ScopeBackfillQuarantine as GLOBAL_SHARED for U011, then AuthSession as PROJECT_ROOT for U014', () => {
     expect(REGISTERED_ADDITIONS).toEqual([
       { model: 'ScopeBackfillQuarantine', unit: 'U011', category: 'GLOBAL_SHARED' },
+      { model: 'AuthSession', unit: 'U014', category: 'PROJECT_ROOT' },
     ]);
   });
 
-  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count is 151', () => {
+  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count is 152', () => {
     expect(SCOPE_INVENTORY_BASELINE.modelCount).toBe(150);
-    expect(expectedCurrentModelCount()).toBe(151);
+    expect(expectedCurrentModelCount()).toBe(152);
   });
 
-  it('derives expected category counts as baseline plus exactly one registered GLOBAL_SHARED addition (reclassifications isolated out)', () => {
+  it('derives expected category counts as baseline plus the two registered additions (reclassifications isolated out)', () => {
     expect(expectedCategoryCounts(SCOPE_INVENTORY_BASELINE, REGISTERED_ADDITIONS, [])).toEqual({
       GLOBAL_SHARED: 14,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
-      PROJECT_ROOT: 44,
+      PROJECT_ROOT: 45,
       CHILD_VIA_FK: 60,
     });
   });
@@ -86,6 +87,25 @@ describe('REGISTERED_ADDITIONS — U011 model registration', () => {
     expect(classifyModel('ScopeBackfillQuarantine')).toEqual({
       model: 'ScopeBackfillQuarantine',
       category: 'GLOBAL_SHARED',
+    });
+  });
+});
+
+describe('REGISTERED_ADDITIONS — U014 model registration', () => {
+  it('classifies AuthSession as PROJECT_ROOT in the live inventory', () => {
+    expect(classifyModel('AuthSession')).toEqual({
+      model: 'AuthSession',
+      category: 'PROJECT_ROOT',
+    });
+  });
+
+  it('derives expected category counts as baseline plus both registered additions', () => {
+    expect(expectedCategoryCounts()).toEqual({
+      GLOBAL_SHARED: 13,
+      TENANT_ROOT: 1,
+      COMPANY_ROOT: 32,
+      PROJECT_ROOT: 45,
+      CHILD_VIA_FK: 61,
     });
   });
 });
@@ -102,12 +122,12 @@ describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest reclassification', () =
     expect(SCOPE_INVENTORY_BASELINE.categoryCounts.CHILD_VIA_FK).toBe(60);
   });
 
-  it('derives expected category counts as baseline plus one registered GLOBAL_SHARED addition minus one reclassified GLOBAL_SHARED->CHILD_VIA_FK', () => {
+  it('derives expected category counts as baseline plus the registered GLOBAL_SHARED/PROJECT_ROOT additions minus one reclassified GLOBAL_SHARED->CHILD_VIA_FK', () => {
     expect(expectedCategoryCounts()).toEqual({
       GLOBAL_SHARED: 13,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
-      PROJECT_ROOT: 44,
+      PROJECT_ROOT: 45,
       CHILD_VIA_FK: 61,
     });
   });

@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { isAuthConfigured } from "@/lib/auth/config";
-import { getVerifiedSessionFromRequest } from "@/lib/auth/session";
+import {
+  INTERNAL_CONTEXT_HEADER,
+  evaluatePersistedSessionFromRequest,
+  signInternalContext,
+} from "@/lib/auth/persisted-session";
 
 /**
  * Purpose:
@@ -22,9 +26,14 @@ import { getVerifiedSessionFromRequest } from "@/lib/auth/session";
  *   open.
  * - Route-level defense in depth (assertApiAccess, see lib/api-auth.ts) stays
  *   in place independently; this proxy is the outer layer.
- * - U013: Next 16's Proxy defaults to the Node runtime (see the doc above),
- *   so this calls the exact same `getVerifiedSessionFromRequest` used by
- *   Node route handlers — one verifier, not two byte-for-byte-matched ones.
+ * - U013: Next 16's Proxy defaults to the Node runtime (see the doc above).
+ * - U014/SEC-01: a verified JWT alone is no longer sufficient. This calls
+ *   `evaluatePersistedSessionFromRequest` (apps/web/src/lib/auth/persisted-session.ts),
+ *   the same DB-backed verifier route handlers use when tested directly — it
+ *   resolves the token's `jti` to an unexpired, unrevoked AuthSession for an
+ *   explicitly `active` User. Any client-supplied internal-auth header is
+ *   stripped before this check runs; only a passing evaluation causes this
+ *   function to forward a freshly server-signed minimal context.
  */
 
 // Paths reachable without a session:
@@ -73,6 +82,11 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
 
+  // Strip first, unconditionally: this header is only ever set below, by this
+  // function, after evaluatePersistedSessionFromRequest actually passes.
+  const forwardHeaders = new Headers(request.headers);
+  forwardHeaders.delete(INTERNAL_CONTEXT_HEADER);
+
   if (!isAuthConfigured()) {
     warnAuthUnconfiguredOnce();
     // Defense in depth for a misconfigured production deploy: never let a
@@ -87,20 +101,21 @@ export async function proxy(request: NextRequest) {
         { status: 503 },
       );
     }
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: forwardHeaders } });
   }
 
   if (!isPublic) {
-    const session = getVerifiedSessionFromRequest(request);
-    if (!session) {
+    const evaluation = await evaluatePersistedSessionFromRequest(request);
+    if (!evaluation.ok) {
       if (pathname.startsWith("/api")) {
         return NextResponse.json({ error: "unauthorized" }, { status: 401 });
       }
       const loginUrl = new URL("/login", request.url);
       return NextResponse.redirect(loginUrl);
     }
+    forwardHeaders.set(INTERNAL_CONTEXT_HEADER, signInternalContext(evaluation));
   }
-  return NextResponse.next();
+  return NextResponse.next({ request: { headers: forwardHeaders } });
 }
 
 export const config = {

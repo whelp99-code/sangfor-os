@@ -1,6 +1,7 @@
 import type { AuthContext, AuthScope, BusinessRole } from './types';
 import type { TokenPayload } from './token-manager';
 import { BusinessRBAC } from './rbac';
+import { isPrivilegedRequest } from './principal-policy';
 
 const SCOPED_BODY_FIELDS = new Set([
   'tenantId',
@@ -68,6 +69,14 @@ export function createDevelopmentAuthContext(overrides?: Partial<AuthScope> & { 
     permissions: businessRbac.getRolePermissions(businessRole),
     product: 'portal',
   };
+}
+
+/** U014/SEC-01: whether `ctx` (already resolved from a persisted, DB-checked session — see
+ * @sangfor/auth's principal-policy.ts) may exercise a privileged capability. Callers still owe
+ * their own fresh-MFA check via `evaluateSession(..., PRIVILEGED_MFA_MAX_AGE_SECONDS)`; this only
+ * answers "is the role/permission set itself privileged". */
+export function isPrivilegedAuthContext(ctx: AuthContext): boolean {
+  return isPrivilegedRequest(ctx.businessRole, ctx.permissions);
 }
 
 export function findUntrustedScopeFields(input: unknown): string[] {

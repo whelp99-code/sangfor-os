@@ -18,6 +18,22 @@ vi.mock('@sangfor/infra', async (importOriginal) => {
   return { ...actual, callMcpTool: infraSpies.call, listMcpTools: infraSpies.list };
 });
 
+// U014/SEC-01: this file's DATABASE_URL is deliberately unreachable (see beforeAll below), so the
+// persisted-session lookup authMiddleware now performs for a canonical session-JWT must be
+// mocked here, the same way infra is mocked above — no route this file exercises needs any other
+// Prisma model.
+const dbMocks = vi.hoisted(() => ({
+  authSessionFindUnique: vi.fn(async () => null as unknown),
+  userFindUnique: vi.fn(async () => null as unknown),
+}));
+
+vi.mock('@sangfor/db', () => ({
+  prisma: {
+    authSession: { findUnique: dbMocks.authSessionFindUnique },
+    user: { findUnique: dbMocks.userFindUnique },
+  },
+}));
+
 const API_KEY = 'u002-valid-operator-key-000000000';
 const FINANCE_API_KEY = 'u002-valid-finance-key-00000000';
 const WEBHOOK_CLIENT_STATE = 'u002-webhook-client-state';
@@ -347,6 +363,19 @@ describe('root MCP transport authority', () => {
 describe('bearer session JWT HTTP matrix (U013 — GET /api/metrics)', () => {
   it('accepts one valid bearer token with 200', async () => {
     const token = validBearerToken();
+    dbMocks.authSessionFindUnique.mockResolvedValueOnce({
+      id: 'index-test-jti-1',
+      userId: 'operator-1',
+      tenantId: 'tenant-1',
+      companyId: 'company-1',
+      projectId: 'project-1',
+      issuedAt: new Date(),
+      expiresAt: new Date(Date.now() + 900_000),
+      revokedAt: null,
+      mfaVerifiedAt: null,
+      mfaMethod: null,
+    });
+    dbMocks.userFindUnique.mockResolvedValueOnce({ id: 'operator-1', status: 'active', disabledAt: null });
     const response = await fetchClose('/api/metrics', { headers: { authorization: `Bearer ${token}` } });
     console.log(`[U013 api-http] valid bearer -> ${response.status}`);
     expect(response.status).toBe(200);
@@ -378,6 +407,53 @@ describe('bearer session JWT HTTP matrix (U013 — GET /api/metrics)', () => {
     if (token !== undefined) headers.authorization = `Bearer ${token}`;
     const response = await fetchClose('/api/metrics', { headers });
     console.log(`[U013 api-http] ${_label} -> ${response.status}`);
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects a structurally valid bearer token with no DB session at all (U014/SEC-01)', async () => {
+    const token = validBearerToken();
+    dbMocks.authSessionFindUnique.mockResolvedValueOnce(null);
+    const response = await fetchClose('/api/metrics', { headers: { authorization: `Bearer ${token}` } });
+    console.log(`[U014 api-http] no DB session -> ${response.status}`);
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects a still-valid bearer token once its session is revoked (U014/SEC-01)', async () => {
+    const token = validBearerToken();
+    dbMocks.authSessionFindUnique.mockResolvedValueOnce({
+      id: 'index-test-jti-1',
+      userId: 'operator-1',
+      tenantId: 'tenant-1',
+      companyId: 'company-1',
+      projectId: 'project-1',
+      issuedAt: new Date(),
+      expiresAt: new Date(Date.now() + 900_000),
+      revokedAt: new Date(),
+      mfaVerifiedAt: null,
+      mfaMethod: null,
+    });
+    const response = await fetchClose('/api/metrics', { headers: { authorization: `Bearer ${token}` } });
+    console.log(`[U014 api-http] revoked session -> ${response.status}`);
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects a still-valid bearer token once its user is disabled — denied on the very next request (U014/SEC-01)', async () => {
+    const token = validBearerToken();
+    dbMocks.authSessionFindUnique.mockResolvedValueOnce({
+      id: 'index-test-jti-1',
+      userId: 'operator-1',
+      tenantId: 'tenant-1',
+      companyId: 'company-1',
+      projectId: 'project-1',
+      issuedAt: new Date(),
+      expiresAt: new Date(Date.now() + 900_000),
+      revokedAt: null,
+      mfaVerifiedAt: null,
+      mfaMethod: null,
+    });
+    dbMocks.userFindUnique.mockResolvedValueOnce({ id: 'operator-1', status: 'disabled', disabledAt: new Date() });
+    const response = await fetchClose('/api/metrics', { headers: { authorization: `Bearer ${token}` } });
+    console.log(`[U014 api-http] disabled user -> ${response.status}`);
     expect(response.status).toBe(401);
   });
 });

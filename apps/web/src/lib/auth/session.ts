@@ -94,7 +94,13 @@ export function getSessionFromRequest(request: Request): SessionUser {
   return session;
 }
 
-export function getVerifiedSessionFromRequest(request: Request): SessionUser | null {
+/**
+ * Pulls the raw session token string out of a request (Bearer header, else the `session`
+ * cookie) without verifying it. Shared by `getVerifiedSessionFromRequest` below and by
+ * `@/lib/auth/persisted-session.ts` (U014), so every caller extracts the token identically —
+ * the DB-backed verifier is never a parallel, independently-written extraction path.
+ */
+export function extractSessionToken(request: Request): string | null {
   const auth = request.headers.get("authorization");
   const cookie = request.headers.get("cookie");
   const bearer = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
@@ -103,7 +109,11 @@ export function getVerifiedSessionFromRequest(request: Request): SessionUser | n
     .map((c) => c.trim())
     .find((c) => c.startsWith("session="))
     ?.split("=")[1];
-  return verifySessionToken(bearer ?? cookieToken);
+  return bearer ?? cookieToken ?? null;
+}
+
+export function getVerifiedSessionFromRequest(request: Request): SessionUser | null {
+  return verifySessionToken(extractSessionToken(request));
 }
 
 export { isAuthConfigured };

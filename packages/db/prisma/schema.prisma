@@ -19,11 +19,23 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // U014/SEC-01: nullable lifecycle status, additive. NULL/"legacy_pending" are treated
+  // identically as inactive by every runtime — the migration that introduced this column never
+  // blanket-activates a pre-existing row. Only an explicitly reviewed provisioning path or the
+  // synthetic local seed (packages/db/prisma/seed.ts) may write "active", and does so explicitly.
+  // The named CHECK `users_status_lifecycle_check` (migration 20260715140000) enforces the
+  // allowed value set plus the disabledAt/status coupling below at the DB layer; Prisma
+  // optionality here is an ORM convenience, not the enforcement — the DB check is.
+  status         String?   @default("legacy_pending") @map("status")
+  disabledAt     DateTime? @map("disabled_at")
+  disabledReason String?   @map("disabled_reason")
+
   projectMembers     ProjectMember[]
   commandRuns        CommandRun[]    @relation("CommandRunRequestedBy")
   userCompanyRoles   UserCompanyRole[]
   // TODO(oma-deferred): owner will expand to Actor union (User | TeamAgent) in a future migration
   ownedOpportunities Opportunity[]
+  authSessions       AuthSession[]
 
   @@map("users")
 }
@@ -45,6 +57,7 @@ model Project {
   policyDecisionLogs PolicyDecisionLog[]
   domainMemories     DomainMemory[]
   domainDecisionLogs DomainDecisionLog[]
+  authSessions       AuthSession[]
 
   // U012: companyId stays optional here (full NOT NULL is deferred to U073 — see
   // packages/db/src/scope-closure.ts) because a live legacy-null Project can be a genuinely
@@ -1956,7 +1969,8 @@ model Tenant {
   status    String   @default("active")
   createdAt DateTime @default(now()) @map("created_at")
 
-  companies Company[]
+  companies    Company[]
+  authSessions AuthSession[]
 
   @@map("tenants")
 }
@@ -1973,10 +1987,46 @@ model Company {
   personas        Persona[]
   projects        Project[]
   roleChangeRequests RoleChangeRequest[]
+  authSessions    AuthSession[]
 
   @@unique([tenantId, id], map: "companies_tenant_id_id_key")
   @@index([tenantId])
   @@map("companies")
+}
+
+// U014/SEC-01: persisted principal/session lifecycle. `id` IS the JWT `jti` (never a separate
+// surrogate key) — the whole point is that a cryptographically valid session-JWT is no longer
+// sufficient on its own; Web Proxy / API middleware resolve `jti` to exactly this row. No raw JWT
+// is ever stored (only identity/scope/lifecycle metadata). Registered once in
+// packages/db/src/scope-inventory.ts as PROJECT_ROOT (U014) — tenant/company/project are all
+// mandatory trusted scope roots on the session simultaneously, which would be an AMBIGUOUS_ROOT
+// CHILD_VIA_FK chain; declaring it a root itself is the correct, structurally-checked category.
+model AuthSession {
+  id            String    @id
+  userId        String    @map("user_id")
+  tenantId      String    @map("tenant_id")
+  companyId     String    @map("company_id")
+  projectId     String    @map("project_id")
+  issuedAt      DateTime  @map("issued_at")
+  expiresAt     DateTime  @map("expires_at")
+  revokedAt     DateTime? @map("revoked_at")
+  mfaVerifiedAt DateTime? @map("mfa_verified_at")
+  mfaMethod     String?   @map("mfa_method")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict, map: "auth_sessions_user_id_fkey")
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "auth_sessions_tenant_id_fkey")
+  // Composite FKs follow U012's scope-closure constraints (companies_tenant_id_id_key /
+  // projects_company_id_id_key): companyId must actually belong to tenantId, and projectId must
+  // actually belong to companyId — a forged/mismatched scope combination is rejected by Postgres
+  // itself, not only by the application-level scope-mismatch check in evaluateSession().
+  company Company @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "auth_sessions_company_id_fkey")
+  project Project @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "auth_sessions_project_id_fkey")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
 }
 
 model UserCompanyRole {

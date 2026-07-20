@@ -99,6 +99,11 @@ export interface RegisteredAddition {
  */
 export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   { model: 'ScopeBackfillQuarantine', unit: 'U011', category: 'GLOBAL_SHARED' },
+  // U014/SEC-01: AuthSession carries mandatory tenantId/companyId/projectId simultaneously (three
+  // trusted scope roots at once), which would be an AMBIGUOUS_ROOT chain if declared CHILD_VIA_FK
+  // (see deriveStructuralMismatches). Declaring it PROJECT_ROOT is the correct, structurally-valid
+  // category for a model that is itself a scope-carrying root, not a child of one.
+  { model: 'AuthSession', unit: 'U014', category: 'PROJECT_ROOT' },
 ];
 
 export interface ReclassifiedModel {
@@ -167,6 +172,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   ArtifactAccessEvent: { model: 'ArtifactAccessEvent', category: 'COMPANY_ROOT' },
   AssetLicense: { model: 'AssetLicense', category: 'CHILD_VIA_FK', parentModel: 'CustomerAsset', relationField: 'asset', scalarFkField: 'assetId', nullable: false },
   AuditLog: { model: 'AuditLog', category: 'COMPANY_ROOT' },
+  AuthSession: { model: 'AuthSession', category: 'PROJECT_ROOT' },
   AutonomyPolicy: { model: 'AutonomyPolicy', category: 'COMPANY_ROOT' },
   BlockRegistry: { model: 'BlockRegistry', category: 'PROJECT_ROOT' },
   Branch: { model: 'Branch', category: 'CHILD_VIA_FK', parentModel: 'Repository', relationField: 'repository', scalarFkField: 'repositoryId', nullable: false },

@@ -3,12 +3,18 @@ import { z } from "zod";
 
 import { AUTH_CONFIGURATION_UNAVAILABLE } from "@/lib/auth/config";
 import { isLocalMockAuthProfile } from "@/lib/auth/runtime-profile";
-import { createSessionToken, isAuthConfigured, resolveWebSessionRole } from "@/lib/auth/session";
+import { isAuthConfigured, resolveWebSessionRole } from "@/lib/auth/session";
+import { createPersistedSession, resolveActiveLocalPrincipal } from "@/lib/auth/persisted-session";
 import { checkRateLimit, clientIp } from "@/lib/api-auth";
 import { resolveDefaultProjectScope } from "@/lib/project-scope";
 import { NextResponse } from "next/server";
 
 const DEMO_EMAIL = "operator@demo.local";
+// The synthetic local seed's explicitly `status="active"` principal (packages/db/prisma/seed.ts)
+// — the only local identity this route may issue a persisted session for by default when a real
+// USER_JWT_* keyring is configured. Distinct from DEMO_EMAIL, which stays the pre-existing
+// unauthenticated-mock-mode display value and never reaches the DB.
+const LOCAL_ACTIVE_PRINCIPAL_EMAIL = "operator@sangfor-os.local";
 const loginBodySchema = z.object({
   email: z.string().optional(),
   password: z.string().optional(),
@@ -66,7 +72,11 @@ export async function POST(request: Request) {
     }
   }
 
-  const email = jwtConfigured && body.email?.length ? body.email : DEMO_EMAIL;
+  const email = jwtConfigured
+    ? body.email?.length
+      ? body.email
+      : LOCAL_ACTIVE_PRINCIPAL_EMAIL
+    : DEMO_EMAIL;
   const role = resolveWebSessionRole();
   let token = "mock.session";
   if (jwtConfigured) {
@@ -77,13 +87,24 @@ export async function POST(request: Request) {
         { status: 503 },
       );
     }
-    token = createSessionToken({
-      id: "user-demo",
-      email,
-      role,
-      projectId: projectScope.projectId,
+
+    // U014/SEC-01: resolves an existing, explicitly active local principal — never upserts an
+    // arbitrary request email into an enabled user. A legacy NULL/legacy_pending or disabled row
+    // gets no session even with a correct AUTH_DEMO_PASSWORD (no password-only fallback).
+    const principal = await resolveActiveLocalPrincipal(email, projectScope.projectId);
+    if (!principal) {
+      return NextResponse.json({ error: "invalid credentials" }, { status: 401 });
+    }
+
+    const persisted = await createPersistedSession({
+      userId: principal.userId,
+      tenantId: principal.tenantId,
+      companyId: principal.companyId,
+      projectId: principal.projectId,
       projectSlug: projectScope.projectSlug,
+      role,
     });
+    token = persisted.token;
   }
 
   const response = NextResponse.json({

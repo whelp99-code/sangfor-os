@@ -4,6 +4,20 @@ vi.mock("@/lib/project-scope", () => ({
   resolveDefaultProjectScope: vi.fn().mockResolvedValue(null),
 }));
 
+const prismaMocks = vi.hoisted(() => ({
+  userFindUnique: vi.fn(),
+  projectFindUnique: vi.fn(),
+  authSessionCreate: vi.fn(),
+}));
+
+vi.mock("@sangfor/db", () => ({
+  prisma: {
+    user: { findUnique: prismaMocks.userFindUnique },
+    project: { findUnique: prismaMocks.projectFindUnique },
+    authSession: { create: prismaMocks.authSessionCreate },
+  },
+}));
+
 import { resolveDefaultProjectScope } from "@/lib/project-scope";
 import { POST } from "./route";
 
@@ -108,9 +122,15 @@ describe("POST /api/auth/login fail-closed profile", () => {
 });
 
 describe("POST /api/auth/login with a configured USER_JWT_* keyring", () => {
+  const ACTIVE_USER = { id: "user-1", status: "active", disabledAt: null };
+  const PROJECT = { id: "project-1", companyId: "company-1", company: { tenantId: "tenant-1" } };
+
   beforeEach(() => {
     vi.stubEnv("AUTH_PROFILE", "");
     for (const [key, value] of Object.entries(validUserJwtEnv())) vi.stubEnv(key, value);
+    prismaMocks.userFindUnique.mockReset();
+    prismaMocks.projectFindUnique.mockReset();
+    prismaMocks.authSessionCreate.mockReset().mockResolvedValue({});
   });
 
   afterEach(() => vi.unstubAllEnvs());
@@ -123,18 +143,20 @@ describe("POST /api/auth/login with a configured USER_JWT_* keyring", () => {
     expect(response.status).toBe(503);
   });
 
-  it("issues a canonical 3-segment session JWT with a cookie bounded to the token TTL, not 7 days", async () => {
+  it("issues a canonical 3-segment session JWT with a cookie bounded to the token TTL, not 7 days — for an existing, explicitly active user", async () => {
     vi.stubEnv("AUTH_DEMO_PASSWORD", "correct-horse-battery");
     vi.mocked(resolveDefaultProjectScope).mockResolvedValueOnce({
       projectId: "project-1",
       projectSlug: "demo-project",
     });
+    prismaMocks.userFindUnique.mockResolvedValueOnce(ACTIVE_USER);
+    prismaMocks.projectFindUnique.mockResolvedValueOnce(PROJECT);
 
     const response = await POST(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.11" },
-        body: JSON.stringify({ email: "user@example.com", password: "correct-horse-battery" }),
+        body: JSON.stringify({ email: "active@example.com", password: "correct-horse-battery" }),
       }),
     );
 
@@ -142,7 +164,8 @@ describe("POST /api/auth/login with a configured USER_JWT_* keyring", () => {
     const body: { token: string; authMode: string; user: { email: string; role: string } } = await response.json();
     expect(body.token.split(".")).toHaveLength(3);
     expect(body.authMode).toBe("jwt");
-    expect(body.user).toMatchObject({ email: "user@example.com", role: "operator" });
+    expect(body.user).toMatchObject({ email: "active@example.com", role: "operator" });
+    expect(prismaMocks.authSessionCreate).toHaveBeenCalledTimes(1);
 
     const setCookie = response.headers.get("set-cookie") ?? "";
     expect(setCookie).toContain(`session=${body.token}`);
@@ -151,4 +174,53 @@ describe("POST /api/auth/login with a configured USER_JWT_* keyring", () => {
     expect(setCookie.toLowerCase()).toContain("httponly");
     expect(setCookie.toLowerCase()).toContain("samesite=lax");
   });
+
+  it("rejects an arbitrary/unknown email with valid credentials — never auto-upserts it into an enabled user (U014/SEC-01)", async () => {
+    vi.stubEnv("AUTH_DEMO_PASSWORD", "correct-horse-battery");
+    vi.mocked(resolveDefaultProjectScope).mockResolvedValueOnce({
+      projectId: "project-1",
+      projectSlug: "demo-project",
+    });
+    prismaMocks.userFindUnique.mockResolvedValueOnce(null);
+
+    const response = await POST(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.12" },
+        body: JSON.stringify({ email: "attacker@example.com", password: "correct-horse-battery" }),
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "invalid credentials" });
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(prismaMocks.authSessionCreate).not.toHaveBeenCalled();
+  });
+
+  it.each([[null], ["legacy_pending"], ["disabled"]])(
+    "rejects a %s user with valid credentials — no session even with the right password",
+    async (status) => {
+      vi.stubEnv("AUTH_DEMO_PASSWORD", "correct-horse-battery");
+      vi.mocked(resolveDefaultProjectScope).mockResolvedValueOnce({
+        projectId: "project-1",
+        projectSlug: "demo-project",
+      });
+      prismaMocks.userFindUnique.mockResolvedValueOnce({
+        id: "user-legacy",
+        status,
+        disabledAt: status === "disabled" ? new Date() : null,
+      });
+
+      const response = await POST(
+        new Request("http://localhost/api/auth/login", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.13" },
+          body: JSON.stringify({ email: "legacy@example.com", password: "correct-horse-battery" }),
+        }),
+      );
+
+      expect(response.status).toBe(401);
+      expect(prismaMocks.authSessionCreate).not.toHaveBeenCalled();
+    },
+  );
 });

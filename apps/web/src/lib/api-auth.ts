@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getVerifiedSessionFromRequest } from "@/lib/auth/session";
 import { isLocalTestRuntime } from "@/lib/auth/runtime-profile";
+import { INTERNAL_CONTEXT_HEADER, verifyInternalContextHeader } from "@/lib/auth/persisted-session";
 
 const CALLER_IDENTITY_FIELDS: ReadonlySet<string> = new Set([
   "approvedBy",
@@ -38,6 +39,16 @@ export type WebOperatorContext = {
  *   const denied = assertApiAccess(request);
  *   if (denied) return denied; // 401 JSON, short-circuits the handler
  *
+ * U014/SEC-01: for a safe (GET/HEAD/OPTIONS) request, a valid signed internal-context header
+ * (apps/web/src/lib/auth/persisted-session.ts) — set only by the Web Proxy after it already ran
+ * the DB-backed persisted-session check — is accepted as a synchronous fast path. It is strictly
+ * stronger than the JWT-only check below (producing it required JWT verification to succeed
+ * first), so trusting it can never admit anything the JWT-only path would have refused. Mutating
+ * methods always fall through to the full check below regardless, because the internal context
+ * carries no role claim and cannot reproduce the viewer-mutation gate. When the header is absent
+ * (every direct-call unit test; any request that reached a handler without crossing the Proxy),
+ * behavior is byte-identical to before this unit.
+ *
  * Tests:
  * - src/lib/api-auth.test.ts
  */
@@ -58,6 +69,10 @@ export function isAuthBypassEnabled(
  */
 export function assertApiAccess(request: Request): NextResponse | null {
   if (isAuthBypassEnabled()) {
+    return null;
+  }
+  const isSafeMethod = ["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase());
+  if (isSafeMethod && verifyInternalContextHeader(request.headers.get(INTERNAL_CONTEXT_HEADER))) {
     return null;
   }
   const session = getVerifiedSessionFromRequest(request);

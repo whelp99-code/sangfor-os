@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +23,14 @@ const NEW_MIGRATION_NAME_U012 = '20260715120000_scope_closure_constraints';
 const OWNER_UNIT_U012 = 'U012';
 const PURPOSE_U012 = 'scope-closure';
 
-const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure']);
+// U014 — principal-session suite (registered alongside U011/U012 above; those suites' functions/
+// fixtures are untouched reuse, see the U014 dispatch file boundary — this unit only adds the
+// `principal-session` allow-listed suite and its own scenario below).
+const NEW_MIGRATION_NAME_U014 = '20260715140000_principal_session_lifecycle';
+const OWNER_UNIT_U014 = 'U014';
+const PURPOSE_U014 = 'principal-session';
+
+const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session']);
 
 const EXIT = Object.freeze({
   SUCCESS: 0,
@@ -127,18 +134,27 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
     // pre-U011 prefix too — otherwise it deploys before U011 and fails on a missing relation.
     const targetU012 = join(dir, 'migrations', NEW_MIGRATION_NAME_U012);
     if (existsSync(targetU012)) rmSync(targetU012, { recursive: true, force: true });
+    // U014's migration depends on U012's unique constraints (companies/projects), so it must stay
+    // excluded from this pre-U011 prefix too — otherwise it deploys before U012 exists and fails
+    // with a missing-unique-constraint error (SQLSTATE 42830).
+    const targetU014 = join(dir, 'migrations', NEW_MIGRATION_NAME_U014);
+    if (existsSync(targetU014)) rmSync(targetU014, { recursive: true, force: true });
   }
   return dir;
 }
 
-/** A temp prisma copy deployed through U011 only (every real migration except U012's). Used by
- * scope-backfill scenarios that need `migrate: true`-equivalent full-chain behavior without
- * pulling in U012's CHECK constraint, which is U012's contract, not U011's. */
+/** A temp prisma copy deployed through U011 only (every real migration except U012's and U014's).
+ * Used by scope-backfill scenarios that need `migrate: true`-equivalent full-chain behavior
+ * without pulling in U012's CHECK constraint, which is U012's contract, not U011's. */
 function makeThroughU011PrismaCopy(label: string): string {
   const dir = mkdtempSync(join(tmpdir(), `u011-prisma-through-u011-${label}-`));
   cpSync(REAL_PRISMA_DIR, dir, { recursive: true });
   const targetU012 = join(dir, 'migrations', NEW_MIGRATION_NAME_U012);
   if (existsSync(targetU012)) rmSync(targetU012, { recursive: true, force: true });
+  // U014's migration depends on U012's unique constraints, which this through-U011 prefix
+  // deliberately omits — exclude U014 too, or the deploy fails the same way (SQLSTATE 42830).
+  const targetU014 = join(dir, 'migrations', NEW_MIGRATION_NAME_U014);
+  if (existsSync(targetU014)) rmSync(targetU014, { recursive: true, force: true });
   return dir;
 }
 
@@ -148,6 +164,11 @@ function addNewMigrationTo(tmpPrismaDir: string) {
 
 async function runWorkspaceGenerate(schemaPath: string): Promise<CaptureResult> {
   const argv = ['bash', join(REPO_ROOT, 'scripts/run-workspace-runtime.sh'), 'root', '--', 'corepack', 'pnpm', '--filter', '@sangfor/db', 'exec', 'prisma', 'generate', '--schema', schemaPath];
+  return spawnCapture(argv, sanitizedEnv({}));
+}
+
+async function runWorkspaceFormat(schemaPath: string): Promise<CaptureResult> {
+  const argv = ['bash', join(REPO_ROOT, 'scripts/run-workspace-runtime.sh'), 'root', '--', 'corepack', 'pnpm', '--filter', '@sangfor/db', 'exec', 'prisma', 'format', '--schema', schemaPath];
   return spawnCapture(argv, sanitizedEnv({}));
 }
 
@@ -299,8 +320,8 @@ async function runFixtureScenario(evidenceDir: string, runId: string) {
       const scopeCheck = await runScopeCheck();
       if (scopeCheck.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed: ${scopeCheck.stdout}\n${scopeCheck.stderr}`);
       const scopeCheckJson = JSON.parse(scopeCheck.stdout);
-      if (scopeCheckJson.currentModelCount !== 151 || scopeCheckJson.ok !== true) {
-        throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true currentModelCount=151: ${scopeCheck.stdout}`);
+      if (scopeCheckJson.currentModelCount !== scopeCheckJson.inventoryModelCount || scopeCheckJson.ok !== true) {
+        throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true with schema matching the canonical inventory: ${scopeCheck.stdout}`);
       }
       evidence.scopeCheck = scopeCheckJson;
 
@@ -534,13 +555,15 @@ function sha256File(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
-/** Every migration directory name up to and including U010's, excluding the U011/U012 ones added
- * by this and the previous unit — the exact prefix the legacy lifecycle proof deploys first. */
+/** Every migration directory name up to and including U010's, excluding the U011/U012/U014 ones
+ * added by this and the other units — the exact prefix the legacy lifecycle proof deploys first.
+ * U014 sorts after U010 by name, so it must be excluded here too, or it is folded into the
+ * "through U010" prefix and deploys before U012's unique constraints exist (SQLSTATE 42830). */
 function listMigrationsThroughU010(): string[] {
   return readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
-    .filter((name) => name !== NEW_MIGRATION_NAME && name !== NEW_MIGRATION_NAME_U012)
+    .filter((name) => name !== NEW_MIGRATION_NAME && name !== NEW_MIGRATION_NAME_U012 && name !== NEW_MIGRATION_NAME_U014)
     .sort();
 }
 
@@ -724,8 +747,8 @@ async function runLegacyLifecycleScenario(evidenceDir: string, runId: string) {
         const scopeCheck = await runScopeCheck();
         if (scopeCheck.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed after U012: ${scopeCheck.stdout}\n${scopeCheck.stderr}`);
         const scopeCheckJson = JSON.parse(scopeCheck.stdout);
-        if (scopeCheckJson.currentModelCount !== 151 || scopeCheckJson.ok !== true) {
-          throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true currentModelCount=151 after U012: ${scopeCheck.stdout}`);
+        if (scopeCheckJson.currentModelCount !== scopeCheckJson.inventoryModelCount || scopeCheckJson.ok !== true) {
+          throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true with schema matching the canonical inventory after U012: ${scopeCheck.stdout}`);
         }
         if (scopeCheckJson.tallies.CHILD_VIA_FK !== 61 || scopeCheckJson.tallies.GLOBAL_SHARED !== 13) {
           throw new ContractFailure(EXIT.CONTRACT, `scope:check tallies do not reflect the U012 RoleChangeRequest reclassification: ${JSON.stringify(scopeCheckJson.tallies)}`);
@@ -823,6 +846,27 @@ async function runLegacyLifecycleScenario(evidenceDir: string, runId: string) {
         writeFileSync(join(evidenceDir, 'constraint-negative.log'), `${qaLines.join('\n')}\n`);
 
         await execSql(ctx.containerName, conn, `DROP TABLE demo_scoped_assignment;`);
+
+        // runMigrateDiff below compares against the canonical schema.prisma, which reflects every
+        // migration on disk. The view has now proven the U010→U011→U012 ordering; extend it with
+        // whatever real migrations exist beyond U012 (computed from disk, not a fixed unit list) so
+        // future units are picked up automatically and this stays a true full deploy.
+        const remainingAfterU012 = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
+          .filter((d) => d.isDirectory())
+          .map((d) => d.name)
+          .filter((name) => !(name in view.membership))
+          .sort();
+        for (const name of remainingAfterU012) {
+          addMigrationToView(view, name);
+        }
+        verifyViewIntegrity(view, [...throughU010, NEW_MIGRATION_NAME, NEW_MIGRATION_NAME_U012, ...remainingAfterU012]);
+        evidence.viewMembershipFull = { ...view.membership };
+
+        const deployRemaining = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (deployRemaining.code !== 0) {
+          throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (remaining canonical migrations beyond U012, symlink view) failed: ${deployRemaining.stderr || deployRemaining.stdout}`);
+        }
+        evidence.deployRemainingAfterU012 = { migrated: true, migrations: remainingAfterU012 };
 
         const redeploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
         if (redeploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy re-run was not reproducible: ${redeploy.stderr || redeploy.stdout}`);
@@ -1013,6 +1057,246 @@ async function runScopeClosureSuite(evidenceDir: string): Promise<number> {
   return EXIT.SUCCESS;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// U014 — principal-session suite
+// ─────────────────────────────────────────────────────────────────────────
+
+const PRINCIPAL_SESSION_FIXTURE_SQL = `INSERT INTO tenants (id, name, slug, status, created_at) VALUES
+  ('u014-tenant-1', 'U014 Tenant One', 'u014-tenant-1', 'active', now()),
+  ('u014-tenant-2', 'U014 Tenant Two', 'u014-tenant-2', 'active', now());
+
+INSERT INTO companies (id, tenant_id, name, slug, created_at) VALUES
+  ('u014-company-1', 'u014-tenant-1', 'U014 Company One', 'u014-company-1', now()),
+  ('u014-company-2', 'u014-tenant-2', 'U014 Company Two', 'u014-company-2', now());
+
+INSERT INTO projects (id, slug, name, company_id, created_at, updated_at) VALUES
+  ('u014-project-1', 'u014-project-1', 'U014 Project', 'u014-company-1', now(), now());
+
+INSERT INTO users (id, email, name, created_at, updated_at) VALUES
+  ('u014-user-omitted-status', 'omitted@u014.example.com', 'Omitted Status', now(), now());
+
+INSERT INTO users (id, email, name, status, created_at, updated_at) VALUES
+  ('u014-user-active', 'active@u014.example.com', 'Active User', 'active', now(), now()),
+  ('u014-user-legacy', 'legacy@u014.example.com', 'Legacy User', 'legacy_pending', now(), now());
+
+INSERT INTO users (id, email, name, status, disabled_at, disabled_reason, created_at, updated_at) VALUES
+  ('u014-user-disabled', 'disabled@u014.example.com', 'Disabled User', 'disabled', now(), 'qa fixture', now(), now());
+
+INSERT INTO auth_sessions (id, user_id, tenant_id, company_id, project_id, issued_at, expires_at, created_at, updated_at) VALUES
+  ('u014-jti-active', 'u014-user-active', 'u014-tenant-1', 'u014-company-1', 'u014-project-1', now(), now() + interval '15 minutes', now(), now()),
+  ('u014-jti-revoked', 'u014-user-active', 'u014-tenant-1', 'u014-company-1', 'u014-project-1', now(), now() + interval '15 minutes', now(), now()),
+  ('u014-jti-expired', 'u014-user-active', 'u014-tenant-1', 'u014-company-1', 'u014-project-1', now() - interval '20 minutes', now() - interval '5 minutes', now(), now()),
+  ('u014-jti-disabled-user', 'u014-user-disabled', 'u014-tenant-1', 'u014-company-1', 'u014-project-1', now(), now() + interval '15 minutes', now(), now()),
+  ('u014-jti-legacy-user', 'u014-user-legacy', 'u014-tenant-1', 'u014-company-1', 'u014-project-1', now(), now() + interval '15 minutes', now(), now());
+
+UPDATE auth_sessions SET revoked_at = now() WHERE id = 'u014-jti-revoked';
+`;
+
+/** Locates the `.prisma/client/schema.prisma` copy `prisma generate` just wrote (this repo's
+ * single Prisma schema/generator means there is exactly one live candidate; picks the
+ * most-recently-modified match defensively). Used only to prove the generated client actually
+ * embeds the exact canonical schema this suite is about to test against — never to locate a
+ * client for import (this file never imports `@prisma/client` itself; every DB touch here is raw
+ * SQL via `docker exec ... psql`, same as the U011/U012 suites above). */
+function findGeneratedClientSchemaCopy(): string | null {
+  const pnpmDir = join(REPO_ROOT, 'node_modules', '.pnpm');
+  if (!existsSync(pnpmDir)) return null;
+  const candidates = readdirSync(pnpmDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && d.name.startsWith('@prisma+client@'))
+    .map((d) => join(pnpmDir, d.name, 'node_modules', '.prisma', 'client', 'schema.prisma'))
+    .filter((p) => existsSync(p));
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+  return candidates[0];
+}
+
+interface PinnedGenerateResult {
+  ok: boolean;
+  clientSchemaHash: string | null;
+  canonicalSchemaHash: string;
+}
+
+/** The dispatch's `[PREREQUISITE COMMAND ADDITION]`: re-runs the same pinned `prisma generate`
+ * after scratch-container creation, before any integration step, and asserts the generated
+ * client's embedded schema hash matches the canonical `schema.prisma` hash. A generate failure or
+ * hash mismatch must block the suite before it starts integration — never a silent stale-client
+ * run.
+ *
+ * `prisma generate` reformats (column-realigns) the schema copy it embeds in the generated
+ * client, so a raw byte-hash of `schema.prisma` itself would always mismatch even when the client
+ * was genuinely built from the current file. The canonical side is therefore hashed AFTER running
+ * the identical `prisma format` over a disposable copy — never the tracked file — which reduces
+ * the comparison to "did the client actually embed this schema's content", not "is Prisma's own
+ * formatter a no-op". */
+async function runPinnedGenerateWithSchemaHash(evidenceDir: string): Promise<PinnedGenerateResult> {
+  const schemaPath = join(REAL_PRISMA_DIR, 'schema.prisma');
+
+  const gen = await runWorkspaceGenerate(schemaPath);
+  writeFileSync(join(evidenceDir, 'prisma-generate.log'), `exit=${gen.code}\n--- stdout ---\n${gen.stdout}\n--- stderr ---\n${gen.stderr}\n`);
+
+  const formatCopyDir = mkdtempSync(join(tmpdir(), 'u014-schema-format-'));
+  const formatCopyPath = join(formatCopyDir, 'schema.prisma');
+  cpSync(schemaPath, formatCopyPath);
+  const fmt = await runWorkspaceFormat(formatCopyPath);
+  const canonicalSchemaHash = fmt.code === 0 ? sha256File(formatCopyPath) : sha256File(schemaPath);
+  rmSync(formatCopyDir, { recursive: true, force: true });
+
+  if (gen.code !== 0 || fmt.code !== 0) return { ok: false, clientSchemaHash: null, canonicalSchemaHash };
+  const generatedCopy = findGeneratedClientSchemaCopy();
+  const clientSchemaHash = generatedCopy ? sha256File(generatedCopy) : null;
+  return { ok: clientSchemaHash !== null && clientSchemaHash === canonicalSchemaHash, clientSchemaHash, canonicalSchemaHash };
+}
+
+async function runPrincipalSessionScenario(evidenceDir: string, runId: string) {
+  const evidence: Record<string, unknown> = {};
+
+  await withIsolatedPostgres(
+    { runId, ownerUnit: OWNER_UNIT_U014, purpose: PURPOSE_U014, evidenceDir, imageDigest: IMAGE_DIGEST, migrate: false },
+    async (ctx: any) => {
+      const conn = parseConn(ctx.databaseUrl);
+      const schemaPath = join(REAL_PRISMA_DIR, 'schema.prisma');
+
+      const pinned = await runPinnedGenerateWithSchemaHash(evidenceDir);
+      evidence.pinnedGenerate = pinned;
+      if (!pinned.ok) {
+        throw new ContractFailure(
+          EXIT.CONTRACT,
+          `pinned db:generate schema-hash assertion failed (generate failure or hash mismatch): client=${pinned.clientSchemaHash} canonical=${pinned.canonicalSchemaHash}`,
+        );
+      }
+
+      const deploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, schemaPath);
+      if (deploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy failed: ${deploy.stderr || deploy.stdout}`);
+      evidence.migrateDeploy = { migrated: true };
+      evidence.scratchIdentity = { runId: ctx.sentinel.runId, ownerUnit: ctx.sentinel.ownerUnit, purpose: ctx.sentinel.purpose, databaseName: ctx.databaseName };
+
+      const scopeCheck = await runScopeCheck();
+      if (scopeCheck.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed: ${scopeCheck.stdout}\n${scopeCheck.stderr}`);
+      const scopeCheckJson = JSON.parse(scopeCheck.stdout);
+      if (scopeCheckJson.currentModelCount !== 152 || scopeCheckJson.inventoryModelCount !== 152 || scopeCheckJson.ok !== true) {
+        throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true at 152/152: ${scopeCheck.stdout}`);
+      }
+      writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
+      evidence.scopeCheck = { currentModelCount: scopeCheckJson.currentModelCount, inventoryModelCount: scopeCheckJson.inventoryModelCount, ok: scopeCheckJson.ok, tallies: scopeCheckJson.tallies };
+
+      await execSql(ctx.containerName, conn, PRINCIPAL_SESSION_FIXTURE_SQL);
+
+      const preexistingRow = await execSql(
+        ctx.containerName,
+        conn,
+        `SELECT status || '|' || (disabled_at IS NULL)::text FROM users WHERE id = 'u014-user-omitted-status';`,
+      );
+      if (preexistingRow !== 'legacy_pending|true') {
+        throw new ContractFailure(EXIT.CONTRACT, `a User row inserted without an explicit status must default to legacy_pending with disabled_at NULL, got: ${preexistingRow}`);
+      }
+      writeFileSync(join(evidenceDir, 'session-migration.log'), `pre-existing-row-status-default: ${preexistingRow} (never blanket-activated)\n`);
+      evidence.migrationNeverBlanketActivates = true;
+
+      const qaLines: string[] = [];
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'active user with disabled_at NULL',
+        expect: 'ok',
+        sql: `INSERT INTO users (id, email, name, status, created_at, updated_at) VALUES ('u014-qa-active-ok','qa-active-ok@u014.example.com','QA','active', now(), now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'active user with disabled_at set',
+        expect: 'reject',
+        sql: `INSERT INTO users (id, email, name, status, disabled_at, created_at, updated_at) VALUES ('u014-qa-active-bad','qa-active-bad@u014.example.com','QA','active', now(), now(), now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'disabled user with disabled_at NULL',
+        expect: 'reject',
+        sql: `INSERT INTO users (id, email, name, status, created_at, updated_at) VALUES ('u014-qa-disabled-bad','qa-disabled-bad@u014.example.com','QA','disabled', now(), now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'unknown status value',
+        expect: 'reject',
+        sql: `INSERT INTO users (id, email, name, status, created_at, updated_at) VALUES ('u014-qa-unknown-bad','qa-unknown-bad@u014.example.com','QA','superuser', now(), now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'AuthSession company_id belonging to a different tenant_id',
+        expect: 'reject',
+        sql: `INSERT INTO auth_sessions (id, user_id, tenant_id, company_id, project_id, issued_at, expires_at, created_at, updated_at) VALUES ('u014-qa-cross-tenant','u014-user-active','u014-tenant-2','u014-company-1','u014-project-1', now(), now() + interval '15 minutes', now(), now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'AuthSession project_id belonging to a different company_id',
+        expect: 'reject',
+        sql: `INSERT INTO auth_sessions (id, user_id, tenant_id, company_id, project_id, issued_at, expires_at, created_at, updated_at) VALUES ('u014-qa-cross-company','u014-user-active','u014-tenant-2','u014-company-2','u014-project-1', now(), now() + interval '15 minutes', now(), now());`,
+      }));
+      writeFileSync(join(evidenceDir, 'constraint-negative.log'), `${qaLines.join('\n')}\n`);
+      evidence.constraintQaCount = qaLines.length;
+
+      const sessionFixtureRows = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT id, (revoked_at IS NOT NULL) AS revoked, (expires_at < now()) AS expired FROM auth_sessions WHERE id LIKE 'u014-jti-%' ORDER BY id;`,
+      );
+      evidence.sessionFixtureRows = sessionFixtureRows.trim();
+
+      const redeploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, schemaPath);
+      if (redeploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy re-run was not reproducible: ${redeploy.stderr || redeploy.stdout}`);
+      evidence.migrateDeployReproducible = true;
+
+      const diff = await runMigrateDiff(ctx.databaseUrl);
+      const diffText = diff.stdout.trim();
+      const isEmptyDiff = diff.code === 0 && (diffText.length === 0 || diffText === '-- This is an empty migration.');
+      writeFileSync(join(evidenceDir, 'migration-diff.sql'), isEmptyDiff ? '' : diff.stdout);
+      if (!isEmptyDiff) throw new ContractFailure(EXIT.CONTRACT, `schema diff not empty after fresh migrate deploy: exit=${diff.code} stdout=${diff.stdout}`);
+      evidence.emptySchemaDiff = true;
+
+      return evidence;
+    },
+  );
+
+  return evidence;
+}
+
+async function runPrincipalSessionSuite(evidenceDir: string): Promise<number> {
+  const runId = `u014${Date.now().toString(36)}`;
+  const startedAt = new Date().toISOString();
+
+  let caughtError: unknown = null;
+  let scenarioEvidence: Record<string, unknown> | null = null;
+  try {
+    scenarioEvidence = await runPrincipalSessionScenario(evidenceDir, runId);
+  } catch (error) {
+    caughtError = error;
+  }
+
+  const labelCounts = await labelResourceCounts(runId, OWNER_UNIT_U014, PURPOSE_U014);
+  const cleanupOk = labelCounts.containers === 0 && labelCounts.networks === 0 && labelCounts.volumes === 0;
+  const cleanup = {
+    schemaVersion: 1,
+    unit: OWNER_UNIT_U014,
+    purpose: PURPOSE_U014,
+    runId,
+    postgres: { containers: labelCounts.containers, networks: labelCounts.networks, volumes: labelCounts.volumes },
+    http: null,
+    httpReason:
+      'U014 db:contract is a DB-only migration/constraint suite with no web/API process to bind or tear down here — the real-surface HTTP/session proof (login/authenticated request/logout/disabled-user-denied) is captured separately under the U014 evidence attempt (revocation-http.log/disabled-user-http.log), each with its own U013 Express-ephemeral-protocol cleanup receipt.',
+    childProcesses: 0,
+    result: cleanupOk ? 'PASS' : 'FAIL',
+    startedAt,
+    finishedAt: new Date().toISOString(),
+  };
+  writeFileSync(join(evidenceDir, 'cleanup.json'), `${JSON.stringify(cleanup, null, 2)}\n`);
+
+  if (!cleanupOk) {
+    process.stderr.write(`run-db-contract: cleanup verification failed: ${JSON.stringify(cleanup)}\n`);
+    return EXIT.CLEANUP;
+  }
+  if (caughtError) {
+    process.stderr.write(`${caughtError instanceof Error ? (caughtError.stack ?? caughtError.message) : String(caughtError)}\n`);
+    return caughtError instanceof ContractFailure ? caughtError.exitCode : EXIT.CONTRACT;
+  }
+
+  writeFileSync(
+    join(evidenceDir, 'db-contract-receipt.json'),
+    `${JSON.stringify({ schemaVersion: 1, unit: OWNER_UNIT_U014, suite: 'principal-session', result: 'PASS', scenarioEvidence, cleanup, startedAt, finishedAt: new Date().toISOString() }, null, 2)}\n`,
+  );
+  return EXIT.SUCCESS;
+}
+
 async function main(): Promise<number> {
   let args;
   try {
@@ -1024,7 +1308,8 @@ async function main(): Promise<number> {
   mkdirSync(args.evidence, { recursive: true });
 
   if (args.suite === 'scope-backfill') return runScopeBackfillSuite(args.evidence);
-  return runScopeClosureSuite(args.evidence);
+  if (args.suite === 'scope-closure') return runScopeClosureSuite(args.evidence);
+  return runPrincipalSessionSuite(args.evidence);
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

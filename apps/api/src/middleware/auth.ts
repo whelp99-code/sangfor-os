@@ -8,13 +8,17 @@ import {
   assertNoUntrustedScopeFields,
   createAuthContextFromTokenPayload,
   createDevelopmentAuthContext,
+  evaluateSession,
   getTokenManager,
   verifySessionJwt,
   type AuthContext,
   type ProductName,
+  type SessionEvaluation,
+  type SessionJwtClaims,
   type TokenPayload,
 } from '@sangfor/auth';
 import { getUserJwtConfig } from '@sangfor/config';
+import { prisma } from '@sangfor/db';
 
 export interface AuthUser {
   id: string;
@@ -87,6 +91,27 @@ function toTokenPayload(claims: NonNullable<ReturnType<typeof verifySessionJwt>>
   };
 }
 
+// U014/SEC-01: resolves the claims' `jti` to a live AuthSession row for an explicitly `active`
+// User via the same pure `evaluateSession` decision @sangfor/web's Proxy uses — never trusts the
+// token's own opinion of active/disabled. `requiredMfaAgeSeconds: null` here means this call site
+// enforces ordinary (non-privileged) persisted-session validity only; a future privileged-route
+// guard passes a bound explicitly (see PRIVILEGED_MFA_MAX_AGE_SECONDS in @sangfor/auth).
+async function loadPersistedSessionEvaluation(claims: SessionJwtClaims): Promise<SessionEvaluation> {
+  const session = await prisma.authSession.findUnique({ where: { id: claims.jti } });
+  const user = session
+    ? await prisma.user.findUnique({ where: { id: session.userId }, select: { id: true, status: true, disabledAt: true } })
+    : null;
+  return evaluateSession(
+    {
+      token: { sub: claims.sub, jti: claims.jti, tenantId: claims.tenantId, companyId: claims.companyId, projectId: claims.projectId },
+      session,
+      user,
+    },
+    new Date(),
+    null,
+  );
+}
+
 // U013/SEC-01: the canonical USER_JWT_* session contract (shared byte-for-byte
 // with the Web Proxy/route guard) is tried first and, on any structural or
 // business-rule failure, is a hard reject for THAT token — it never silently
@@ -97,15 +122,29 @@ function toTokenPayload(claims: NonNullable<ReturnType<typeof verifySessionJwt>>
 // atop packages/auth/src/token-manager.ts for why that boundary is fixed).
 // This does not weaken the new contract and does not grant TokenManager
 // tokens any capability they didn't already have before U013.
+//
+// U014/SEC-01: once `claims` is non-null (the token IS a session-JWT), this is now a two-stage
+// hard reject, never a downgrade: cryptographic validity alone no longer admits the request — the
+// persisted-session DB check below must also pass. A DB failure while checking an otherwise-valid
+// session-JWT denies outright rather than silently falling through to the legacy TokenManager path.
 async function verifyBearerToken(token: string): Promise<TokenPayload | null> {
+  let claims: SessionJwtClaims | null = null;
   try {
-    const claims = verifySessionJwt(token, getUserJwtConfig());
-    if (claims) return toTokenPayload(claims);
+    claims = verifySessionJwt(token, getUserJwtConfig());
   } catch {
-    // USER_JWT_* misconfiguration must not silently enable the legacy path
-    // below to become a stealth "always available" bypass; fail through to
-    // the same fallback attempt any other verification miss would reach.
+    claims = null;
   }
+
+  if (claims) {
+    let evaluation: SessionEvaluation;
+    try {
+      evaluation = await loadPersistedSessionEvaluation(claims);
+    } catch {
+      return null;
+    }
+    return evaluation.ok ? toTokenPayload(claims) : null;
+  }
+
   return getTokenManager().verifyToken(token);
 }
 
