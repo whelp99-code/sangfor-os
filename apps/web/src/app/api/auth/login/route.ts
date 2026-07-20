@@ -1,8 +1,9 @@
+import { SANGFOR_JWT_TTL_SECONDS } from "@sangfor/config";
 import { z } from "zod";
 
 import { AUTH_CONFIGURATION_UNAVAILABLE } from "@/lib/auth/config";
 import { isLocalMockAuthProfile } from "@/lib/auth/runtime-profile";
-import { createSessionToken, isAuthConfigured } from "@/lib/auth/session";
+import { createSessionToken, isAuthConfigured, resolveWebSessionRole } from "@/lib/auth/session";
 import { checkRateLimit, clientIp } from "@/lib/api-auth";
 import { resolveDefaultProjectScope } from "@/lib/project-scope";
 import { NextResponse } from "next/server";
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
     const expected = demoPassword();
     if (!expected) {
       return NextResponse.json(
-        { error: "AUTH_DEMO_PASSWORD must be set when JWT_SECRET is configured" },
+        { error: "AUTH_DEMO_PASSWORD must be set when the USER_JWT_* keyring is configured" },
         { status: 503 },
       );
     }
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
   }
 
   const email = jwtConfigured && body.email?.length ? body.email : DEMO_EMAIL;
-  const role = jwtConfigured ? "operator" : "admin";
+  const role = resolveWebSessionRole();
   let token = "mock.session";
   if (jwtConfigured) {
     const projectScope = await resolveDefaultProjectScope();
@@ -95,7 +96,9 @@ export async function POST(request: Request) {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    // Bounded to the session JWT's own TTL — a cookie must never outlive the
+    // token it carries (U013).
+    maxAge: SANGFOR_JWT_TTL_SECONDS,
     // Opt-in because local production runs over plain http://localhost where
     // some browsers drop Secure cookies. Set SESSION_COOKIE_SECURE=1 when the
     // app is served behind HTTPS.

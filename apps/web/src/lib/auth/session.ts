@@ -1,7 +1,7 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { signSessionJwt, verifySessionJwt } from "@sangfor/auth";
 import { z } from "zod";
 
-import { getJwtSecret, isAuthConfigured } from "@/lib/auth/config";
+import { getWebSessionJwtConfig, isAuthConfigured } from "@/lib/auth/config";
 import { isLocalMockAuthProfile } from "@/lib/auth/runtime-profile";
 
 const sessionUserSchema = z.object({
@@ -31,46 +31,61 @@ const MOCK_USER: SessionUser = {
   projectSlug: "demo-project",
 };
 
-function sign(payload: string, secret: string): string {
-  return createHmac("sha256", secret).update(payload).digest("base64url");
+const DEMO_SESSION_EMAIL = "operator@demo.local";
+
+// U013: the login route's deterministic default (real keyring configured =>
+// "operator", demo/mock posture => "admin") for the initial issuance
+// decision. @sangfor/web's role tier (admin|operator|viewer) is a coarse,
+// pre-existing session concept distinct from BusinessRole/permissions
+// (resolved from the DB in U015) — it rides the signed JWT as a
+// non-authoritative `role` claim (see @sangfor/auth's session-jwt.ts) that
+// only this module's own verify path reads back; API bearer verification
+// never looks at it.
+export function resolveWebSessionRole(): "admin" | "operator" {
+  return isAuthConfigured() ? "operator" : "admin";
 }
 
 export function createSessionToken(user: SessionUser): string {
-  const secret = getJwtSecret();
-  const body = Buffer.from(JSON.stringify(user)).toString("base64url");
-  const sig = sign(body, secret);
-  return `${body}.${sig}`;
+  const config = getWebSessionJwtConfig();
+  return signSessionJwt(
+    {
+      sub: user.id,
+      projectId: user.projectId,
+      projectSlug: user.projectSlug,
+      product: "portal",
+      role: user.role,
+    },
+    config,
+  );
 }
 
 export function verifySessionToken(token: string | null | undefined): SessionUser | null {
   if (!token) return null;
-  // Mock tokens are a dev/demo convenience only. Once a real secret is
+  // Mock tokens are a dev/demo convenience only. Once a real keyring is
   // configured they must be rejected — otherwise `session=mock.x` grants
-  // admin in production, bypassing the HMAC check entirely.
+  // admin in production, bypassing verification entirely.
   if (token.startsWith("mock.")) {
     return !isAuthConfigured() && isLocalMockAuthProfile() ? MOCK_USER : null;
   }
 
-  let secret: string;
+  let config;
   try {
-    secret = getJwtSecret();
+    config = getWebSessionJwtConfig();
   } catch {
     return null;
   }
 
-  const [body, sig] = token.split(".");
-  if (!body || !sig) return null;
-  const expected = sign(body, secret);
-  try {
-    if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
-  } catch {
-    return null;
-  }
-  try {
-    return sessionUserSchema.parse(JSON.parse(Buffer.from(body, "base64url").toString("utf8")));
-  } catch {
-    return null;
-  }
+  const claims = verifySessionJwt(token, config);
+  if (!claims || !claims.projectId || !claims.projectSlug) return null;
+
+  const parsed = sessionUserSchema.safeParse({
+    id: claims.sub,
+    email: DEMO_SESSION_EMAIL,
+    role: claims.role ?? resolveWebSessionRole(),
+    projectId: claims.projectId,
+    projectSlug: claims.projectSlug,
+  });
+  return parsed.success ? parsed.data : null;
 }
 
 export function getSessionFromRequest(request: Request): SessionUser {

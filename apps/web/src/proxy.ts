@@ -1,6 +1,8 @@
-import { isAuthConfigured } from "@/lib/auth/config";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+
+import { isAuthConfigured } from "@/lib/auth/config";
+import { getVerifiedSessionFromRequest } from "@/lib/auth/session";
 
 /**
  * Purpose:
@@ -10,9 +12,9 @@ import type { NextRequest } from "next/server";
  *   sibling `middleware.ts`: this file is the one Next.js actually invokes.
  *
  * Policy:
- * - Opt-in like before: only verifies a session when JWT_SECRET is configured
- *   (`isAuthConfigured()`). This preserves the existing dev/demo posture where
- *   an unconfigured deployment runs open.
+ * - Opt-in like before: only verifies a session when the USER_JWT_* keyring
+ *   is configured (`isAuthConfigured()`). This preserves the existing
+ *   dev/demo posture where an unconfigured deployment runs open.
  * - NEW: an unconfigured deployment now logs a loud, once-per-instance
  *   warning, and in NODE_ENV=production it actively blocks mutating requests
  *   (POST/PUT/PATCH/DELETE) instead of silently letting them through — a
@@ -20,6 +22,9 @@ import type { NextRequest } from "next/server";
  *   open.
  * - Route-level defense in depth (assertApiAccess, see lib/api-auth.ts) stays
  *   in place independently; this proxy is the outer layer.
+ * - U013: Next 16's Proxy defaults to the Node runtime (see the doc above),
+ *   so this calls the exact same `getVerifiedSessionFromRequest` used by
+ *   Node route handlers — one verifier, not two byte-for-byte-matched ones.
  */
 
 // Paths reachable without a session:
@@ -42,27 +47,6 @@ const PUBLIC_PREFIXES = [
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-function base64UrlEncode(bytes: ArrayBuffer): string {
-  const binary = String.fromCharCode(...new Uint8Array(bytes));
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-async function verifyEdgeSessionToken(token: string | null | undefined, secret: string) {
-  if (!token) return false;
-  const [body, sig] = token.split(".");
-  if (!body || !sig) return false;
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signed = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body));
-  return base64UrlEncode(signed) === sig;
-}
-
 // Fires at most once per server instance so an unconfigured deployment can't
 // flood logs on every request, while still making the misconfiguration
 // impossible to miss in the very first request's output.
@@ -75,10 +59,10 @@ function warnAuthUnconfiguredOnce() {
     [
       "",
       "!".repeat(72),
-      "[SECURITY] JWT_SECRET is not configured — /api/* session verification is DISABLED.",
+      "[SECURITY] The USER_JWT_* keyring is not configured — /api/* session verification is DISABLED.",
       "Every request (including mutations, unless NODE_ENV=production) will pass",
       "through unauthenticated. This is only acceptable for local dev/demo.",
-      "Set JWT_SECRET before any production or externally reachable deployment.",
+      "Set USER_JWT_ACTIVE_KID/USER_JWT_KEYRING_JSON before any production or externally reachable deployment.",
       "!".repeat(72),
       "",
     ].join("\n"),
@@ -96,7 +80,7 @@ export async function proxy(request: NextRequest) {
     // today's dev/demo posture for GET traffic when unconfigured).
     if (process.env.NODE_ENV === "production" && !isPublic && MUTATING_METHODS.has(request.method)) {
       console.error(
-        `[SECURITY] blocking ${request.method} ${pathname} — JWT_SECRET is unset in production`,
+        `[SECURITY] blocking ${request.method} ${pathname} — the USER_JWT_* keyring is unset in production`,
       );
       return NextResponse.json(
         { error: "service_unavailable", message: "Authentication is not configured" },
@@ -107,11 +91,8 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!isPublic) {
-    const secret = process.env.JWT_SECRET!.trim();
-    const token =
-      request.cookies.get("session")?.value ??
-      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-    if (!(await verifyEdgeSessionToken(token, secret))) {
+    const session = getVerifiedSessionFromRequest(request);
+    if (!session) {
       if (pathname.startsWith("/api")) {
         return NextResponse.json({ error: "unauthorized" }, { status: 401 });
       }

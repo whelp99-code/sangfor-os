@@ -27,6 +27,9 @@ export function maskSecrets(obj: Record<string, unknown>): Record<string, unknow
 export const RequiredSecretsSchema = z.object({
   // Core
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid PostgreSQL URL'),
+  // U013/SEC-01: no longer used to sign/verify the session JWT (see
+  // packages/config/src/user-jwt.ts's USER_JWT_* boundary) — kept mandatory
+  // here only for existing non-session consumers/back-compat.
   NEXTAUTH_SECRET: z.string().min(32, 'NEXTAUTH_SECRET must be at least 32 chars'),
   NEXTAUTH_URL: z.string().url('NEXTAUTH_URL must be a valid URL'),
 

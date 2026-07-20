@@ -133,6 +133,9 @@ importers:
       '@sangfor/agent':
         specifier: workspace:*
         version: link:../../packages/agent
+      '@sangfor/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@sangfor/business':
         specifier: workspace:*
         version: link:../../packages/business

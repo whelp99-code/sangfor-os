@@ -1,6 +1,15 @@
 /**
  * @sangfor/auth - JWT Token Manager (jose v5 compatible)
  * Codex HPF-002: Per-product token manager with scope isolation
+ *
+ * U013/SEC-01 note: this is the pre-existing product-scoped OAuth-style
+ * token feature, deliberately left on NEXTAUTH_SECRET here — the READ_ONLY
+ * U002 containment matrix (apps/api/src/middleware/auth.test.ts) mints
+ * tokens through this exact class and must keep passing unmodified. The new
+ * unified session-JWT contract (USER_JWT_*, see session-jwt.ts) is the
+ * primary path for web/API session bearer auth; apps/api's authMiddleware
+ * tries it first and only falls back to this class for tokens that were
+ * never session-JWTs to begin with (see apps/api/src/middleware/auth.ts).
  */
 
 import { SignJWT, jwtVerify } from 'jose';

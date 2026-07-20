@@ -25,8 +25,9 @@ export type WebOperatorContext = {
  *
  * Policy:
  * - A request with a valid session (cookie or Bearer token, verified against
- *   JWT_SECRET) may proceed — without this, a logged-in user is still 401'd
- *   by every guarded route even though the outer proxy admitted them.
+ *   the USER_JWT_* keyring — see @sangfor/config's user-jwt boundary) may
+ *   proceed — without this, a logged-in user is still 401'd by every guarded
+ *   route even though the outer proxy admitted them.
  * - Otherwise mutating routes are blocked unless authentication bypass is
  *   *explicitly* enabled for dev/demo via `AUTH_BYPASS_ENABLED=1`. This
  *   mirrors the API server's `apiKeyMiddleware` / `authMiddleware` flag

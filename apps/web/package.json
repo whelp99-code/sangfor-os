@@ -18,6 +18,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@sangfor/agent": "workspace:*",
+    "@sangfor/auth": "workspace:*",
     "@sangfor/business": "workspace:*",
     "@sangfor/config": "workspace:*",
     "@sangfor/db": "workspace:*",

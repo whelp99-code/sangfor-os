@@ -1,7 +1,11 @@
+import { createHmac } from 'node:crypto';
+import { createServer } from 'node:http';
+import type { Server as HttpServer } from 'node:http';
+import type { Socket } from 'node:net';
 import { spawnSync } from 'node:child_process';
-import type { Server } from 'node:http';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeFile } from 'node:fs/promises';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const infraSpies = vi.hoisted(() => ({
@@ -37,19 +41,162 @@ const apiDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const tsxCli = resolve(apiDirectory, 'node_modules/tsx/dist/cli.mjs');
 const apiEntrypoint = resolve(apiDirectory, 'src/index.ts');
 
+const ACTIVE_KID = 'api-index-test-key-1';
+const ACTIVE_SECRET = Buffer.alloc(32, 3);
+const USER_JWT_ISS = 'sangfor-os';
+const USER_JWT_AUD = 'sangfor-os-runtime';
+const USER_JWT_VER = 'sangfor.user-session/v1';
+
+function userJwtEnv(): Record<string, string> {
+  const activatedAt = new Date(Date.now() - 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  return {
+    USER_JWT_ACTIVE_KID: ACTIVE_KID,
+    USER_JWT_ROTATION_OWNER: 'security-auth',
+    USER_JWT_ISSUER: USER_JWT_ISS,
+    USER_JWT_AUDIENCE: USER_JWT_AUD,
+    USER_JWT_TTL_SECONDS: '900',
+    USER_JWT_CLOCK_SKEW_SECONDS: '30',
+    USER_JWT_KEYRING_JSON: JSON.stringify({
+      version: 'sangfor.user-jwt-keyring/v1',
+      keys: [
+        {
+          kid: ACTIVE_KID,
+          state: 'active',
+          secretBase64Url: ACTIVE_SECRET.toString('base64url'),
+          activatedAt,
+          demotedAt: null,
+          verifyUntil: null,
+          retiredAt: null,
+        },
+      ],
+    }),
+  };
+}
+
+function b64url(input: Buffer | string): string {
+  return (typeof input === 'string' ? Buffer.from(input, 'utf8') : input).toString('base64url');
+}
+
+function hmac(secret: Buffer, data: string): Buffer {
+  return createHmac('sha256', secret).update(data, 'utf8').digest();
+}
+
+function craftToken(header: unknown, payload: unknown, secret: Buffer = ACTIVE_SECRET): string {
+  const h = b64url(JSON.stringify(header));
+  const p = b64url(JSON.stringify(payload));
+  const sig = b64url(hmac(secret, `${h}.${p}`));
+  return `${h}.${p}.${sig}`;
+}
+
+function validClaims(now: number, overrides: Record<string, unknown> = {}) {
+  return {
+    iss: USER_JWT_ISS,
+    aud: USER_JWT_AUD,
+    ver: USER_JWT_VER,
+    sub: 'operator-1',
+    jti: 'index-test-jti-1',
+    iat: now,
+    exp: now + 900,
+    nbf: now,
+    ...overrides,
+  };
+}
+
+function validBearerToken(): string {
+  const now = Math.floor(Date.now() / 1000);
+  return craftToken({ alg: 'HS256', kid: ACTIVE_KID, typ: 'JWT' }, validClaims(now));
+}
+
 let baseUrl = '';
-let server: Server | undefined;
+let server: HttpServer | undefined;
+let assignedPort = 0;
+const sockets = new Set<Socket>();
+let torndown = false;
+let cleanupEvidence: Record<string, unknown> | undefined;
+
+function fetchClose(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  headers.set('connection', 'close');
+  return fetch(`${baseUrl}${path}`, { ...init, headers });
+}
 
 function apiKeyHeaders(key = API_KEY): Record<string, string> {
   return { 'x-api-key': key };
 }
 
 function postTool(argumentsValue: Readonly<Record<string, unknown>>, key = API_KEY): Promise<Response> {
-  return fetch(`${baseUrl}/api/whelp99/tools/call`, {
+  return fetchClose('/api/whelp99/tools/call', {
     method: 'POST',
     headers: { ...apiKeyHeaders(key), 'content-type': 'application/json' },
     body: JSON.stringify({ name: 'sangfor.products', arguments: argumentsValue }),
   });
+}
+
+/**
+ * Runs once, idempotently, from `afterAll`, a `finally`-equivalent test
+ * teardown, and (best-effort) a termination signal — exactly the U013
+ * ephemeral-server lifecycle: stop accepting, drain idle/active sockets,
+ * await the close callback with a bounded timeout, wait for the tracked
+ * socket set to reach zero, assert listener/address are cleared, then prove
+ * a separate probe can exclusively rebind the exact same port. A failure
+ * anywhere in here must fail the file even if every HTTP assertion passed.
+ */
+async function teardown(): Promise<void> {
+  if (torndown) return;
+  torndown = true;
+  const target = server;
+  if (!target) return;
+
+  await new Promise<void>((resolveClose, rejectClose) => {
+    const timer = setTimeout(() => rejectClose(new Error('server.close callback timed out')), 5_000);
+    target.close((err) => {
+      clearTimeout(timer);
+      if (err) rejectClose(err);
+      else resolveClose();
+    });
+    target.closeIdleConnections();
+    target.closeAllConnections();
+  });
+
+  const socketDeadline = Date.now() + 5_000;
+  while (sockets.size > 0 && Date.now() < socketDeadline) {
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  if (sockets.size !== 0) {
+    throw new Error(`tracked socket set did not reach zero: ${sockets.size} remaining`);
+  }
+  if (target.listening !== false) throw new Error('server.listening did not become false');
+  if (target.address() !== null) throw new Error('server.address() did not become null');
+
+  const probe = createServer();
+  await new Promise<void>((resolveListen, rejectListen) => {
+    probe.once('error', rejectListen);
+    probe.listen({ host: '127.0.0.1', port: assignedPort, exclusive: true }, () => resolveListen());
+  });
+  const probeBound = probe.address() !== null;
+  await new Promise<void>((resolveProbeClose, rejectProbeClose) => {
+    probe.close((err) => (err ? rejectProbeClose(err) : resolveProbeClose()));
+  });
+  if (probe.address() !== null) throw new Error('probe.address() did not become null after close');
+
+  cleanupEvidence = {
+    closeCompleted: true,
+    trackedSocketCount: sockets.size,
+    listening: target.listening,
+    address: target.address(),
+    assignedPort,
+    sameportRebindSuccess: probeBound,
+    probeAddressAfterClose: probe.address(),
+  };
+
+  const evidenceDir = process.env.U013_EVIDENCE_DIR;
+  if (evidenceDir) {
+    await writeFile(`${evidenceDir}/cleanup.json`, JSON.stringify(cleanupEvidence, null, 2));
+  }
+}
+
+function onTerminationSignal(): void {
+  void teardown();
 }
 
 beforeAll(async () => {
@@ -65,21 +212,51 @@ beforeAll(async () => {
   vi.stubEnv('MICROSOFT_CLIENT_ID', 'index-security-test-client');
   vi.stubEnv('MICROSOFT_CLIENT_SECRET', 'index-security-test-client-secret');
   vi.stubEnv('WEBHOOK_CLIENT_STATE', WEBHOOK_CLIENT_STATE);
+  for (const [key, value] of Object.entries(userJwtEnv())) vi.stubEnv(key, value);
+
+  // U013: importing the module alone must never open a network listener —
+  // index.ts's own `.listen()` call is guarded by `isEntrypoint` (this file
+  // is never the direct entrypoint under the test runner), so `createApp()`
+  // below returns a bare, unlisted Express app. (The separate U002 IPC
+  // handler registration is gated on `process.send`/`process.connected`,
+  // which Vitest's own worker process legitimately satisfies when run under
+  // a forked pool — that is Vitest's IPC, unrelated to this test's HTTP
+  // listener lifecycle, so it is intentionally not asserted here.)
   const { createApp } = await import('./index');
-  server = createApp().listen(0, '127.0.0.1');
-  await new Promise<void>((resolveListening) => server?.once('listening', resolveListening));
+
+  const app = createApp();
+  server = createServer(app);
+  server.on('connection', (socket) => {
+    sockets.add(socket);
+    socket.once('close', () => sockets.delete(socket));
+  });
+  process.once('SIGTERM', onTerminationSignal);
+  process.once('SIGINT', onTerminationSignal);
+
+  await new Promise<void>((resolveListen, rejectListen) => {
+    server?.once('error', rejectListen);
+    server?.listen({ host: '127.0.0.1', port: 0, exclusive: true }, () => resolveListen());
+  });
   const address = server.address();
-  if (address === null || typeof address === 'string') throw new TypeError('Expected TCP address');
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  if (address === null || typeof address === 'string' || address.port <= 0) {
+    throw new TypeError('Expected a positive TCP port from server.address()');
+  }
+  assignedPort = address.port;
+  baseUrl = `http://127.0.0.1:${assignedPort}`;
+  console.log(`[U013 api-http] assigned port ${assignedPort}`);
 });
 
 afterAll(async () => {
-  if (server) {
-    await new Promise<void>((resolveClose, reject) => {
-      server?.close((error) => error ? reject(error) : resolveClose());
-    });
-  }
+  process.off('SIGTERM', onTerminationSignal);
+  process.off('SIGINT', onTerminationSignal);
+  await teardown();
   vi.unstubAllEnvs();
+  expect(cleanupEvidence?.closeCompleted).toBe(true);
+  expect(cleanupEvidence?.trackedSocketCount).toBe(0);
+  expect(cleanupEvidence?.listening).toBe(false);
+  expect(cleanupEvidence?.address).toBeNull();
+  expect(cleanupEvidence?.sameportRebindSuccess).toBe(true);
+  expect(cleanupEvidence?.probeAddressAfterClose).toBeNull();
 });
 
 beforeEach(() => {
@@ -91,8 +268,8 @@ describe('root MCP transport authority', () => {
   it.each(['GET', 'POST'])('rejects missing API key before %s infra access', async (method) => {
     // Given: a request with no root authority credential.
     const request = method === 'GET'
-      ? fetch(`${baseUrl}/api/whelp99/tools`)
-      : fetch(`${baseUrl}/api/whelp99/tools/call`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      ? fetchClose('/api/whelp99/tools')
+      : fetchClose('/api/whelp99/tools/call', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
 
     // When: the real Express route handles the request.
     const response = await request;
@@ -106,7 +283,7 @@ describe('root MCP transport authority', () => {
   it.each(['GET', 'POST'])('rejects finance authority with 403 before %s infra access', async (method) => {
     // Given: a valid finance API key whose local role is not system_admin.
     const request = method === 'GET'
-      ? fetch(`${baseUrl}/api/whelp99/tools`, { headers: apiKeyHeaders(FINANCE_API_KEY) })
+      ? fetchClose('/api/whelp99/tools', { headers: apiKeyHeaders(FINANCE_API_KEY) })
       : postTool({}, FINANCE_API_KEY);
 
     // When: the real Express route handles the request.
@@ -121,7 +298,7 @@ describe('root MCP transport authority', () => {
   it('allows the API system administrator to list tools', async () => {
     // Given: the server-registered root API key.
     // When: GET crosses the real Express guard chain.
-    const response = await fetch(`${baseUrl}/api/whelp99/tools`, { headers: apiKeyHeaders() });
+    const response = await fetchClose('/api/whelp99/tools', { headers: apiKeyHeaders() });
 
     // Then: infra is reached once and the tool list is returned.
     expect(response.status).toBe(200);
@@ -167,6 +344,44 @@ describe('root MCP transport authority', () => {
   });
 });
 
+describe('bearer session JWT HTTP matrix (U013 — GET /api/metrics)', () => {
+  it('accepts one valid bearer token with 200', async () => {
+    const token = validBearerToken();
+    const response = await fetchClose('/api/metrics', { headers: { authorization: `Bearer ${token}` } });
+    console.log(`[U013 api-http] valid bearer -> ${response.status}`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/plain');
+  });
+
+  it.each([
+    ['missing token', undefined],
+    ['malformed token', 'not-a-jwt'],
+    ['legacy 2-segment token', (() => {
+      const t = validBearerToken();
+      const [h, p] = t.split('.');
+      return `${h}.${p}`;
+    })()],
+    ['tampered signature', (() => {
+      const t = validBearerToken();
+      const [h, p, s] = t.split('.');
+      const flipped = s.slice(0, -1) + (s.at(-1) === 'A' ? 'B' : 'A');
+      return `${h}.${p}.${flipped}`;
+    })()],
+    ['alg=none forged', craftToken({ alg: 'none', kid: ACTIVE_KID, typ: 'JWT' }, validClaims(Math.floor(Date.now() / 1000)))],
+    ['wrong issuer', craftToken({ alg: 'HS256', kid: ACTIVE_KID, typ: 'JWT' }, validClaims(Math.floor(Date.now() / 1000), { iss: 'evil-issuer' }))],
+    ['wrong audience', craftToken({ alg: 'HS256', kid: ACTIVE_KID, typ: 'JWT' }, validClaims(Math.floor(Date.now() / 1000), { aud: 'evil-audience' }))],
+    ['unknown kid', craftToken({ alg: 'HS256', kid: 'unknown-kid', typ: 'JWT' }, validClaims(Math.floor(Date.now() / 1000)))],
+    ['expired token', craftToken({ alg: 'HS256', kid: ACTIVE_KID, typ: 'JWT' }, validClaims(Math.floor(Date.now() / 1000) - 2000, { exp: Math.floor(Date.now() / 1000) - 1100 }))],
+    ['mock token string', 'mock.session'],
+  ] as const)('rejects %s with 401', async (_label, token) => {
+    const headers: Record<string, string> = {};
+    if (token !== undefined) headers.authorization = `Bearer ${token}`;
+    const response = await fetchClose('/api/metrics', { headers });
+    console.log(`[U013 api-http] ${_label} -> ${response.status}`);
+    expect(response.status).toBe(401);
+  });
+});
+
 describe('API production preflight', () => {
   it.each([['missing', undefined], ['blank', '   ']])('exits 78 before startup when SANGFOR_API_KEY is %s', (_label, key) => {
     // Given: an otherwise valid production child with a deterministic DB URL.
@@ -200,7 +415,7 @@ describe('API production preflight', () => {
 
 describe('Outlook webhook public boundary', () => {
   it('rejects missing clientState', async () => {
-    const response = await fetch(`${baseUrl}/webhooks/outlook`, {
+    const response = await fetchClose('/webhooks/outlook', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ value: [{ subscriptionId: 'sub-1' }] }),
@@ -209,7 +424,7 @@ describe('Outlook webhook public boundary', () => {
   });
 
   it('rejects mismatched clientState with a stable error body', async () => {
-    const response = await fetch(`${baseUrl}/webhooks/outlook`, {
+    const response = await fetchClose('/webhooks/outlook', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ value: [{ clientState: 'not-the-right-secret' }] }),
@@ -219,7 +434,7 @@ describe('Outlook webhook public boundary', () => {
   });
 
   it('accepts a notification whose clientState matches WEBHOOK_CLIENT_STATE', async () => {
-    const response = await fetch(`${baseUrl}/webhooks/outlook`, {
+    const response = await fetchClose('/webhooks/outlook', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ value: [{ clientState: WEBHOOK_CLIENT_STATE }] }),
@@ -229,7 +444,7 @@ describe('Outlook webhook public boundary', () => {
   });
 
   it('keeps the validation handshake public', async () => {
-    const response = await fetch(`${baseUrl}/webhooks/outlook?validationToken=abc123`);
+    const response = await fetchClose('/webhooks/outlook?validationToken=abc123');
     expect(response.status).toBe(200);
     await expect(response.text()).resolves.toBe('abc123');
   });
