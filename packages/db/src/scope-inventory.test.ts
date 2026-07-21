@@ -45,41 +45,43 @@ describe('classifyModel', () => {
 });
 
 describe('buildScopeInventoryReport — real inventory', () => {
-  it('reports ok with exact 152 / 13-1-32-45-61 tallies against its own model list (post-U012 RoleChangeRequest reclassification, post-U014 AuthSession registration)', () => {
+  it('reports ok with exact 154 / 13-1-32-46-62 tallies against its own model list (post-U012 RoleChangeRequest reclassification, post-U014 AuthSession registration, post-U017 Artifact/ArtifactVersion registration)', () => {
     const report = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
-    expect(report.currentModelCount).toBe(152);
+    expect(report.currentModelCount).toBe(154);
     expect(report.tallies).toEqual({
       GLOBAL_SHARED: 13,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
-      PROJECT_ROOT: 45,
-      CHILD_VIA_FK: 61,
+      PROJECT_ROOT: 46,
+      CHILD_VIA_FK: 62,
     });
   });
 });
 
 describe('REGISTERED_ADDITIONS — U011 model registration', () => {
-  it('registers exactly ScopeBackfillQuarantine as GLOBAL_SHARED for U011, then AuthSession as PROJECT_ROOT for U014', () => {
+  it('registers exactly ScopeBackfillQuarantine as GLOBAL_SHARED for U011, AuthSession as PROJECT_ROOT for U014, then Artifact as PROJECT_ROOT and ArtifactVersion as CHILD_VIA_FK for U017', () => {
     expect(REGISTERED_ADDITIONS).toEqual([
       { model: 'ScopeBackfillQuarantine', unit: 'U011', category: 'GLOBAL_SHARED' },
       { model: 'AuthSession', unit: 'U014', category: 'PROJECT_ROOT' },
+      { model: 'Artifact', unit: 'U017', category: 'PROJECT_ROOT' },
+      { model: 'ArtifactVersion', unit: 'U017', category: 'CHILD_VIA_FK' },
     ]);
   });
 
-  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count is 152', () => {
+  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count is 154', () => {
     expect(SCOPE_INVENTORY_BASELINE.modelCount).toBe(150);
-    expect(expectedCurrentModelCount()).toBe(152);
+    expect(expectedCurrentModelCount()).toBe(154);
   });
 
-  it('derives expected category counts as baseline plus the two registered additions (reclassifications isolated out)', () => {
+  it('derives expected category counts as baseline plus the four registered additions (reclassifications isolated out)', () => {
     expect(expectedCategoryCounts(SCOPE_INVENTORY_BASELINE, REGISTERED_ADDITIONS, [])).toEqual({
       GLOBAL_SHARED: 14,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
-      PROJECT_ROOT: 45,
-      CHILD_VIA_FK: 60,
+      PROJECT_ROOT: 46,
+      CHILD_VIA_FK: 61,
     });
   });
 
@@ -99,14 +101,40 @@ describe('REGISTERED_ADDITIONS — U014 model registration', () => {
     });
   });
 
-  it('derives expected category counts as baseline plus both registered additions', () => {
+  it('derives expected category counts as baseline plus all registered additions', () => {
     expect(expectedCategoryCounts()).toEqual({
       GLOBAL_SHARED: 13,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
-      PROJECT_ROOT: 45,
-      CHILD_VIA_FK: 61,
+      PROJECT_ROOT: 46,
+      CHILD_VIA_FK: 62,
     });
+  });
+});
+
+describe('REGISTERED_ADDITIONS — U017 model registration', () => {
+  it('classifies Artifact as PROJECT_ROOT in the live inventory (mandatory tenant/company/project simultaneously, same AMBIGUOUS_ROOT reasoning as AuthSession)', () => {
+    expect(classifyModel('Artifact')).toEqual({
+      model: 'Artifact',
+      category: 'PROJECT_ROOT',
+    });
+  });
+
+  it('classifies ArtifactVersion as CHILD_VIA_FK of Artifact via mandatory artifactId in the live inventory', () => {
+    expect(classifyModel('ArtifactVersion')).toEqual({
+      model: 'ArtifactVersion',
+      category: 'CHILD_VIA_FK',
+      parentModel: 'Artifact',
+      relationField: 'artifact',
+      scalarFkField: 'artifactId',
+      nullable: false,
+    });
+  });
+
+  it('ownerAssignmentId is an authority/ownership edge, not an alternate scope-classification path — Artifact stays classified exactly once, as PROJECT_ROOT', () => {
+    const artifactEntries = REAL_ENTRIES.filter((e) => e.model === 'Artifact');
+    expect(artifactEntries).toHaveLength(1);
+    expect(artifactEntries[0]).toEqual({ model: 'Artifact', category: 'PROJECT_ROOT' });
   });
 });
 
@@ -122,13 +150,13 @@ describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest reclassification', () =
     expect(SCOPE_INVENTORY_BASELINE.categoryCounts.CHILD_VIA_FK).toBe(60);
   });
 
-  it('derives expected category counts as baseline plus the registered GLOBAL_SHARED/PROJECT_ROOT additions minus one reclassified GLOBAL_SHARED->CHILD_VIA_FK', () => {
+  it('derives expected category counts as baseline plus the registered GLOBAL_SHARED/PROJECT_ROOT/CHILD_VIA_FK additions minus one reclassified GLOBAL_SHARED->CHILD_VIA_FK', () => {
     expect(expectedCategoryCounts()).toEqual({
       GLOBAL_SHARED: 13,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
-      PROJECT_ROOT: 45,
-      CHILD_VIA_FK: 61,
+      PROJECT_ROOT: 46,
+      CHILD_VIA_FK: 62,
     });
   });
 

@@ -59,6 +59,7 @@ model Project {
   domainMemories     DomainMemory[]
   domainDecisionLogs DomainDecisionLog[]
   authSessions       AuthSession[]
+  artifacts          Artifact[]
 
   // U012: companyId stays optional here (full NOT NULL is deferred to U073 — see
   // packages/db/src/scope-closure.ts) because a live legacy-null Project can be a genuinely
@@ -1170,6 +1171,106 @@ model DocumentVersion {
   @@map("document_versions")
 }
 
+// --- Artifact identity (U017/ART-01a) ---
+// Generic, scoped Artifact identity and immutable ArtifactVersion content envelope. Schema only:
+// no legacy backfill (U020), no current-pointer assignment/CAS (U023), no approval/release
+// runtime. Every row this migration can produce leaves ownershipRevision=0, currentVersionId=NULL,
+// currentRevision=0 — U023 is the first unit allowed to assign/CAS the version pointer and U059
+// is the first owner-transfer runtime. Content hashing follows RFC 8785 JCS exclusively; see
+// packages/db/src/canonical-content-hash.ts (the sole JS producer/verifier) and the
+// sangfor_rfc8785_jcs_v1/sangfor_sha256_utf8 PostgreSQL functions this unit's migration installs
+// (packages/db/prisma/migrations/20260715170000_artifact_identity).
+//
+// `origin`'s allowed vocabulary (human|ai|legacy_import) is a U017 judgment call: the dispatch
+// requires a DB-enforced allowed set for `origin`, matching classification/status, but does not
+// enumerate one. It mirrors the ai_draft/human_draft/legacy_unreviewed authorship split already
+// used by ArtifactVersion.status below.
+model Artifact {
+  id        String @id @default(cuid())
+  tenantId  String @map("tenant_id")
+  companyId String @map("company_id")
+  projectId String @map("project_id")
+
+  artifactType   String @map("artifact_type")
+  classification String
+  origin         String
+  title          String
+
+  // Immutable: enforced by the sangfor_artifacts_guard trigger (BEFORE UPDATE), never by Prisma
+  // optionality alone.
+  createdByAssignmentId String @map("created_by_assignment_id")
+  // Mutable, required: U059's compare-and-swap target. The same trigger requires
+  // ownershipRevision to increment by exactly 1 whenever ownerAssignmentId changes, and to stay
+  // unchanged otherwise.
+  ownerAssignmentId String @map("owner_assignment_id")
+  ownershipRevision Int    @default(0) @map("ownership_revision")
+
+  // Nullable inactive pointer + revision. This migration never assigns either (see U023 above).
+  currentVersionId String? @unique @map("current_version_id")
+  currentRevision  Int     @default(0) @map("current_revision")
+
+  legacySourceType String? @map("legacy_source_type")
+  legacySourceId   String? @map("legacy_source_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "artifacts_tenant_id_fkey")
+  // U012-compatible composite scope-closure FKs (companies_tenant_id_id_key / projects_company_id_id_key
+  // from migration 20260715120000), same pattern as AuthSession: a forged/mismatched
+  // tenant/company/project combination is rejected by Postgres itself.
+  company Company @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "artifacts_company_id_fkey")
+  project Project @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "artifacts_project_id_fkey")
+
+  // Distinct exact U012 composite assignment relations (user_company_roles_id_company_id_key from
+  // migration 20260715120000) — never an ID-only assignment FK.
+  createdByAssignment UserCompanyRole @relation("ArtifactCreatedByAssignment", fields: [createdByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "artifacts_created_by_assignment_id_fkey")
+  ownerAssignment     UserCompanyRole @relation("ArtifactOwnerAssignment", fields: [ownerAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "artifacts_owner_assignment_id_fkey")
+
+  currentVersion ArtifactVersion?  @relation("ArtifactCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict, map: "artifacts_current_version_id_fkey")
+  versions       ArtifactVersion[] @relation("ArtifactVersions")
+
+  @@unique([legacySourceType, legacySourceId], map: "artifacts_legacy_source_key")
+  @@index([companyId, projectId, artifactType])
+  @@map("artifacts")
+}
+
+// Append-only: UPDATE/DELETE denied by the sangfor_artifact_versions_deny_update_trg /
+// sangfor_artifact_versions_deny_delete_trg triggers. CHILD_VIA_FK through mandatory artifactId
+// only — no redundant companyId column here; the sangfor_artifact_versions_creator_company_guard_trg
+// insert trigger joins artifactId -> artifacts.company_id and rejects a createdByAssignmentId
+// outside that company at the DB layer (no Prisma-level FK on that column — see the U017 dispatch
+// file boundary: ArtifactVersion "remains CHILD_VIA_FK without a redundant companyId").
+model ArtifactVersion {
+  id         String @id @default(cuid())
+  artifactId String @map("artifact_id")
+  version    Int
+
+  // Fixed literal, RFC 8785 JCS envelope/hash — see packages/db/src/canonical-content-hash.ts.
+  contentHashVersion       String  @map("content_hash_version")
+  canonicalContentEnvelope String  @map("canonical_content_envelope")
+  contentHash              String  @map("content_hash")
+  contentJson              Json    @map("content_json")
+  sanitizedText            String? @map("sanitized_text")
+
+  status String
+
+  createdByAssignmentId String  @map("created_by_assignment_id")
+  legacySourceType      String? @map("legacy_source_type")
+  legacySourceId        String? @map("legacy_source_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  artifact           Artifact  @relation("ArtifactVersions", fields: [artifactId], references: [id], onDelete: Restrict, map: "artifact_versions_artifact_id_fkey")
+  currentForArtifact Artifact? @relation("ArtifactCurrentVersion")
+
+  @@unique([artifactId, version], map: "artifact_versions_artifact_id_version_key")
+  @@unique([artifactId, contentHashVersion, contentHash], map: "artifact_versions_content_hash_key")
+  @@unique([legacySourceType, legacySourceId], map: "artifact_versions_legacy_source_key")
+  @@index([artifactId, version])
+  @@map("artifact_versions")
+}
+
 // --- schema placeholders (expanded in later phases) ---
 
 model RuntimePolicy {
@@ -1983,6 +2084,7 @@ model Tenant {
 
   companies    Company[]
   authSessions AuthSession[]
+  artifacts    Artifact[]
 
   @@map("tenants")
 }
@@ -2000,6 +2102,7 @@ model Company {
   projects        Project[]
   roleChangeRequests RoleChangeRequest[]
   authSessions    AuthSession[]
+  artifacts       Artifact[]
 
   @@unique([tenantId, id], map: "companies_tenant_id_id_key")
   @@index([tenantId])
@@ -2064,6 +2167,10 @@ model UserCompanyRole {
   user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   assignedBy User?   @relation("UserCompanyRoleAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  // U017: the two distinct Artifact composite-assignment relations, using this row's own
+  // (id, companyId) composite unique key below — never an ID-only assignment FK.
+  createdArtifacts Artifact[] @relation("ArtifactCreatedByAssignment")
+  ownedArtifacts   Artifact[] @relation("ArtifactOwnerAssignment")
 
   @@unique([userId, companyId, role])
   @@unique([id, companyId], map: "user_company_roles_id_company_id_key")

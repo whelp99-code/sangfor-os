@@ -104,6 +104,14 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   // (see deriveStructuralMismatches). Declaring it PROJECT_ROOT is the correct, structurally-valid
   // category for a model that is itself a scope-carrying root, not a child of one.
   { model: 'AuthSession', unit: 'U014', category: 'PROJECT_ROOT' },
+  // U017/ART-01a: Artifact carries mandatory tenantId/companyId/projectId simultaneously, same
+  // AMBIGUOUS_ROOT reasoning as AuthSession above — declared PROJECT_ROOT, not CHILD_VIA_FK.
+  { model: 'Artifact', unit: 'U017', category: 'PROJECT_ROOT' },
+  // ArtifactVersion's only mandatory FK is artifactId -> Artifact (a single unambiguous root
+  // chain), which is exactly the CHILD_VIA_FK definition (see its full structural basis in
+  // MODEL_SCOPE_INVENTORY below). ownerAssignmentId/createdByAssignmentId are authority/
+  // attribution edges, never an alternate scope basis.
+  { model: 'ArtifactVersion', unit: 'U017', category: 'CHILD_VIA_FK' },
 ];
 
 export interface ReclassifiedModel {
@@ -169,7 +177,9 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   AiPromptTemplate: { model: 'AiPromptTemplate', category: 'GLOBAL_SHARED' },
   AiQualityResult: { model: 'AiQualityResult', category: 'PROJECT_ROOT' },
   ApprovalRequest: { model: 'ApprovalRequest', category: 'PROJECT_ROOT' },
+  Artifact: { model: 'Artifact', category: 'PROJECT_ROOT' },
   ArtifactAccessEvent: { model: 'ArtifactAccessEvent', category: 'COMPANY_ROOT' },
+  ArtifactVersion: { model: 'ArtifactVersion', category: 'CHILD_VIA_FK', parentModel: 'Artifact', relationField: 'artifact', scalarFkField: 'artifactId', nullable: false },
   AssetLicense: { model: 'AssetLicense', category: 'CHILD_VIA_FK', parentModel: 'CustomerAsset', relationField: 'asset', scalarFkField: 'assetId', nullable: false },
   AuditLog: { model: 'AuditLog', category: 'COMPANY_ROOT' },
   AuthSession: { model: 'AuthSession', category: 'PROJECT_ROOT' },

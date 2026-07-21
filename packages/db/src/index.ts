@@ -17,3 +17,11 @@ export {
 export type { RlsContext, RlsTablePolicy, RlsExecutor, RlsPilotPolicy } from './rls'
 export { withRlsTransaction, RlsScopeError } from './scoped-transaction'
 export type { ScopedTransactionContext, ScopedTransactionCallback } from './scoped-transaction'
+export {
+  ARTIFACT_CONTENT_CONTRACT,
+  ARTIFACT_CONTENT_HASH_VERSION,
+  CanonicalContentError,
+  canonicalizeRfc8785,
+  parseCanonicalArtifactContent,
+} from './canonical-content-hash'
+export type { CanonicalContentErrorCode, ParsedCanonicalArtifactContent } from './canonical-content-hash'

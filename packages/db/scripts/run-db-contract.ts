@@ -44,7 +44,14 @@ const NEW_MIGRATION_NAME_U016 = '20260715160000_rls_pilot';
 const OWNER_UNIT_U016 = 'U016';
 const PURPOSE_U016 = 'rls-pilot';
 
-const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot']);
+// U017 — artifact-schema suite (registered alongside U011/U012/U014/U015/U016 above; those
+// suites' functions/fixtures are untouched reuse, see the U017 dispatch file boundary — this unit
+// only adds the `artifact-schema` allow-listed suite and its own scenario below).
+const NEW_MIGRATION_NAME_U017 = '20260715170000_artifact_identity';
+const OWNER_UNIT_U017 = 'U017';
+const PURPOSE_U017 = 'artifact-schema';
+
+const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema']);
 
 const EXIT = Object.freeze({
   SUCCESS: 0,
@@ -165,6 +172,11 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
     // excluded here too, same as its three predecessors above.
     const targetU016 = join(dir, 'migrations', NEW_MIGRATION_NAME_U016);
     if (existsSync(targetU016)) rmSync(targetU016, { recursive: true, force: true });
+    // U017's migration depends on U012's composite unique keys (companies/projects/
+    // user_company_roles) for its own composite FKs — same SQLSTATE 42830 hazard as U014/U015/U016
+    // above, so it stays excluded here too.
+    const targetU017 = join(dir, 'migrations', NEW_MIGRATION_NAME_U017);
+    if (existsSync(targetU017)) rmSync(targetU017, { recursive: true, force: true });
   }
   return dir;
 }
@@ -189,6 +201,10 @@ function makeThroughU011PrismaCopy(label: string): string {
   // prefix too.
   const targetU016 = join(dir, 'migrations', NEW_MIGRATION_NAME_U016);
   if (existsSync(targetU016)) rmSync(targetU016, { recursive: true, force: true });
+  // Same reasoning as makeTempPrismaCopy above: keep U017's migration out of this through-U011
+  // prefix too.
+  const targetU017 = join(dir, 'migrations', NEW_MIGRATION_NAME_U017);
+  if (existsSync(targetU017)) rmSync(targetU017, { recursive: true, force: true });
   return dir;
 }
 
@@ -590,11 +606,11 @@ function sha256File(path: string): string {
 }
 
 /** Every migration directory name up to and including U010's, excluding the U011/U012/U014/U015/
- * U016 ones added by this and the other units — the exact prefix the legacy lifecycle proof
- * deploys first. Each of U011/U012/U014/U015/U016 sorts after U010 by name, so every one must be
- * excluded here too, or it is folded into the "through U010" prefix and deploys before its own
- * dependencies exist (SQLSTATE 42830 for U012/U014; a premature watermarked role-code CHECK for
- * U015; missing companies/projects unique keys U016's RLS policies reference for U016). */
+ * U016/U017 ones added by this and the other units — the exact prefix the legacy lifecycle proof
+ * deploys first. Each of U011/U012/U014/U015/U016/U017 sorts after U010 by name, so every one must
+ * be excluded here too, or it is folded into the "through U010" prefix and deploys before its own
+ * dependencies exist (SQLSTATE 42830 for U012/U014/U017; a premature watermarked role-code CHECK
+ * for U015; missing companies/projects unique keys U016's RLS policies reference for U016). */
 function listMigrationsThroughU010(): string[] {
   return readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
     .filter((d) => d.isDirectory())
@@ -605,7 +621,8 @@ function listMigrationsThroughU010(): string[] {
         name !== NEW_MIGRATION_NAME_U012 &&
         name !== NEW_MIGRATION_NAME_U014 &&
         name !== NEW_MIGRATION_NAME_U015 &&
-        name !== NEW_MIGRATION_NAME_U016,
+        name !== NEW_MIGRATION_NAME_U016 &&
+        name !== NEW_MIGRATION_NAME_U017,
     )
     .sort();
 }
@@ -793,7 +810,15 @@ async function runLegacyLifecycleScenario(evidenceDir: string, runId: string) {
         if (scopeCheckJson.currentModelCount !== scopeCheckJson.inventoryModelCount || scopeCheckJson.ok !== true) {
           throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true with schema matching the canonical inventory after U012: ${scopeCheck.stdout}`);
         }
-        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 61 || scopeCheckJson.tallies.GLOBAL_SHARED !== 13) {
+        // This scenario deploys migrations only through U012 to the scratch DB, but `scope:check`
+        // reads Prisma.dmmf from whatever schema.prisma currently is (genFull above uses the real,
+        // current file) — so these tallies track the CURRENT total registered-model tally, not a
+        // point-in-time snapshot at U012. GLOBAL_SHARED (13) is unaffected by U012's reclassification
+        // math staying stable through every later unit that never touches that category; CHILD_VIA_FK
+        // (62 as of U017 — RoleChangeRequest's U012 reclassification plus every later CHILD_VIA_FK
+        // registration, most recently ArtifactVersion) must be updated by any future unit that adds a
+        // new CHILD_VIA_FK model, exactly as U017 updated it here.
+        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 62 || scopeCheckJson.tallies.GLOBAL_SHARED !== 13) {
           throw new ContractFailure(EXIT.CONTRACT, `scope:check tallies do not reflect the U012 RoleChangeRequest reclassification: ${JSON.stringify(scopeCheckJson.tallies)}`);
         }
         writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
@@ -1216,8 +1241,8 @@ async function runPrincipalSessionScenario(evidenceDir: string, runId: string) {
       const scopeCheck = await runScopeCheck();
       if (scopeCheck.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed: ${scopeCheck.stdout}\n${scopeCheck.stderr}`);
       const scopeCheckJson = JSON.parse(scopeCheck.stdout);
-      if (scopeCheckJson.currentModelCount !== 152 || scopeCheckJson.inventoryModelCount !== 152 || scopeCheckJson.ok !== true) {
-        throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true at 152/152: ${scopeCheck.stdout}`);
+      if (scopeCheckJson.currentModelCount !== scopeCheckJson.inventoryModelCount || scopeCheckJson.ok !== true) {
+        throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true with schema matching the canonical inventory: ${scopeCheck.stdout}`);
       }
       writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
       evidence.scopeCheck = { currentModelCount: scopeCheckJson.currentModelCount, inventoryModelCount: scopeCheckJson.inventoryModelCount, ok: scopeCheckJson.ok, tallies: scopeCheckJson.tallies };
@@ -1439,8 +1464,8 @@ async function runBusinessRoleScenario(evidenceDir: string, runId: string) {
       const scopeCheck = await runScopeCheck();
       if (scopeCheck.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed: ${scopeCheck.stdout}\n${scopeCheck.stderr}`);
       const scopeCheckJson = JSON.parse(scopeCheck.stdout);
-      if (scopeCheckJson.currentModelCount !== 152 || scopeCheckJson.inventoryModelCount !== 152 || scopeCheckJson.ok !== true) {
-        throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true at 152/152 (U015 adds no Prisma model): ${scopeCheck.stdout}`);
+      if (scopeCheckJson.currentModelCount !== scopeCheckJson.inventoryModelCount || scopeCheckJson.ok !== true) {
+        throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true with schema matching the canonical inventory: ${scopeCheck.stdout}`);
       }
       writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
       evidence.scopeCheck = { currentModelCount: scopeCheckJson.currentModelCount, inventoryModelCount: scopeCheckJson.inventoryModelCount, ok: scopeCheckJson.ok };
@@ -1869,6 +1894,331 @@ async function runRlsPilotSuite(evidenceDir: string): Promise<number> {
   return EXIT.SUCCESS;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// U017 — artifact-schema suite
+// ─────────────────────────────────────────────────────────────────────────
+
+const ARTIFACT_SCHEMA_FUNCTIONS = ['sangfor_utf16_units', 'sangfor_jcs_escape_string', 'sangfor_ecma_number_to_string', 'sangfor_rfc8785_jcs_v1', 'sangfor_sha256_utf8'];
+const ARTIFACT_SCHEMA_TRIGGERS = [
+  { table: 'artifacts', name: 'sangfor_artifacts_guard_trg' },
+  { table: 'artifact_versions', name: 'sangfor_artifact_versions_creator_company_guard_trg' },
+  { table: 'artifact_versions', name: 'sangfor_artifact_version_content_guard_trg' },
+  { table: 'artifact_versions', name: 'sangfor_artifact_versions_deny_update_trg' },
+  { table: 'artifact_versions', name: 'sangfor_artifact_versions_deny_delete_trg' },
+];
+const ARTIFACT_SCHEMA_CHECKS = [
+  'artifacts_classification_check',
+  'artifacts_origin_check',
+  'artifacts_ownership_revision_check',
+  'artifacts_current_revision_check',
+  'artifacts_pointer_revision_coupling_check',
+  'artifact_versions_content_hash_version_check',
+  'artifact_versions_content_hash_format_check',
+  'artifact_versions_version_positive_check',
+  'artifact_versions_status_check',
+];
+
+const ARTIFACT_SCHEMA_FIXTURE_SQL = `INSERT INTO tenants (id, name, slug, status, created_at) VALUES ('u017-tenant-1', 'U017 Tenant', 'u017-tenant-1', 'active', now());
+
+INSERT INTO companies (id, tenant_id, name, slug, created_at) VALUES
+  ('u017-company-1', 'u017-tenant-1', 'U017 Company One', 'u017-company-1', now()),
+  ('u017-company-2', 'u017-tenant-1', 'U017 Company Two', 'u017-company-2', now());
+
+INSERT INTO projects (id, slug, name, company_id, created_at, updated_at) VALUES
+  ('u017-project-1', 'u017-project-1', 'U017 Project', 'u017-company-1', now(), now());
+
+INSERT INTO users (id, email, name, created_at, updated_at) VALUES
+  ('u017-user-creator', 'creator@u017.example.com', 'Creator', now(), now()),
+  ('u017-user-owner', 'owner@u017.example.com', 'Owner', now(), now()),
+  ('u017-user-owner2', 'owner2@u017.example.com', 'Owner Two', now(), now()),
+  ('u017-user-cross', 'cross@u017.example.com', 'Cross Company', now(), now());
+
+INSERT INTO user_company_roles (id, user_id, company_id, role, status, created_at) VALUES
+  ('u017-ucr-creator', 'u017-user-creator', 'u017-company-1', 'account_manager', 'active', now()),
+  ('u017-ucr-owner', 'u017-user-owner', 'u017-company-1', 'account_manager', 'active', now()),
+  ('u017-ucr-owner2', 'u017-user-owner2', 'u017-company-1', 'account_manager', 'active', now()),
+  ('u017-ucr-cross', 'u017-user-cross', 'u017-company-2', 'account_manager', 'active', now());
+`;
+
+async function runArtifactSchemaScenario(evidenceDir: string, runId: string) {
+  const evidence: Record<string, unknown> = {};
+
+  await withIsolatedPostgres(
+    { runId, ownerUnit: OWNER_UNIT_U017, purpose: PURPOSE_U017, evidenceDir, imageDigest: IMAGE_DIGEST, migrate: true },
+    async (ctx: any) => {
+      const conn = parseConn(ctx.databaseUrl);
+      const schemaPath = join(REAL_PRISMA_DIR, 'schema.prisma');
+      evidence.scratchIdentity = { runId: ctx.sentinel.runId, ownerUnit: ctx.sentinel.ownerUnit, purpose: ctx.sentinel.purpose, databaseName: ctx.databaseName };
+
+      // The pkg's own committed hash/envelope builder is the sole allowed producer of content
+      // used in these fixtures — never a shortcut/inline computation here.
+      const { parseCanonicalArtifactContent } = await import('../src/canonical-content-hash.ts');
+
+      // ---- DDL introspection ----
+      const ddlLines: string[] = [];
+      const functionRows = await execSql(
+        ctx.containerName,
+        conn,
+        `SELECT string_agg(proname, ',' ORDER BY proname) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND proname = ANY(ARRAY[${ARTIFACT_SCHEMA_FUNCTIONS.map((f) => `'${f}'`).join(',')}]);`,
+      );
+      const foundFunctions = functionRows.length > 0 ? functionRows.split(',') : [];
+      ddlLines.push(`functions: expected=${ARTIFACT_SCHEMA_FUNCTIONS.length} found=${foundFunctions.length} :: ${foundFunctions.join(',')}`);
+      if (foundFunctions.length !== ARTIFACT_SCHEMA_FUNCTIONS.length) {
+        throw new ContractFailure(EXIT.CONTRACT, `expected all ${ARTIFACT_SCHEMA_FUNCTIONS.length} artifact-schema functions installed, found ${foundFunctions.length}: ${foundFunctions.join(',')}`);
+      }
+
+      for (const trg of ARTIFACT_SCHEMA_TRIGGERS) {
+        const found = await execSql(ctx.containerName, conn, `SELECT count(*) FROM pg_trigger WHERE tgname = '${trg.name}' AND tgrelid = '${trg.table}'::regclass;`);
+        ddlLines.push(`trigger ${trg.table}.${trg.name}: found=${found}`);
+        if (found !== '1') throw new ContractFailure(EXIT.CONTRACT, `expected trigger ${trg.name} on ${trg.table}, found count=${found}`);
+      }
+
+      for (const chk of ARTIFACT_SCHEMA_CHECKS) {
+        const found = await execSql(ctx.containerName, conn, `SELECT count(*) FROM pg_constraint WHERE conname = '${chk}' AND contype = 'c';`);
+        ddlLines.push(`check ${chk}: found=${found}`);
+        if (found !== '1') throw new ContractFailure(EXIT.CONTRACT, `expected CHECK constraint ${chk}, found count=${found}`);
+      }
+      writeFileSync(join(evidenceDir, 'artifact-ddl.log'), `${ddlLines.join('\n')}\n`);
+      evidence.ddlIntrospection = { functions: foundFunctions.length, triggers: ARTIFACT_SCHEMA_TRIGGERS.length, checks: ARTIFACT_SCHEMA_CHECKS.length };
+
+      // ---- fixture data ----
+      await execSql(ctx.containerName, conn, ARTIFACT_SCHEMA_FIXTURE_SQL);
+
+      // ---- happy path: create Artifact, insert v1/v2, query ordered versions + hash parity ----
+      const v1 = parseCanonicalArtifactContent(JSON.stringify({ title: 'v1', body: 'first draft' }));
+      const v2 = parseCanonicalArtifactContent(JSON.stringify({ title: 'v2', body: 'second draft', nested: { a: 1 } }));
+
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO artifacts (id, tenant_id, company_id, project_id, artifact_type, classification, origin, title, created_by_assignment_id, owner_assignment_id, created_at, updated_at)
+         VALUES ('u017-art-1','u017-tenant-1','u017-company-1','u017-project-1','proposal','internal','human','Happy Path','u017-ucr-creator','u017-ucr-owner',now(),now());`,
+      );
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at)
+         VALUES ('u017-artv-1','u017-art-1',1,'${v1.contentHashVersion}','${v1.canonicalContentEnvelope.replace(/'/g, "''")}','${v1.contentHash}','${JSON.stringify(v1.contentJson).replace(/'/g, "''")}'::jsonb,'ai_draft','u017-ucr-creator',now());`,
+      );
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at)
+         VALUES ('u017-artv-2','u017-art-1',2,'${v2.contentHashVersion}','${v2.canonicalContentEnvelope.replace(/'/g, "''")}','${v2.contentHash}','${JSON.stringify(v2.contentJson).replace(/'/g, "''")}'::jsonb,'human_draft','u017-ucr-creator',now());`,
+      );
+
+      // JS<->PG parity for both inserted envelopes, proven against the live rows (not just the
+      // in-process value) — cross-checks encode(convert_to(...,'UTF8'),'hex') bytes and the digest.
+      for (const [label, v] of [['v1', v1] as const, ['v2', v2] as const]) {
+        const pgEnvelope = await execSql(ctx.containerName, conn, `SELECT canonical_content_envelope FROM artifact_versions WHERE id = 'u017-artv-${label === 'v1' ? 1 : 2}';`);
+        if (pgEnvelope !== v.canonicalContentEnvelope) throw new ContractFailure(EXIT.CONTRACT, `${label}: stored envelope does not match JS-computed envelope`);
+        const pgHex = await execSql(ctx.containerName, conn, `SELECT encode(convert_to(canonical_content_envelope,'UTF8'),'hex') FROM artifact_versions WHERE id = 'u017-artv-${label === 'v1' ? 1 : 2}';`);
+        if (pgHex !== Buffer.from(v.canonicalContentEnvelope, 'utf8').toString('hex')) throw new ContractFailure(EXIT.CONTRACT, `${label}: UTF-8 hex byte mismatch`);
+        const pgHash = await execSql(ctx.containerName, conn, `SELECT public.sangfor_sha256_utf8(canonical_content_envelope) FROM artifact_versions WHERE id = 'u017-artv-${label === 'v1' ? 1 : 2}';`);
+        if (pgHash !== v.contentHash) throw new ContractFailure(EXIT.CONTRACT, `${label}: PG-recomputed digest does not match JS digest`);
+      }
+
+      const happyTsv = await execSqlTsv(ctx.containerName, conn, `SELECT id, version, status, content_hash FROM artifact_versions WHERE artifact_id = 'u017-art-1' ORDER BY version;`);
+      writeFileSync(join(evidenceDir, 'artifact-happy.tsv'), happyTsv.endsWith('\n') ? happyTsv : `${happyTsv}\n`);
+      // execSqlTsv includes a header row and a "(N rows)" footer (unlike execSql's -t tuples-only
+      // output) — filter to lines matching the actual data shape, same technique as U015's
+      // roleActivationTsv check above, rather than a raw split('\n').length that would over-count.
+      const happyDataLines = happyTsv
+        .trim()
+        .split('\n')
+        .filter((line) => /^u017-artv-\d+\t\d+\t(ai_draft|human_draft|review_ready|superseded|legacy_unreviewed)\t[0-9a-f]{64}$/.test(line));
+      if (happyDataLines.length !== 2) throw new ContractFailure(EXIT.CONTRACT, `expected 2 ordered artifact_versions rows, got ${happyDataLines.length}: ${happyTsv}`);
+      evidence.happyPath = { versions: 2, ordered: true };
+
+      // ---- CAS owner-only reassignment: creator/version history unchanged, pointer stays inactive ----
+      await execSql(ctx.containerName, conn, `UPDATE artifacts SET owner_assignment_id = 'u017-ucr-owner2', ownership_revision = 1 WHERE id = 'u017-art-1';`);
+      const pointerTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT (current_version_id IS NULL) AS pointer_null, current_revision, owner_assignment_id, ownership_revision, created_by_assignment_id FROM artifacts WHERE id = 'u017-art-1';`,
+      );
+      writeFileSync(join(evidenceDir, 'artifact-pointer-inactive.tsv'), pointerTsv.endsWith('\n') ? pointerTsv : `${pointerTsv}\n`);
+      const pointerDataLine = pointerTsv.trim().split('\n')[1] ?? '';
+      if (!/^t\t0\tu017-ucr-owner2\t1\tu017-ucr-creator$/.test(pointerDataLine)) {
+        throw new ContractFailure(EXIT.CONTRACT, `unexpected post-CAS artifact state: ${pointerDataLine}`);
+      }
+      evidence.casOwnerReassignment = { pointerStaysNull: true, currentRevisionStaysZero: true, creatorUnchanged: true, ownershipRevision: 1 };
+
+      // ---- negative fixtures (SQLSTATE + constraint capture) ----
+      const negativeLines: string[] = [];
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'missing owner',
+        expect: 'reject',
+        sql: `INSERT INTO artifacts (id, tenant_id, company_id, project_id, artifact_type, classification, origin, title, created_by_assignment_id, owner_assignment_id, created_at, updated_at) VALUES ('u017-neg-owner','u017-tenant-1','u017-company-1','u017-project-1','proposal','internal','human','T','u017-ucr-creator',NULL,now(),now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'ID-only / cross-company owner assignment',
+        expect: 'reject',
+        sql: `INSERT INTO artifacts (id, tenant_id, company_id, project_id, artifact_type, classification, origin, title, created_by_assignment_id, owner_assignment_id, created_at, updated_at) VALUES ('u017-neg-cross-owner','u017-tenant-1','u017-company-1','u017-project-1','proposal','internal','human','T','u017-ucr-creator','u017-ucr-cross',now(),now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'cross-company creator assignment',
+        expect: 'reject',
+        sql: `INSERT INTO artifacts (id, tenant_id, company_id, project_id, artifact_type, classification, origin, title, created_by_assignment_id, owner_assignment_id, created_at, updated_at) VALUES ('u017-neg-cross-creator','u017-tenant-1','u017-company-1','u017-project-1','proposal','internal','human','T','u017-ucr-cross','u017-ucr-owner',now(),now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'cross-company ArtifactVersion creator via parent guard',
+        expect: 'reject',
+        sql: `INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at) VALUES ('u017-neg-artv-cross','u017-art-1',3,'artifact-content/rfc8785-jcs-sha256/v1','{"contract":"sangfor.artifact-content","payload":{},"version":1}',public.sangfor_sha256_utf8('{"contract":"sangfor.artifact-content","payload":{},"version":1}'),'{}'::jsonb,'ai_draft','u017-ucr-cross',now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'wrong/missing content_hash_version literal',
+        expect: 'reject',
+        sql: `INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at) VALUES ('u017-neg-hashver','u017-art-1',3,'artifact-content/rfc8785-jcs-sha256/v0','{"contract":"sangfor.artifact-content","payload":{},"version":1}',repeat('0',64),'{}'::jsonb,'ai_draft','u017-ucr-creator',now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'non-JCS envelope (whitespace)',
+        expect: 'reject',
+        sql: `INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at) VALUES ('u017-neg-envelope','u017-art-1',3,'artifact-content/rfc8785-jcs-sha256/v1','{"contract": "sangfor.artifact-content","payload":{},"version":1}',repeat('0',64),'{}'::jsonb,'ai_draft','u017-ucr-creator',now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'bad hash',
+        expect: 'reject',
+        sql: `INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at) VALUES ('u017-neg-hash','u017-art-1',3,'artifact-content/rfc8785-jcs-sha256/v1','{"contract":"sangfor.artifact-content","payload":{},"version":1}',repeat('0',64),'{}'::jsonb,'ai_draft','u017-ucr-creator',now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'zero version',
+        expect: 'reject',
+        sql: `INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at) VALUES ('u017-neg-zeroversion','u017-art-1',0,'artifact-content/rfc8785-jcs-sha256/v1','{"contract":"sangfor.artifact-content","payload":{},"version":1}',public.sangfor_sha256_utf8('{"contract":"sangfor.artifact-content","payload":{},"version":1}'),'{}'::jsonb,'ai_draft','u017-ucr-creator',now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'duplicate version',
+        expect: 'reject',
+        sql: `INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at) VALUES ('u017-neg-dupversion','u017-art-1',1,'artifact-content/rfc8785-jcs-sha256/v1','{"contract":"sangfor.artifact-content","payload":{},"version":1}',public.sangfor_sha256_utf8('{"contract":"sangfor.artifact-content","payload":{},"version":1}'),'{}'::jsonb,'ai_draft','u017-ucr-creator',now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'invalid classification',
+        expect: 'reject',
+        sql: `INSERT INTO artifacts (id, tenant_id, company_id, project_id, artifact_type, classification, origin, title, created_by_assignment_id, owner_assignment_id, created_at, updated_at) VALUES ('u017-neg-classification','u017-tenant-1','u017-company-1','u017-project-1','proposal','top-secret','human','T','u017-ucr-creator','u017-ucr-owner',now(),now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'invalid status',
+        expect: 'reject',
+        sql: `INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at) VALUES ('u017-neg-status','u017-art-1',3,'artifact-content/rfc8785-jcs-sha256/v1','{"contract":"sangfor.artifact-content","payload":{},"version":1}',public.sangfor_sha256_utf8('{"contract":"sangfor.artifact-content","payload":{},"version":1}'),'{}'::jsonb,'not_a_status','u017-ucr-creator',now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'foreign-Artifact current pointer',
+        expect: 'reject',
+        sql: `INSERT INTO artifacts (id, tenant_id, company_id, project_id, artifact_type, classification, origin, title, created_by_assignment_id, owner_assignment_id, created_at, updated_at) VALUES ('u017-art-other','u017-tenant-1','u017-company-1','u017-project-1','proposal','internal','human','Other','u017-ucr-creator','u017-ucr-owner',now(),now()); UPDATE artifacts SET current_version_id='u017-artv-1', current_revision=1 WHERE id='u017-art-other';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'negative ownershipRevision',
+        expect: 'reject',
+        sql: `UPDATE artifacts SET ownership_revision=-1 WHERE id='u017-art-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'negative currentRevision',
+        expect: 'reject',
+        sql: `UPDATE artifacts SET current_revision=-1 WHERE id='u017-art-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'owner change without exactly ownershipRevision+1',
+        expect: 'reject',
+        sql: `UPDATE artifacts SET owner_assignment_id='u017-ucr-owner', ownership_revision=1 WHERE id='u017-art-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'ownership revision change without owner change',
+        expect: 'reject',
+        sql: `UPDATE artifacts SET ownership_revision=5 WHERE id='u017-art-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'pointer/revision inconsistency',
+        expect: 'reject',
+        sql: `UPDATE artifacts SET current_revision=1 WHERE id='u017-art-1';`,
+      }));
+      writeFileSync(join(evidenceDir, 'artifact-negative.log'), `${negativeLines.join('\n')}\n`);
+      evidence.negativeFixtureCount = negativeLines.length;
+
+      // ---- immutability: mutate immutable createdByAssignmentId, deny UPDATE/DELETE on artifact_versions ----
+      const immutabilityLines: string[] = [];
+      immutabilityLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'mutate immutable createdByAssignmentId',
+        expect: 'reject',
+        sql: `UPDATE artifacts SET created_by_assignment_id='u017-ucr-owner' WHERE id='u017-art-1';`,
+      }));
+      immutabilityLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'UPDATE on artifact_versions denied (append-only)',
+        expect: 'reject',
+        sql: `UPDATE artifact_versions SET status='superseded' WHERE id='u017-artv-1';`,
+      }));
+      immutabilityLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'DELETE on artifact_versions denied (append-only)',
+        expect: 'reject',
+        sql: `DELETE FROM artifact_versions WHERE id='u017-artv-1';`,
+      }));
+      writeFileSync(join(evidenceDir, 'immutability.log'), `${immutabilityLines.join('\n')}\n`);
+      evidence.immutabilityChecks = immutabilityLines.length;
+
+      // ---- reproducible deploy + empty schema diff ----
+      const redeploy = await runWorkspaceMigrateDeploy(ctx.migrationDatabaseUrl, schemaPath);
+      if (redeploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy re-run was not reproducible: ${redeploy.stderr || redeploy.stdout}`);
+      evidence.migrateDeployReproducible = true;
+
+      const diff = await runMigrateDiff(ctx.migrationDatabaseUrl);
+      const diffText = diff.stdout.trim();
+      const isEmptyDiff = diff.code === 0 && (diffText.length === 0 || diffText === '-- This is an empty migration.');
+      writeFileSync(join(evidenceDir, 'migration-diff.sql'), '');
+      if (!isEmptyDiff) throw new ContractFailure(EXIT.CONTRACT, `schema diff not empty after fresh migrate deploy: exit=${diff.code} stdout=${diff.stdout}`);
+      evidence.emptySchemaDiff = true;
+
+      return evidence;
+    },
+  );
+
+  return evidence;
+}
+
+async function runArtifactSchemaSuite(evidenceDir: string): Promise<number> {
+  const runId = `u017${Date.now().toString(36)}`;
+  const startedAt = new Date().toISOString();
+
+  let caughtError: unknown = null;
+  let scenarioEvidence: Record<string, unknown> | null = null;
+  try {
+    scenarioEvidence = await runArtifactSchemaScenario(evidenceDir, runId);
+  } catch (error) {
+    caughtError = error;
+  }
+
+  const labelCounts = await labelResourceCounts(runId, OWNER_UNIT_U017, PURPOSE_U017);
+  const cleanupOk = labelCounts.containers === 0 && labelCounts.networks === 0 && labelCounts.volumes === 0;
+  const cleanup = {
+    schemaVersion: 1,
+    unit: OWNER_UNIT_U017,
+    purpose: PURPOSE_U017,
+    runId,
+    postgres: { containers: labelCounts.containers, networks: labelCounts.networks, volumes: labelCounts.volumes },
+    http: null,
+    httpReason:
+      'U017 db:contract is a DB-only schema/migration/constraint suite with no web/API process to bind or tear down here — no approval/release runtime, no external send/export exists to reach at this unit.',
+    childProcesses: 0,
+    result: cleanupOk ? 'PASS' : 'FAIL',
+    startedAt,
+    finishedAt: new Date().toISOString(),
+  };
+  writeFileSync(join(evidenceDir, 'cleanup.json'), `${JSON.stringify(cleanup, null, 2)}\n`);
+
+  if (!cleanupOk) {
+    process.stderr.write(`run-db-contract: cleanup verification failed: ${JSON.stringify(cleanup)}\n`);
+    return EXIT.CLEANUP;
+  }
+  if (caughtError) {
+    process.stderr.write(`${caughtError instanceof Error ? (caughtError.stack ?? caughtError.message) : String(caughtError)}\n`);
+    return caughtError instanceof ContractFailure ? caughtError.exitCode : EXIT.CONTRACT;
+  }
+
+  writeFileSync(
+    join(evidenceDir, 'db-contract-receipt.json'),
+    `${JSON.stringify({ schemaVersion: 1, unit: OWNER_UNIT_U017, suite: 'artifact-schema', result: 'PASS', scenarioEvidence, cleanup, startedAt, finishedAt: new Date().toISOString() }, null, 2)}\n`,
+  );
+  return EXIT.SUCCESS;
+}
+
 async function main(): Promise<number> {
   let args;
   try {
@@ -1883,7 +2233,8 @@ async function main(): Promise<number> {
   if (args.suite === 'scope-closure') return runScopeClosureSuite(args.evidence);
   if (args.suite === 'principal-session') return runPrincipalSessionSuite(args.evidence);
   if (args.suite === 'business-role') return runBusinessRoleSuite(args.evidence);
-  return runRlsPilotSuite(args.evidence);
+  if (args.suite === 'rls-pilot') return runRlsPilotSuite(args.evidence);
+  return runArtifactSchemaSuite(args.evidence);
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
