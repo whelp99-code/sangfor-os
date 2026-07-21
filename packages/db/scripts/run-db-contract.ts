@@ -65,7 +65,17 @@ const NEW_MIGRATION_NAME_U019 = '20260715190000_workflow_definition_run';
 const OWNER_UNIT_U019 = 'U019';
 const PURPOSE_U019 = 'workflow-schema';
 
-const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema']);
+// U020 — governance-bridge suite (registered alongside U011-U019 above; those suites' functions/
+// fixtures are untouched reuse, see the U020 dispatch file boundary — this unit only adds the
+// `governance-bridge` allow-listed suite and its own scenario below). U020's own migration
+// (20260715200000_governance_core_backfill) is an EMPTY migration (no schema change), so unlike
+// every prior unit here it needs NO NEW_MIGRATION_NAME_U020 constant and NO exclusion from
+// makeTempPrismaCopy/makeThroughU011PrismaCopy/listMigrationsThroughU010 — an empty migration file
+// deploys identically whether or not it is present in any migration prefix.
+const OWNER_UNIT_U020 = 'U020';
+const PURPOSE_U020 = 'governance-bridge';
+
+const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema', 'governance-bridge']);
 
 const EXIT = Object.freeze({
   SUCCESS: 0,
@@ -147,6 +157,16 @@ async function runBackfillScript(databaseUrl: string, extraEnv: Record<string, s
 async function runScopeCheck(): Promise<CaptureResult> {
   const argv = ['bash', join(REPO_ROOT, 'scripts/run-workspace-runtime.sh'), 'root', '--', 'corepack', 'pnpm', '--filter', '@sangfor/db', 'exec', 'tsx', 'scripts/check-scope-inventory.ts'];
   return spawnCapture(argv, sanitizedEnv({}));
+}
+
+async function runGovernanceBackfillScript(databaseUrl: string, extraEnv: Record<string, string> = {}): Promise<CaptureResult> {
+  const argv = ['bash', join(REPO_ROOT, 'scripts/run-workspace-runtime.sh'), 'root', '--', 'corepack', 'pnpm', '--filter', '@sangfor/db', 'exec', 'tsx', 'scripts/backfill-governance-core.ts'];
+  return spawnCapture(argv, sanitizedEnv({ DATABASE_URL: databaseUrl, ...extraEnv }));
+}
+
+async function runGovernanceValidate(databaseUrl: string): Promise<CaptureResult> {
+  const argv = ['bash', join(REPO_ROOT, 'scripts/run-workspace-runtime.sh'), 'root', '--', 'corepack', 'pnpm', '--filter', '@sangfor/db', 'exec', 'tsx', 'scripts/validate-governance-core.ts'];
+  return spawnCapture(argv, sanitizedEnv({ DATABASE_URL: databaseUrl }));
 }
 
 async function runMigrateDiff(databaseUrl: string): Promise<CaptureResult> {
@@ -3500,6 +3520,365 @@ async function runWorkflowSchemaSuite(evidenceDir: string): Promise<number> {
   return EXIT.SUCCESS;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// U020 — governance-bridge suite. Reuses U011's ScopeBackfillQuarantine machinery and U017's
+// canonical-content-hash exclusively (see the U020 dispatch file boundary) — no new DDL, no new
+// functions/triggers/checks to introspect (unlike U011-U019, this unit's migration is empty), so
+// this scenario is entirely fixture/dry-run/apply/rerun/validator proof, not DDL introspection.
+// ─────────────────────────────────────────────────────────────────────────
+
+const GOVERNANCE_BRIDGE_FIXTURE_SQL = `INSERT INTO tenants (id, name, slug, status, created_at) VALUES ('u020-tenant-1', 'U020 Tenant', 'u020-tenant-1', 'active', now());
+
+INSERT INTO companies (id, tenant_id, name, slug, created_at) VALUES ('u020-company-1', 'u020-tenant-1', 'U020 Company', 'u020-company-1', now());
+
+INSERT INTO projects (id, slug, name, company_id, created_at, updated_at) VALUES
+  ('u020-project-1', 'u020-project-1', 'U020 Project One', 'u020-company-1', now(), now()),
+  ('u020-project-2', 'u020-project-2', 'U020 Project Two', 'u020-company-1', now(), now());
+
+INSERT INTO users (id, email, name, created_at, updated_at) VALUES
+  ('u020-user-1', 'user1@u020.example.com', 'User One', now(), now()),
+  ('u020-user-2', 'user2@u020.example.com', 'User Two', now(), now()),
+  ('u020-user-3', 'user3@u020.example.com', 'User Three', now(), now());
+
+INSERT INTO user_company_roles (id, user_id, company_id, role, status, valid_from, created_at) VALUES
+  ('u020-ucr-1', 'u020-user-1', 'u020-company-1', 'account_manager', 'active', '2020-01-01T00:00:00Z', now()),
+  ('u020-ucr-2', 'u020-user-2', 'u020-company-1', 'account_manager', 'active', '2020-01-01T00:00:00Z', now()),
+  ('u020-ucr-3', 'u020-user-3', 'u020-company-1', 'account_manager', 'active', '2020-01-01T00:00:00Z', now());
+
+INSERT INTO project_members (id, project_id, user_id, role, status, valid_from, created_at) VALUES
+  ('u020-pm-1', 'u020-project-1', 'u020-user-1', 'member', 'active', '2020-01-01T00:00:00Z', now()),
+  ('u020-pm-2a', 'u020-project-2', 'u020-user-2', 'member', 'active', '2020-01-01T00:00:00Z', now()),
+  ('u020-pm-2b', 'u020-project-2', 'u020-user-3', 'member', 'active', '2020-01-01T00:00:00Z', now());
+
+INSERT INTO document_templates (id, project_id, template_key, title, body_markdown, created_at) VALUES
+  ('u020-template-1', 'u020-project-1', 'proposal', 'Proposal', 'Body', now());
+
+INSERT INTO generated_documents (id, template_id, title, body_markdown, status, created_at) VALUES
+  ('u020-doc-1', 'u020-template-1', 'Legacy Doc One', 'Legacy Body One', 'approved', now());
+
+INSERT INTO document_versions (id, generated_document_id, version, body_markdown, created_at) VALUES
+  ('u020-ver-1', 'u020-doc-1', 1, 'Legacy Version Body One', now());
+
+INSERT INTO approval_requests (id, status, reason, created_at, legacy_unbound, updated_at) VALUES
+  ('u020-appr-legacy-1', 'approved', 'legacy manual approval', now(), true, now());
+
+INSERT INTO commands (id, key, title, created_at) VALUES ('u020-command-1', 'u020-command', 'U020 Command', now());
+
+INSERT INTO command_runs (id, command_id, project_id, requested_by_id, status, created_at, updated_at) VALUES
+  ('u020-cr-1', 'u020-command-1', 'u020-project-1', 'u020-user-1', 'succeeded', now(), now()),
+  ('u020-cr-2a', 'u020-command-1', 'u020-project-2', 'u020-user-2', 'succeeded', now(), now()),
+  ('u020-cr-2b', 'u020-command-1', 'u020-project-2', 'u020-user-3', 'succeeded', now(), now());
+
+INSERT INTO workflows (id, command_run_id, status, created_at, updated_at) VALUES
+  ('u020-wf-1', 'u020-cr-1', 'succeeded', now(), now()),
+  ('u020-wf-2a', 'u020-cr-2a', 'succeeded', now(), now()),
+  ('u020-wf-2b', 'u020-cr-2b', 'succeeded', now(), now());
+
+INSERT INTO workflow_steps (id, workflow_id, step_key, status, sort_order, created_at, updated_at) VALUES
+  ('u020-step-1', 'u020-wf-1', 'do', 'succeeded', 0, now(), now()),
+  ('u020-step-2a', 'u020-wf-2a', 'do', 'succeeded', 0, now(), now()),
+  ('u020-step-2b', 'u020-wf-2b', 'do', 'succeeded', 0, now(), now());
+`;
+
+async function legacyCounts(containerName: string, conn: { user: string; password: string; database: string }) {
+  return {
+    generatedDocuments: await execSql(containerName, conn, `SELECT count(*) FROM generated_documents;`),
+    documentVersions: await execSql(containerName, conn, `SELECT count(*) FROM document_versions;`),
+    approvalRequests: await execSql(containerName, conn, `SELECT count(*) FROM approval_requests;`),
+    workflows: await execSql(containerName, conn, `SELECT count(*) FROM workflows;`),
+    workflowSteps: await execSql(containerName, conn, `SELECT count(*) FROM workflow_steps;`),
+  };
+}
+
+async function runGovernanceBridgeScenario(evidenceDir: string, runId: string) {
+  const evidence: Record<string, unknown> = {};
+
+  await withIsolatedPostgres(
+    { runId, ownerUnit: OWNER_UNIT_U020, purpose: PURPOSE_U020, evidenceDir, imageDigest: IMAGE_DIGEST, migrate: true },
+    async (ctx: any) => {
+      const conn = parseConn(ctx.databaseUrl);
+      const gb = await import('../src/governance-bridge.ts');
+
+      await execSql(ctx.containerName, conn, GOVERNANCE_BRIDGE_FIXTURE_SQL);
+      const legacyBefore = await legacyCounts(ctx.containerName, conn);
+
+      const scopeCheckBefore = await runScopeCheck();
+      if (scopeCheckBefore.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed before backfill: ${scopeCheckBefore.stdout}\n${scopeCheckBefore.stderr}`);
+      const scopeCheckBeforeJson = JSON.parse(scopeCheckBefore.stdout);
+      if (scopeCheckBeforeJson.currentModelCount !== scopeCheckBeforeJson.inventoryModelCount || scopeCheckBeforeJson.ok !== true) {
+        throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true before backfill: ${scopeCheckBefore.stdout}`);
+      }
+      evidence.scopeCheckBefore = { currentModelCount: scopeCheckBeforeJson.currentModelCount, ok: scopeCheckBeforeJson.ok };
+
+      // ---- dry run writes ZERO ----
+      const beforeTargetCounts = {
+        artifacts: await execSql(ctx.containerName, conn, `SELECT count(*) FROM artifacts;`),
+        artifactVersions: await execSql(ctx.containerName, conn, `SELECT count(*) FROM artifact_versions;`),
+        workflowDefinitions: await execSql(ctx.containerName, conn, `SELECT count(*) FROM workflow_definitions;`),
+        workflowRuns: await execSql(ctx.containerName, conn, `SELECT count(*) FROM workflow_runs;`),
+        quarantine: await execSql(ctx.containerName, conn, `SELECT count(*) FROM scope_backfill_quarantine;`),
+      };
+      const dryRun = await runGovernanceBackfillScript(ctx.databaseUrl);
+      if (dryRun.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `governance dry run failed: ${dryRun.stdout}\n${dryRun.stderr}`);
+      const dryRunJson = JSON.parse(dryRun.stdout);
+      writeFileSync(join(evidenceDir, 'bridge-dry-run.json'), `${JSON.stringify(dryRunJson, null, 2)}\n`);
+      if (dryRunJson.writes !== 0) throw new ContractFailure(EXIT.CONTRACT, `dry run reported nonzero writes: ${dryRunJson.writes}`);
+      const afterDryRunTargetCounts = {
+        artifacts: await execSql(ctx.containerName, conn, `SELECT count(*) FROM artifacts;`),
+        artifactVersions: await execSql(ctx.containerName, conn, `SELECT count(*) FROM artifact_versions;`),
+        workflowDefinitions: await execSql(ctx.containerName, conn, `SELECT count(*) FROM workflow_definitions;`),
+        workflowRuns: await execSql(ctx.containerName, conn, `SELECT count(*) FROM workflow_runs;`),
+        quarantine: await execSql(ctx.containerName, conn, `SELECT count(*) FROM scope_backfill_quarantine;`),
+      };
+      if (JSON.stringify(beforeTargetCounts) !== JSON.stringify(afterDryRunTargetCounts)) {
+        throw new ContractFailure(EXIT.CONTRACT, `dry run mutated target tables: before=${JSON.stringify(beforeTargetCounts)} after=${JSON.stringify(afterDryRunTargetCounts)}`);
+      }
+      evidence.dryRunWritesZero = true;
+
+      // ---- deterministic-id test vectors, computed against this scenario's own fixture ids ----
+      const idVectors = {
+        generatedDocumentArtifactId: gb.legacyArtifactId('u020-doc-1'),
+        documentVersionArtifactVersionId: gb.legacyArtifactVersionId('u020-ver-1'),
+        workflowDefinitionArtifactId: gb.legacyWorkflowDefinitionArtifactId('u020-project-1'),
+        workflowDefinitionVersionId: gb.legacyWorkflowDefinitionVersionId('u020-project-1'),
+        workflowDefinitionId: gb.legacyWorkflowDefinitionId('u020-project-1'),
+      };
+      writeFileSync(join(evidenceDir, 'deterministic-id-vectors.json'), `${JSON.stringify(idVectors, null, 2)}\n`);
+      evidence.deterministicIdVectors = idVectors;
+
+      // ---- GOVERNANCE_REVIEW_FILE gate: build + write ----
+      const reviewFile = { schemaVersion: 1, reviewerKey: 'qa-harness-reviewer', dryRunDigest: dryRunJson.reviewDigest, manifest: dryRunJson.manifest };
+      writeFileSync(join(evidenceDir, 'governance-review.json'), `${JSON.stringify(reviewFile, null, 2)}\n`);
+      const reviewFilePath = join(mkdtempSync(join(tmpdir(), 'u020-review-')), 'governance-review.json');
+      writeFileSync(reviewFilePath, JSON.stringify(reviewFile));
+
+      // ---- apply ----
+      const apply = await runGovernanceBackfillScript(ctx.databaseUrl, { APPLY: '1', GOVERNANCE_REVIEW_FILE: reviewFilePath });
+      if (apply.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `apply failed: ${apply.stdout}\n${apply.stderr}`);
+      const applyJson = JSON.parse(apply.stdout);
+      writeFileSync(join(evidenceDir, 'bridge-apply.json'), `${JSON.stringify(applyJson, null, 2)}\n`);
+      evidence.apply = applyJson;
+
+      if (applyJson.generatedDocuments.mapped !== 0 || applyJson.generatedDocuments.quarantined !== 1) {
+        throw new ContractFailure(EXIT.CONTRACT, `expected the zero-eligible baseline GeneratedDocument to quarantine (mapped=0,quarantined=1): ${JSON.stringify(applyJson.generatedDocuments)}`);
+      }
+      if (applyJson.documentVersions.mapped !== 0 || applyJson.documentVersions.quarantined !== 1) {
+        throw new ContractFailure(EXIT.CONTRACT, `expected the blocked-by-parent DocumentVersion to quarantine (mapped=0,quarantined=1): ${JSON.stringify(applyJson.documentVersions)}`);
+      }
+      if (applyJson.approvalRequests.quarantined !== 1) {
+        throw new ContractFailure(EXIT.CONTRACT, `expected the legacy ApprovalRequest to quarantine: ${JSON.stringify(applyJson.approvalRequests)}`);
+      }
+      if (applyJson.workflowGroups.mapped !== 1 || applyJson.workflowGroups.quarantined !== 2) {
+        throw new ContractFailure(
+          EXIT.CONTRACT,
+          `expected exactly one eligible single-actor project group mapped and the two-distinct-actor project group's two Workflow rows quarantined: ${JSON.stringify(applyJson.workflowGroups)}`,
+        );
+      }
+      evidence.applyOutcomesMatchExpected = true;
+
+      // ---- verify the eligible single-actor project group's synthesized provenance by exact id ----
+      const eligibleTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT a.id, a.legacy_source_type, a.legacy_source_id, av.id, wd.id, wd.status, wr.id, wr.status, wr.requested_by_assignment_id
+         FROM artifacts a
+         JOIN artifact_versions av ON av.artifact_id = a.id
+         JOIN workflow_definitions wd ON wd.definition_artifact_version_id = av.id
+         JOIN workflow_runs wr ON wr.workflow_definition_id = wd.id
+         WHERE a.legacy_source_type = 'LegacyWorkflowDefinitionProject' AND a.legacy_source_id = 'u020-project-1';`,
+      );
+      const eligibleLine = eligibleTsv.trim().split('\n')[1] ?? '';
+      const expectedEligibleLine = `${idVectors.workflowDefinitionArtifactId}\tLegacyWorkflowDefinitionProject\tu020-project-1\t${idVectors.workflowDefinitionVersionId}\t${idVectors.workflowDefinitionId}\tlegacy_disabled\t${gb.legacyWorkflowRunId('u020-wf-1')}\tlegacy_imported\tu020-ucr-1`;
+      if (eligibleLine !== expectedEligibleLine) {
+        throw new ContractFailure(EXIT.CONTRACT, `eligible workflow-definition provenance mismatch:\n  got:      ${eligibleLine}\n  expected: ${expectedEligibleLine}`);
+      }
+      evidence.eligibleGroupProvenanceExact = true;
+
+      // ---- verify the two-distinct-actor project group created ZERO targets for project-2 ----
+      const project2TargetCount = await execSql(
+        ctx.containerName,
+        conn,
+        `SELECT count(*) FROM (
+           SELECT id FROM artifacts WHERE legacy_source_type = 'LegacyWorkflowDefinitionProject' AND legacy_source_id = 'u020-project-2'
+           UNION ALL
+           SELECT id FROM workflow_runs WHERE legacy_source_type = 'Workflow' AND legacy_source_id IN ('u020-wf-2a','u020-wf-2b')
+         ) t;`,
+      );
+      if (project2TargetCount !== '0') throw new ContractFailure(EXIT.CONTRACT, `expected zero targets for the two-distinct-actor project-2 group, found ${project2TargetCount}`);
+      const project2QuarantineRows = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT source_model, source_id, reason_code FROM scope_backfill_quarantine WHERE source_id IN ('u020-wf-2a','u020-wf-2b','u020-step-2a','u020-step-2b') ORDER BY source_model, source_id;`,
+      );
+      const project2Lines = project2QuarantineRows
+        .trim()
+        .split('\n')
+        .filter((l) => /^(Workflow\tu020-wf-2[ab]|WorkflowStep\tu020-step-2[ab])\tgovernance_unverifiable_actor$/.test(l));
+      if (project2Lines.length !== 4) {
+        throw new ContractFailure(EXIT.CONTRACT, `expected all four project-2 rows (2 Workflow + 2 WorkflowStep) quarantined governance_unverifiable_actor:\n${project2QuarantineRows}`);
+      }
+      evidence.twoActorGroupQuarantinedWithZeroTargets = true;
+
+      // ---- authority-zero query ----
+      const authorityZeroTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT 'approval_current_validity_valid' AS check, count(*) AS count FROM approval_current_validity WHERE state = 'valid'
+         UNION ALL SELECT 'approval_decisions_total', count(*) FROM approval_decisions
+         UNION ALL SELECT 'approval_requests_canonical', count(*) FROM approval_requests WHERE legacy_unbound = false
+         UNION ALL SELECT 'workflow_definitions_active', count(*) FROM workflow_definitions WHERE status = 'active';`,
+      );
+      writeFileSync(join(evidenceDir, 'authority-zero.tsv'), authorityZeroTsv);
+      const authorityLines = authorityZeroTsv
+        .trim()
+        .split('\n')
+        .filter((l) => /^(approval_current_validity_valid|approval_decisions_total|approval_requests_canonical|workflow_definitions_active)\t\d+$/.test(l));
+      if (authorityLines.length !== 4 || !authorityLines.every((l) => l.endsWith('\t0'))) {
+        throw new ContractFailure(EXIT.CONTRACT, `expected zero canonical authority everywhere: ${authorityZeroTsv}`);
+      }
+      evidence.authorityZero = true;
+
+      // ---- source/target + quarantine evidence ----
+      const sourceTargetTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT 'GeneratedDocument' AS source_model, gd.id AS source_id, a.id AS target_id FROM generated_documents gd LEFT JOIN artifacts a ON a.legacy_source_type = 'GeneratedDocument' AND a.legacy_source_id = gd.id
+         UNION ALL
+         SELECT 'DocumentVersion', dv.id, av.id FROM document_versions dv LEFT JOIN artifact_versions av ON av.legacy_source_type = 'DocumentVersion' AND av.legacy_source_id = dv.id
+         UNION ALL
+         SELECT 'Workflow', w.id, wr.id FROM workflows w LEFT JOIN workflow_runs wr ON wr.legacy_source_type = 'Workflow' AND wr.legacy_source_id = w.id
+         ORDER BY 1, 2;`,
+      );
+      writeFileSync(join(evidenceDir, 'source-target.tsv'), sourceTargetTsv);
+      const quarantineTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT source_model, source_id, reason_code, source_row_hash, resolved_at IS NOT NULL AS resolved FROM scope_backfill_quarantine ORDER BY source_model, source_id;`,
+      );
+      writeFileSync(join(evidenceDir, 'quarantine.tsv'), quarantineTsv);
+
+      // ---- legacy source counts/hashes unchanged ----
+      const legacyAfter = await legacyCounts(ctx.containerName, conn);
+      if (JSON.stringify(legacyBefore) !== JSON.stringify(legacyAfter)) {
+        throw new ContractFailure(EXIT.CONTRACT, `legacy source counts changed: before=${JSON.stringify(legacyBefore)} after=${JSON.stringify(legacyAfter)}`);
+      }
+      evidence.legacyCountsUnchanged = { before: legacyBefore, after: legacyAfter };
+
+      // ---- rerun: zero delta, including lastSeenAt ----
+      const quarantineSnapshotBeforeRerun = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT source_model, source_id, reason_code, source_row_hash, quarantined_at, first_seen_at, last_seen_at FROM scope_backfill_quarantine ORDER BY source_model, source_id;`,
+      );
+      const rerun = await runGovernanceBackfillScript(ctx.databaseUrl, { APPLY: '1', GOVERNANCE_REVIEW_FILE: reviewFilePath });
+      if (rerun.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `rerun apply failed: ${rerun.stdout}\n${rerun.stderr}`);
+      const rerunJson = JSON.parse(rerun.stdout);
+      writeFileSync(join(evidenceDir, 'bridge-rerun.json'), `${JSON.stringify(rerunJson, null, 2)}\n`);
+      const rerunWroteNothing =
+        rerunJson.generatedDocuments.mapped === 0 &&
+        rerunJson.generatedDocuments.quarantined === 0 &&
+        rerunJson.documentVersions.mapped === 0 &&
+        rerunJson.documentVersions.quarantined === 0 &&
+        rerunJson.approvalRequests.quarantined === 0 &&
+        rerunJson.workflowGroups.mapped === 0 &&
+        rerunJson.workflowGroups.quarantined === 0;
+      if (!rerunWroteNothing) throw new ContractFailure(EXIT.CONTRACT, `rerun performed new writes: ${JSON.stringify(rerunJson)}`);
+      const quarantineSnapshotAfterRerun = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT source_model, source_id, reason_code, source_row_hash, quarantined_at, first_seen_at, last_seen_at FROM scope_backfill_quarantine ORDER BY source_model, source_id;`,
+      );
+      if (quarantineSnapshotBeforeRerun !== quarantineSnapshotAfterRerun) {
+        throw new ContractFailure(EXIT.CONTRACT, `rerun changed quarantine row bytes (including lastSeenAt), which must stay byte-identical`);
+      }
+      evidence.rerunZeroDeltaIncludingLastSeenAt = true;
+
+      // ---- validator ----
+      const validate = await runGovernanceValidate(ctx.databaseUrl);
+      const validateJson = JSON.parse(validate.stdout || '{}');
+      writeFileSync(join(evidenceDir, 'governance-validate.json'), `${JSON.stringify(validateJson, null, 2)}\n`);
+      if (validate.code !== 0 || validateJson.ok !== true) {
+        throw new ContractFailure(EXIT.CONTRACT, `governance:validate failed: ${validate.stdout}\n${validate.stderr}`);
+      }
+      evidence.validate = { ok: validateJson.ok, checks: validateJson.checks.length };
+
+      // ---- reproducible deploy + empty schema diff ----
+      const schemaPath = join(REAL_PRISMA_DIR, 'schema.prisma');
+      const redeploy = await runWorkspaceMigrateDeploy(ctx.migrationDatabaseUrl, schemaPath);
+      if (redeploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy re-run was not reproducible: ${redeploy.stderr || redeploy.stdout}`);
+      const diff = await runMigrateDiff(ctx.migrationDatabaseUrl);
+      const diffText = diff.stdout.trim();
+      const isEmptyDiff = diff.code === 0 && (diffText.length === 0 || diffText === '-- This is an empty migration.');
+      writeFileSync(join(evidenceDir, 'migration-diff.sql'), '');
+      if (!isEmptyDiff) throw new ContractFailure(EXIT.CONTRACT, `schema diff not empty after fresh migrate deploy: exit=${diff.code} stdout=${diff.stdout}`);
+      evidence.emptySchemaDiff = true;
+
+      // ---- scope:check via the UNMODIFIED checker, AFTER ----
+      const scopeCheckAfter = await runScopeCheck();
+      if (scopeCheckAfter.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed after backfill: ${scopeCheckAfter.stdout}\n${scopeCheckAfter.stderr}`);
+      const scopeCheckAfterJson = JSON.parse(scopeCheckAfter.stdout);
+      if (scopeCheckAfterJson.currentModelCount !== scopeCheckAfterJson.inventoryModelCount || scopeCheckAfterJson.ok !== true) {
+        throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true after backfill: ${scopeCheckAfter.stdout}`);
+      }
+      if (scopeCheckAfterJson.currentModelCount !== scopeCheckBeforeJson.currentModelCount) {
+        throw new ContractFailure(EXIT.CONTRACT, `canonical inventory model count changed: before=${scopeCheckBeforeJson.currentModelCount} after=${scopeCheckAfterJson.currentModelCount}`);
+      }
+      writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckAfterJson, null, 2)}\n`);
+      evidence.scopeCheckAfter = { currentModelCount: scopeCheckAfterJson.currentModelCount, ok: scopeCheckAfterJson.ok };
+
+      return evidence;
+    },
+  );
+
+  return evidence;
+}
+
+async function runGovernanceBridgeSuite(evidenceDir: string): Promise<number> {
+  const runId = `u020${Date.now().toString(36)}`;
+  const startedAt = new Date().toISOString();
+
+  let caughtError: unknown = null;
+  let scenarioEvidence: Record<string, unknown> | null = null;
+  try {
+    scenarioEvidence = await runGovernanceBridgeScenario(evidenceDir, runId);
+  } catch (error) {
+    caughtError = error;
+  }
+
+  const labelCounts = await labelResourceCounts(runId, OWNER_UNIT_U020, PURPOSE_U020);
+  const cleanupOk = labelCounts.containers === 0 && labelCounts.networks === 0 && labelCounts.volumes === 0;
+  const cleanup = {
+    schemaVersion: 1,
+    unit: OWNER_UNIT_U020,
+    purpose: PURPOSE_U020,
+    runId,
+    postgres: { containers: labelCounts.containers, networks: labelCounts.networks, volumes: labelCounts.volumes },
+    http: null,
+    httpReason:
+      'U020 db:contract is a DB-only traceability backfill suite with no web/API process to bind or tear down here — no approval/workflow runtime is invoked, no external send/share/export exists to reach at this unit.',
+    childProcesses: 0,
+    result: cleanupOk ? 'PASS' : 'FAIL',
+    startedAt,
+    finishedAt: new Date().toISOString(),
+  };
+  writeFileSync(join(evidenceDir, 'cleanup.json'), `${JSON.stringify(cleanup, null, 2)}\n`);
+
+  if (!cleanupOk) {
+    process.stderr.write(`run-db-contract: cleanup verification failed: ${JSON.stringify(cleanup)}\n`);
+    return EXIT.CLEANUP;
+  }
+  if (caughtError) {
+    process.stderr.write(`${caughtError instanceof Error ? (caughtError.stack ?? caughtError.message) : String(caughtError)}\n`);
+    return caughtError instanceof ContractFailure ? caughtError.exitCode : EXIT.CONTRACT;
+  }
+
+  writeFileSync(
+    join(evidenceDir, 'db-contract-receipt.json'),
+    `${JSON.stringify({ schemaVersion: 1, unit: OWNER_UNIT_U020, suite: 'governance-bridge', result: 'PASS', scenarioEvidence, cleanup, startedAt, finishedAt: new Date().toISOString() }, null, 2)}\n`,
+  );
+  return EXIT.SUCCESS;
+}
+
 async function main(): Promise<number> {
   let args;
   try {
@@ -3517,6 +3896,7 @@ async function main(): Promise<number> {
   if (args.suite === 'rls-pilot') return runRlsPilotSuite(args.evidence);
   if (args.suite === 'artifact-schema') return runArtifactSchemaSuite(args.evidence);
   if (args.suite === 'approval-schema') return runApprovalSchemaSuite(args.evidence);
+  if (args.suite === 'governance-bridge') return runGovernanceBridgeSuite(args.evidence);
   return runWorkflowSchemaSuite(args.evidence);
 }
 

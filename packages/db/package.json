@@ -31,6 +31,8 @@
     "scope:migration:verify": "node scripts/verify-scope-migration.mjs",
     "scope:backfill": "tsx scripts/backfill-canonical-scope.ts",
     "scope:validate": "tsx scripts/validate-scope-closure.ts",
+    "governance:backfill": "tsx scripts/backfill-governance-core.ts",
+    "governance:validate": "tsx scripts/validate-governance-core.ts",
     "db:contract": "tsx scripts/run-db-contract.ts"
   },
   "dependencies": {
