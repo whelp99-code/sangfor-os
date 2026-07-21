@@ -53,6 +53,7 @@ export interface TokenPayload {
   scopes: string[];
   tenantId?: string;
   companyId?: string;
+  projectId?: string;
   personaId?: string;
   businessRole?: AuthScope['businessRole'];
   iat: number;

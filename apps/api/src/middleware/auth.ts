@@ -49,6 +49,7 @@ function developmentScopeFallback() {
   return {
     tenantId: process.env.DEFAULT_TENANT_ID ?? 'dev-tenant',
     companyId: process.env.DEFAULT_COMPANY_ID ?? 'dev-company',
+    projectId: process.env.DEFAULT_PROJECT_ID ?? 'dev-project',
     businessRole: 'system_admin' as const,
   };
 }
@@ -85,6 +86,7 @@ function toTokenPayload(claims: NonNullable<ReturnType<typeof verifySessionJwt>>
     scopes: [],
     tenantId: claims.tenantId,
     companyId: claims.companyId,
+    projectId: claims.projectId,
     personaId: claims.personaId,
     iat: claims.iat,
     exp: claims.exp,

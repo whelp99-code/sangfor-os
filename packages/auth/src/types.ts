@@ -49,6 +49,7 @@ export type BusinessPermission =
 export interface AuthScope {
   tenantId: string
   companyId: string
+  projectId: string
   personaId?: string
   businessRole: BusinessRole
 }

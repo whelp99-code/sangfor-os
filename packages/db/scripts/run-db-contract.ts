@@ -37,7 +37,14 @@ const NEW_MIGRATION_NAME_U015 = '20260715150000_business_role_assignments';
 const OWNER_UNIT_U015 = 'U015';
 const PURPOSE_U015 = 'business-role';
 
-const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role']);
+// U016 — rls-pilot suite (registered alongside U011/U012/U014/U015 above; those suites' functions/
+// fixtures are untouched reuse, see the U016 dispatch file boundary — this unit only adds the
+// `rls-pilot` allow-listed suite and its own scenario below).
+const NEW_MIGRATION_NAME_U016 = '20260715160000_rls_pilot';
+const OWNER_UNIT_U016 = 'U016';
+const PURPOSE_U016 = 'rls-pilot';
+
+const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot']);
 
 const EXIT = Object.freeze({
   SUCCESS: 0,
@@ -152,6 +159,12 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
     // role-code CHECK the moment they're inserted after the watermark.
     const targetU015 = join(dir, 'migrations', NEW_MIGRATION_NAME_U015);
     if (existsSync(targetU015)) rmSync(targetU015, { recursive: true, force: true });
+    // U016's migration creates the sangfor_app/sangfor_app_login roles and enables RLS on
+    // companies/projects/etc — deploying it before U011's quarantine table (or ahead of U012's/
+    // U014's/U015's own prerequisites) is out of scope for this pre-U011 prefix, so it stays
+    // excluded here too, same as its three predecessors above.
+    const targetU016 = join(dir, 'migrations', NEW_MIGRATION_NAME_U016);
+    if (existsSync(targetU016)) rmSync(targetU016, { recursive: true, force: true });
   }
   return dir;
 }
@@ -172,6 +185,10 @@ function makeThroughU011PrismaCopy(label: string): string {
   // prefix too.
   const targetU015 = join(dir, 'migrations', NEW_MIGRATION_NAME_U015);
   if (existsSync(targetU015)) rmSync(targetU015, { recursive: true, force: true });
+  // Same reasoning as makeTempPrismaCopy above: keep U016's migration out of this through-U011
+  // prefix too.
+  const targetU016 = join(dir, 'migrations', NEW_MIGRATION_NAME_U016);
+  if (existsSync(targetU016)) rmSync(targetU016, { recursive: true, force: true });
   return dir;
 }
 
@@ -572,11 +589,12 @@ function sha256File(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
-/** Every migration directory name up to and including U010's, excluding the U011/U012/U014/U015
- * ones added by this and the other units — the exact prefix the legacy lifecycle proof deploys
- * first. Each of U011/U012/U014/U015 sorts after U010 by name, so every one must be excluded here
- * too, or it is folded into the "through U010" prefix and deploys before its own dependencies exist
- * (SQLSTATE 42830 for U012/U014; a premature watermarked role-code CHECK for U015). */
+/** Every migration directory name up to and including U010's, excluding the U011/U012/U014/U015/
+ * U016 ones added by this and the other units — the exact prefix the legacy lifecycle proof
+ * deploys first. Each of U011/U012/U014/U015/U016 sorts after U010 by name, so every one must be
+ * excluded here too, or it is folded into the "through U010" prefix and deploys before its own
+ * dependencies exist (SQLSTATE 42830 for U012/U014; a premature watermarked role-code CHECK for
+ * U015; missing companies/projects unique keys U016's RLS policies reference for U016). */
 function listMigrationsThroughU010(): string[] {
   return readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
     .filter((d) => d.isDirectory())
@@ -586,7 +604,8 @@ function listMigrationsThroughU010(): string[] {
         name !== NEW_MIGRATION_NAME &&
         name !== NEW_MIGRATION_NAME_U012 &&
         name !== NEW_MIGRATION_NAME_U014 &&
-        name !== NEW_MIGRATION_NAME_U015,
+        name !== NEW_MIGRATION_NAME_U015 &&
+        name !== NEW_MIGRATION_NAME_U016,
     )
     .sort();
 }
@@ -1595,6 +1614,261 @@ async function runBusinessRoleSuite(evidenceDir: string): Promise<number> {
   return EXIT.SUCCESS;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// U016 — rls-pilot suite
+// ─────────────────────────────────────────────────────────────────────────
+
+const RLS_PILOT_TABLE_NAMES = ['companies', 'projects', 'user_company_roles', 'project_members', 'customers', 'opportunities'];
+const RLS_PILOT_POLICY_NAMES = RLS_PILOT_TABLE_NAMES.map((table) => `sangfor_scope_${table}`);
+
+/** Wraps `innerSelect` as a single-row jsonb_agg(row_to_json(...)) so multi-line predicate text
+ * (e.g. a formatted EXISTS subquery in pg_policies.qual) round-trips through JSON.parse instead of
+ * a raw TSV line split, which would otherwise be corrupted by the embedded newlines in that text. */
+async function execSqlJsonRows<T>(containerName: string, conn: { user: string; password: string; database: string }, innerSelect: string): Promise<T[]> {
+  const raw = await execSql(containerName, conn, `SELECT COALESCE(jsonb_agg(row_to_json(t)), '[]'::jsonb)::text FROM (${innerSelect}) t;`);
+  return JSON.parse(raw) as T[];
+}
+
+/** The PILOT ADAPTER BOUNDARY (see scoped-transaction.test.ts's static assertion) keeps six-table
+ * read/write exercise confined to packages/db/src/rls.integration.test.ts. This suite therefore
+ * never issues SELECT/INSERT/UPDATE/DELETE against the six pilot tables' rows itself — it proves
+ * roles/grants/policies/migration text via pg_catalog/information_schema only, then spawns that
+ * integration test file (CI_INTEGRATION=1) as the one place the actual six-table CRUD/cross-scope/
+ * pool-reset proof runs. */
+async function runRlsPilotIntrospectionScenario(evidenceDir: string, runId: string) {
+  const evidence: Record<string, unknown> = {};
+
+  await withIsolatedPostgres(
+    { runId, ownerUnit: OWNER_UNIT_U016, purpose: PURPOSE_U016, evidenceDir, imageDigest: IMAGE_DIGEST, migrate: true, applicationRoleMode: 'required' },
+    async (ctx: any) => {
+      const adminConn = parseConn(ctx.migrationDatabaseUrl);
+      const appConn = parseConn(ctx.databaseUrl);
+      const schemaPath = join(REAL_PRISMA_DIR, 'schema.prisma');
+      evidence.scratchIdentity = { runId: ctx.sentinel.runId, ownerUnit: ctx.sentinel.ownerUnit, purpose: ctx.sentinel.purpose, databaseName: ctx.databaseName };
+      evidence.generatedLoginCredentialUser = appConn.user;
+      if (appConn.user !== 'sangfor_app_login' || appConn.password.length === 0) {
+        throw new ContractFailure(EXIT.CONTRACT, 'applicationRoleMode=required did not yield a generated sangfor_app_login credential');
+      }
+
+      interface RoleRow { rolname: string; rolsuper: boolean; rolinherit: boolean; rolcreaterole: boolean; rolcreatedb: boolean; rolcanlogin: boolean; rolbypassrls: boolean }
+      const roleRows = await execSqlJsonRows<RoleRow>(
+        ctx.containerName,
+        adminConn,
+        `SELECT rolname, rolsuper, rolinherit, rolcreaterole, rolcreatedb, rolcanlogin, rolbypassrls FROM pg_roles WHERE rolname IN ('sangfor_app','sangfor_app_login') ORDER BY rolname`,
+      );
+      writeFileSync(
+        join(evidenceDir, 'roles.tsv'),
+        `${['rolname', 'rolsuper', 'rolinherit', 'rolcreaterole', 'rolcreatedb', 'rolcanlogin', 'rolbypassrls'].join('\t')}\n${roleRows
+          .map((r) => [r.rolname, r.rolsuper, r.rolinherit, r.rolcreaterole, r.rolcreatedb, r.rolcanlogin, r.rolbypassrls].join('\t'))
+          .join('\n')}\n`,
+      );
+      if (roleRows.length !== 2) throw new ContractFailure(EXIT.CONTRACT, `expected exactly 2 role rows, got ${roleRows.length}: ${JSON.stringify(roleRows)}`);
+      for (const r of roleRows) {
+        if (r.rolsuper || r.rolinherit || r.rolcreaterole || r.rolcreatedb || r.rolbypassrls) {
+          throw new ContractFailure(EXIT.CONTRACT, `role ${r.rolname} has an unexpected flag: ${JSON.stringify(r)}`);
+        }
+        if (r.rolname === 'sangfor_app' && r.rolcanlogin) throw new ContractFailure(EXIT.CONTRACT, `sangfor_app must be rolcanlogin=false: ${JSON.stringify(r)}`);
+        if (r.rolname === 'sangfor_app_login' && !r.rolcanlogin) throw new ContractFailure(EXIT.CONTRACT, `sangfor_app_login must be rolcanlogin=true: ${JSON.stringify(r)}`);
+      }
+      evidence.roleFlagsVerified = { rolname: 'sangfor_app|sangfor_app_login', rolsuper: false, rolbypassrls: false, rolinherit: false };
+
+      interface MembershipRow { admin_option: boolean; inherit_option: boolean; set_option: boolean }
+      const membershipRows = await execSqlJsonRows<MembershipRow>(
+        ctx.containerName,
+        adminConn,
+        `SELECT m.admin_option, m.inherit_option, m.set_option FROM pg_auth_members m
+         JOIN pg_roles r ON r.oid = m.roleid AND r.rolname = 'sangfor_app'
+         JOIN pg_roles mm ON mm.oid = m.member AND mm.rolname = 'sangfor_app_login'`,
+      );
+      if (membershipRows.length !== 1) throw new ContractFailure(EXIT.CONTRACT, `expected exactly 1 sangfor_app_login membership row in sangfor_app, got ${membershipRows.length}`);
+      if (membershipRows[0]!.inherit_option || !membershipRows[0]!.set_option) {
+        throw new ContractFailure(EXIT.CONTRACT, `membership must be granted WITH INHERIT FALSE, SET TRUE: ${JSON.stringify(membershipRows[0])}`);
+      }
+      evidence.membershipVerified = { inheritOption: false, setOption: true };
+
+      interface PolicyRow { tablename: string; policyname: string; cmd: string; qual: string; with_check: string }
+      const policyRows = await execSqlJsonRows<PolicyRow>(
+        ctx.containerName,
+        adminConn,
+        `SELECT tablename, policyname, cmd, qual, with_check FROM pg_policies WHERE tablename IN (${RLS_PILOT_TABLE_NAMES.map((t) => `'${t}'`).join(',')}) ORDER BY tablename`,
+      );
+      writeFileSync(
+        join(evidenceDir, 'policies.tsv'),
+        `${['tablename', 'policyname', 'cmd', 'qual', 'with_check'].join('\t')}\n${policyRows
+          .map((p) => [p.tablename, p.policyname, p.cmd, p.qual.replace(/\s+/g, ' '), p.with_check.replace(/\s+/g, ' ')].join('\t'))
+          .join('\n')}\n`,
+      );
+      if (policyRows.length !== 6) throw new ContractFailure(EXIT.CONTRACT, `expected exactly 6 pilot policies, got ${policyRows.length}: ${JSON.stringify(policyRows.map((p) => p.policyname))}`);
+      for (const p of policyRows) {
+        if (p.policyname !== `sangfor_scope_${p.tablename}`) throw new ContractFailure(EXIT.CONTRACT, `unexpected policy name for ${p.tablename}: ${p.policyname}`);
+        if (p.cmd !== 'ALL') throw new ContractFailure(EXIT.CONTRACT, `policy ${p.policyname} must be FOR ALL, got cmd=${p.cmd}`);
+        if (/^\(?true\)?$/i.test(p.qual.trim())) throw new ContractFailure(EXIT.CONTRACT, `policy ${p.policyname} uses USING (true): ${p.qual}`);
+        if (p.qual !== p.with_check) throw new ContractFailure(EXIT.CONTRACT, `policy ${p.policyname} USING/WITH CHECK differ`);
+      }
+      evidence.policyNamesVerified = RLS_PILOT_POLICY_NAMES;
+
+      interface RlsFlagRow { relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }
+      const rlsFlagRows = await execSqlJsonRows<RlsFlagRow>(
+        ctx.containerName,
+        adminConn,
+        `SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relkind = 'r' AND relname IN (${RLS_PILOT_TABLE_NAMES.map((t) => `'${t}'`).join(',')}) ORDER BY relname`,
+      );
+      if (rlsFlagRows.length !== 6 || rlsFlagRows.some((r) => !r.relrowsecurity || !r.relforcerowsecurity)) {
+        throw new ContractFailure(EXIT.CONTRACT, `expected ENABLE+FORCE RLS on all six pilot tables: ${JSON.stringify(rlsFlagRows)}`);
+      }
+      evidence.enableForceRlsVerified = true;
+
+      interface GrantRow { grantee: string; table_name: string; privilege_type: string }
+      const grantRows = await execSqlJsonRows<GrantRow>(
+        ctx.containerName,
+        adminConn,
+        `SELECT grantee, table_name, privilege_type FROM information_schema.role_table_grants
+         WHERE grantee IN ('sangfor_app','sangfor_app_login') AND table_name IN (${RLS_PILOT_TABLE_NAMES.map((t) => `'${t}'`).join(',')})
+         ORDER BY grantee, table_name, privilege_type`,
+      );
+      const loginGrants = grantRows.filter((g) => g.grantee === 'sangfor_app_login');
+      if (loginGrants.length !== 0) throw new ContractFailure(EXIT.CONTRACT, `sangfor_app_login must have zero direct table grants, found: ${JSON.stringify(loginGrants)}`);
+      for (const table of RLS_PILOT_TABLE_NAMES) {
+        const privileges = grantRows.filter((g) => g.grantee === 'sangfor_app' && g.table_name === table).map((g) => g.privilege_type).sort();
+        if (JSON.stringify(privileges) !== JSON.stringify(['DELETE', 'INSERT', 'SELECT', 'UPDATE'])) {
+          throw new ContractFailure(EXIT.CONTRACT, `sangfor_app grants on ${table} must be exactly SELECT/INSERT/UPDATE/DELETE, got: ${JSON.stringify(privileges)}`);
+        }
+      }
+      evidence.grantsVerified = { sangforApp: 'SELECT,INSERT,UPDATE,DELETE on six tables only', sangforAppLogin: 'no direct grants' };
+
+      const migrationSqlPath = join(REAL_PRISMA_DIR, 'migrations', NEW_MIGRATION_NAME_U016, 'migration.sql');
+      const migrationSqlText = readFileSync(migrationSqlPath, 'utf8');
+      const executableOnly = migrationSqlText.split('\n').map((line) => line.replace(/--.*/, '')).join('\n');
+      const passwordScanHits = (executableOnly.toUpperCase().match(/PASSWORD/g) ?? []).length;
+      if (passwordScanHits !== 0) throw new ContractFailure(EXIT.CONTRACT, `migration.sql executable statements contain PASSWORD (${passwordScanHits} hit(s))`);
+      evidence.migrationPasswordScan = { hits: 0 };
+
+      const redeploy = await runWorkspaceMigrateDeploy(ctx.migrationDatabaseUrl, schemaPath);
+      if (redeploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy re-run was not reproducible: ${redeploy.stderr || redeploy.stdout}`);
+      evidence.migrateDeployReproducible = true;
+
+      const diff = await runMigrateDiff(ctx.migrationDatabaseUrl);
+      const diffText = diff.stdout.trim();
+      const isEmptyDiff = diff.code === 0 && (diffText.length === 0 || diffText === '-- This is an empty migration.');
+      writeFileSync(join(evidenceDir, 'migration-diff.sql'), '');
+      if (!isEmptyDiff) throw new ContractFailure(EXIT.CONTRACT, `schema diff not empty after fresh migrate deploy: exit=${diff.code} stdout=${diff.stdout}`);
+      evidence.emptySchemaDiff = true;
+
+      return evidence;
+    },
+  );
+
+  return evidence;
+}
+
+interface VitestJsonAssertion { status: string; fullName: string }
+interface VitestJsonReport { numTotalTests: number; numPassedTests: number; numFailedTests: number; testResults: Array<{ name: string; assertionResults: VitestJsonAssertion[] }> }
+
+/** `pnpm --filter @sangfor/db test -- <flags>` routes through the `test` npm script's own `--`,
+ * so extra `--reporter=...`/`--outputFile=...` flags land as inert positional filters instead of
+ * real vitest CLI flags. `pnpm exec vitest run <flags> <path>` calls the binary directly, which
+ * both applies the flags for real and — unlike the script indirection above — genuinely restricts
+ * the run to the one named file. */
+async function runRlsIntegrationTestSubprocess(reportPath: string): Promise<CaptureResult> {
+  const argv = [
+    'bash', join(REPO_ROOT, 'scripts/run-workspace-runtime.sh'), 'root', '--',
+    'corepack', 'pnpm', '--filter', '@sangfor/db', 'exec', 'vitest', 'run',
+    '--reporter=json', `--outputFile=${reportPath}`, 'src/rls.integration.test.ts',
+  ];
+  return spawnCapture(argv, sanitizedEnv({ CI_INTEGRATION: '1' }));
+}
+
+/** Runs the U016 six-table pilot proof by spawning rls.integration.test.ts with CI_INTEGRATION=1
+ * — the PILOT ADAPTER BOUNDARY keeps this suite from exercising the six pilot tables' rows
+ * directly (see runRlsPilotIntrospectionScenario above). That file owns its own independent
+ * scratch-Postgres lifecycle/cleanup and covers same-scope CRUD, cross-scope read/write, direct
+ * login denial, non-pilot denial, forged-hierarchy denial, and pool/rollback context reset. */
+async function runRlsPilotIntegrationProof(evidenceDir: string) {
+  const reportDir = mkdtempSync(join(tmpdir(), 'u016-rls-integration-report-'));
+  const reportPath = join(reportDir, 'vitest-report.json');
+  const result = await runRlsIntegrationTestSubprocess(reportPath);
+
+  let report: VitestJsonReport | null = null;
+  if (existsSync(reportPath)) {
+    report = JSON.parse(readFileSync(reportPath, 'utf8')) as VitestJsonReport;
+  }
+  rmSync(reportDir, { recursive: true, force: true });
+
+  const assertions = report?.testResults.flatMap((f) => f.assertionResults) ?? [];
+  const poolAssertion = assertions.find((a) => /pool reuse/i.test(a.fullName));
+  const rollbackAssertion = assertions.find((a) => /rolled-back/i.test(a.fullName));
+  writeFileSync(
+    join(evidenceDir, 'pool-reset.log'),
+    `${poolAssertion ? `${poolAssertion.status}: ${poolAssertion.fullName}` : 'pool-reuse assertion not found in vitest JSON report'}\n${
+      rollbackAssertion ? `${rollbackAssertion.status}: ${rollbackAssertion.fullName}` : 'rollback assertion not found in vitest JSON report'
+    }\n`,
+  );
+
+  const matrix = {
+    schemaVersion: 1,
+    exitCode: result.code,
+    integrationTestFile: 'src/rls.integration.test.ts',
+    numTotalTests: report?.numTotalTests ?? null,
+    numPassedTests: report?.numPassedTests ?? null,
+    numFailedTests: report?.numFailedTests ?? null,
+    assertions: assertions.map((a) => ({ status: a.status, fullName: a.fullName })),
+  };
+  writeFileSync(join(evidenceDir, 'rls-read-write-matrix.json'), `${JSON.stringify(matrix, null, 2)}\n`);
+
+  if (result.code !== 0 || !report || report.numFailedTests !== 0 || report.numTotalTests === 0) {
+    throw new ContractFailure(EXIT.CONTRACT, `rls.integration.test.ts (CI_INTEGRATION=1) failed: exit=${result.code} report=${JSON.stringify(matrix)}\n${(result.stdout + result.stderr).slice(-4000)}`);
+  }
+  return matrix;
+}
+
+async function runRlsPilotSuite(evidenceDir: string): Promise<number> {
+  const runId = `u016${Date.now().toString(36)}`;
+  const startedAt = new Date().toISOString();
+
+  let caughtError: unknown = null;
+  let introspectionEvidence: Record<string, unknown> | null = null;
+  let integrationProof: Record<string, unknown> | null = null;
+  try {
+    introspectionEvidence = await runRlsPilotIntrospectionScenario(evidenceDir, runId);
+    integrationProof = await runRlsPilotIntegrationProof(evidenceDir);
+  } catch (error) {
+    caughtError = error;
+  }
+
+  const labelCounts = await labelResourceCounts(runId, OWNER_UNIT_U016, PURPOSE_U016);
+  const cleanupOk = labelCounts.containers === 0 && labelCounts.networks === 0 && labelCounts.volumes === 0;
+  const cleanup = {
+    schemaVersion: 1,
+    unit: OWNER_UNIT_U016,
+    purpose: PURPOSE_U016,
+    runId,
+    postgres: { containers: labelCounts.containers, networks: labelCounts.networks, volumes: labelCounts.volumes },
+    http: null,
+    httpReason:
+      'U016 db:contract is a DB-only RLS pilot suite with no web/API process to bind or tear down — the six-table pilot itself runs only inside packages/db/src/rls.integration.test.ts (spawned separately with CI_INTEGRATION=1 per the PILOT ADAPTER BOUNDARY), which owns its own independent scratch-Postgres container and cleanup receipt.',
+    childProcesses: 0,
+    result: cleanupOk ? 'PASS' : 'FAIL',
+    startedAt,
+    finishedAt: new Date().toISOString(),
+  };
+  writeFileSync(join(evidenceDir, 'cleanup.json'), `${JSON.stringify(cleanup, null, 2)}\n`);
+
+  if (!cleanupOk) {
+    process.stderr.write(`run-db-contract: cleanup verification failed: ${JSON.stringify(cleanup)}\n`);
+    return EXIT.CLEANUP;
+  }
+  if (caughtError) {
+    process.stderr.write(`${caughtError instanceof Error ? (caughtError.stack ?? caughtError.message) : String(caughtError)}\n`);
+    return caughtError instanceof ContractFailure ? caughtError.exitCode : EXIT.CONTRACT;
+  }
+
+  writeFileSync(
+    join(evidenceDir, 'db-contract-receipt.json'),
+    `${JSON.stringify({ schemaVersion: 1, unit: OWNER_UNIT_U016, suite: 'rls-pilot', result: 'PASS', introspectionEvidence, integrationProof, cleanup, startedAt, finishedAt: new Date().toISOString() }, null, 2)}\n`,
+  );
+  return EXIT.SUCCESS;
+}
+
 async function main(): Promise<number> {
   let args;
   try {
@@ -1608,7 +1882,8 @@ async function main(): Promise<number> {
   if (args.suite === 'scope-backfill') return runScopeBackfillSuite(args.evidence);
   if (args.suite === 'scope-closure') return runScopeClosureSuite(args.evidence);
   if (args.suite === 'principal-session') return runPrincipalSessionSuite(args.evidence);
-  return runBusinessRoleSuite(args.evidence);
+  if (args.suite === 'business-role') return runBusinessRoleSuite(args.evidence);
+  return runRlsPilotSuite(args.evidence);
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

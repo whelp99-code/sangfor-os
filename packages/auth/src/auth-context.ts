@@ -30,6 +30,7 @@ const businessRbac = new BusinessRBAC();
 export interface AuthContextFallback {
   tenantId: string;
   companyId: string;
+  projectId?: string;
   businessRole?: BusinessRole;
   personaId?: string;
 }
@@ -40,6 +41,10 @@ export function createAuthContextFromTokenPayload(
 ): AuthContext | null {
   const tenantId = payload.tenantId ?? fallback?.tenantId;
   const companyId = payload.companyId ?? fallback?.companyId;
+  // U016 companion: projectId follows the exact same fail-closed resolution as tenantId/companyId
+  // below — a caller that cannot supply it (from the trusted token or a server-side fallback) gets
+  // `null`, never a silently-defaulted project scope.
+  const projectId = payload.projectId ?? fallback?.projectId;
   // U015/SEC-02a: no default. Unlike tenantId/companyId, businessRole has no safe placeholder — a
   // caller that cannot supply an explicit one (from a trusted server-side fallback) gets `null`
   // here, same as missing tenant/company scope, rather than a silently-granted role. Real
@@ -49,7 +54,7 @@ export function createAuthContextFromTokenPayload(
   const businessRole = payload.businessRole ?? fallback?.businessRole;
   const personaId = payload.personaId ?? fallback?.personaId;
 
-  if (!tenantId || !companyId || !businessRole) return null;
+  if (!tenantId || !companyId || !projectId || !businessRole) return null;
 
   return {
     userId: payload.sub,
@@ -57,6 +62,7 @@ export function createAuthContextFromTokenPayload(
     product: payload.product,
     tenantId,
     companyId,
+    projectId,
     personaId,
     businessRole,
     permissions: businessRbac.getRolePermissions(businessRole),
@@ -70,6 +76,7 @@ export function createDevelopmentAuthContext(overrides?: Partial<AuthScope> & { 
     sessionId: overrides?.sessionId ?? 'dev-session',
     tenantId: overrides?.tenantId ?? 'dev-tenant',
     companyId: overrides?.companyId ?? 'dev-company',
+    projectId: overrides?.projectId ?? 'dev-project',
     personaId: overrides?.personaId ?? 'dev-persona',
     businessRole,
     permissions: businessRbac.getRolePermissions(businessRole),
