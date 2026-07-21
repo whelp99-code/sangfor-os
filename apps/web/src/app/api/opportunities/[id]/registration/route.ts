@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 import {
   isResourceInProject,
   relatedResourcesBelongToProject,
@@ -51,6 +52,8 @@ export async function GET(request: Request, context: RouteContext) {
 export async function PUT(request: Request, context: RouteContext) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/opportunities/[id]/registration/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   const project = await resolveProjectScope(request);
   if (!project.ok) return project.response;
   const { id } = await context.params;

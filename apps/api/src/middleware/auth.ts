@@ -19,6 +19,7 @@ import {
 } from '@sangfor/auth';
 import { getUserJwtConfig } from '@sangfor/config';
 import { prisma } from '@sangfor/db';
+import { resolveBusinessAuthorizationFromDb } from './business-authorization';
 
 export interface AuthUser {
   id: string;
@@ -127,7 +128,16 @@ async function loadPersistedSessionEvaluation(claims: SessionJwtClaims): Promise
 // hard reject, never a downgrade: cryptographic validity alone no longer admits the request — the
 // persisted-session DB check below must also pass. A DB failure while checking an otherwise-valid
 // session-JWT denies outright rather than silently falling through to the legacy TokenManager path.
-async function verifyBearerToken(token: string): Promise<TokenPayload | null> {
+interface BearerVerification {
+  readonly payload: TokenPayload;
+  // 'session' means the token resolved through the DB-backed persisted-session check above (a
+  // real userId with a real AuthSession row) — the only source U015 recomputes businessRole for.
+  // 'legacy-token-manager' is the pre-existing, unrelated TokenManager path (see the U013 note
+  // above); it is untouched by U015, exactly as it was untouched by U013/U014.
+  readonly source: 'session' | 'legacy-token-manager';
+}
+
+async function verifyBearerToken(token: string): Promise<BearerVerification | null> {
   let claims: SessionJwtClaims | null = null;
   try {
     claims = verifySessionJwt(token, getUserJwtConfig());
@@ -142,10 +152,11 @@ async function verifyBearerToken(token: string): Promise<TokenPayload | null> {
     } catch {
       return null;
     }
-    return evaluation.ok ? toTokenPayload(claims) : null;
+    return evaluation.ok ? { payload: toTokenPayload(claims), source: 'session' } : null;
   }
 
-  return getTokenManager().verifyToken(token);
+  const legacyPayload = await getTokenManager().verifyToken(token);
+  return legacyPayload ? { payload: legacyPayload, source: 'legacy-token-manager' } : null;
 }
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -153,11 +164,26 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.slice(7);
-    const payload = await verifyBearerToken(token);
+    const verification = await verifyBearerToken(token);
 
-    if (payload) {
-      const authContext = createAuthContextFromTokenPayload(payload, developmentScopeFallback());
+    if (verification) {
+      const authContext = createAuthContextFromTokenPayload(verification.payload, developmentScopeFallback());
       if (authContext) {
+        // U015/SEC-02a: production has no dev-fallback businessRole (developmentScopeFallback
+        // returns undefined there), so a real deployment must resolve the DB-verified session's
+        // role here — never defaulted, never trusted from the token. Non-production keeps today's
+        // byte-identical dev/test posture (the fallback above already supplies a role), so no DB
+        // round trip runs there and every existing NODE_ENV=test/development fixture is unaffected.
+        if (verification.source === 'session' && process.env.NODE_ENV === 'production') {
+          const evaluation = await resolveBusinessAuthorizationFromDb(authContext.userId, authContext.companyId, new Date());
+          if (!evaluation.ok || !evaluation.role) {
+            res.status(403).json({ error: 'forbidden', reason: evaluation.ok ? 'NO_ACTIVE_ROLE' : evaluation.reason });
+            return;
+          }
+          attachAuthContext(req, { ...authContext, businessRole: evaluation.role, permissions: evaluation.permissions });
+          next();
+          return;
+        }
         attachAuthContext(req, authContext);
         next();
         return;

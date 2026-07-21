@@ -1,5 +1,6 @@
 import { scheduleStore } from "@/lib/agent/schedule-store";
 import { assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/agent/schedules/[id]/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   const { id } = await params;
   let body: { enabled?: unknown; intervalMinutes?: unknown };
   try {
@@ -26,6 +29,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/agent/schedules/[id]/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   const { id } = await params;
   const removed = scheduleStore.remove(id);
   if (!removed) return Response.json({ error: "schedule not found" }, { status: 404 });

@@ -1,6 +1,7 @@
 import { generateDomainProposal, getProjectHub, DOMAIN_ORDER } from '@sangfor/business';
 import { NextResponse } from 'next/server';
 import { assertApiAccess } from '@/lib/api-auth';
+import { assertBusinessCapability } from '@/lib/auth/authorization';
 
 export async function POST(
   req: Request,
@@ -8,6 +9,8 @@ export async function POST(
 ) {
   const denied = assertApiAccess(req);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(req, 'apps/web/src/app/api/projects/[id]/generate/route.ts');
+  if (capabilityDenied) return capabilityDenied;
   try {
     const { id } = await params;
     const body = await req.json().catch(() => ({})) as { domain?: string };

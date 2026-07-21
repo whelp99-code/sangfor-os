@@ -5,6 +5,7 @@ import {
   findCallerIdentityConflicts,
   stripCallerIdentityFields,
 } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 
 type ParsedFinanceResponse =
   | { ok: true; data: unknown }
@@ -25,6 +26,8 @@ function parseFinanceResponse(text: string): ParsedFinanceResponse {
 async function proxy(req: NextRequest, method: string) {
   const authorization = authorizeOperatorRequest(req);
   if (authorization instanceof NextResponse) return authorization;
+  const capabilityDenied = await assertBusinessCapability(req, "apps/web/src/app/api/finance/[...path]/route.ts");
+  if (capabilityDenied) return capabilityDenied;
 
   const financeApiKey = process.env.FINANCE_API_KEY?.trim();
   if (!financeApiKey) {

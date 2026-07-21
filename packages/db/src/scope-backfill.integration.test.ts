@@ -44,31 +44,31 @@ INSERT INTO users (id, email, name, created_at, updated_at) VALUES
   ('fx-user-nomembership', 'nomembership@fixture.example.com', 'No Membership', now(), now());
 
 INSERT INTO user_company_roles (id, user_id, company_id, role, created_at) VALUES
-  ('fx-ucr-resolver-alpha', 'fx-user-resolver', 'fx-company-alpha', 'member', now()),
-  ('fx-ucr-target-a-alpha', 'fx-user-target-a', 'fx-company-alpha', 'member', now()),
-  ('fx-ucr-email-match-alpha', 'fx-user-email-match', 'fx-company-alpha', 'member', now()),
-  ('fx-ucr-target-b-alpha', 'fx-user-target-b', 'fx-company-alpha', 'member', now()),
-  ('fx-ucr-dual-alpha', 'fx-user-dual', 'fx-company-alpha', 'member', now()),
-  ('fx-ucr-dual-beta', 'fx-user-dual', 'fx-company-beta', 'member', now()),
-  ('fx-ucr-dual-target-alpha', 'fx-user-dual-target', 'fx-company-alpha', 'member', now()),
-  ('fx-ucr-dual-target-beta', 'fx-user-dual-target', 'fx-company-beta', 'member', now());
+  ('fx-ucr-resolver-alpha', 'fx-user-resolver', 'fx-company-alpha', 'account_manager', now()),
+  ('fx-ucr-target-a-alpha', 'fx-user-target-a', 'fx-company-alpha', 'account_manager', now()),
+  ('fx-ucr-email-match-alpha', 'fx-user-email-match', 'fx-company-alpha', 'account_manager', now()),
+  ('fx-ucr-target-b-alpha', 'fx-user-target-b', 'fx-company-alpha', 'account_manager', now()),
+  ('fx-ucr-dual-alpha', 'fx-user-dual', 'fx-company-alpha', 'account_manager', now()),
+  ('fx-ucr-dual-beta', 'fx-user-dual', 'fx-company-beta', 'account_manager', now()),
+  ('fx-ucr-dual-target-alpha', 'fx-user-dual-target', 'fx-company-alpha', 'account_manager', now()),
+  ('fx-ucr-dual-target-beta', 'fx-user-dual-target', 'fx-company-beta', 'account_manager', now());
 
-INSERT INTO projects (id, slug, name, description, created_at, updated_at) VALUES
-  ('fx-project-resolved', 'fx-project-resolved', 'Fixture Resolved Project', NULL, now(), now()),
-  ('fx-project-ambiguous', 'fx-project-ambiguous', 'Fixture Ambiguous Project', NULL, now(), now()),
-  ('fx-project-unmatched', 'fx-project-unmatched', 'Fixture Unmatched Project', NULL, now(), now());
+INSERT INTO projects (id, slug, name, description, company_id, created_at, updated_at) VALUES
+  ('fx-project-resolved', 'fx-project-resolved', 'Fixture Resolved Project', NULL, 'fx-company-alpha', now(), now()),
+  ('fx-project-ambiguous', 'fx-project-ambiguous', 'Fixture Ambiguous Project', NULL, 'fx-company-alpha', now(), now()),
+  ('fx-project-unmatched', 'fx-project-unmatched', 'Fixture Unmatched Project', NULL, 'fx-company-alpha', now(), now());
 
 INSERT INTO project_members (id, project_id, user_id, role, created_at) VALUES
   ('fx-pm-resolved', 'fx-project-resolved', 'fx-user-resolver', 'member', now()),
   ('fx-pm-ambiguous', 'fx-project-ambiguous', 'fx-user-dual', 'member', now());
 
-INSERT INTO role_change_requests (id, user_id, from_role, to_role, status, requested_by, approved_by, created_at) VALUES
-  ('fx-rcr-id-resolved', 'fx-user-target-a', 'member', 'admin', 'pending', 'fx-user-resolver', NULL, now()),
-  ('fx-rcr-email-resolved', 'fx-user-target-b', 'member', 'admin', 'pending', 'emailmatch@fixture.example.com', NULL, now()),
-  ('fx-rcr-cross-ambiguous', 'fx-user-target-a', 'member', 'admin', 'pending', 'fx-user-cross-a', NULL, now()),
-  ('fx-rcr-company-ambiguous', 'fx-user-dual-target', 'member', 'admin', 'pending', 'fx-user-dual', NULL, now()),
-  ('fx-rcr-unmatched-nomembership', 'fx-user-target-a', 'member', 'admin', 'pending', 'fx-user-nomembership', NULL, now()),
-  ('fx-rcr-unmatched-nearmiss', 'fx-user-target-a', 'member', 'admin', 'pending', ' RESOLVER@fixture.example.com ', NULL, now());
+INSERT INTO role_change_requests (id, user_id, from_role, to_role, status, requested_by, approved_by, company_id, created_at) VALUES
+  ('fx-rcr-id-resolved', 'fx-user-target-a', 'member', 'admin', 'pending', 'fx-user-resolver', NULL, 'fx-company-alpha', now()),
+  ('fx-rcr-email-resolved', 'fx-user-target-b', 'member', 'admin', 'pending', 'emailmatch@fixture.example.com', NULL, 'fx-company-alpha', now()),
+  ('fx-rcr-cross-ambiguous', 'fx-user-target-a', 'member', 'admin', 'pending', 'fx-user-cross-a', NULL, 'fx-company-alpha', now()),
+  ('fx-rcr-company-ambiguous', 'fx-user-dual-target', 'member', 'admin', 'pending', 'fx-user-dual', NULL, 'fx-company-alpha', now()),
+  ('fx-rcr-unmatched-nomembership', 'fx-user-target-a', 'member', 'admin', 'pending', 'fx-user-nomembership', NULL, 'fx-company-alpha', now()),
+  ('fx-rcr-unmatched-nearmiss', 'fx-user-target-a', 'member', 'admin', 'pending', ' RESOLVER@fixture.example.com ', NULL, 'fx-company-alpha', now());
 `;
 
 const HERE = dirname(fileURLToPath(import.meta.url));

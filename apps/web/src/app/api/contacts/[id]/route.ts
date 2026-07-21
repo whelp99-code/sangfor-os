@@ -2,6 +2,7 @@ import { archiveContact, getContactDetail, updateContact } from "@sangfor/busine
 import { NextResponse } from "next/server";
 
 import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 import { isResourceInProject, resolveProjectScope } from "@/lib/project-scope";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -26,6 +27,8 @@ export async function GET(request: Request, context: RouteContext) {
 export async function PATCH(request: Request, context: RouteContext) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/contacts/[id]/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   const scoped = await resolveScopedContact(request, context);
   if (!scoped.ok) return scoped.response;
   try {
@@ -39,6 +42,8 @@ export async function PATCH(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/contacts/[id]/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   const scoped = await resolveScopedContact(request, context);
   if (!scoped.ok) return scoped.response;
   try {

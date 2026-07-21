@@ -2,6 +2,7 @@ import { runConfigAutomation } from "@sangfor/agent";
 
 import { workflowRunStore } from "@/lib/agent/workflow-run-store";
 import { assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/agent/workflow/run/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   let body: { requirements?: unknown; approvals?: unknown };
   try {
     body = await request.json();

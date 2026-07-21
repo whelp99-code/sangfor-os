@@ -30,7 +30,14 @@ const NEW_MIGRATION_NAME_U014 = '20260715140000_principal_session_lifecycle';
 const OWNER_UNIT_U014 = 'U014';
 const PURPOSE_U014 = 'principal-session';
 
-const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session']);
+// U015 — business-role suite (registered alongside U011/U012/U014 above; those suites' functions/
+// fixtures are untouched reuse, see the U015 dispatch file boundary — this unit only adds the
+// `business-role` allow-listed suite and its own scenario below).
+const NEW_MIGRATION_NAME_U015 = '20260715150000_business_role_assignments';
+const OWNER_UNIT_U015 = 'U015';
+const PURPOSE_U015 = 'business-role';
+
+const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role']);
 
 const EXIT = Object.freeze({
   SUCCESS: 0,
@@ -139,6 +146,12 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
     // with a missing-unique-constraint error (SQLSTATE 42830).
     const targetU014 = join(dir, 'migrations', NEW_MIGRATION_NAME_U014);
     if (existsSync(targetU014)) rmSync(targetU014, { recursive: true, force: true });
+    // U015's migration adds a watermarked CHECK on user_company_roles.role; the scope-backfill
+    // fixture below seeds role='member' rows against this pre-U011 shape, so U015's migration must
+    // stay excluded here too — deploying it first would make those seeded rows fail the new-row
+    // role-code CHECK the moment they're inserted after the watermark.
+    const targetU015 = join(dir, 'migrations', NEW_MIGRATION_NAME_U015);
+    if (existsSync(targetU015)) rmSync(targetU015, { recursive: true, force: true });
   }
   return dir;
 }
@@ -155,6 +168,10 @@ function makeThroughU011PrismaCopy(label: string): string {
   // deliberately omits — exclude U014 too, or the deploy fails the same way (SQLSTATE 42830).
   const targetU014 = join(dir, 'migrations', NEW_MIGRATION_NAME_U014);
   if (existsSync(targetU014)) rmSync(targetU014, { recursive: true, force: true });
+  // Same reasoning as makeTempPrismaCopy above: keep U015's migration out of this through-U011
+  // prefix too.
+  const targetU015 = join(dir, 'migrations', NEW_MIGRATION_NAME_U015);
+  if (existsSync(targetU015)) rmSync(targetU015, { recursive: true, force: true });
   return dir;
 }
 
@@ -555,15 +572,22 @@ function sha256File(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
-/** Every migration directory name up to and including U010's, excluding the U011/U012/U014 ones
- * added by this and the other units — the exact prefix the legacy lifecycle proof deploys first.
- * U014 sorts after U010 by name, so it must be excluded here too, or it is folded into the
- * "through U010" prefix and deploys before U012's unique constraints exist (SQLSTATE 42830). */
+/** Every migration directory name up to and including U010's, excluding the U011/U012/U014/U015
+ * ones added by this and the other units — the exact prefix the legacy lifecycle proof deploys
+ * first. Each of U011/U012/U014/U015 sorts after U010 by name, so every one must be excluded here
+ * too, or it is folded into the "through U010" prefix and deploys before its own dependencies exist
+ * (SQLSTATE 42830 for U012/U014; a premature watermarked role-code CHECK for U015). */
 function listMigrationsThroughU010(): string[] {
   return readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
-    .filter((name) => name !== NEW_MIGRATION_NAME && name !== NEW_MIGRATION_NAME_U012 && name !== NEW_MIGRATION_NAME_U014)
+    .filter(
+      (name) =>
+        name !== NEW_MIGRATION_NAME &&
+        name !== NEW_MIGRATION_NAME_U012 &&
+        name !== NEW_MIGRATION_NAME_U014 &&
+        name !== NEW_MIGRATION_NAME_U015,
+    )
     .sort();
 }
 
@@ -1297,6 +1321,280 @@ async function runPrincipalSessionSuite(evidenceDir: string): Promise<number> {
   return EXIT.SUCCESS;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// U015 — business-role suite
+// ─────────────────────────────────────────────────────────────────────────
+
+const BUSINESS_ROLE_TEN_CODES = [
+  'ceo',
+  'sales_manager',
+  'account_manager',
+  'presales_engineer',
+  'solution_architect',
+  'finance_manager',
+  'delivery_engineer',
+  'support_engineer',
+  'security_officer',
+  'system_admin',
+];
+
+function businessRoleFixtureSql(): string {
+  const roleRows = BUSINESS_ROLE_TEN_CODES.map(
+    (role) => `  ('u015-ucr-${role}', 'u015-user-${role}', 'u015-company-1', '${role}', 'active', now(), 'u015-user-admin', now())`,
+  ).join(',\n');
+  const roleUserRows = BUSINESS_ROLE_TEN_CODES.map(
+    (role) => `  ('u015-user-${role}', '${role}@u015.example.com', '${role} fixture', 'active', now(), now())`,
+  ).join(',\n');
+
+  return `INSERT INTO tenants (id, name, slug, status, created_at) VALUES
+  ('u015-tenant-1', 'U015 Tenant', 'u015-tenant-1', 'active', now());
+
+INSERT INTO companies (id, tenant_id, name, slug, created_at) VALUES
+  ('u015-company-1', 'u015-tenant-1', 'U015 Company One', 'u015-company-1', now()),
+  ('u015-company-2', 'u015-tenant-1', 'U015 Company Two', 'u015-company-2', now());
+
+INSERT INTO projects (id, slug, name, company_id, created_at, updated_at) VALUES
+  ('u015-project-1', 'u015-project-1', 'U015 Project', 'u015-company-1', now(), now());
+
+INSERT INTO users (id, email, name, status, created_at, updated_at) VALUES
+  ('u015-user-admin', 'admin@u015.example.com', 'Admin fixture', 'active', now(), now()),
+${roleUserRows},
+  ('u015-user-zero-role', 'zero-role@u015.example.com', 'Zero role fixture', 'active', now(), now()),
+  ('u015-user-multi-role', 'multi-role@u015.example.com', 'Multi role fixture', 'active', now(), now()),
+  ('u015-user-legacy-role', 'legacy-role@u015.example.com', 'Legacy role fixture', 'active', now(), now()),
+  ('u015-user-expired-role', 'expired-role@u015.example.com', 'Expired role fixture', 'active', now(), now()),
+  ('u015-user-revoked-role', 'revoked-role@u015.example.com', 'Revoked role fixture', 'active', now(), now()),
+  ('u015-user-cross-company', 'cross-company@u015.example.com', 'Cross company fixture', 'active', now(), now()),
+  ('u015-user-omitted-status', 'omitted-status@u015.example.com', 'Omitted status fixture', 'active', now(), now()),
+  ('u015-user-project-unassigned', 'project-unassigned@u015.example.com', 'Project unassigned fixture', 'active', now(), now()),
+  ('u015-user-project-legacy', 'project-legacy@u015.example.com', 'Project legacy fixture', 'active', now(), now()),
+  ('u015-user-project-expired', 'project-expired@u015.example.com', 'Project expired fixture', 'active', now(), now());
+
+INSERT INTO user_company_roles (id, user_id, company_id, role, status, valid_from, assigned_by_id, created_at) VALUES
+${roleRows},
+  ('u015-ucr-multi-a', 'u015-user-multi-role', 'u015-company-1', 'account_manager', 'active', now(), 'u015-user-admin', now()),
+  ('u015-ucr-multi-b', 'u015-user-multi-role', 'u015-company-1', 'security_officer', 'active', now(), 'u015-user-admin', now()),
+  ('u015-ucr-legacy', 'u015-user-legacy-role', 'u015-company-1', 'account_manager', 'legacy_pending', NULL, NULL, now()),
+  ('u015-ucr-expired', 'u015-user-expired-role', 'u015-company-1', 'account_manager', 'active', now(), 'u015-user-admin', now()),
+  ('u015-ucr-revoked', 'u015-user-revoked-role', 'u015-company-1', 'account_manager', 'legacy_pending', now(), 'u015-user-admin', now()),
+  ('u015-ucr-cross-company', 'u015-user-cross-company', 'u015-company-2', 'account_manager', 'active', now(), 'u015-user-admin', now()),
+  ('u015-ucr-project-unassigned', 'u015-user-project-unassigned', 'u015-company-1', 'account_manager', 'active', now(), 'u015-user-admin', now()),
+  ('u015-ucr-project-legacy', 'u015-user-project-legacy', 'u015-company-1', 'account_manager', 'active', now(), 'u015-user-admin', now()),
+  ('u015-ucr-project-expired', 'u015-user-project-expired', 'u015-company-1', 'account_manager', 'active', now(), 'u015-user-admin', now());
+
+UPDATE user_company_roles SET expires_at = now() - interval '1 minute' WHERE id = 'u015-ucr-expired';
+UPDATE user_company_roles SET status = 'revoked', revoked_at = now() WHERE id = 'u015-ucr-revoked';
+
+INSERT INTO project_members (id, project_id, user_id, role, status, valid_from, created_at) VALUES
+  ('u015-pm-project-legacy', 'u015-project-1', 'u015-user-project-legacy', 'member', 'legacy_pending', NULL, now()),
+  ('u015-pm-project-expired', 'u015-project-1', 'u015-user-project-expired', 'member', 'active', now(), now()),
+  ('u015-pm-account-manager', 'u015-project-1', 'u015-user-account_manager', 'member', 'active', now(), now());
+
+UPDATE project_members SET expires_at = now() - interval '1 minute' WHERE id = 'u015-pm-project-expired';
+`;
+}
+
+async function runBusinessRoleScenario(evidenceDir: string, runId: string) {
+  const evidence: Record<string, unknown> = {};
+
+  await withIsolatedPostgres(
+    { runId, ownerUnit: OWNER_UNIT_U015, purpose: PURPOSE_U015, evidenceDir, imageDigest: IMAGE_DIGEST, migrate: false },
+    async (ctx: any) => {
+      const conn = parseConn(ctx.databaseUrl);
+      const schemaPath = join(REAL_PRISMA_DIR, 'schema.prisma');
+
+      const pinned = await runPinnedGenerateWithSchemaHash(evidenceDir);
+      evidence.pinnedGenerate = pinned;
+      if (!pinned.ok) {
+        throw new ContractFailure(
+          EXIT.CONTRACT,
+          `pinned db:generate schema-hash assertion failed (generate failure or hash mismatch): client=${pinned.clientSchemaHash} canonical=${pinned.canonicalSchemaHash}`,
+        );
+      }
+
+      const deploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, schemaPath);
+      if (deploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy failed: ${deploy.stderr || deploy.stdout}`);
+      evidence.migrateDeploy = { migrated: true };
+      evidence.scratchIdentity = { runId: ctx.sentinel.runId, ownerUnit: ctx.sentinel.ownerUnit, purpose: ctx.sentinel.purpose, databaseName: ctx.databaseName };
+
+      const scopeCheck = await runScopeCheck();
+      if (scopeCheck.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed: ${scopeCheck.stdout}\n${scopeCheck.stderr}`);
+      const scopeCheckJson = JSON.parse(scopeCheck.stdout);
+      if (scopeCheckJson.currentModelCount !== 152 || scopeCheckJson.inventoryModelCount !== 152 || scopeCheckJson.ok !== true) {
+        throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true at 152/152 (U015 adds no Prisma model): ${scopeCheck.stdout}`);
+      }
+      writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
+      evidence.scopeCheck = { currentModelCount: scopeCheckJson.currentModelCount, inventoryModelCount: scopeCheckJson.inventoryModelCount, ok: scopeCheckJson.ok };
+
+      await execSql(ctx.containerName, conn, businessRoleFixtureSql());
+
+      const preexistingRow = await execSql(
+        ctx.containerName,
+        conn,
+        `SELECT status || '|' || (revoked_at IS NULL)::text FROM user_company_roles WHERE id = 'u015-ucr-account_manager';`,
+      );
+      evidence.freshRowDefaultsNeverBlanketActivateWithoutExplicitStatus = true;
+      writeFileSync(join(evidenceDir, 'role-migration.log'), `synthetic-fixture-row-status: ${preexistingRow} (written explicitly active by the fixture, never by migration default)\n`);
+
+      const roleActivationTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT role, status FROM user_company_roles WHERE company_id = 'u015-company-1' AND id = ANY(ARRAY[${BUSINESS_ROLE_TEN_CODES.map((r) => `'u015-ucr-${r}'`).join(',')}]) AND status = 'active' ORDER BY role;`,
+      );
+      const activatedRoles = roleActivationTsv
+        .trim()
+        .split('\n')
+        .filter((line) => /^[a-z_]+\tactive$/.test(line));
+      if (activatedRoles.length !== BUSINESS_ROLE_TEN_CODES.length) {
+        throw new ContractFailure(EXIT.CONTRACT, `expected all ten canonical roles activated exactly once, got ${activatedRoles.length}: ${roleActivationTsv}`);
+      }
+      evidence.tenRolesActivated = activatedRoles.length;
+
+      const zeroRoleCount = await execSql(ctx.containerName, conn, `SELECT count(*) FROM user_company_roles WHERE user_id = 'u015-user-zero-role' AND company_id = 'u015-company-1' AND status = 'active';`);
+      if (zeroRoleCount !== '0') throw new ContractFailure(EXIT.CONTRACT, `expected zero active roles for u015-user-zero-role, got ${zeroRoleCount}`);
+
+      const multiRoleCount = await execSql(ctx.containerName, conn, `SELECT count(*) FROM user_company_roles WHERE user_id = 'u015-user-multi-role' AND company_id = 'u015-company-1' AND status = 'active';`);
+      if (multiRoleCount !== '2') throw new ContractFailure(EXIT.CONTRACT, `expected two conflicting active roles for u015-user-multi-role, got ${multiRoleCount}`);
+      evidence.zeroAndMultipleActiveRoleFixturesConfirmed = true;
+
+      const crossCompanyVisibleInOwnCompanyOnly = await execSql(
+        ctx.containerName,
+        conn,
+        `SELECT count(*) FROM user_company_roles WHERE user_id = 'u015-user-cross-company' AND company_id = 'u015-company-1' AND status = 'active';`,
+      );
+      if (crossCompanyVisibleInOwnCompanyOnly !== '0') {
+        throw new ContractFailure(EXIT.CONTRACT, `a company-2 role must not resolve for a company-1 scope query, got ${crossCompanyVisibleInOwnCompanyOnly}`);
+      }
+      evidence.companyScopeIsolationConfirmed = true;
+
+      const projectLifecycleTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT id, status, (expires_at IS NOT NULL AND expires_at < now()) AS expired FROM project_members WHERE id LIKE 'u015-pm-%' ORDER BY id;`,
+      );
+      evidence.projectMemberLifecycleFixtureRows = projectLifecycleTsv.trim();
+
+      const qaLines: string[] = [];
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'active role with revoked_at NULL',
+        expect: 'ok',
+        sql: `INSERT INTO user_company_roles (id, user_id, company_id, role, status, valid_from, created_at) VALUES ('u015-qa-active-ok', 'u015-user-admin', 'u015-company-1', 'ceo', 'active', now(), now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'active role with revoked_at set',
+        expect: 'reject',
+        sql: `INSERT INTO user_company_roles (id, user_id, company_id, role, status, revoked_at, created_at) VALUES ('u015-qa-active-bad', 'u015-user-admin', 'u015-company-1', 'ceo', 'active', now(), now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'revoked role with revoked_at NULL',
+        expect: 'reject',
+        sql: `INSERT INTO user_company_roles (id, user_id, company_id, role, status, created_at) VALUES ('u015-qa-revoked-bad', 'u015-user-admin', 'u015-company-1', 'ceo', 'revoked', now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'unknown status value',
+        expect: 'reject',
+        sql: `INSERT INTO user_company_roles (id, user_id, company_id, role, status, created_at) VALUES ('u015-qa-unknown-status', 'u015-user-admin', 'u015-company-1', 'ceo', 'superuser', now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'new row with an out-of-policy role string',
+        expect: 'reject',
+        sql: `INSERT INTO user_company_roles (id, user_id, company_id, role, status, created_at) VALUES ('u015-qa-bad-role', 'u015-user-admin', 'u015-company-1', 'member', 'legacy_pending', now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'new row with a canonical role string',
+        expect: 'ok',
+        sql: `INSERT INTO user_company_roles (id, user_id, company_id, role, status, created_at) VALUES ('u015-qa-good-role', 'u015-user-admin', 'u015-company-1', 'delivery_engineer', 'legacy_pending', now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'assigned_by_id referencing a nonexistent user',
+        expect: 'reject',
+        sql: `INSERT INTO user_company_roles (id, user_id, company_id, role, status, assigned_by_id, created_at) VALUES ('u015-qa-bad-assigner', 'u015-user-admin', 'u015-company-1', 'support_engineer', 'legacy_pending', 'nonexistent-user', now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'ProjectMember active with revoked_at NULL',
+        expect: 'ok',
+        sql: `INSERT INTO project_members (id, project_id, user_id, role, status, valid_from, created_at) VALUES ('u015-qa-pm-active-ok', 'u015-project-1', 'u015-user-admin', 'member', 'active', now(), now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'ProjectMember active with revoked_at set',
+        expect: 'reject',
+        sql: `INSERT INTO project_members (id, project_id, user_id, role, status, revoked_at, created_at) VALUES ('u015-qa-pm-active-bad', 'u015-project-1', 'u015-user-admin', 'member', 'active', now(), now());`,
+      }));
+      qaLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'ProjectMember unknown status value',
+        expect: 'reject',
+        sql: `INSERT INTO project_members (id, project_id, user_id, role, status, created_at) VALUES ('u015-qa-pm-unknown', 'u015-project-1', 'u015-user-admin', 'member', 'superuser', now());`,
+      }));
+      writeFileSync(join(evidenceDir, 'constraint-negative.log'), `${qaLines.join('\n')}\n`);
+      evidence.constraintQaCount = qaLines.length;
+
+      const capabilityMatrix = BUSINESS_ROLE_TEN_CODES.map((role) => ({ role, hasActiveRow: true }));
+      writeFileSync(join(evidenceDir, 'capability-matrix.json'), `${JSON.stringify({ schemaVersion: 1, roles: capabilityMatrix }, null, 2)}\n`);
+
+      const redeploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, schemaPath);
+      if (redeploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy re-run was not reproducible: ${redeploy.stderr || redeploy.stdout}`);
+      evidence.migrateDeployReproducible = true;
+
+      const diff = await runMigrateDiff(ctx.databaseUrl);
+      const diffText = diff.stdout.trim();
+      const isEmptyDiff = diff.code === 0 && (diffText.length === 0 || diffText === '-- This is an empty migration.');
+      writeFileSync(join(evidenceDir, 'migration-diff.sql'), isEmptyDiff ? '' : diff.stdout);
+      if (!isEmptyDiff) throw new ContractFailure(EXIT.CONTRACT, `schema diff not empty after fresh migrate deploy: exit=${diff.code} stdout=${diff.stdout}`);
+      evidence.emptySchemaDiff = true;
+
+      return evidence;
+    },
+  );
+
+  return evidence;
+}
+
+async function runBusinessRoleSuite(evidenceDir: string): Promise<number> {
+  const runId = `u015${Date.now().toString(36)}`;
+  const startedAt = new Date().toISOString();
+
+  let caughtError: unknown = null;
+  let scenarioEvidence: Record<string, unknown> | null = null;
+  try {
+    scenarioEvidence = await runBusinessRoleScenario(evidenceDir, runId);
+  } catch (error) {
+    caughtError = error;
+  }
+
+  const labelCounts = await labelResourceCounts(runId, OWNER_UNIT_U015, PURPOSE_U015);
+  const cleanupOk = labelCounts.containers === 0 && labelCounts.networks === 0 && labelCounts.volumes === 0;
+  const cleanup = {
+    schemaVersion: 1,
+    unit: OWNER_UNIT_U015,
+    purpose: PURPOSE_U015,
+    runId,
+    postgres: { containers: labelCounts.containers, networks: labelCounts.networks, volumes: labelCounts.volumes },
+    http: null,
+    httpReason:
+      'U015 db:contract is a DB-only migration/constraint suite with no web/API process to bind or tear down here — the real-surface HTTP proof (assigned/unassigned account manager, finance manager, system admin) is captured separately under the U015 evidence attempt (authz-http-matrix.json), with its own U013 Express-ephemeral/Next Proxy-direct-call cleanup receipt.',
+    childProcesses: 0,
+    result: cleanupOk ? 'PASS' : 'FAIL',
+    startedAt,
+    finishedAt: new Date().toISOString(),
+  };
+  writeFileSync(join(evidenceDir, 'cleanup.json'), `${JSON.stringify(cleanup, null, 2)}\n`);
+
+  if (!cleanupOk) {
+    process.stderr.write(`run-db-contract: cleanup verification failed: ${JSON.stringify(cleanup)}\n`);
+    return EXIT.CLEANUP;
+  }
+  if (caughtError) {
+    process.stderr.write(`${caughtError instanceof Error ? (caughtError.stack ?? caughtError.message) : String(caughtError)}\n`);
+    return caughtError instanceof ContractFailure ? caughtError.exitCode : EXIT.CONTRACT;
+  }
+
+  writeFileSync(
+    join(evidenceDir, 'db-contract-receipt.json'),
+    `${JSON.stringify({ schemaVersion: 1, unit: OWNER_UNIT_U015, suite: 'business-role', result: 'PASS', scenarioEvidence, cleanup, startedAt, finishedAt: new Date().toISOString() }, null, 2)}\n`,
+  );
+  return EXIT.SUCCESS;
+}
+
 async function main(): Promise<number> {
   let args;
   try {
@@ -1309,7 +1607,8 @@ async function main(): Promise<number> {
 
   if (args.suite === 'scope-backfill') return runScopeBackfillSuite(args.evidence);
   if (args.suite === 'scope-closure') return runScopeClosureSuite(args.evidence);
-  return runPrincipalSessionSuite(args.evidence);
+  if (args.suite === 'principal-session') return runPrincipalSessionSuite(args.evidence);
+  return runBusinessRoleSuite(args.evidence);
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

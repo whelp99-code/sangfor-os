@@ -1,12 +1,15 @@
 import { convertImprovementToPhase13Run } from "@sangfor/business/improvement-loop";
 import { NextResponse } from "next/server";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, context: RouteContext) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/improvements/[id]/run-phase13/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   const { id } = await context.params;
   try {
     const result = await convertImprovementToPhase13Run(id);

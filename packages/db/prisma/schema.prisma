@@ -33,6 +33,7 @@ model User {
   projectMembers     ProjectMember[]
   commandRuns        CommandRun[]    @relation("CommandRunRequestedBy")
   userCompanyRoles   UserCompanyRole[]
+  assignedCompanyRoles UserCompanyRole[] @relation("UserCompanyRoleAssignedBy")
   // TODO(oma-deferred): owner will expand to Actor union (User | TeamAgent) in a future migration
   ownedOpportunities Opportunity[]
   authSessions       AuthSession[]
@@ -71,17 +72,28 @@ model Project {
   @@map("projects")
 }
 
+// U015/SEC-02a: the project-assignment counterpart of UserCompanyRole's lifecycle columns, same
+// fail-closed rules — NULL/"legacy_pending" rows confer no project authority and are never
+// bulk-promoted by the migration that adds them. Company role and project assignment stay distinct
+// concepts (no FK between this model and UserCompanyRole); `role` here keeps its pre-existing,
+// unconstrained project-tier meaning (e.g. "member") and is not restricted to the ten BusinessRole
+// codes.
 model ProjectMember {
-  id        String   @id @default(cuid())
-  projectId String   @map("project_id")
-  userId    String   @map("user_id")
-  role      String   @default("member")
-  createdAt DateTime @default(now()) @map("created_at")
+  id        String    @id @default(cuid())
+  projectId String    @map("project_id")
+  userId    String    @map("user_id")
+  role      String    @default("member")
+  status    String?   @default("legacy_pending") @map("status")
+  validFrom DateTime? @map("valid_from")
+  expiresAt DateTime? @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
+  @@index([userId, status])
   @@map("project_members")
 }
 
@@ -2029,18 +2041,33 @@ model AuthSession {
   @@map("auth_sessions")
 }
 
+// U015/SEC-02a: nullable lifecycle columns, additive (same pattern as U014's users_status_lifecycle_check).
+// NULL/"legacy_pending" rows are inactive and are never bulk-promoted by the migration that adds
+// these columns. The named CHECK `user_company_roles_status_lifecycle_check` (migration
+// 20260715150000) enforces the allowed value set; `user_company_roles_role_ten_codes_for_new_rows_check`
+// constrains `role` to the ten @sangfor/auth BusinessRole codes for any row created at/after that
+// migration's watermark, grandfathering pre-existing rows (including the campaign's own synthetic
+// `role: "member"` fixtures) rather than retroactively rejecting them.
 model UserCompanyRole {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  companyId String   @map("company_id")
-  role      String
-  createdAt DateTime @default(now()) @map("created_at")
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  companyId    String    @map("company_id")
+  role         String
+  status       String?   @default("legacy_pending") @map("status")
+  validFrom    DateTime? @map("valid_from")
+  expiresAt    DateTime? @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  assignedById String?   @map("assigned_by_id")
+  revision     Int       @default(0) @map("revision")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assignedBy User?   @relation("UserCompanyRoleAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
 
   @@unique([userId, companyId, role])
   @@unique([id, companyId], map: "user_company_roles_id_company_id_key")
+  @@index([userId, companyId, status])
   @@map("user_company_roles")
 }
 

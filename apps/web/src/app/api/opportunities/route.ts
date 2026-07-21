@@ -2,6 +2,7 @@ import { createOpportunity, listOpportunities } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 import {
   enforceRequestedProject,
   relatedResourcesBelongToProject,
@@ -22,6 +23,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/opportunities/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   const project = await resolveProjectScope(request);
   if (!project.ok) return project.response;
   try {

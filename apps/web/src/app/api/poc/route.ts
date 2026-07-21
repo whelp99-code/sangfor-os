@@ -1,6 +1,7 @@
 import { createPocProject, listPocProjects } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 import {
   enforceRequestedProject,
   relatedResourcesBelongToProject,
@@ -21,6 +22,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/poc/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   const projectScope = await resolveProjectScope(request);
   if (!projectScope.ok) return projectScope.response;
   try {

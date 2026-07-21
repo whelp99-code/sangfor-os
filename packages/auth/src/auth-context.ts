@@ -40,10 +40,16 @@ export function createAuthContextFromTokenPayload(
 ): AuthContext | null {
   const tenantId = payload.tenantId ?? fallback?.tenantId;
   const companyId = payload.companyId ?? fallback?.companyId;
-  const businessRole = payload.businessRole ?? fallback?.businessRole ?? 'account_manager';
+  // U015/SEC-02a: no default. Unlike tenantId/companyId, businessRole has no safe placeholder — a
+  // caller that cannot supply an explicit one (from a trusted server-side fallback) gets `null`
+  // here, same as missing tenant/company scope, rather than a silently-granted role. Real
+  // authorization decisions never actually trust this field's value anyway (business-authorization
+  // recomputes role/permissions from the DB — see @sangfor/auth's capability-policy.ts); this
+  // resolution only has to stay structurally valid for callers that still read AuthContext.businessRole.
+  const businessRole = payload.businessRole ?? fallback?.businessRole;
   const personaId = payload.personaId ?? fallback?.personaId;
 
-  if (!tenantId || !companyId) return null;
+  if (!tenantId || !companyId || !businessRole) return null;
 
   return {
     userId: payload.sub,

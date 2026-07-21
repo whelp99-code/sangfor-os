@@ -5,6 +5,7 @@ import { playbookStore } from "@/lib/agent/playbook-store";
 import { scheduleStore } from "@/lib/agent/schedule-store";
 import { dueSchedules } from "@/lib/agent/schedule-logic";
 import { assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/agent/schedules/tick/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   const now = Date.now();
   const due = dueSchedules(scheduleStore.list(), now);
   const triggered: Array<{ scheduleId: string; playbookId: string; runId?: string; status: string }> = [];

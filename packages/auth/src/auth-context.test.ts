@@ -41,6 +41,18 @@ describe('AuthContext foundation helpers', () => {
     expect(createAuthContextFromTokenPayload(basePayload)).toBeNull();
   });
 
+  it('returns null when tenant/company scope is present but no businessRole is available from payload or fallback (U015: never defaults to account_manager)', () => {
+    expect(
+      createAuthContextFromTokenPayload({ ...basePayload, tenantId: 'tenant-1', companyId: 'company-1' }),
+    ).toBeNull();
+    expect(
+      createAuthContextFromTokenPayload(
+        { ...basePayload, tenantId: 'tenant-1', companyId: 'company-1' },
+        { tenantId: 'server-tenant', companyId: 'server-company' },
+      ),
+    ).toBeNull();
+  });
+
   it('uses server fallback scope without reading request body scope fields', () => {
     const context = createAuthContextFromTokenPayload(basePayload, {
       tenantId: 'server-tenant',

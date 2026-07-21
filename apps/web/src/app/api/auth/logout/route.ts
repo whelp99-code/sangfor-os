@@ -2,6 +2,7 @@ import { verifySessionJwt } from "@sangfor/auth";
 import { NextResponse } from "next/server";
 
 import { assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 import { getWebSessionJwtConfig } from "@/lib/auth/config";
 import { extractSessionToken } from "@/lib/auth/session";
 import { revokeSession } from "@/lib/auth/persisted-session";
@@ -25,6 +26,8 @@ function clearedSessionResponse(): NextResponse {
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/auth/logout/route.ts");
+  if (capabilityDenied) return capabilityDenied;
 
   const response = clearedSessionResponse();
 

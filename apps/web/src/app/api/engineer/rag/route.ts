@@ -1,5 +1,6 @@
 import { engineerConsole } from "@sangfor/infra";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/engineer/rag/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   let body: { query?: unknown; product?: unknown; limit?: unknown };
   try {
     body = await request.json();

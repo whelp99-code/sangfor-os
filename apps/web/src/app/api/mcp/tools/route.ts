@@ -8,6 +8,7 @@ import {
   findCallerIdentityConflicts,
   stripCallerIdentityFields,
 } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +18,11 @@ const toolArgumentsSchema = z.object({}).catchall(z.unknown());
 export function GET(): Promise<NextResponse>;
 export function GET(request: Request): Promise<NextResponse>;
 export async function GET(request?: Request) {
-  const authorization = authorizeOperatorRequest(
-    request ?? new Request("http://localhost/api/mcp/tools"),
-  );
+  const resolvedRequest = request ?? new Request("http://localhost/api/mcp/tools");
+  const authorization = authorizeOperatorRequest(resolvedRequest);
   if (authorization instanceof NextResponse) return authorization;
+  const capabilityDenied = await assertBusinessCapability(resolvedRequest, "apps/web/src/app/api/mcp/tools/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   try {
     const tools = await listMcpTools();
     return NextResponse.json({ tools, timestamp: new Date().toISOString() });
@@ -41,6 +43,8 @@ export async function GET(request?: Request) {
 export async function POST(request: Request) {
   const authorization = authorizeOperatorRequest(request);
   if (authorization instanceof NextResponse) return authorization;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/mcp/tools/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   let body: { name?: unknown; arguments?: unknown; args?: unknown };
   try {
     body = await request.json();

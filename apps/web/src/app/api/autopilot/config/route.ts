@@ -7,6 +7,7 @@ import {
   resolveDefaultProjectId,
 } from "@sangfor/business";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 import { requireRole } from "@/lib/auth/rbac";
 
 const REVERSAL_WINDOW_DAYS = 7;
@@ -61,6 +62,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/autopilot/config/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   const forbidden = requireRole(request, ["admin", "operator"]);
   if (forbidden) return forbidden;
   try {

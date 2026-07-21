@@ -112,16 +112,20 @@ async function main() {
     },
   });
 
+  // U015/SEC-02a: the seed writes status="active" explicitly (never relying on the column's own
+  // "legacy_pending" DEFAULT), same rule as User.status above, and uses one of the ten
+  // @sangfor/auth BusinessRole codes now that UserCompanyRole.role is constrained to them for any
+  // row created after the migration watermark.
   await prisma.userCompanyRole.upsert({
-    where: { userId_companyId_role: { userId: operator.id, companyId: company.id, role: "member" } },
-    update: {},
-    create: { userId: operator.id, companyId: company.id, role: "member" },
+    where: { userId_companyId_role: { userId: operator.id, companyId: company.id, role: "system_admin" } },
+    update: { status: "active", validFrom: new Date(), revokedAt: null },
+    create: { userId: operator.id, companyId: company.id, role: "system_admin", status: "active", validFrom: new Date() },
   });
 
   await prisma.projectMember.upsert({
     where: { projectId_userId: { projectId: project.id, userId: operator.id } },
-    update: {},
-    create: { projectId: project.id, userId: operator.id, role: "member" },
+    update: { status: "active", validFrom: new Date(), revokedAt: null },
+    create: { projectId: project.id, userId: operator.id, role: "member", status: "active", validFrom: new Date() },
   });
 
   await upsertPolicyMemory(project.id, "internal_domain", "blro.co.kr", "BLRO internal domain");
