@@ -118,6 +118,20 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   // attribution edges, never an alternate scope basis.
   { model: 'ApprovalDecision', unit: 'U018', category: 'CHILD_VIA_FK' },
   { model: 'ApprovalCurrentValidity', unit: 'U018', category: 'CHILD_VIA_FK' },
+  // U019/WF-01a: WorkflowDefinition and WorkflowRun each carry mandatory tenantId/companyId/
+  // projectId simultaneously (same AMBIGUOUS_ROOT reasoning as Artifact/AuthSession above) —
+  // declared PROJECT_ROOT, not CHILD_VIA_FK, even though WorkflowRun also carries a mandatory
+  // workflowDefinitionId FK to another PROJECT_ROOT (a second root path, which is exactly why a
+  // structural CHILD_VIA_FK classification would be ambiguous here).
+  { model: 'WorkflowDefinition', unit: 'U019', category: 'PROJECT_ROOT' },
+  { model: 'WorkflowRun', unit: 'U019', category: 'PROJECT_ROOT' },
+  // Each of the following three models' only mandatory FK is workflowRunId -> WorkflowRun (a
+  // single unambiguous root chain, since WorkflowRun itself is PROJECT_ROOT per above).
+  // artifactVersionId/createdByAssignmentId/actorAssignmentId are content/attribution edges, never
+  // an alternate scope basis.
+  { model: 'WorkflowRunStep', unit: 'U019', category: 'CHILD_VIA_FK' },
+  { model: 'WorkflowRunArtifact', unit: 'U019', category: 'CHILD_VIA_FK' },
+  { model: 'WorkflowRunEvent', unit: 'U019', category: 'CHILD_VIA_FK' },
 ];
 
 export interface ReclassifiedModel {
@@ -323,6 +337,20 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   VendorRequestEvent: { model: 'VendorRequestEvent', category: 'CHILD_VIA_FK', parentModel: 'VendorRequest', relationField: 'request', scalarFkField: 'requestId', nullable: false },
   WorkBreakdownItem: { model: 'WorkBreakdownItem', category: 'PROJECT_ROOT' },
   Workflow: { model: 'Workflow', category: 'CHILD_VIA_FK', parentModel: 'CommandRun', relationField: 'commandRun', scalarFkField: 'commandRunId', nullable: false },
+  // U019/WF-01a: WorkflowDefinition and WorkflowRun each carry mandatory tenantId/companyId/
+  // projectId simultaneously (same AMBIGUOUS_ROOT reasoning as Artifact/AuthSession above) —
+  // declared PROJECT_ROOT, not CHILD_VIA_FK, even though WorkflowRun also carries a mandatory
+  // workflowDefinitionId FK to another PROJECT_ROOT (a second root path, which is exactly why a
+  // structural CHILD_VIA_FK classification would be ambiguous here).
+  WorkflowDefinition: { model: 'WorkflowDefinition', category: 'PROJECT_ROOT' },
+  WorkflowRun: { model: 'WorkflowRun', category: 'PROJECT_ROOT' },
+  // Each of the following three models' only mandatory FK is workflowRunId -> WorkflowRun (a
+  // single unambiguous root chain, since WorkflowRun itself is PROJECT_ROOT per above).
+  // artifactVersionId/createdByAssignmentId/actorAssignmentId are content/attribution edges, never
+  // an alternate scope basis.
+  WorkflowRunArtifact: { model: 'WorkflowRunArtifact', category: 'CHILD_VIA_FK', parentModel: 'WorkflowRun', relationField: 'run', scalarFkField: 'workflowRunId', nullable: false },
+  WorkflowRunEvent: { model: 'WorkflowRunEvent', category: 'CHILD_VIA_FK', parentModel: 'WorkflowRun', relationField: 'run', scalarFkField: 'workflowRunId', nullable: false },
+  WorkflowRunStep: { model: 'WorkflowRunStep', category: 'CHILD_VIA_FK', parentModel: 'WorkflowRun', relationField: 'run', scalarFkField: 'workflowRunId', nullable: false },
   WorkflowStep: { model: 'WorkflowStep', category: 'CHILD_VIA_FK', parentModel: 'Workflow', relationField: 'workflow', scalarFkField: 'workflowId', nullable: false },
   WorkflowTemplate: { model: 'WorkflowTemplate', category: 'PROJECT_ROOT' },
   Workspace: { model: 'Workspace', category: 'PROJECT_ROOT' },

@@ -45,23 +45,23 @@ describe('classifyModel', () => {
 });
 
 describe('buildScopeInventoryReport — real inventory', () => {
-  it('reports ok with exact 156 / 13-1-32-46-64 tallies against its own model list (post-U012 RoleChangeRequest reclassification, post-U014 AuthSession registration, post-U017 Artifact/ArtifactVersion registration, post-U018 ApprovalDecision/ApprovalCurrentValidity registration)', () => {
+  it('reports ok with exact 161 / 13-1-32-48-67 tallies against its own model list (post-U012 RoleChangeRequest reclassification, post-U014 AuthSession registration, post-U017 Artifact/ArtifactVersion registration, post-U018 ApprovalDecision/ApprovalCurrentValidity registration, post-U019 WorkflowDefinition/WorkflowRun/WorkflowRunStep/WorkflowRunArtifact/WorkflowRunEvent registration)', () => {
     const report = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
-    expect(report.currentModelCount).toBe(156);
+    expect(report.currentModelCount).toBe(161);
     expect(report.tallies).toEqual({
       GLOBAL_SHARED: 13,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
-      PROJECT_ROOT: 46,
-      CHILD_VIA_FK: 64,
+      PROJECT_ROOT: 48,
+      CHILD_VIA_FK: 67,
     });
   });
 });
 
 describe('REGISTERED_ADDITIONS — U011 model registration', () => {
-  it('registers exactly ScopeBackfillQuarantine as GLOBAL_SHARED for U011, AuthSession as PROJECT_ROOT for U014, Artifact as PROJECT_ROOT and ArtifactVersion as CHILD_VIA_FK for U017, then ApprovalDecision and ApprovalCurrentValidity as CHILD_VIA_FK for U018', () => {
+  it('registers exactly ScopeBackfillQuarantine as GLOBAL_SHARED for U011, AuthSession as PROJECT_ROOT for U014, Artifact as PROJECT_ROOT and ArtifactVersion as CHILD_VIA_FK for U017, ApprovalDecision and ApprovalCurrentValidity as CHILD_VIA_FK for U018, then WorkflowDefinition/WorkflowRun as PROJECT_ROOT and WorkflowRunStep/WorkflowRunArtifact/WorkflowRunEvent as CHILD_VIA_FK for U019', () => {
     expect(REGISTERED_ADDITIONS).toEqual([
       { model: 'ScopeBackfillQuarantine', unit: 'U011', category: 'GLOBAL_SHARED' },
       { model: 'AuthSession', unit: 'U014', category: 'PROJECT_ROOT' },
@@ -69,21 +69,26 @@ describe('REGISTERED_ADDITIONS — U011 model registration', () => {
       { model: 'ArtifactVersion', unit: 'U017', category: 'CHILD_VIA_FK' },
       { model: 'ApprovalDecision', unit: 'U018', category: 'CHILD_VIA_FK' },
       { model: 'ApprovalCurrentValidity', unit: 'U018', category: 'CHILD_VIA_FK' },
+      { model: 'WorkflowDefinition', unit: 'U019', category: 'PROJECT_ROOT' },
+      { model: 'WorkflowRun', unit: 'U019', category: 'PROJECT_ROOT' },
+      { model: 'WorkflowRunStep', unit: 'U019', category: 'CHILD_VIA_FK' },
+      { model: 'WorkflowRunArtifact', unit: 'U019', category: 'CHILD_VIA_FK' },
+      { model: 'WorkflowRunEvent', unit: 'U019', category: 'CHILD_VIA_FK' },
     ]);
   });
 
-  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count is 156', () => {
+  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count is 161', () => {
     expect(SCOPE_INVENTORY_BASELINE.modelCount).toBe(150);
-    expect(expectedCurrentModelCount()).toBe(156);
+    expect(expectedCurrentModelCount()).toBe(161);
   });
 
-  it('derives expected category counts as baseline plus the six registered additions (reclassifications isolated out)', () => {
+  it('derives expected category counts as baseline plus the eleven registered additions (reclassifications isolated out)', () => {
     expect(expectedCategoryCounts(SCOPE_INVENTORY_BASELINE, REGISTERED_ADDITIONS, [])).toEqual({
       GLOBAL_SHARED: 14,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
-      PROJECT_ROOT: 46,
-      CHILD_VIA_FK: 63,
+      PROJECT_ROOT: 48,
+      CHILD_VIA_FK: 66,
     });
   });
 
@@ -108,8 +113,8 @@ describe('REGISTERED_ADDITIONS — U014 model registration', () => {
       GLOBAL_SHARED: 13,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
-      PROJECT_ROOT: 46,
-      CHILD_VIA_FK: 64,
+      PROJECT_ROOT: 48,
+      CHILD_VIA_FK: 67,
     });
   });
 });
@@ -170,6 +175,64 @@ describe('REGISTERED_ADDITIONS — U017 model registration', () => {
   });
 });
 
+describe('REGISTERED_ADDITIONS — U019 model registration', () => {
+  it('classifies WorkflowDefinition as PROJECT_ROOT in the live inventory (mandatory tenant/company/project simultaneously, same AMBIGUOUS_ROOT reasoning as Artifact/AuthSession)', () => {
+    expect(classifyModel('WorkflowDefinition')).toEqual({
+      model: 'WorkflowDefinition',
+      category: 'PROJECT_ROOT',
+    });
+  });
+
+  it('classifies WorkflowRun as PROJECT_ROOT in the live inventory (mandatory tenant/company/project simultaneously, plus a mandatory workflowDefinitionId FK to another PROJECT_ROOT — a second root path that makes CHILD_VIA_FK structurally ambiguous)', () => {
+    expect(classifyModel('WorkflowRun')).toEqual({
+      model: 'WorkflowRun',
+      category: 'PROJECT_ROOT',
+    });
+  });
+
+  it('classifies WorkflowRunStep as CHILD_VIA_FK of WorkflowRun via mandatory workflowRunId in the live inventory', () => {
+    expect(classifyModel('WorkflowRunStep')).toEqual({
+      model: 'WorkflowRunStep',
+      category: 'CHILD_VIA_FK',
+      parentModel: 'WorkflowRun',
+      relationField: 'run',
+      scalarFkField: 'workflowRunId',
+      nullable: false,
+    });
+  });
+
+  it('classifies WorkflowRunArtifact as CHILD_VIA_FK of WorkflowRun via mandatory workflowRunId in the live inventory', () => {
+    expect(classifyModel('WorkflowRunArtifact')).toEqual({
+      model: 'WorkflowRunArtifact',
+      category: 'CHILD_VIA_FK',
+      parentModel: 'WorkflowRun',
+      relationField: 'run',
+      scalarFkField: 'workflowRunId',
+      nullable: false,
+    });
+  });
+
+  it('classifies WorkflowRunEvent as CHILD_VIA_FK of WorkflowRun via mandatory workflowRunId in the live inventory', () => {
+    expect(classifyModel('WorkflowRunEvent')).toEqual({
+      model: 'WorkflowRunEvent',
+      category: 'CHILD_VIA_FK',
+      parentModel: 'WorkflowRun',
+      relationField: 'run',
+      scalarFkField: 'workflowRunId',
+      nullable: false,
+    });
+  });
+
+  it('artifactVersionId/createdByAssignmentId/requestedByAssignmentId are content/attribution edges, not an alternate scope-classification path — WorkflowDefinition and WorkflowRun each stay classified exactly once, as PROJECT_ROOT', () => {
+    const definitionEntries = REAL_ENTRIES.filter((e) => e.model === 'WorkflowDefinition');
+    const runEntries = REAL_ENTRIES.filter((e) => e.model === 'WorkflowRun');
+    expect(definitionEntries).toHaveLength(1);
+    expect(runEntries).toHaveLength(1);
+    expect(definitionEntries[0]).toEqual({ model: 'WorkflowDefinition', category: 'PROJECT_ROOT' });
+    expect(runEntries[0]).toEqual({ model: 'WorkflowRun', category: 'PROJECT_ROOT' });
+  });
+});
+
 describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest reclassification', () => {
   it('reclassifies exactly RoleChangeRequest from GLOBAL_SHARED to CHILD_VIA_FK for U012', () => {
     expect(RECLASSIFIED_MODELS).toEqual([
@@ -187,8 +250,8 @@ describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest reclassification', () =
       GLOBAL_SHARED: 13,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
-      PROJECT_ROOT: 46,
-      CHILD_VIA_FK: 64,
+      PROJECT_ROOT: 48,
+      CHILD_VIA_FK: 67,
     });
   });
 

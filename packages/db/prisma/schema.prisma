@@ -61,6 +61,8 @@ model Project {
   authSessions       AuthSession[]
   artifacts          Artifact[]
   approvalRequests   ApprovalRequest[]
+  workflowDefinitions WorkflowDefinition[]
+  workflowRuns        WorkflowRun[]
 
   // U012: companyId stays optional here (full NOT NULL is deferred to U073 — see
   // packages/db/src/scope-closure.ts) because a live legacy-null Project can be a genuinely
@@ -1398,12 +1400,263 @@ model ArtifactVersion {
   // plumbing precedent as Tenant/Company/Project's authSessions/artifacts fields above, added by
   // the unit that introduces the forward FK, not a semantic change to ArtifactVersion itself.
   approvalRequests   ApprovalRequest[]
+  // U019/WF-01a: required Prisma back-relations for WorkflowDefinition.definitionArtifactVersionId
+  // and WorkflowRunArtifact.artifactVersionId — same plumbing precedent as approvalRequests above.
+  workflowDefinitions  WorkflowDefinition[]
+  workflowRunArtifacts WorkflowRunArtifact[]
 
   @@unique([artifactId, version], map: "artifact_versions_artifact_id_version_key")
   @@unique([artifactId, contentHashVersion, contentHash], map: "artifact_versions_content_hash_key")
   @@unique([legacySourceType, legacySourceId], map: "artifact_versions_legacy_source_key")
   @@index([artifactId, version])
   @@map("artifact_versions")
+}
+
+// --- Workflow persistence (U019/WF-01a) ---
+// Canonical, versioned M6 workflow schema. Schema only: no definition activates and no workflow
+// executes here — U025 is the first runtime consumer (activation/start/step execution/approval
+// validity evaluation), U020 is the first unit to write a legacy_disabled definition /
+// legacy_imported run and the restricted legacy_unreviewed ArtifactVersion they require. This unit
+// installs the named status/CHECK/transition guards as DB triggers/CHECK constraints but performs
+// zero transition of its own. Every WorkflowDefinition's own content-hash envelope reuses U017's
+// canonical-content-hash.ts / sangfor_rfc8785_jcs_v1 / sangfor_sha256_utf8 exclusively — never a
+// second serializer/hash envelope. The pre-existing command-simulation `Workflow`/`WorkflowStep`
+// and placeholder `WorkflowTemplate` models above remain untouched and non-authoritative.
+//
+// `WorkflowDefinition`/`WorkflowRun` carry mandatory tenantId/companyId/projectId simultaneously
+// (same AMBIGUOUS_ROOT reasoning as Artifact/AuthSession — see packages/db/src/scope-inventory.ts)
+// and are therefore registered PROJECT_ROOT, not CHILD_VIA_FK, even though WorkflowRun also carries
+// a mandatory workflowDefinitionId FK to another PROJECT_ROOT.
+model WorkflowDefinition {
+  id        String @id @default(cuid())
+  tenantId  String @map("tenant_id")
+  companyId String @map("company_id")
+  projectId String @map("project_id")
+
+  workflowKey String @map("workflow_key")
+  name        String
+  version     Int
+
+  // Optimistic CAS counter — U025 activation uses it for compare-and-set. The named guard trigger
+  // requires it to start at 0 and increment by exactly 1 on every UPDATE (never decrement, skip, or
+  // stay put).
+  revision Int    @default(0)
+  status   String @default("draft")
+
+  // Immutable once the row leaves `draft` (guard trigger). The linked ArtifactVersion must share
+  // this row's own scope, carry artifactType='workflow-definition', and have
+  // contentHashVersion=definitionHashVersion="artifact-content/rfc8785-jcs-sha256/v1",
+  // contentHash=definitionHash, contentJson=definitionJson (guard trigger, checked at INSERT and on
+  // any subsequent change to definitionArtifactVersionId while still draft).
+  definitionArtifactVersionId String @map("definition_artifact_version_id")
+  definitionHashVersion       String @map("definition_hash_version")
+  definitionHash              String @map("definition_hash")
+  definitionJson              Json   @map("definition_json")
+
+  // Immutable (guard trigger enforces this, never Prisma optionality alone). Exact U012 composite
+  // same-company assignment relation below — never an ID-only assignment FK.
+  createdByAssignmentId String @map("created_by_assignment_id")
+
+  // Nullable, all-or-none activation-approval snapshot (CHECK constraints below enforce the
+  // all-or-none shape, that an `active` row's snapshot is complete, and that
+  // activationApprovalArtifactVersionId/activationApprovalArtifactHash byte-match this row's own
+  // definitionArtifactVersionId/definitionHash — all same-row, no subquery needed). The named guard
+  // trigger additionally requires an `active` row's activationApprovalRequestId/
+  // activationApprovalRequestRevision to correlate to a real ApprovalCurrentValidity row at that
+  // exact revision — a STRUCTURAL existence check only; it never asserts state=valid (U025 does).
+  // Once written (row leaves draft), this whole snapshot is immutable — see the guard trigger.
+  activationApprovalRequestId         String?   @map("activation_approval_request_id")
+  activationApprovalRequestRevision   Int?      @map("activation_approval_request_revision")
+  activationApprovalArtifactVersionId String?   @map("activation_approval_artifact_version_id")
+  activationApprovalArtifactHash      String?   @map("activation_approval_artifact_hash")
+  activationApprovalPolicyHash        String?   @map("activation_approval_policy_hash")
+  activationApprovedAt                DateTime? @map("activation_approved_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "workflow_definitions_tenant_id_fkey")
+  // U012-compatible composite scope-closure FKs, same pattern as Artifact/ApprovalRequest.
+  company Company @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "workflow_definitions_company_id_fkey")
+  project Project @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "workflow_definitions_project_id_fkey")
+
+  definitionArtifactVersion ArtifactVersion @relation(fields: [definitionArtifactVersionId], references: [id], onDelete: Restrict, map: "workflow_definitions_definition_artifact_version_id_fkey")
+
+  // Exact U012 composite same-company assignment relation (user_company_roles_id_company_id_key)
+  // — never an ID-only assignment FK, same pattern as Artifact.createdByAssignment.
+  createdByAssignment UserCompanyRole @relation("WorkflowDefinitionCreatedByAssignment", fields: [createdByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "workflow_definitions_created_by_assignment_id_fkey")
+
+  runs WorkflowRun[]
+
+  @@unique([projectId, workflowKey, version], map: "workflow_definitions_project_id_workflow_key_version_key")
+  @@index([companyId, projectId, workflowKey])
+  @@map("workflow_definitions")
+}
+
+// WorkflowRun status vocabulary is exactly pending|running|blocked|succeeded|failed|cancelled|
+// legacy_imported (CHECK + named graph-guard trigger below). Graph: pending -> running|cancelled;
+// running -> blocked|succeeded|failed|cancelled; blocked -> running|failed|cancelled.
+// succeeded|failed|cancelled|legacy_imported are terminal; blocked is never terminal.
+// legacy_imported has no inbound canonical transition — it is only ever the value a row is
+// INSERTED with (U020's historical-import path), never reached via UPDATE.
+model WorkflowRun {
+  id        String @id @default(cuid())
+  tenantId  String @map("tenant_id")
+  companyId String @map("company_id")
+  projectId String @map("project_id")
+
+  workflowDefinitionId String @map("workflow_definition_id")
+
+  // Exact snapshot of the parent WorkflowDefinition's own version/artifact identity at
+  // run-creation time. The named guard trigger requires byte-for-byte equality with the CURRENT
+  // parent row at INSERT, and full immutability thereafter — a FK alone never implies this.
+  definitionVersion             Int    @map("definition_version")
+  definitionArtifactVersionId   String @map("definition_artifact_version_id")
+  definitionArtifactHashVersion String @map("definition_artifact_hash_version")
+  definitionArtifactHash        String @map("definition_artifact_hash")
+
+  // Copied BYTE-FOR-BYTE from the parent WorkflowDefinition's own activation snapshot at
+  // run-creation time (named guard trigger) for every non-legacy_imported run; a legacy_imported
+  // row may leave every field below NULL. Immutable thereafter. A FK or copied snapshot never by
+  // itself implies current validity — U025 re-evaluates U022 validity at run start.
+  activationApprovalRequestId         String?   @map("activation_approval_request_id")
+  activationApprovalRequestRevision   Int?      @map("activation_approval_request_revision")
+  activationApprovalArtifactVersionId String?   @map("activation_approval_artifact_version_id")
+  activationApprovalArtifactHash      String?   @map("activation_approval_artifact_hash")
+  activationApprovalPolicyHash        String?   @map("activation_approval_policy_hash")
+  activationApprovedAt                DateTime? @map("activation_approved_at")
+
+  // Nullable, all-or-none run-gate snapshot: when policy requires a run gate, these bind the exact
+  // ApprovalRequest revision/version/hash/policy the run itself was approved against (distinct from
+  // the activation snapshot above, and against the LIVE ApprovalRequest row, not a validity
+  // projection). Never asserted valid by this schema alone.
+  runApprovalRequestId         String?   @map("run_approval_request_id")
+  runApprovalRequestRevision   Int?      @map("run_approval_request_revision")
+  runApprovalArtifactVersionId String?   @map("run_approval_artifact_version_id")
+  runApprovalArtifactHash      String?   @map("run_approval_artifact_hash")
+  runApprovalPolicyHash        String?   @map("run_approval_policy_hash")
+  runApprovedAt                DateTime? @map("run_approved_at")
+
+  // Immutable (guard trigger). Exact U012 composite same-company assignment relation below.
+  requestedByAssignmentId String @map("requested_by_assignment_id")
+  requestedSessionId      String @map("requested_session_id")
+  idempotencyKey          String @map("idempotency_key")
+
+  status    String @default("pending")
+  inputJson Json?  @map("input_json")
+  // Optimistic CAS counter, same +1-per-UPDATE contract as WorkflowDefinition.revision above.
+  revision  Int    @default(0)
+
+  legacySourceType String? @map("legacy_source_type")
+  legacySourceId   String? @map("legacy_source_id")
+
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "workflow_runs_tenant_id_fkey")
+  company Company @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "workflow_runs_company_id_fkey")
+  project Project @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "workflow_runs_project_id_fkey")
+
+  workflowDefinition WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id], onDelete: Restrict, map: "workflow_runs_workflow_definition_id_fkey")
+
+  // Exact U012 composite same-company assignment relation — never an ID-only assignment FK.
+  requestedByAssignment UserCompanyRole @relation("WorkflowRunRequestedByAssignment", fields: [requestedByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "workflow_runs_requested_by_assignment_id_fkey")
+
+  steps     WorkflowRunStep[]
+  artifacts WorkflowRunArtifact[]
+  events    WorkflowRunEvent[]
+
+  @@unique([projectId, idempotencyKey], map: "workflow_runs_project_id_idempotency_key_key")
+  @@unique([legacySourceType, legacySourceId], map: "workflow_runs_legacy_source_key")
+  @@index([companyId, projectId, workflowDefinitionId])
+  @@index([workflowDefinitionId, status])
+  @@map("workflow_runs")
+}
+
+// CHILD_VIA_FK through the mandatory run FK only. Status vocabulary is exactly pending|running|
+// blocked|succeeded|failed|skipped|cancelled (CHECK + named graph-guard trigger below). Graph:
+// pending -> running|skipped|cancelled; running -> blocked|succeeded|failed|cancelled;
+// blocked -> running|failed|cancelled. succeeded|failed|skipped|cancelled are terminal; blocked is
+// never terminal. The parent WorkflowRun's own guard trigger enforces the aggregate rules (run
+// succeeded requires every step succeeded|skipped; run failed requires >=1 failed step) and
+// atomically CAS-cancels every nonterminal step when the run itself is cancelled.
+model WorkflowRunStep {
+  id            String @id @default(cuid())
+  workflowRunId String @map("workflow_run_id")
+
+  // Immutable (guard trigger).
+  stepKey   String @map("step_key")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  status String @default("pending")
+
+  definitionJson Json? @map("definition_json")
+  inputJson      Json? @map("input_json")
+  outputJson     Json? @map("output_json")
+
+  // Optimistic CAS counter, same +1-per-UPDATE contract as WorkflowRun.revision above.
+  revision Int @default(0)
+
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  run WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Restrict, map: "workflow_run_steps_workflow_run_id_fkey")
+
+  @@unique([workflowRunId, stepKey], map: "workflow_run_steps_workflow_run_id_step_key_key")
+  @@index([workflowRunId, sortOrder])
+  @@map("workflow_run_steps")
+}
+
+// CHILD_VIA_FK through the mandatory run FK only. `artifactVersion` is a genuine Prisma FK (unlike
+// the plain snapshot scalars on WorkflowDefinition/WorkflowRun above) — this row exists purely to
+// link an already-produced/consumed ArtifactVersion to a run. The named guard trigger requires the
+// referenced ArtifactVersion's own scope to match the parent WorkflowRun's scope (cross-scope link
+// rejection).
+model WorkflowRunArtifact {
+  id                String @id @default(cuid())
+  workflowRunId     String @map("workflow_run_id")
+  artifactVersionId String @map("artifact_version_id")
+
+  role      String
+  direction String
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  run             WorkflowRun     @relation(fields: [workflowRunId], references: [id], onDelete: Restrict, map: "workflow_run_artifacts_workflow_run_id_fkey")
+  artifactVersion ArtifactVersion @relation(fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "workflow_run_artifacts_artifact_version_id_fkey")
+
+  @@unique([workflowRunId, artifactVersionId, role], map: "workflow_run_artifacts_run_id_artifact_version_role_key")
+  @@map("workflow_run_artifacts")
+}
+
+// CHILD_VIA_FK through the mandatory run FK only. Append-only: UPDATE/DELETE denied by
+// sangfor_workflow_run_events_deny_update_trg / sangfor_workflow_run_events_deny_delete_trg,
+// REUSING the existing sangfor_deny_mutation() function from migration 20260715170000 (U017) — no
+// redefinition, same reuse pattern as every other append-only child table in this campaign.
+model WorkflowRunEvent {
+  id            String @id @default(cuid())
+  workflowRunId String @map("workflow_run_id")
+
+  sequence  Int
+  eventType String @map("event_type")
+
+  actorAssignmentId String? @map("actor_assignment_id")
+  actorSessionId    String? @map("actor_session_id")
+
+  payloadJson Json? @map("payload_json")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  run WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Restrict, map: "workflow_run_events_workflow_run_id_fkey")
+
+  @@unique([workflowRunId, sequence], map: "workflow_run_events_workflow_run_id_sequence_key")
+  @@map("workflow_run_events")
 }
 
 // --- schema placeholders (expanded in later phases) ---
@@ -2221,6 +2474,8 @@ model Tenant {
   authSessions     AuthSession[]
   artifacts        Artifact[]
   approvalRequests ApprovalRequest[]
+  workflowDefinitions WorkflowDefinition[]
+  workflowRuns        WorkflowRun[]
 
   @@map("tenants")
 }
@@ -2240,6 +2495,8 @@ model Company {
   authSessions    AuthSession[]
   artifacts       Artifact[]
   approvalRequests ApprovalRequest[]
+  workflowDefinitions WorkflowDefinition[]
+  workflowRuns        WorkflowRun[]
 
   @@unique([tenantId, id], map: "companies_tenant_id_id_key")
   @@index([tenantId])
@@ -2312,6 +2569,10 @@ model UserCompanyRole {
   // (id, companyId) composite unique key — never an ID-only assignment FK.
   requestedApprovalRequests ApprovalRequest[] @relation("ApprovalRequestedByAssignment")
   ownedApprovalRequests     ApprovalRequest[] @relation("ApprovalOwnerAssignment")
+  // U019/WF-01a: the two distinct WorkflowDefinition/WorkflowRun composite-assignment relations,
+  // same (id, companyId) composite unique key — never an ID-only assignment FK.
+  createdWorkflowDefinitions WorkflowDefinition[] @relation("WorkflowDefinitionCreatedByAssignment")
+  requestedWorkflowRuns      WorkflowRun[]        @relation("WorkflowRunRequestedByAssignment")
 
   @@unique([userId, companyId, role])
   @@unique([id, companyId], map: "user_company_roles_id_company_id_key")

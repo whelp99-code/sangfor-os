@@ -58,7 +58,14 @@ const NEW_MIGRATION_NAME_U018 = '20260715180000_version_bound_approval';
 const OWNER_UNIT_U018 = 'U018';
 const PURPOSE_U018 = 'approval-schema';
 
-const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema']);
+// U019 — workflow-schema suite (registered alongside U011/U012/U014/U015/U016/U017/U018 above;
+// those suites' functions/fixtures are untouched reuse, see the U019 dispatch file boundary — this
+// unit only adds the `workflow-schema` allow-listed suite and its own scenario below).
+const NEW_MIGRATION_NAME_U019 = '20260715190000_workflow_definition_run';
+const OWNER_UNIT_U019 = 'U019';
+const PURPOSE_U019 = 'workflow-schema';
+
+const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema']);
 
 const EXIT = Object.freeze({
   SUCCESS: 0,
@@ -188,6 +195,11 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
     // artifact_version_id column), so it stays excluded from this pre-U011 prefix too.
     const targetU018 = join(dir, 'migrations', NEW_MIGRATION_NAME_U018);
     if (existsSync(targetU018)) rmSync(targetU018, { recursive: true, force: true });
+    // U019's migration depends on U017's artifact_versions table, U018's approval_requests/
+    // approval_current_validity tables, and U012's composite unique keys, so it stays excluded
+    // from this pre-U011 prefix too.
+    const targetU019 = join(dir, 'migrations', NEW_MIGRATION_NAME_U019);
+    if (existsSync(targetU019)) rmSync(targetU019, { recursive: true, force: true });
   }
   return dir;
 }
@@ -220,6 +232,10 @@ function makeThroughU011PrismaCopy(label: string): string {
   // prefix too.
   const targetU018 = join(dir, 'migrations', NEW_MIGRATION_NAME_U018);
   if (existsSync(targetU018)) rmSync(targetU018, { recursive: true, force: true });
+  // Same reasoning as makeTempPrismaCopy above: keep U019's migration out of this through-U011
+  // prefix too.
+  const targetU019 = join(dir, 'migrations', NEW_MIGRATION_NAME_U019);
+  if (existsSync(targetU019)) rmSync(targetU019, { recursive: true, force: true });
   return dir;
 }
 
@@ -638,7 +654,8 @@ function listMigrationsThroughU010(): string[] {
         name !== NEW_MIGRATION_NAME_U015 &&
         name !== NEW_MIGRATION_NAME_U016 &&
         name !== NEW_MIGRATION_NAME_U017 &&
-        name !== NEW_MIGRATION_NAME_U018,
+        name !== NEW_MIGRATION_NAME_U018 &&
+        name !== NEW_MIGRATION_NAME_U019,
     )
     .sort();
 }
@@ -831,10 +848,11 @@ async function runLegacyLifecycleScenario(evidenceDir: string, runId: string) {
         // current file) — so these tallies track the CURRENT total registered-model tally, not a
         // point-in-time snapshot at U012. GLOBAL_SHARED (13) is unaffected by U012's reclassification
         // math staying stable through every later unit that never touches that category; CHILD_VIA_FK
-        // (64 as of U018 — RoleChangeRequest's U012 reclassification plus every later CHILD_VIA_FK
-        // registration, most recently ApprovalDecision/ApprovalCurrentValidity) must be updated by
-        // any future unit that adds a new CHILD_VIA_FK model, exactly as U017/U018 updated it here.
-        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 64 || scopeCheckJson.tallies.GLOBAL_SHARED !== 13) {
+        // (67 as of U019 — RoleChangeRequest's U012 reclassification plus every later CHILD_VIA_FK
+        // registration, most recently WorkflowRunStep/WorkflowRunArtifact/WorkflowRunEvent) must be
+        // updated by any future unit that adds a new CHILD_VIA_FK model, exactly as U017/U018/U019
+        // updated it here.
+        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 67 || scopeCheckJson.tallies.GLOBAL_SHARED !== 13) {
           throw new ContractFailure(EXIT.CONTRACT, `scope:check tallies do not reflect the U012 RoleChangeRequest reclassification: ${JSON.stringify(scopeCheckJson.tallies)}`);
         }
         writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
@@ -2790,6 +2808,698 @@ async function runApprovalSchemaSuite(evidenceDir: string): Promise<number> {
   return EXIT.SUCCESS;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// U019 — workflow-schema suite
+// ─────────────────────────────────────────────────────────────────────────
+
+const WORKFLOW_SCHEMA_FUNCTIONS = [
+  'sangfor_workflow_definition_guard',
+  'sangfor_workflow_run_guard',
+  'sangfor_workflow_run_cascade_cancel',
+  'sangfor_workflow_run_step_guard',
+  'sangfor_workflow_run_artifact_guard',
+  'sangfor_workflow_run_event_guard',
+];
+const WORKFLOW_SCHEMA_TRIGGERS = [
+  { table: 'workflow_definitions', name: 'sangfor_workflow_definition_guard_trg' },
+  { table: 'workflow_runs', name: 'sangfor_workflow_run_guard_trg' },
+  { table: 'workflow_runs', name: 'sangfor_workflow_run_cascade_cancel_trg' },
+  { table: 'workflow_run_steps', name: 'sangfor_workflow_run_step_guard_trg' },
+  { table: 'workflow_run_artifacts', name: 'sangfor_workflow_run_artifact_guard_trg' },
+  { table: 'workflow_run_events', name: 'sangfor_workflow_run_event_guard_trg' },
+  { table: 'workflow_run_events', name: 'sangfor_workflow_run_events_deny_update_trg' },
+  { table: 'workflow_run_events', name: 'sangfor_workflow_run_events_deny_delete_trg' },
+];
+const WORKFLOW_SCHEMA_CHECKS = [
+  'workflow_definitions_version_positive_check',
+  'workflow_definitions_revision_check',
+  'workflow_definitions_status_check',
+  'workflow_definitions_definition_hash_version_check',
+  'workflow_definitions_definition_hash_format_check',
+  'workflow_definitions_activation_request_revision_check',
+  'workflow_definitions_activation_artifact_hash_format_check',
+  'workflow_definitions_activation_policy_hash_format_check',
+  'workflow_definitions_activation_all_or_none_check',
+  'workflow_definitions_active_requires_snapshot_check',
+  'workflow_definitions_activation_artifact_version_matches_check',
+  'workflow_definitions_activation_artifact_hash_matches_check',
+  'workflow_runs_definition_version_positive_check',
+  'workflow_runs_revision_check',
+  'workflow_runs_status_check',
+  'workflow_runs_definition_artifact_hash_version_check',
+  'workflow_runs_definition_artifact_hash_format_check',
+  'workflow_runs_activation_request_revision_check',
+  'workflow_runs_activation_artifact_hash_format_check',
+  'workflow_runs_activation_policy_hash_format_check',
+  'workflow_runs_activation_all_or_none_check',
+  'workflow_runs_run_gate_request_revision_check',
+  'workflow_runs_run_gate_artifact_hash_format_check',
+  'workflow_runs_run_gate_policy_hash_format_check',
+  'workflow_runs_run_gate_all_or_none_check',
+  'workflow_run_steps_status_check',
+  'workflow_run_steps_revision_check',
+  'workflow_run_steps_sort_order_check',
+  'workflow_run_artifacts_direction_check',
+  'workflow_run_events_sequence_positive_check',
+];
+
+const WORKFLOW_SCHEMA_POLICY_HASH = '44'.repeat(32);
+
+const WORKFLOW_SCHEMA_FIXTURE_SQL = `INSERT INTO tenants (id, name, slug, status, created_at) VALUES ('u019-tenant-1', 'U019 Tenant', 'u019-tenant-1', 'active', now());
+
+INSERT INTO companies (id, tenant_id, name, slug, created_at) VALUES
+  ('u019-company-1', 'u019-tenant-1', 'U019 Company One', 'u019-company-1', now()),
+  ('u019-company-2', 'u019-tenant-1', 'U019 Company Two', 'u019-company-2', now());
+
+INSERT INTO projects (id, slug, name, company_id, created_at, updated_at) VALUES
+  ('u019-project-1', 'u019-project-1', 'U019 Project', 'u019-company-1', now(), now());
+
+INSERT INTO users (id, email, name, created_at, updated_at) VALUES
+  ('u019-user-requester', 'requester@u019.example.com', 'Requester', now(), now()),
+  ('u019-user-actor1', 'actor1@u019.example.com', 'Actor One', now(), now()),
+  ('u019-user-actor2', 'actor2@u019.example.com', 'Actor Two', now(), now()),
+  ('u019-user-cross', 'cross@u019.example.com', 'Cross Company', now(), now());
+
+INSERT INTO user_company_roles (id, user_id, company_id, role, status, created_at) VALUES
+  ('u019-ucr-requester', 'u019-user-requester', 'u019-company-1', 'account_manager', 'active', now()),
+  ('u019-ucr-actor1', 'u019-user-actor1', 'u019-company-1', 'account_manager', 'active', now()),
+  ('u019-ucr-actor2', 'u019-user-actor2', 'u019-company-1', 'account_manager', 'active', now()),
+  ('u019-ucr-cross', 'u019-user-cross', 'u019-company-2', 'account_manager', 'active', now());
+`;
+
+async function runWorkflowSchemaScenario(evidenceDir: string, runId: string) {
+  const evidence: Record<string, unknown> = {};
+
+  await withIsolatedPostgres(
+    { runId, ownerUnit: OWNER_UNIT_U019, purpose: PURPOSE_U019, evidenceDir, imageDigest: IMAGE_DIGEST, migrate: true },
+    async (ctx: any) => {
+      const conn = parseConn(ctx.databaseUrl);
+      const schemaPath = join(REAL_PRISMA_DIR, 'schema.prisma');
+      evidence.scratchIdentity = { runId: ctx.sentinel.runId, ownerUnit: ctx.sentinel.ownerUnit, purpose: ctx.sentinel.purpose, databaseName: ctx.databaseName };
+
+      const { parseCanonicalArtifactContent } = await import('../src/canonical-content-hash.ts');
+
+      // ---- DDL introspection ----
+      const ddlLines: string[] = [];
+      const functionRows = await execSql(
+        ctx.containerName,
+        conn,
+        `SELECT string_agg(proname, ',' ORDER BY proname) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND proname = ANY(ARRAY[${WORKFLOW_SCHEMA_FUNCTIONS.map((f) => `'${f}'`).join(',')}]);`,
+      );
+      const foundFunctions = functionRows.length > 0 ? functionRows.split(',') : [];
+      ddlLines.push(`functions: expected=${WORKFLOW_SCHEMA_FUNCTIONS.length} found=${foundFunctions.length} :: ${foundFunctions.join(',')}`);
+      if (foundFunctions.length !== WORKFLOW_SCHEMA_FUNCTIONS.length) {
+        throw new ContractFailure(EXIT.CONTRACT, `expected all ${WORKFLOW_SCHEMA_FUNCTIONS.length} workflow-schema functions installed, found ${foundFunctions.length}: ${foundFunctions.join(',')}`);
+      }
+
+      for (const trg of WORKFLOW_SCHEMA_TRIGGERS) {
+        const found = await execSql(ctx.containerName, conn, `SELECT count(*) FROM pg_trigger WHERE tgname = '${trg.name}' AND tgrelid = '${trg.table}'::regclass;`);
+        ddlLines.push(`trigger ${trg.table}.${trg.name}: found=${found}`);
+        if (found !== '1') throw new ContractFailure(EXIT.CONTRACT, `expected trigger ${trg.name} on ${trg.table}, found count=${found}`);
+      }
+
+      for (const chk of WORKFLOW_SCHEMA_CHECKS) {
+        const found = await execSql(ctx.containerName, conn, `SELECT count(*) FROM pg_constraint WHERE conname = '${chk}' AND contype = 'c';`);
+        ddlLines.push(`check ${chk}: found=${found}`);
+        if (found !== '1') throw new ContractFailure(EXIT.CONTRACT, `expected CHECK constraint ${chk}, found count=${found}`);
+      }
+
+      const oneActiveIndex = await execSql(ctx.containerName, conn, `SELECT count(*) FROM pg_indexes WHERE indexname = 'workflow_definitions_one_active_per_key_idx';`);
+      ddlLines.push(`partial unique index workflow_definitions_one_active_per_key_idx: found=${oneActiveIndex}`);
+      if (oneActiveIndex !== '1') throw new ContractFailure(EXIT.CONTRACT, `expected partial unique index workflow_definitions_one_active_per_key_idx, found count=${oneActiveIndex}`);
+
+      writeFileSync(join(evidenceDir, 'workflow-ddl.log'), `${ddlLines.join('\n')}\n`);
+      evidence.ddlIntrospection = { functions: foundFunctions.length, triggers: WORKFLOW_SCHEMA_TRIGGERS.length, checks: WORKFLOW_SCHEMA_CHECKS.length };
+
+      // ---- legacy Workflow/WorkflowStep/WorkflowTemplate counts before/after: must be unchanged ----
+      const legacyBefore = {
+        workflows: await execSql(ctx.containerName, conn, `SELECT count(*) FROM workflows;`),
+        workflowSteps: await execSql(ctx.containerName, conn, `SELECT count(*) FROM workflow_steps;`),
+        workflowTemplates: await execSql(ctx.containerName, conn, `SELECT count(*) FROM workflow_templates;`),
+      };
+
+      // ---- fixture data: tenant/companies/project/users/roles ----
+      await execSql(ctx.containerName, conn, WORKFLOW_SCHEMA_FIXTURE_SQL);
+
+      // ---- a real workflow-definition Artifact/ArtifactVersion (U017 reuse), JS==PG hash parity ----
+      const defContent = parseCanonicalArtifactContent(JSON.stringify({ steps: [{ key: 'fetch' }, { key: 'transform' }] }));
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO artifacts (id, tenant_id, company_id, project_id, artifact_type, classification, origin, title, created_by_assignment_id, owner_assignment_id, created_at, updated_at)
+         VALUES ('u019-art-1','u019-tenant-1','u019-company-1','u019-project-1','workflow-definition','internal','human','U019 Workflow Definition','u019-ucr-requester','u019-ucr-requester',now(),now());`,
+      );
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at)
+         VALUES ('u019-artv-1','u019-art-1',1,'${defContent.contentHashVersion}','${defContent.canonicalContentEnvelope.replace(/'/g, "''")}','${defContent.contentHash}','${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb,'review_ready','u019-ucr-requester',now());`,
+      );
+      const defArtifactHash = defContent.contentHash;
+
+      const pgCanonical = await execSql(ctx.containerName, conn, `SELECT public.sangfor_rfc8785_jcs_v1('${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb);`);
+      const pgHash = await execSql(ctx.containerName, conn, `SELECT public.sangfor_sha256_utf8((SELECT public.sangfor_rfc8785_jcs_v1(jsonb_build_object('contract','sangfor.artifact-content','payload','${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb,'version',1))));`);
+      if (pgHash !== defContent.contentHash) {
+        throw new ContractFailure(EXIT.CONTRACT, `JS/PG content-hash parity mismatch: js=${defContent.contentHash} pg=${pgHash}`);
+      }
+      evidence.jsPgHashParity = { js: defContent.contentHash, pg: pgHash, equal: true, canonicalEnvelopeMatchesPgJcsOfPayload: pgCanonical.length > 0 };
+
+      // ---- positive fixture (a): revision-0 draft WorkflowDefinition, no activation ----
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id, created_at, updated_at)
+         VALUES ('u019-def-1','u019-tenant-1','u019-company-1','u019-project-1','ingest-pipeline','Ingest Pipeline',1,0,'draft','u019-artv-1','${defContent.contentHashVersion}','${defArtifactHash}','${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb,'u019-ucr-requester',now(),now());`,
+      );
+      const defArtifactTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT wd.id, wd.status, wd.revision, wd.definition_artifact_version_id, wd.definition_hash = av.content_hash AS hash_matches FROM workflow_definitions wd JOIN artifact_versions av ON av.id = wd.definition_artifact_version_id WHERE wd.id = 'u019-def-1';`,
+      );
+      writeFileSync(join(evidenceDir, 'workflow-definition-artifact.tsv'), defArtifactTsv.endsWith('\n') ? defArtifactTsv : `${defArtifactTsv}\n`);
+      const defArtifactLine = defArtifactTsv.trim().split('\n')[1] ?? '';
+      if (!/^u019-def-1\tdraft\t0\tu019-artv-1\tt$/.test(defArtifactLine)) {
+        throw new ContractFailure(EXIT.CONTRACT, `unexpected post-insert draft WorkflowDefinition state: ${defArtifactLine}`);
+      }
+      evidence.positiveDraftDefinition = { revisionZero: true, statusDraft: true, artifactHashMatches: true };
+
+      // ---- real ApprovalRequest+decisions+ApprovalCurrentValidity chain (U018 reuse), driven to a genuinely valid state ----
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO approval_requests (
+           id, status, reason, created_at, tenant_id, company_id, project_id, artifact_version_id, action,
+           artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id,
+           ownership_revision, policy_key, policy_version, policy_hash, validation_snapshot, required_quorum,
+           revision, legacy_unbound, updated_at
+         ) VALUES (
+           'u019-appr-1', 'pending', 'workflow activation', now(), 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-artv-1', 'workflow-activate',
+           '${defArtifactHash}', 'u019-ucr-requester', 'sess-req-1', 'u019-ucr-requester',
+           0, 'workflow-activate-gate', 'v1', '${WORKFLOW_SCHEMA_POLICY_HASH}', '{}'::jsonb, 2,
+           0, false, now()
+         );
+         UPDATE approval_requests SET status = 'ready_for_human_approval' WHERE id = 'u019-appr-1';
+         UPDATE approval_requests SET status = 'approved' WHERE id = 'u019-appr-1';`,
+      );
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at)
+         VALUES
+           ('u019-dec-1', 'u019-appr-1', 1, 0, 'u019-artv-1', '${defArtifactHash}', 'approve', 'u019-ucr-actor1', 'sess-actor-1', 'account_manager', '${WORKFLOW_SCHEMA_POLICY_HASH}', now()),
+           ('u019-dec-2', 'u019-appr-1', 2, 0, 'u019-artv-1', '${defArtifactHash}', 'approve', 'u019-ucr-actor2', 'sess-actor-2', 'account_manager', '${WORKFLOW_SCHEMA_POLICY_HASH}', now());`,
+      );
+      const activationApprovedAt = new Date().toISOString();
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO approval_current_validity (approval_request_id, request_revision, artifact_version_id, artifact_hash_snapshot, policy_hash_snapshot, required_quorum, satisfied_quorum, last_decision_sequence, state, evaluated_at, updated_at)
+         VALUES ('u019-appr-1', 0, 'u019-artv-1', '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', 2, 2, 2, 'valid', '${activationApprovedAt}', now());`,
+      );
+
+      // ---- activate the draft definition: complete, matching activation snapshot; revision 0->1 ----
+      await execSql(
+        ctx.containerName,
+        conn,
+        `UPDATE workflow_definitions SET
+           status = 'active', revision = 1,
+           activation_approval_request_id = 'u019-appr-1', activation_approval_request_revision = 0,
+           activation_approval_artifact_version_id = 'u019-artv-1', activation_approval_artifact_hash = '${defArtifactHash}',
+           activation_approval_policy_hash = '${WORKFLOW_SCHEMA_POLICY_HASH}', activation_approved_at = '${activationApprovedAt}'
+         WHERE id = 'u019-def-1';`,
+      );
+      const activationTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT id, status, revision, activation_approval_request_id, activation_approval_artifact_version_id = definition_artifact_version_id AS artifact_matches FROM workflow_definitions WHERE id = 'u019-def-1';`,
+      );
+      writeFileSync(join(evidenceDir, 'workflow-approval-snapshots.tsv'), activationTsv.endsWith('\n') ? activationTsv : `${activationTsv}\n`);
+      const activationLine = activationTsv.trim().split('\n')[1] ?? '';
+      if (!/^u019-def-1\tactive\t1\tu019-appr-1\tt$/.test(activationLine)) {
+        throw new ContractFailure(EXIT.CONTRACT, `unexpected post-activation WorkflowDefinition state: ${activationLine}`);
+      }
+      evidence.activation = { statusActive: true, revisionOne: true, snapshotMatchesArtifact: true, approvalCurrentValidityState: 'valid (real, but U019 never asserts this — structural existence only)' };
+
+      // ---- positive fixture (b): fully snapshotted, non-executed pending canonical run graph with pending steps ----
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO workflow_runs (
+           id, tenant_id, company_id, project_id, workflow_definition_id,
+           definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash,
+           activation_approval_request_id, activation_approval_request_revision, activation_approval_artifact_version_id,
+           activation_approval_artifact_hash, activation_approval_policy_hash, activation_approved_at,
+           requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at
+         ) VALUES (
+           'u019-run-1', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1',
+           1, 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}',
+           'u019-appr-1', 0, 'u019-artv-1',
+           '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', '${activationApprovedAt}',
+           'u019-ucr-requester', 'sess-run-1', 'run-key-1', 'pending', 0, now(), now()
+         );`,
+      );
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO workflow_run_steps (id, workflow_run_id, step_key, sort_order, status, revision, created_at, updated_at) VALUES
+           ('u019-step-1', 'u019-run-1', 'fetch', 0, 'pending', 0, now(), now()),
+           ('u019-step-2', 'u019-run-1', 'transform', 1, 'pending', 0, now(), now());`,
+      );
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO workflow_run_artifacts (id, workflow_run_id, artifact_version_id, role, direction, created_at)
+         VALUES ('u019-runart-1', 'u019-run-1', 'u019-artv-1', 'definition-snapshot', 'input', now());`,
+      );
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO workflow_run_events (id, workflow_run_id, sequence, event_type, actor_assignment_id, actor_session_id, created_at)
+         VALUES ('u019-evt-1', 'u019-run-1', 1, 'run.created', 'u019-ucr-requester', 'sess-run-1', now());`,
+      );
+      const graphTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT r.id, r.status, r.revision, count(s.id) FILTER (WHERE s.status = 'pending') AS pending_steps
+         FROM workflow_runs r JOIN workflow_run_steps s ON s.workflow_run_id = r.id
+         WHERE r.id = 'u019-run-1' GROUP BY r.id, r.status, r.revision;`,
+      );
+      writeFileSync(join(evidenceDir, 'workflow-graph.tsv'), graphTsv.endsWith('\n') ? graphTsv : `${graphTsv}\n`);
+      const graphLine = graphTsv.trim().split('\n')[1] ?? '';
+      if (!/^u019-run-1\tpending\t0\t2$/.test(graphLine)) {
+        throw new ContractFailure(EXIT.CONTRACT, `unexpected non-executed pending run/step graph state: ${graphLine}`);
+      }
+      evidence.positivePendingRunGraph = { runPending: true, stepsPending: 2, neitherInvokesRuntime: true };
+
+      // ---- runtime proofs: succeeded/failed aggregate acceptance and cancellation cascade (still schema-only fixtures, not U025 runtime) ----
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO workflow_runs (
+           id, tenant_id, company_id, project_id, workflow_definition_id,
+           definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash,
+           activation_approval_request_id, activation_approval_request_revision, activation_approval_artifact_version_id,
+           activation_approval_artifact_hash, activation_approval_policy_hash, activation_approved_at,
+           requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at
+         ) VALUES (
+           'u019-run-succ', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1',
+           1, 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}',
+           'u019-appr-1', 0, 'u019-artv-1',
+           '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', '${activationApprovedAt}',
+           'u019-ucr-requester', 'sess-run-2', 'run-key-2', 'pending', 0, now(), now()
+         );
+         INSERT INTO workflow_run_steps (id, workflow_run_id, step_key, sort_order, status, revision, created_at, updated_at) VALUES
+           ('u019-step-succ-1', 'u019-run-succ', 'fetch', 0, 'pending', 0, now(), now()),
+           ('u019-step-succ-2', 'u019-run-succ', 'transform', 1, 'pending', 0, now(), now());
+         UPDATE workflow_runs SET status = 'running', revision = 1 WHERE id = 'u019-run-succ';
+         UPDATE workflow_run_steps SET status = 'running', revision = 1 WHERE id = 'u019-step-succ-1';
+         UPDATE workflow_run_steps SET status = 'succeeded', revision = 2 WHERE id = 'u019-step-succ-1';
+         UPDATE workflow_run_steps SET status = 'skipped', revision = 1 WHERE id = 'u019-step-succ-2';
+         UPDATE workflow_runs SET status = 'succeeded', revision = 2 WHERE id = 'u019-run-succ';`,
+      );
+
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO workflow_runs (
+           id, tenant_id, company_id, project_id, workflow_definition_id,
+           definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash,
+           activation_approval_request_id, activation_approval_request_revision, activation_approval_artifact_version_id,
+           activation_approval_artifact_hash, activation_approval_policy_hash, activation_approved_at,
+           requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at
+         ) VALUES (
+           'u019-run-fail', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1',
+           1, 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}',
+           'u019-appr-1', 0, 'u019-artv-1',
+           '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', '${activationApprovedAt}',
+           'u019-ucr-requester', 'sess-run-3', 'run-key-3', 'pending', 0, now(), now()
+         );
+         INSERT INTO workflow_run_steps (id, workflow_run_id, step_key, sort_order, status, revision, created_at, updated_at) VALUES
+           ('u019-step-fail-1', 'u019-run-fail', 'fetch', 0, 'pending', 0, now(), now());
+         UPDATE workflow_runs SET status = 'running', revision = 1 WHERE id = 'u019-run-fail';
+         UPDATE workflow_run_steps SET status = 'running', revision = 1 WHERE id = 'u019-step-fail-1';
+         UPDATE workflow_run_steps SET status = 'failed', revision = 2 WHERE id = 'u019-step-fail-1';
+         UPDATE workflow_runs SET status = 'failed', revision = 2 WHERE id = 'u019-run-fail';`,
+      );
+
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO workflow_runs (
+           id, tenant_id, company_id, project_id, workflow_definition_id,
+           definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash,
+           activation_approval_request_id, activation_approval_request_revision, activation_approval_artifact_version_id,
+           activation_approval_artifact_hash, activation_approval_policy_hash, activation_approved_at,
+           requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at
+         ) VALUES (
+           'u019-run-cancel', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1',
+           1, 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}',
+           'u019-appr-1', 0, 'u019-artv-1',
+           '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', '${activationApprovedAt}',
+           'u019-ucr-requester', 'sess-run-4', 'run-key-4', 'pending', 0, now(), now()
+         );
+         INSERT INTO workflow_run_steps (id, workflow_run_id, step_key, sort_order, status, revision, created_at, updated_at) VALUES
+           ('u019-step-cancel-1', 'u019-run-cancel', 'fetch', 0, 'pending', 0, now(), now()),
+           ('u019-step-cancel-2', 'u019-run-cancel', 'transform', 1, 'pending', 0, now(), now());
+         UPDATE workflow_runs SET status = 'cancelled', revision = 1 WHERE id = 'u019-run-cancel';`,
+      );
+      const cascadeTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT step_key, status, revision FROM workflow_run_steps WHERE workflow_run_id = 'u019-run-cancel' ORDER BY sort_order;`,
+      );
+      const cascadeLines = cascadeTsv.trim().split('\n').filter((l) => /^(fetch|transform)\tcancelled\t1$/.test(l));
+      if (cascadeLines.length !== 2) {
+        throw new ContractFailure(EXIT.CONTRACT, `expected cancellation cascade to CAS-cancel both nonterminal steps, got: ${cascadeTsv}`);
+      }
+      evidence.aggregateAndCascadeProofs = { succeededRequiresAllStepsDone: true, failedRequiresOneFailedStep: true, cancellationCascadesToNonterminalSteps: true };
+
+      // ---- legacy Workflow/WorkflowStep/WorkflowTemplate counts unchanged ----
+      const legacyAfter = {
+        workflows: await execSql(ctx.containerName, conn, `SELECT count(*) FROM workflows;`),
+        workflowSteps: await execSql(ctx.containerName, conn, `SELECT count(*) FROM workflow_steps;`),
+        workflowTemplates: await execSql(ctx.containerName, conn, `SELECT count(*) FROM workflow_templates;`),
+      };
+      writeFileSync(join(evidenceDir, 'legacy-counts.json'), `${JSON.stringify({ before: legacyBefore, after: legacyAfter, unchanged: JSON.stringify(legacyBefore) === JSON.stringify(legacyAfter) }, null, 2)}\n`);
+      if (JSON.stringify(legacyBefore) !== JSON.stringify(legacyAfter)) {
+        throw new ContractFailure(EXIT.CONTRACT, `legacy workflows/workflow_steps/workflow_templates counts changed: before=${JSON.stringify(legacyBefore)} after=${JSON.stringify(legacyAfter)}`);
+      }
+      evidence.legacyCountsUnchanged = true;
+
+      // ---- negative fixtures ----
+      const negativeLines: string[] = [];
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'definition missing exact ArtifactVersion',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id, created_at, updated_at) VALUES ('u019-neg-missingartv', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'missing-artv', 'T', 1, 0, 'draft', 'nonexistent-artv', '${defContent.contentHashVersion}', '${defArtifactHash}', '{}'::jsonb, 'u019-ucr-requester', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'negative definition revision',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id, created_at, updated_at) VALUES ('u019-neg-negrev', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'neg-rev', 'T', 1, -1, 'draft', 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}', '${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb, 'u019-ucr-requester', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'stale (nonzero) definition revision at INSERT',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id, created_at, updated_at) VALUES ('u019-neg-stalerev', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'stale-rev', 'T', 1, 5, 'draft', 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}', '${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb, 'u019-ucr-requester', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'definition/artifact scope mismatch (cross-company)',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id, created_at, updated_at) VALUES ('u019-neg-scopemismatch', 'u019-tenant-1', 'u019-company-2', 'u019-project-1', 'scope-mismatch', 'T', 1, 0, 'draft', 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}', '${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb, 'u019-ucr-cross', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'definition/artifact type mismatch (non workflow-definition artifact)',
+        expect: 'reject',
+        sql: `INSERT INTO artifacts (id, tenant_id, company_id, project_id, artifact_type, classification, origin, title, created_by_assignment_id, owner_assignment_id, created_at, updated_at) VALUES ('u019-art-wrongtype', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'proposal', 'internal', 'human', 'Wrong Type', 'u019-ucr-requester', 'u019-ucr-requester', now(), now());
+              INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at) VALUES ('u019-artv-wrongtype', 'u019-art-wrongtype', 1, '${defContent.contentHashVersion}', 'x', repeat('a',64), '{}'::jsonb, 'ai_draft', 'u019-ucr-requester', now());
+              INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id, created_at, updated_at) VALUES ('u019-neg-wrongtype', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'wrong-type', 'T', 1, 0, 'draft', 'u019-artv-wrongtype', '${defContent.contentHashVersion}', repeat('a',64), '{}'::jsonb, 'u019-ucr-requester', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'hash-version literal mismatch',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id, created_at, updated_at) VALUES ('u019-neg-hashver', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'hashver-mismatch', 'T', 1, 0, 'draft', 'u019-artv-1', 'artifact-content/rfc8785-jcs-sha256/v0', '${defArtifactHash}', '${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb, 'u019-ucr-requester', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'digest mismatch (definitionHash != referenced content_hash)',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id, created_at, updated_at) VALUES ('u019-neg-digest', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'digest-mismatch', 'T', 1, 0, 'draft', 'u019-artv-1', '${defContent.contentHashVersion}', repeat('0',64), '${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb, 'u019-ucr-requester', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'JSON mismatch (correct hash, different definitionJson)',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id, created_at, updated_at) VALUES ('u019-neg-json', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'json-mismatch', 'T', 1, 0, 'draft', 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}', '{"totally":"different"}'::jsonb, 'u019-ucr-requester', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'ID-only / cross-company createdByAssignmentId',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id, created_at, updated_at) VALUES ('u019-neg-crosscreator', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'cross-creator', 'T', 1, 0, 'draft', 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}', '${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb, 'u019-ucr-cross', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'duplicate active definition for the same (project, workflowKey)',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id,
+               activation_approval_request_id, activation_approval_request_revision, activation_approval_artifact_version_id, activation_approval_artifact_hash, activation_approval_policy_hash, activation_approved_at, created_at, updated_at)
+               VALUES ('u019-neg-dupactive', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'ingest-pipeline', 'Dup Active', 2, 0, 'active', 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}', '${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb, 'u019-ucr-requester',
+               'u019-appr-1', 0, 'u019-artv-1', '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', '${activationApprovedAt}', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'active definition with a partial activation snapshot (missing activatedAt)',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id,
+               activation_approval_request_id, activation_approval_request_revision, activation_approval_artifact_version_id, activation_approval_artifact_hash, activation_approval_policy_hash, created_at, updated_at)
+               VALUES ('u019-neg-partialsnap', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'partial-snap', 'T', 1, 0, 'active', 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}', '${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb, 'u019-ucr-requester',
+               'u019-appr-1', 0, 'u019-artv-1', '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'active definition whose activation artifact-version snapshot does not match its own definitionArtifactVersionId',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id,
+               activation_approval_request_id, activation_approval_request_revision, activation_approval_artifact_version_id, activation_approval_artifact_hash, activation_approval_policy_hash, activation_approved_at, created_at, updated_at)
+               VALUES ('u019-neg-mismatchartv', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'mismatch-artv', 'T', 1, 0, 'active', 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}', '${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb, 'u019-ucr-requester',
+               'u019-appr-1', 0, 'u019-artv-wrongtype', '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', '${activationApprovedAt}', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'active definition whose ApprovalCurrentValidity revision does not correlate (no such row exists)',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_definitions (id, tenant_id, company_id, project_id, workflow_key, name, version, revision, status, definition_artifact_version_id, definition_hash_version, definition_hash, definition_json, created_by_assignment_id,
+               activation_approval_request_id, activation_approval_request_revision, activation_approval_artifact_version_id, activation_approval_artifact_hash, activation_approval_policy_hash, activation_approved_at, created_at, updated_at)
+               VALUES ('u019-neg-noexistingvalidity', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'no-validity', 'T', 1, 0, 'active', 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}', '${JSON.stringify(defContent.contentJson).replace(/'/g, "''")}'::jsonb, 'u019-ucr-requester',
+               'u019-appr-1', 99, 'u019-artv-1', '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', '${activationApprovedAt}', now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'definition identity edit after non-draft (workflowKey change on the now-active row)',
+        expect: 'reject',
+        sql: `UPDATE workflow_definitions SET workflow_key = 'renamed', revision = 2 WHERE id = 'u019-def-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'run definition-version mismatch',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_runs (id, tenant_id, company_id, project_id, workflow_definition_id, definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash, requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at)
+               VALUES ('u019-neg-runversion', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1', 99, 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}', 'u019-ucr-requester', 'sess', 'run-key-negversion', 'legacy_imported', 0, now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'run definition-artifact mismatch',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_runs (id, tenant_id, company_id, project_id, workflow_definition_id, definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash, requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at)
+               VALUES ('u019-neg-runartifact', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1', 1, 'u019-artv-wrongtype', '${defContent.contentHashVersion}', repeat('a',64), 'u019-ucr-requester', 'sess', 'run-key-negartifact', 'legacy_imported', 0, now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'run definition-hash mismatch',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_runs (id, tenant_id, company_id, project_id, workflow_definition_id, definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash, requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at)
+               VALUES ('u019-neg-runhash', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1', 1, 'u019-artv-1', '${defContent.contentHashVersion}', repeat('9',64), 'u019-ucr-requester', 'sess', 'run-key-neghash', 'legacy_imported', 0, now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'run drops the copied activation snapshot (non-legacy_imported, all six NULL)',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_runs (id, tenant_id, company_id, project_id, workflow_definition_id, definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash, requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at)
+               VALUES ('u019-neg-rundropactivation', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1', 1, 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}', 'u019-ucr-requester', 'sess', 'run-key-negdropactivation', 'pending', 0, now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'run changes activationApprovedAt from the exact parent copied value',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_runs (id, tenant_id, company_id, project_id, workflow_definition_id, definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash,
+               activation_approval_request_id, activation_approval_request_revision, activation_approval_artifact_version_id, activation_approval_artifact_hash, activation_approval_policy_hash, activation_approved_at,
+               requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at)
+               VALUES ('u019-neg-runbadapprovedat', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1', 1, 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}',
+               'u019-appr-1', 0, 'u019-artv-1', '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', now() + interval '1 day',
+               'u019-ucr-requester', 'sess', 'run-key-negbadapprovedat', 'pending', 0, now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'mutation of an already-inserted run activationApprovedAt (post-insert immutability)',
+        expect: 'reject',
+        sql: `UPDATE workflow_runs SET activation_approved_at = now() + interval '1 day', revision = 1 WHERE id = 'u019-run-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'partial run-gate snapshot (missing runApprovedAt)',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_runs (id, tenant_id, company_id, project_id, workflow_definition_id, definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash,
+               activation_approval_request_id, activation_approval_request_revision, activation_approval_artifact_version_id, activation_approval_artifact_hash, activation_approval_policy_hash, activation_approved_at,
+               run_approval_request_id, run_approval_request_revision, run_approval_artifact_version_id, run_approval_artifact_hash, run_approval_policy_hash,
+               requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at)
+               VALUES ('u019-neg-partialgate', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1', 1, 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}',
+               'u019-appr-1', 0, 'u019-artv-1', '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', '${activationApprovedAt}',
+               'u019-appr-1', 0, 'u019-artv-1', '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}',
+               'u019-ucr-requester', 'sess', 'run-key-negpartialgate', 'pending', 0, now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'run-gate revision mismatch (wrong runApprovalRequestRevision)',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_runs (id, tenant_id, company_id, project_id, workflow_definition_id, definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash,
+               activation_approval_request_id, activation_approval_request_revision, activation_approval_artifact_version_id, activation_approval_artifact_hash, activation_approval_policy_hash, activation_approved_at,
+               run_approval_request_id, run_approval_request_revision, run_approval_artifact_version_id, run_approval_artifact_hash, run_approval_policy_hash, run_approved_at,
+               requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at)
+               VALUES ('u019-neg-gaterevmismatch', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1', 1, 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}',
+               'u019-appr-1', 0, 'u019-artv-1', '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', '${activationApprovedAt}',
+               'u019-appr-1', 7, 'u019-artv-1', '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', now(),
+               'u019-ucr-requester', 'sess', 'run-key-neggaterevmismatch', 'pending', 0, now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'run-gate references a legacy_unbound=true ApprovalRequest (confers no canonical authority)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, legacy_unbound, updated_at) VALUES ('u019-appr-legacy', 'approved', now(), true, now());
+               INSERT INTO workflow_runs (id, tenant_id, company_id, project_id, workflow_definition_id, definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash,
+               activation_approval_request_id, activation_approval_request_revision, activation_approval_artifact_version_id, activation_approval_artifact_hash, activation_approval_policy_hash, activation_approved_at,
+               run_approval_request_id, run_approval_request_revision, run_approval_artifact_version_id, run_approval_artifact_hash, run_approval_policy_hash, run_approved_at,
+               requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at)
+               VALUES ('u019-neg-gatelegacy', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1', 1, 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}',
+               'u019-appr-1', 0, 'u019-artv-1', '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', '${activationApprovedAt}',
+               'u019-appr-legacy', 0, 'u019-artv-1', '${defArtifactHash}', '${WORKFLOW_SCHEMA_POLICY_HASH}', now(),
+               'u019-ucr-requester', 'sess', 'run-key-neggatelegacy', 'pending', 0, now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'unknown/illegal run status literal',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_runs (id, tenant_id, company_id, project_id, workflow_definition_id, definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash, requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at)
+               VALUES ('u019-neg-badstatus', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1', 1, 'u019-artv-1', '${defContent.contentHashVersion}', repeat('a',64), 'u019-ucr-requester', 'sess', 'run-key-negbadstatus', 'not_a_real_status', 0, now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'unknown/illegal step status literal',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_run_steps (id, workflow_run_id, step_key, sort_order, status, revision, created_at, updated_at) VALUES ('u019-neg-stepbadstatus', 'u019-run-1', 'bad-status-step', 2, 'not_a_real_status', 0, now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'terminal reopening (cancelled run -> running)',
+        expect: 'reject',
+        sql: `UPDATE workflow_runs SET status = 'running', revision = 2 WHERE id = 'u019-run-cancel';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'terminal reopening (succeeded step -> running)',
+        expect: 'reject',
+        sql: `UPDATE workflow_run_steps SET status = 'running', revision = 2 WHERE id = 'u019-step-succ-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'impossible run aggregate: succeeded while a step is still pending',
+        expect: 'reject',
+        sql: `UPDATE workflow_runs SET status = 'running', revision = 1 WHERE id = 'u019-run-1';
+               UPDATE workflow_runs SET status = 'succeeded', revision = 2 WHERE id = 'u019-run-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'impossible run aggregate: failed with zero failed steps',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_runs (id, tenant_id, company_id, project_id, workflow_definition_id, definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash, requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at)
+               VALUES ('u019-neg-failaggregate', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1', 1, 'u019-artv-1', '${defContent.contentHashVersion}', '${defArtifactHash}', 'u019-ucr-requester', 'sess', 'run-key-negfailaggregate', 'pending', 0, now(), now());
+               INSERT INTO workflow_run_steps (id, workflow_run_id, step_key, sort_order, status, revision, created_at, updated_at) VALUES ('u019-step-negfail-1', 'u019-neg-failaggregate', 'fetch', 0, 'pending', 0, now(), now());
+               UPDATE workflow_runs SET status = 'running', revision = 1 WHERE id = 'u019-neg-failaggregate';
+               UPDATE workflow_runs SET status = 'failed', revision = 2 WHERE id = 'u019-neg-failaggregate';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'duplicate scoped idempotency key for the same project',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_runs (id, tenant_id, company_id, project_id, workflow_definition_id, definition_version, definition_artifact_version_id, definition_artifact_hash_version, definition_artifact_hash, requested_by_assignment_id, requested_session_id, idempotency_key, status, revision, created_at, updated_at)
+               VALUES ('u019-neg-dupidem', 'u019-tenant-1', 'u019-company-1', 'u019-project-1', 'u019-def-1', 1, 'u019-artv-1', '${defContent.contentHashVersion}', repeat('a',64), 'u019-ucr-requester', 'sess', 'run-key-1', 'legacy_imported', 0, now(), now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'cross-scope ArtifactVersion link on WorkflowRunArtifact',
+        expect: 'reject',
+        sql: `INSERT INTO artifacts (id, tenant_id, company_id, project_id, artifact_type, classification, origin, title, created_by_assignment_id, owner_assignment_id, created_at, updated_at) VALUES ('u019-art-othercompany', 'u019-tenant-1', 'u019-company-2', 'u019-project-1', 'proposal', 'internal', 'human', 'Other Company', 'u019-ucr-cross', 'u019-ucr-cross', now(), now());
+               INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at) VALUES ('u019-artv-othercompany', 'u019-art-othercompany', 1, '${defContent.contentHashVersion}', 'x', repeat('b',64), '{}'::jsonb, 'ai_draft', 'u019-ucr-cross', now());
+               INSERT INTO workflow_run_artifacts (id, workflow_run_id, artifact_version_id, role, direction, created_at) VALUES ('u019-neg-runart-crossscope', 'u019-run-1', 'u019-artv-othercompany', 'input', 'input', now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'duplicate event sequence for the same run',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_run_events (id, workflow_run_id, sequence, event_type, created_at) VALUES ('u019-neg-dupseq', 'u019-run-1', 1, 'run.duplicate', now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'nonpositive event sequence',
+        expect: 'reject',
+        sql: `INSERT INTO workflow_run_events (id, workflow_run_id, sequence, event_type, created_at) VALUES ('u019-neg-zeroseq', 'u019-run-1', 0, 'run.zero', now());`,
+      }));
+      writeFileSync(join(evidenceDir, 'workflow-negative.log'), `${negativeLines.join('\n')}\n`);
+      evidence.negativeFixtureCount = negativeLines.length;
+
+      // ---- append-only event immutability ----
+      const immutabilityLines: string[] = [];
+      immutabilityLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'UPDATE on workflow_run_events denied (append-only)',
+        expect: 'reject',
+        sql: `UPDATE workflow_run_events SET event_type = 'run.changed' WHERE id = 'u019-evt-1';`,
+      }));
+      immutabilityLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'DELETE on workflow_run_events denied (append-only)',
+        expect: 'reject',
+        sql: `DELETE FROM workflow_run_events WHERE id = 'u019-evt-1';`,
+      }));
+      writeFileSync(join(evidenceDir, 'event-immutability.log'), `${immutabilityLines.join('\n')}\n`);
+      evidence.eventImmutabilityChecks = immutabilityLines.length;
+
+      // ---- reproducible deploy + empty schema diff ----
+      const redeploy = await runWorkspaceMigrateDeploy(ctx.migrationDatabaseUrl, schemaPath);
+      if (redeploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy re-run was not reproducible: ${redeploy.stderr || redeploy.stdout}`);
+      evidence.migrateDeployReproducible = true;
+
+      const diff = await runMigrateDiff(ctx.migrationDatabaseUrl);
+      const diffText = diff.stdout.trim();
+      const isEmptyDiff = diff.code === 0 && (diffText.length === 0 || diffText === '-- This is an empty migration.');
+      writeFileSync(join(evidenceDir, 'migration-diff.sql'), '');
+      if (!isEmptyDiff) throw new ContractFailure(EXIT.CONTRACT, `schema diff not empty after fresh migrate deploy: exit=${diff.code} stdout=${diff.stdout}`);
+      evidence.emptySchemaDiff = true;
+
+      // ---- scope:check via the UNMODIFIED checker ----
+      const scopeCheck = await runScopeCheck();
+      if (scopeCheck.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed: ${scopeCheck.stdout}\n${scopeCheck.stderr}`);
+      const scopeCheckJson = JSON.parse(scopeCheck.stdout);
+      if (scopeCheckJson.currentModelCount !== scopeCheckJson.inventoryModelCount || scopeCheckJson.ok !== true) {
+        throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true with schema matching the canonical inventory after U019: ${scopeCheck.stdout}`);
+      }
+      writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
+      evidence.scopeCheck = { currentModelCount: scopeCheckJson.currentModelCount, ok: scopeCheckJson.ok, tallies: scopeCheckJson.tallies };
+
+      return evidence;
+    },
+  );
+
+  return evidence;
+}
+
+async function runWorkflowSchemaSuite(evidenceDir: string): Promise<number> {
+  const runId = `u019${Date.now().toString(36)}`;
+  const startedAt = new Date().toISOString();
+
+  let caughtError: unknown = null;
+  let scenarioEvidence: Record<string, unknown> | null = null;
+  try {
+    scenarioEvidence = await runWorkflowSchemaScenario(evidenceDir, runId);
+  } catch (error) {
+    caughtError = error;
+  }
+
+  const labelCounts = await labelResourceCounts(runId, OWNER_UNIT_U019, PURPOSE_U019);
+  const cleanupOk = labelCounts.containers === 0 && labelCounts.networks === 0 && labelCounts.volumes === 0;
+  const cleanup = {
+    schemaVersion: 1,
+    unit: OWNER_UNIT_U019,
+    purpose: PURPOSE_U019,
+    runId,
+    postgres: { containers: labelCounts.containers, networks: labelCounts.networks, volumes: labelCounts.volumes },
+    http: null,
+    httpReason:
+      'U019 db:contract is a DB-only schema/migration/constraint suite with no web/API process to bind or tear down here — no activation/execution runtime, no external send/export exists to reach at this unit.',
+    childProcesses: 0,
+    result: cleanupOk ? 'PASS' : 'FAIL',
+    startedAt,
+    finishedAt: new Date().toISOString(),
+  };
+  writeFileSync(join(evidenceDir, 'cleanup.json'), `${JSON.stringify(cleanup, null, 2)}\n`);
+
+  if (!cleanupOk) {
+    process.stderr.write(`run-db-contract: cleanup verification failed: ${JSON.stringify(cleanup)}\n`);
+    return EXIT.CLEANUP;
+  }
+  if (caughtError) {
+    process.stderr.write(`${caughtError instanceof Error ? (caughtError.stack ?? caughtError.message) : String(caughtError)}\n`);
+    return caughtError instanceof ContractFailure ? caughtError.exitCode : EXIT.CONTRACT;
+  }
+
+  writeFileSync(
+    join(evidenceDir, 'db-contract-receipt.json'),
+    `${JSON.stringify({ schemaVersion: 1, unit: OWNER_UNIT_U019, suite: 'workflow-schema', result: 'PASS', scenarioEvidence, cleanup, startedAt, finishedAt: new Date().toISOString() }, null, 2)}\n`,
+  );
+  return EXIT.SUCCESS;
+}
+
 async function main(): Promise<number> {
   let args;
   try {
@@ -2806,7 +3516,8 @@ async function main(): Promise<number> {
   if (args.suite === 'business-role') return runBusinessRoleSuite(args.evidence);
   if (args.suite === 'rls-pilot') return runRlsPilotSuite(args.evidence);
   if (args.suite === 'artifact-schema') return runArtifactSchemaSuite(args.evidence);
-  return runApprovalSchemaSuite(args.evidence);
+  if (args.suite === 'approval-schema') return runApprovalSchemaSuite(args.evidence);
+  return runWorkflowSchemaSuite(args.evidence);
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
