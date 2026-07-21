@@ -45,43 +45,45 @@ describe('classifyModel', () => {
 });
 
 describe('buildScopeInventoryReport — real inventory', () => {
-  it('reports ok with exact 154 / 13-1-32-46-62 tallies against its own model list (post-U012 RoleChangeRequest reclassification, post-U014 AuthSession registration, post-U017 Artifact/ArtifactVersion registration)', () => {
+  it('reports ok with exact 156 / 13-1-32-46-64 tallies against its own model list (post-U012 RoleChangeRequest reclassification, post-U014 AuthSession registration, post-U017 Artifact/ArtifactVersion registration, post-U018 ApprovalDecision/ApprovalCurrentValidity registration)', () => {
     const report = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
-    expect(report.currentModelCount).toBe(154);
+    expect(report.currentModelCount).toBe(156);
     expect(report.tallies).toEqual({
       GLOBAL_SHARED: 13,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
       PROJECT_ROOT: 46,
-      CHILD_VIA_FK: 62,
+      CHILD_VIA_FK: 64,
     });
   });
 });
 
 describe('REGISTERED_ADDITIONS — U011 model registration', () => {
-  it('registers exactly ScopeBackfillQuarantine as GLOBAL_SHARED for U011, AuthSession as PROJECT_ROOT for U014, then Artifact as PROJECT_ROOT and ArtifactVersion as CHILD_VIA_FK for U017', () => {
+  it('registers exactly ScopeBackfillQuarantine as GLOBAL_SHARED for U011, AuthSession as PROJECT_ROOT for U014, Artifact as PROJECT_ROOT and ArtifactVersion as CHILD_VIA_FK for U017, then ApprovalDecision and ApprovalCurrentValidity as CHILD_VIA_FK for U018', () => {
     expect(REGISTERED_ADDITIONS).toEqual([
       { model: 'ScopeBackfillQuarantine', unit: 'U011', category: 'GLOBAL_SHARED' },
       { model: 'AuthSession', unit: 'U014', category: 'PROJECT_ROOT' },
       { model: 'Artifact', unit: 'U017', category: 'PROJECT_ROOT' },
       { model: 'ArtifactVersion', unit: 'U017', category: 'CHILD_VIA_FK' },
+      { model: 'ApprovalDecision', unit: 'U018', category: 'CHILD_VIA_FK' },
+      { model: 'ApprovalCurrentValidity', unit: 'U018', category: 'CHILD_VIA_FK' },
     ]);
   });
 
-  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count is 154', () => {
+  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count is 156', () => {
     expect(SCOPE_INVENTORY_BASELINE.modelCount).toBe(150);
-    expect(expectedCurrentModelCount()).toBe(154);
+    expect(expectedCurrentModelCount()).toBe(156);
   });
 
-  it('derives expected category counts as baseline plus the four registered additions (reclassifications isolated out)', () => {
+  it('derives expected category counts as baseline plus the six registered additions (reclassifications isolated out)', () => {
     expect(expectedCategoryCounts(SCOPE_INVENTORY_BASELINE, REGISTERED_ADDITIONS, [])).toEqual({
       GLOBAL_SHARED: 14,
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
       PROJECT_ROOT: 46,
-      CHILD_VIA_FK: 61,
+      CHILD_VIA_FK: 63,
     });
   });
 
@@ -107,8 +109,38 @@ describe('REGISTERED_ADDITIONS — U014 model registration', () => {
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
       PROJECT_ROOT: 46,
-      CHILD_VIA_FK: 62,
+      CHILD_VIA_FK: 64,
     });
+  });
+});
+
+describe('REGISTERED_ADDITIONS — U018 model registration', () => {
+  it('classifies ApprovalDecision as CHILD_VIA_FK of ApprovalRequest via mandatory approvalRequestId in the live inventory', () => {
+    expect(classifyModel('ApprovalDecision')).toEqual({
+      model: 'ApprovalDecision',
+      category: 'CHILD_VIA_FK',
+      parentModel: 'ApprovalRequest',
+      relationField: 'approvalRequest',
+      scalarFkField: 'approvalRequestId',
+      nullable: false,
+    });
+  });
+
+  it('classifies ApprovalCurrentValidity as CHILD_VIA_FK of ApprovalRequest via mandatory approvalRequestId in the live inventory', () => {
+    expect(classifyModel('ApprovalCurrentValidity')).toEqual({
+      model: 'ApprovalCurrentValidity',
+      category: 'CHILD_VIA_FK',
+      parentModel: 'ApprovalRequest',
+      relationField: 'approvalRequest',
+      scalarFkField: 'approvalRequestId',
+      nullable: false,
+    });
+  });
+
+  it('ownerAssignmentId/requestedByAssignmentId/actorAssignmentId are authority/attribution edges, not an alternate scope-classification path — ApprovalRequest stays classified exactly once, as PROJECT_ROOT', () => {
+    const approvalRequestEntries = REAL_ENTRIES.filter((e) => e.model === 'ApprovalRequest');
+    expect(approvalRequestEntries).toHaveLength(1);
+    expect(approvalRequestEntries[0]).toEqual({ model: 'ApprovalRequest', category: 'PROJECT_ROOT' });
   });
 });
 
@@ -156,7 +188,7 @@ describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest reclassification', () =
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
       PROJECT_ROOT: 46,
-      CHILD_VIA_FK: 62,
+      CHILD_VIA_FK: 64,
     });
   });
 

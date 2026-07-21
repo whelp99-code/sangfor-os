@@ -112,6 +112,12 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   // MODEL_SCOPE_INVENTORY below). ownerAssignmentId/createdByAssignmentId are authority/
   // attribution edges, never an alternate scope basis.
   { model: 'ArtifactVersion', unit: 'U017', category: 'CHILD_VIA_FK' },
+  // U018/APR-01a: both new models' only mandatory FK is approvalRequestId -> ApprovalRequest (a
+  // single unambiguous root chain, since ApprovalRequest itself stays PROJECT_ROOT — unchanged by
+  // this unit). ownerAssignmentId/requestedByAssignmentId/actorAssignmentId are authority/
+  // attribution edges, never an alternate scope basis.
+  { model: 'ApprovalDecision', unit: 'U018', category: 'CHILD_VIA_FK' },
+  { model: 'ApprovalCurrentValidity', unit: 'U018', category: 'CHILD_VIA_FK' },
 ];
 
 export interface ReclassifiedModel {
@@ -176,6 +182,8 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   AiPromptRun: { model: 'AiPromptRun', category: 'PROJECT_ROOT' },
   AiPromptTemplate: { model: 'AiPromptTemplate', category: 'GLOBAL_SHARED' },
   AiQualityResult: { model: 'AiQualityResult', category: 'PROJECT_ROOT' },
+  ApprovalCurrentValidity: { model: 'ApprovalCurrentValidity', category: 'CHILD_VIA_FK', parentModel: 'ApprovalRequest', relationField: 'approvalRequest', scalarFkField: 'approvalRequestId', nullable: false },
+  ApprovalDecision: { model: 'ApprovalDecision', category: 'CHILD_VIA_FK', parentModel: 'ApprovalRequest', relationField: 'approvalRequest', scalarFkField: 'approvalRequestId', nullable: false },
   ApprovalRequest: { model: 'ApprovalRequest', category: 'PROJECT_ROOT' },
   Artifact: { model: 'Artifact', category: 'PROJECT_ROOT' },
   ArtifactAccessEvent: { model: 'ArtifactAccessEvent', category: 'COMPANY_ROOT' },

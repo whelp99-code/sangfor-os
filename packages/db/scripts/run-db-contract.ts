@@ -51,7 +51,14 @@ const NEW_MIGRATION_NAME_U017 = '20260715170000_artifact_identity';
 const OWNER_UNIT_U017 = 'U017';
 const PURPOSE_U017 = 'artifact-schema';
 
-const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema']);
+// U018 — approval-schema suite (registered alongside U011/U012/U014/U015/U016/U017 above; those
+// suites' functions/fixtures are untouched reuse, see the U018 dispatch file boundary — this unit
+// only adds the `approval-schema` allow-listed suite and its own scenario below).
+const NEW_MIGRATION_NAME_U018 = '20260715180000_version_bound_approval';
+const OWNER_UNIT_U018 = 'U018';
+const PURPOSE_U018 = 'approval-schema';
+
+const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema']);
 
 const EXIT = Object.freeze({
   SUCCESS: 0,
@@ -177,6 +184,10 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
     // above, so it stays excluded here too.
     const targetU017 = join(dir, 'migrations', NEW_MIGRATION_NAME_U017);
     if (existsSync(targetU017)) rmSync(targetU017, { recursive: true, force: true });
+    // U018's migration depends on U017's artifact_versions table (composite FK target for its
+    // artifact_version_id column), so it stays excluded from this pre-U011 prefix too.
+    const targetU018 = join(dir, 'migrations', NEW_MIGRATION_NAME_U018);
+    if (existsSync(targetU018)) rmSync(targetU018, { recursive: true, force: true });
   }
   return dir;
 }
@@ -205,6 +216,10 @@ function makeThroughU011PrismaCopy(label: string): string {
   // prefix too.
   const targetU017 = join(dir, 'migrations', NEW_MIGRATION_NAME_U017);
   if (existsSync(targetU017)) rmSync(targetU017, { recursive: true, force: true });
+  // Same reasoning as makeTempPrismaCopy above: keep U018's migration out of this through-U011
+  // prefix too.
+  const targetU018 = join(dir, 'migrations', NEW_MIGRATION_NAME_U018);
+  if (existsSync(targetU018)) rmSync(targetU018, { recursive: true, force: true });
   return dir;
 }
 
@@ -622,7 +637,8 @@ function listMigrationsThroughU010(): string[] {
         name !== NEW_MIGRATION_NAME_U014 &&
         name !== NEW_MIGRATION_NAME_U015 &&
         name !== NEW_MIGRATION_NAME_U016 &&
-        name !== NEW_MIGRATION_NAME_U017,
+        name !== NEW_MIGRATION_NAME_U017 &&
+        name !== NEW_MIGRATION_NAME_U018,
     )
     .sort();
 }
@@ -815,10 +831,10 @@ async function runLegacyLifecycleScenario(evidenceDir: string, runId: string) {
         // current file) — so these tallies track the CURRENT total registered-model tally, not a
         // point-in-time snapshot at U012. GLOBAL_SHARED (13) is unaffected by U012's reclassification
         // math staying stable through every later unit that never touches that category; CHILD_VIA_FK
-        // (62 as of U017 — RoleChangeRequest's U012 reclassification plus every later CHILD_VIA_FK
-        // registration, most recently ArtifactVersion) must be updated by any future unit that adds a
-        // new CHILD_VIA_FK model, exactly as U017 updated it here.
-        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 62 || scopeCheckJson.tallies.GLOBAL_SHARED !== 13) {
+        // (64 as of U018 — RoleChangeRequest's U012 reclassification plus every later CHILD_VIA_FK
+        // registration, most recently ApprovalDecision/ApprovalCurrentValidity) must be updated by
+        // any future unit that adds a new CHILD_VIA_FK model, exactly as U017/U018 updated it here.
+        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 64 || scopeCheckJson.tallies.GLOBAL_SHARED !== 13) {
           throw new ContractFailure(EXIT.CONTRACT, `scope:check tallies do not reflect the U012 RoleChangeRequest reclassification: ${JSON.stringify(scopeCheckJson.tallies)}`);
         }
         writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
@@ -2219,6 +2235,561 @@ async function runArtifactSchemaSuite(evidenceDir: string): Promise<number> {
   return EXIT.SUCCESS;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// U018 — approval-schema suite
+// ─────────────────────────────────────────────────────────────────────────
+
+const APPROVAL_SCHEMA_FUNCTIONS = [
+  'sangfor_validation_snapshot_sha256',
+  'approval_request_validation_snapshot_guard',
+  'approval_requests_canonical_shape_guard',
+  'sangfor_approval_requests_status_graph_guard',
+  'sangfor_approval_decision_guard',
+  'sangfor_approval_current_validity_guard',
+];
+const APPROVAL_SCHEMA_TRIGGERS = [
+  { table: 'approval_requests', name: 'approval_request_validation_snapshot_guard_trg' },
+  { table: 'approval_requests', name: 'approval_requests_canonical_shape_guard_trg' },
+  { table: 'approval_requests', name: 'sangfor_approval_requests_status_graph_guard_trg' },
+  { table: 'approval_decisions', name: 'sangfor_approval_decision_guard_trg' },
+  { table: 'approval_decisions', name: 'sangfor_approval_decisions_deny_update_trg' },
+  { table: 'approval_decisions', name: 'sangfor_approval_decisions_deny_delete_trg' },
+  { table: 'approval_current_validity', name: 'sangfor_approval_current_validity_guard_trg' },
+];
+const APPROVAL_SCHEMA_CHECKS = [
+  'approval_requests_status_check',
+  'approval_requests_ownership_revision_check',
+  'approval_requests_revision_check',
+  'approval_requests_required_quorum_check',
+  'approval_requests_validation_snapshot_hash_check',
+  'approval_requests_artifact_hash_snapshot_check',
+  'approval_requests_policy_hash_check',
+  'approval_decisions_sequence_check',
+  'approval_decisions_request_revision_check',
+  'approval_decisions_decision_check',
+  'approval_decisions_artifact_hash_snapshot_check',
+  'approval_decisions_policy_hash_snapshot_check',
+  'approval_current_validity_required_quorum_check',
+  'approval_current_validity_satisfied_quorum_check',
+  'approval_current_validity_last_decision_sequence_check',
+  'approval_current_validity_state_check',
+  'approval_current_validity_request_revision_check',
+];
+
+const APPROVAL_SCHEMA_POLICY_HASH = '11'.repeat(32);
+const APPROVAL_SCHEMA_POLICY_HASH_2 = '22'.repeat(32);
+
+const APPROVAL_SCHEMA_FIXTURE_SQL = `INSERT INTO tenants (id, name, slug, status, created_at) VALUES ('u018-tenant-1', 'U018 Tenant', 'u018-tenant-1', 'active', now());
+
+INSERT INTO companies (id, tenant_id, name, slug, created_at) VALUES
+  ('u018-company-1', 'u018-tenant-1', 'U018 Company One', 'u018-company-1', now()),
+  ('u018-company-2', 'u018-tenant-1', 'U018 Company Two', 'u018-company-2', now());
+
+INSERT INTO projects (id, slug, name, company_id, created_at, updated_at) VALUES
+  ('u018-project-1', 'u018-project-1', 'U018 Project', 'u018-company-1', now(), now());
+
+INSERT INTO users (id, email, name, created_at, updated_at) VALUES
+  ('u018-user-requester', 'requester@u018.example.com', 'Requester', now(), now()),
+  ('u018-user-owner', 'owner@u018.example.com', 'Owner', now(), now()),
+  ('u018-user-owner2', 'owner2@u018.example.com', 'Owner Two', now(), now()),
+  ('u018-user-actor1', 'actor1@u018.example.com', 'Actor One', now(), now()),
+  ('u018-user-actor2', 'actor2@u018.example.com', 'Actor Two', now(), now()),
+  ('u018-user-cross', 'cross@u018.example.com', 'Cross Company', now(), now());
+
+INSERT INTO user_company_roles (id, user_id, company_id, role, status, created_at) VALUES
+  ('u018-ucr-requester', 'u018-user-requester', 'u018-company-1', 'account_manager', 'active', now()),
+  ('u018-ucr-owner', 'u018-user-owner', 'u018-company-1', 'account_manager', 'active', now()),
+  ('u018-ucr-owner2', 'u018-user-owner2', 'u018-company-1', 'account_manager', 'active', now()),
+  ('u018-ucr-actor1', 'u018-user-actor1', 'u018-company-1', 'account_manager', 'active', now()),
+  ('u018-ucr-actor2', 'u018-user-actor2', 'u018-company-1', 'account_manager', 'active', now()),
+  ('u018-ucr-cross', 'u018-user-cross', 'u018-company-2', 'account_manager', 'active', now());
+`;
+
+async function runApprovalSchemaScenario(evidenceDir: string, runId: string) {
+  const evidence: Record<string, unknown> = {};
+
+  await withIsolatedPostgres(
+    { runId, ownerUnit: OWNER_UNIT_U018, purpose: PURPOSE_U018, evidenceDir, imageDigest: IMAGE_DIGEST, migrate: true },
+    async (ctx: any) => {
+      const conn = parseConn(ctx.databaseUrl);
+      const schemaPath = join(REAL_PRISMA_DIR, 'schema.prisma');
+      evidence.scratchIdentity = { runId: ctx.sentinel.runId, ownerUnit: ctx.sentinel.ownerUnit, purpose: ctx.sentinel.purpose, databaseName: ctx.databaseName };
+
+      const { parseCanonicalArtifactContent } = await import('../src/canonical-content-hash.ts');
+
+      // ---- DDL introspection ----
+      const ddlLines: string[] = [];
+      const functionRows = await execSql(
+        ctx.containerName,
+        conn,
+        `SELECT string_agg(proname, ',' ORDER BY proname) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND proname = ANY(ARRAY[${APPROVAL_SCHEMA_FUNCTIONS.map((f) => `'${f}'`).join(',')}]);`,
+      );
+      const foundFunctions = functionRows.length > 0 ? functionRows.split(',') : [];
+      ddlLines.push(`functions: expected=${APPROVAL_SCHEMA_FUNCTIONS.length} found=${foundFunctions.length} :: ${foundFunctions.join(',')}`);
+      if (foundFunctions.length !== APPROVAL_SCHEMA_FUNCTIONS.length) {
+        throw new ContractFailure(EXIT.CONTRACT, `expected all ${APPROVAL_SCHEMA_FUNCTIONS.length} approval-schema functions installed, found ${foundFunctions.length}: ${foundFunctions.join(',')}`);
+      }
+
+      for (const trg of APPROVAL_SCHEMA_TRIGGERS) {
+        const found = await execSql(ctx.containerName, conn, `SELECT count(*) FROM pg_trigger WHERE tgname = '${trg.name}' AND tgrelid = '${trg.table}'::regclass;`);
+        ddlLines.push(`trigger ${trg.table}.${trg.name}: found=${found}`);
+        if (found !== '1') throw new ContractFailure(EXIT.CONTRACT, `expected trigger ${trg.name} on ${trg.table}, found count=${found}`);
+      }
+
+      for (const chk of APPROVAL_SCHEMA_CHECKS) {
+        const found = await execSql(ctx.containerName, conn, `SELECT count(*) FROM pg_constraint WHERE conname = '${chk}' AND contype = 'c';`);
+        ddlLines.push(`check ${chk}: found=${found}`);
+        if (found !== '1') throw new ContractFailure(EXIT.CONTRACT, `expected CHECK constraint ${chk}, found count=${found}`);
+      }
+
+      const openUniqueIndex = await execSql(ctx.containerName, conn, `SELECT count(*) FROM pg_indexes WHERE indexname = 'approval_requests_open_unique_idx';`);
+      ddlLines.push(`partial unique index approval_requests_open_unique_idx: found=${openUniqueIndex}`);
+      if (openUniqueIndex !== '1') throw new ContractFailure(EXIT.CONTRACT, `expected partial unique index approval_requests_open_unique_idx, found count=${openUniqueIndex}`);
+
+      writeFileSync(join(evidenceDir, 'approval-ddl.log'), `${ddlLines.join('\n')}\n`);
+      evidence.ddlIntrospection = { functions: foundFunctions.length, triggers: APPROVAL_SCHEMA_TRIGGERS.length, checks: APPROVAL_SCHEMA_CHECKS.length };
+
+      // ---- fixture data: tenant/companies/project/users/roles, then a real Artifact+ArtifactVersion (U017 reuse) to bind approvals to ----
+      await execSql(ctx.containerName, conn, APPROVAL_SCHEMA_FIXTURE_SQL);
+
+      const v1 = parseCanonicalArtifactContent(JSON.stringify({ title: 'release candidate', body: 'v1' }));
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO artifacts (id, tenant_id, company_id, project_id, artifact_type, classification, origin, title, created_by_assignment_id, owner_assignment_id, created_at, updated_at)
+         VALUES ('u018-art-1','u018-tenant-1','u018-company-1','u018-project-1','proposal','internal','human','U018 Artifact','u018-ucr-requester','u018-ucr-owner',now(),now());`,
+      );
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO artifact_versions (id, artifact_id, version, content_hash_version, canonical_content_envelope, content_hash, content_json, status, created_by_assignment_id, created_at)
+         VALUES ('u018-artv-1','u018-art-1',1,'${v1.contentHashVersion}','${v1.canonicalContentEnvelope.replace(/'/g, "''")}','${v1.contentHash}','${JSON.stringify(v1.contentJson).replace(/'/g, "''")}'::jsonb,'review_ready','u018-ucr-requester',now());`,
+      );
+      const artifactContentHash = v1.contentHash;
+
+      // ---- PG-authoritative validation-snapshot digest: SQL function equality for reordered/nested/Unicode/numeric JSON (no JS hash authoritative) ----
+      const digestVectors: Array<{ name: string; a: unknown; b: unknown }> = [
+        { name: 'reordered-keys', a: { alpha: 1, beta: 2 }, b: { beta: 2, alpha: 1 } },
+        { name: 'nested-object', a: { outer: { x: 1, y: [1, 2, 3] } }, b: { outer: { y: [1, 2, 3], x: 1 } } },
+        { name: 'unicode', a: { label: '한글 유니코드 éè' }, b: { label: '한글 유니코드 éè' } },
+        { name: 'numeric', a: { score: 12.5, count: 0 }, b: { count: 0, score: 12.5 } },
+      ];
+      const digestLines: string[] = [];
+      for (const v of digestVectors) {
+        const hashA = await execSql(ctx.containerName, conn, `SELECT public.sangfor_validation_snapshot_sha256('${JSON.stringify(v.a).replace(/'/g, "''")}'::jsonb);`);
+        const hashB = await execSql(ctx.containerName, conn, `SELECT public.sangfor_validation_snapshot_sha256('${JSON.stringify(v.b).replace(/'/g, "''")}'::jsonb);`);
+        digestLines.push(`${v.name}: a=${hashA} b=${hashB} equal=${hashA === hashB}`);
+        if (!/^[0-9a-f]{64}$/.test(hashA) || hashA !== hashB) {
+          throw new ContractFailure(EXIT.CONTRACT, `sangfor_validation_snapshot_sha256 did not reproduce byte-identical hashes for reordered/equivalent JSON vector "${v.name}": a=${hashA} b=${hashB}`);
+        }
+      }
+      evidence.validationSnapshotDigestParity = digestLines;
+
+      // ---- happy path: explicit false, omit hash, receive DB-generated hash; revision-0/ownershipRevision-0 pending exact-version request ----
+      const validationSnapshotJson = { policy: 'release-gate', inputs: { score: 9, tags: ['a', 'b'] }, unicode: '검토' };
+      const validationSnapshotLiteral = JSON.stringify(validationSnapshotJson).replace(/'/g, "''");
+      const expectedHash = await execSql(ctx.containerName, conn, `SELECT public.sangfor_validation_snapshot_sha256('${validationSnapshotLiteral}'::jsonb);`);
+
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO approval_requests (
+           id, status, reason, created_at, tenant_id, company_id, project_id, artifact_version_id, action,
+           artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id,
+           ownership_revision, policy_key, policy_version, policy_hash, validation_snapshot, required_quorum,
+           revision, legacy_unbound, updated_at
+         ) VALUES (
+           'u018-appr-1', 'pending', 'release gate', now(), 'u018-tenant-1', 'u018-company-1', 'u018-project-1', 'u018-artv-1', 'release',
+           '${artifactContentHash}', 'u018-ucr-requester', 'sess-req-1', 'u018-ucr-owner',
+           0, 'release-gate', 'v1', '${APPROVAL_SCHEMA_POLICY_HASH}', '${validationSnapshotLiteral}'::jsonb, 2,
+           0, false, now()
+         );`,
+      );
+      const returnedHash = await execSql(ctx.containerName, conn, `SELECT validation_snapshot_hash FROM approval_requests WHERE id = 'u018-appr-1';`);
+      if (returnedHash !== expectedHash) {
+        throw new ContractFailure(EXIT.CONTRACT, `DB-returned validation_snapshot_hash "${returnedHash}" does not equal SELECT sangfor_validation_snapshot_sha256($1::jsonb) "${expectedHash}"`);
+      }
+      evidence.dbGeneratedHashMatchesFunction = true;
+
+      const happyTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT id, status, legacy_unbound, revision, ownership_revision, validation_snapshot_hash FROM approval_requests WHERE id = 'u018-appr-1';`,
+      );
+      writeFileSync(join(evidenceDir, 'approval-happy.tsv'), happyTsv.endsWith('\n') ? happyTsv : `${happyTsv}\n`);
+      const happyDataLine = happyTsv.trim().split('\n')[1] ?? '';
+      if (!new RegExp(`^u018-appr-1\\tpending\\tf\\t0\\t0\\t${expectedHash}$`).test(happyDataLine)) {
+        throw new ContractFailure(EXIT.CONTRACT, `unexpected post-insert canonical approval_requests state: ${happyDataLine}`);
+      }
+      evidence.happyPath = { revisionZero: true, ownershipRevisionZero: true, statusPending: true };
+
+      // ---- CAS owner-only reassignment: ownershipRevision 0->1, requester/revision/history unchanged ----
+      await execSql(ctx.containerName, conn, `UPDATE approval_requests SET owner_assignment_id = 'u018-ucr-owner2', ownership_revision = 1 WHERE id = 'u018-appr-1';`);
+      const casTsv = await execSqlTsv(
+        ctx.containerName,
+        conn,
+        `SELECT owner_assignment_id, ownership_revision, requested_by_assignment_id, revision FROM approval_requests WHERE id = 'u018-appr-1';`,
+      );
+      const casDataLine = casTsv.trim().split('\n')[1] ?? '';
+      if (!/^u018-ucr-owner2\t1\tu018-ucr-requester\t0$/.test(casDataLine)) {
+        throw new ContractFailure(EXIT.CONTRACT, `unexpected post-CAS approval_requests state: ${casDataLine}`);
+      }
+      evidence.casOwnerReassignment = { ownershipRevision: 1, requesterUnchanged: true, revisionUnchanged: true };
+
+      // ---- two immutable ApprovalDecision rows with exact resulting revisions ----
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at)
+         VALUES ('u018-dec-1', 'u018-appr-1', 1, 0, 'u018-artv-1', '${artifactContentHash}', 'approve', 'u018-ucr-actor1', 'sess-actor-1', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH}', now());`,
+      );
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at)
+         VALUES ('u018-dec-2', 'u018-appr-1', 2, 0, 'u018-artv-1', '${artifactContentHash}', 'approve', 'u018-ucr-actor2', 'sess-actor-2', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH}', now());`,
+      );
+      const decisionsTsv = await execSqlTsv(ctx.containerName, conn, `SELECT id, sequence, request_revision, decision FROM approval_decisions WHERE approval_request_id = 'u018-appr-1' ORDER BY sequence;`);
+      const decisionDataLines = decisionsTsv.trim().split('\n').filter((l) => /^u018-dec-\d\t\d\t\d\t(approve|reject)$/.test(l));
+      if (decisionDataLines.length !== 2) throw new ContractFailure(EXIT.CONTRACT, `expected 2 ordered approval_decisions rows, got ${decisionDataLines.length}: ${decisionsTsv}`);
+      evidence.decisionRows = 2;
+
+      // ---- non-valid ApprovalCurrentValidity projection (migration/backfill authority-zero: no valid row exists anywhere in this scenario) ----
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO approval_current_validity (approval_request_id, request_revision, artifact_version_id, artifact_hash_snapshot, policy_hash_snapshot, required_quorum, satisfied_quorum, last_decision_sequence, state, updated_at)
+         VALUES ('u018-appr-1', 0, 'u018-artv-1', '${artifactContentHash}', '${APPROVAL_SCHEMA_POLICY_HASH}', 2, 2, 2, 'pending', now());`,
+      );
+      const validityTsv = await execSqlTsv(ctx.containerName, conn, `SELECT approval_request_id, state, satisfied_quorum, last_decision_sequence FROM approval_current_validity WHERE approval_request_id = 'u018-appr-1';`);
+      writeFileSync(join(evidenceDir, 'approval-validity-nonvalid.tsv'), validityTsv.endsWith('\n') ? validityTsv : `${validityTsv}\n`);
+      const validityDataLine = validityTsv.trim().split('\n')[1] ?? '';
+      if (!/^u018-appr-1\tpending\t2\t2$/.test(validityDataLine)) {
+        throw new ContractFailure(EXIT.CONTRACT, `unexpected non-valid projection state: ${validityDataLine}`);
+      }
+      const noValidAnywhere = await execSql(ctx.containerName, conn, `SELECT count(*) FROM approval_current_validity WHERE state = 'valid';`);
+      if (noValidAnywhere !== '0') throw new ContractFailure(EXIT.CONTRACT, `expected zero state=valid rows in this schema-only scenario, found ${noValidAnywhere}`);
+      evidence.nonValidProjection = { state: 'pending', zeroValidRowsAnywhere: true };
+
+      // ---- compatibility fixture: the UNCHANGED pre-U022 approval-db.ts writer stores legacy_unbound=true with zero canonical authority, and cannot be upgraded ----
+      // approval-db.ts imports the @sangfor/db singleton `prisma` client, which is constructed
+      // (reading env DATABASE_URL) at that module's first import — set it to this scratch
+      // database's URL before the dynamic import below triggers that construction.
+      process.env.DATABASE_URL = ctx.databaseUrl;
+      const { createApprovalIfNeeded } = await import('../../business/src/governance/approval-db.ts');
+      const { PrismaClient } = await import('@prisma/client');
+      const legacyPrisma = new (PrismaClient as any)({ datasources: { db: { url: ctx.databaseUrl } } });
+      try {
+        await legacyPrisma.command.create({ data: { id: 'u018-command-1', key: 'deploy', title: 'Deploy' } });
+        await legacyPrisma.commandRun.create({
+          data: { id: 'u018-run-1', commandId: 'u018-command-1', projectId: 'u018-project-1', status: 'pending' },
+        });
+        await legacyPrisma.riskAnalysis.create({ data: { id: 'u018-risk-1', commandRunId: 'u018-run-1', riskLevel: 'high', riskJson: {} } });
+        const legacyApproval = await createApprovalIfNeeded('u018-run-1', 'high');
+        if (!legacyApproval) throw new ContractFailure(EXIT.CONTRACT, 'unchanged approval-db.ts createApprovalIfNeeded unexpectedly returned null for a high-risk run');
+        const legacyTsv = await execSqlTsv(
+          ctx.containerName,
+          conn,
+          `SELECT legacy_unbound, tenant_id IS NULL, company_id IS NULL, artifact_version_id IS NULL, requested_by_assignment_id IS NULL, ownership_revision, revision FROM approval_requests WHERE id = '${legacyApproval.id}';`,
+        );
+        writeFileSync(join(evidenceDir, 'legacy-unbound.tsv'), legacyTsv.endsWith('\n') ? legacyTsv : `${legacyTsv}\n`);
+        const legacyDataLine = legacyTsv.trim().split('\n')[1] ?? '';
+        if (!/^t\tt\tt\tt\tt\t0\t0$/.test(legacyDataLine)) {
+          throw new ContractFailure(EXIT.CONTRACT, `unchanged legacy writer did not store legacy_unbound=true with zero canonical fields: ${legacyDataLine}`);
+        }
+        evidence.legacyWriterUnchanged = { legacyUnbound: true, canonicalFieldsNull: true, ownershipRevisionZero: true, revisionZero: true };
+
+        const upgradeAttempt = await attemptQaInsert(ctx.containerName, conn, {
+          label: 'legacy-unbound row cannot be upgraded to canonical (true->false)',
+          expect: 'reject',
+          sql: `UPDATE approval_requests SET legacy_unbound = false WHERE id = '${legacyApproval.id}';`,
+        });
+        evidence.legacyCannotBeUpgraded = upgradeAttempt;
+      } finally {
+        await legacyPrisma.$disconnect();
+      }
+
+      // ---- negative fixtures (SQLSTATE + constraint capture) ----
+      const negativeLines: string[] = [];
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'canonical fields supplied without explicit legacyUnbound=false (defaults true, shape guard rejects)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, tenant_id, company_id, project_id, artifact_version_id, action, artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id, policy_key, policy_version, policy_hash, validation_snapshot, required_quorum, updated_at) VALUES ('u018-neg-noflag', 'pending', now(), 'u018-tenant-1', 'u018-company-1', 'u018-project-1', 'u018-artv-1', 'release', '${artifactContentHash}', 'u018-ucr-requester', 'sess', 'u018-ucr-owner', 'release-gate', 'v1', '${APPROVAL_SCHEMA_POLICY_HASH}', '{}'::jsonb, 2, now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'legacyUnbound=false with a partial shape (missing action)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, tenant_id, company_id, project_id, artifact_version_id, artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id, policy_key, policy_version, policy_hash, validation_snapshot, required_quorum, legacy_unbound, updated_at) VALUES ('u018-neg-partial', 'pending', now(), 'u018-tenant-1', 'u018-company-1', 'u018-project-1', 'u018-artv-1', '${artifactContentHash}', 'u018-ucr-requester', 'sess', 'u018-ucr-owner', 'release-gate', 'v1', '${APPROVAL_SCHEMA_POLICY_HASH}', '{}'::jsonb, 2, false, now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'legacyUnbound=true with a canonical field set (tenant_id)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, tenant_id, legacy_unbound, updated_at) VALUES ('u018-neg-truewithfield', 'pending', now(), 'u018-tenant-1', true, now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'caller-supplied wrong validation_snapshot_hash',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, tenant_id, company_id, project_id, artifact_version_id, action, artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id, policy_key, policy_version, policy_hash, validation_snapshot, validation_snapshot_hash, required_quorum, legacy_unbound, updated_at) VALUES ('u018-neg-wronghash', 'pending', now(), 'u018-tenant-1', 'u018-company-1', 'u018-project-1', 'u018-artv-1', 'release', '${artifactContentHash}', 'u018-ucr-requester', 'sess', 'u018-ucr-owner', 'release-gate', 'v1', '${APPROVAL_SCHEMA_POLICY_HASH}', '{}'::jsonb, repeat('0',64), 2, false, now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'UPDATE of validation_snapshot alone',
+        expect: 'reject',
+        sql: `UPDATE approval_requests SET validation_snapshot = '{"changed":true}'::jsonb WHERE id = 'u018-appr-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'UPDATE of validation_snapshot_hash alone',
+        expect: 'reject',
+        sql: `UPDATE approval_requests SET validation_snapshot_hash = repeat('1',64) WHERE id = 'u018-appr-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'UPDATE of both snapshot+hash together to a mutually-consistent-but-different pair',
+        expect: 'reject',
+        sql: `UPDATE approval_requests SET validation_snapshot = '{"changed":true}'::jsonb, validation_snapshot_hash = public.sangfor_validation_snapshot_sha256('{"changed":true}'::jsonb) WHERE id = 'u018-appr-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'legacy_unbound true->false UPDATE (covered above via legacyCannotBeUpgraded; repeated on the canonical fixture path for a hand-inserted legacy row)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, legacy_unbound, updated_at) VALUES ('u018-neg-legacyflip', 'pending', now(), true, now()); UPDATE approval_requests SET legacy_unbound = false WHERE id = 'u018-neg-legacyflip';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'ID-only / cross-company requested_by_assignment_id',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, tenant_id, company_id, project_id, artifact_version_id, action, artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id, policy_key, policy_version, policy_hash, validation_snapshot, required_quorum, legacy_unbound, updated_at) VALUES ('u018-neg-crossrequester', 'pending', now(), 'u018-tenant-1', 'u018-company-1', 'u018-project-1', 'u018-artv-1', 'release-crossreq', '${artifactContentHash}', 'u018-ucr-cross', 'sess', 'u018-ucr-owner', 'release-gate', 'v1', '${APPROVAL_SCHEMA_POLICY_HASH}', '{}'::jsonb, 2, false, now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'ID-only / cross-company owner_assignment_id',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, tenant_id, company_id, project_id, artifact_version_id, action, artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id, policy_key, policy_version, policy_hash, validation_snapshot, required_quorum, legacy_unbound, updated_at) VALUES ('u018-neg-crossowner', 'pending', now(), 'u018-tenant-1', 'u018-company-1', 'u018-project-1', 'u018-artv-1', 'release-crossown', '${artifactContentHash}', 'u018-ucr-requester', 'sess', 'u018-ucr-cross', 'release-gate', 'v1', '${APPROVAL_SCHEMA_POLICY_HASH}', '{}'::jsonb, 2, false, now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'negative ownership_revision',
+        expect: 'reject',
+        sql: `UPDATE approval_requests SET ownership_revision = -1 WHERE id = 'u018-appr-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'owner change without exactly ownershipRevision+1',
+        expect: 'reject',
+        sql: `UPDATE approval_requests SET owner_assignment_id = 'u018-ucr-owner', ownership_revision = 1 WHERE id = 'u018-appr-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'request scope mismatch (company_id not matching the referenced ArtifactVersion/Artifact)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, tenant_id, company_id, project_id, artifact_version_id, action, artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id, policy_key, policy_version, policy_hash, validation_snapshot, required_quorum, legacy_unbound, updated_at) VALUES ('u018-neg-scopemismatch', 'pending', now(), 'u018-tenant-1', 'u018-company-2', 'u018-project-1', 'u018-artv-1', 'release', '${artifactContentHash}', 'u018-ucr-cross', 'sess', 'u018-ucr-cross', 'release-gate', 'v1', '${APPROVAL_SCHEMA_POLICY_HASH}', '{}'::jsonb, 2, false, now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'request version/hash mismatch (artifact_hash_snapshot not matching the referenced ArtifactVersion.content_hash)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, tenant_id, company_id, project_id, artifact_version_id, action, artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id, policy_key, policy_version, policy_hash, validation_snapshot, required_quorum, legacy_unbound, updated_at) VALUES ('u018-neg-hashmismatch', 'pending', now(), 'u018-tenant-1', 'u018-company-1', 'u018-project-1', 'u018-artv-1', 'release', repeat('0',64), 'u018-ucr-requester', 'sess', 'u018-ucr-owner', 'release-gate', 'v1', '${APPROVAL_SCHEMA_POLICY_HASH}', '{}'::jsonb, 2, false, now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'mutation of the immutable requester (requested_by_assignment_id)',
+        expect: 'reject',
+        sql: `UPDATE approval_requests SET requested_by_assignment_id = 'u018-ucr-owner' WHERE id = 'u018-appr-1';`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'illegal canonical request status literal',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, tenant_id, company_id, project_id, artifact_version_id, action, artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id, policy_key, policy_version, policy_hash, validation_snapshot, required_quorum, legacy_unbound, updated_at) VALUES ('u018-neg-badstatus', 'not_a_real_status', now(), 'u018-tenant-1', 'u018-company-1', 'u018-project-1', 'u018-artv-1', 'release', '${artifactContentHash}', 'u018-ucr-requester', 'sess', 'u018-ucr-owner', 'release-gate', 'v1', '${APPROVAL_SCHEMA_POLICY_HASH}', '{}'::jsonb, 2, false, now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'duplicate OPEN request for the same (artifact_version_id, action, policy_hash)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, tenant_id, company_id, project_id, artifact_version_id, action, artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id, policy_key, policy_version, policy_hash, validation_snapshot, required_quorum, legacy_unbound, updated_at) VALUES ('u018-neg-dupopen', 'pending', now(), 'u018-tenant-1', 'u018-company-1', 'u018-project-1', 'u018-artv-1', 'release', '${artifactContentHash}', 'u018-ucr-requester', 'sess', 'u018-ucr-owner', 'release-gate', 'v1', '${APPROVAL_SCHEMA_POLICY_HASH}', '{}'::jsonb, 1, false, now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'duplicate decision sequence for the same request',
+        expect: 'reject',
+        sql: `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at) VALUES ('u018-neg-dupseq', 'u018-appr-1', 1, 0, 'u018-artv-1', '${artifactContentHash}', 'approve', 'u018-ucr-owner2', 'sess', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH}', now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'nonpositive decision sequence',
+        expect: 'reject',
+        sql: `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at) VALUES ('u018-neg-zeroseq', 'u018-appr-1', 0, 0, 'u018-artv-1', '${artifactContentHash}', 'approve', 'u018-ucr-owner2', 'sess', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH}', now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'duplicate actor for the same request',
+        expect: 'reject',
+        sql: `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at) VALUES ('u018-neg-dupactor', 'u018-appr-1', 3, 0, 'u018-artv-1', '${artifactContentHash}', 'reject', 'u018-ucr-actor1', 'sess', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH}', now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'decision negative request_revision',
+        expect: 'reject',
+        sql: `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at) VALUES ('u018-neg-negrev', 'u018-appr-1', 4, -1, 'u018-artv-1', '${artifactContentHash}', 'approve', 'u018-ucr-owner2', 'sess', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH}', now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'decision version mismatch (wrong artifact_version_id)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at) VALUES ('u018-neg-decversion', 'u018-appr-1', 4, 0, 'nonexistent-version', '${artifactContentHash}', 'approve', 'u018-ucr-owner2', 'sess', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH}', now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'decision hash mismatch (wrong artifact_hash_snapshot)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at) VALUES ('u018-neg-dechash', 'u018-appr-1', 4, 0, 'u018-artv-1', repeat('0',64), 'approve', 'u018-ucr-owner2', 'sess', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH}', now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'decision policy mismatch (wrong policy_hash_snapshot)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at) VALUES ('u018-neg-decpolicy', 'u018-appr-1', 4, 0, 'u018-artv-1', '${artifactContentHash}', 'approve', 'u018-ucr-owner2', 'sess', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH_2}', now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'decision request-revision mismatch (parent revision is 0, supplying 7)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at) VALUES ('u018-neg-decrevmismatch', 'u018-appr-1', 4, 7, 'u018-artv-1', '${artifactContentHash}', 'approve', 'u018-ucr-owner2', 'sess', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH}', now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'cross-company decision actor via parent guard',
+        expect: 'reject',
+        sql: `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at) VALUES ('u018-neg-decactorcross', 'u018-appr-1', 4, 0, 'u018-artv-1', '${artifactContentHash}', 'approve', 'u018-ucr-cross', 'sess', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH}', now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'illegal decision vocabulary',
+        expect: 'reject',
+        sql: `INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at) VALUES ('u018-neg-decvocab', 'u018-appr-1', 4, 0, 'u018-artv-1', '${artifactContentHash}', 'maybe', 'u018-ucr-owner2', 'sess', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH}', now());`,
+      }));
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'attempt to treat a legacy approved row as canonical (ApprovalDecision against a legacyUnbound=true parent)',
+        expect: 'reject',
+        sql: `INSERT INTO approval_requests (id, status, created_at, legacy_unbound, updated_at) VALUES ('u018-neg-legacyparent', 'approved', now(), true, now());
+              INSERT INTO approval_decisions (id, approval_request_id, sequence, request_revision, artifact_version_id, artifact_hash_snapshot, decision, actor_assignment_id, actor_session_id, actor_role_snapshot, policy_hash_snapshot, created_at) VALUES ('u018-neg-decagainstlegacy', 'u018-neg-legacyparent', 1, 0, 'u018-artv-1', '${artifactContentHash}', 'approve', 'u018-ucr-actor1', 'sess', 'account_manager', '${APPROVAL_SCHEMA_POLICY_HASH}', now());`,
+      }));
+      writeFileSync(join(evidenceDir, 'approval-negative.log'), `${negativeLines.join('\n')}\n`);
+      evidence.negativeFixtureCount = negativeLines.length;
+
+      // ---- decision-immutability + append-only proofs ----
+      const immutabilityLines: string[] = [];
+      immutabilityLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'UPDATE on approval_decisions denied (append-only)',
+        expect: 'reject',
+        sql: `UPDATE approval_decisions SET decision = 'reject' WHERE id = 'u018-dec-1';`,
+      }));
+      immutabilityLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'DELETE on approval_decisions denied (append-only)',
+        expect: 'reject',
+        sql: `DELETE FROM approval_decisions WHERE id = 'u018-dec-1';`,
+      }));
+      writeFileSync(join(evidenceDir, 'decision-immutability.log'), `${immutabilityLines.join('\n')}\n`);
+      evidence.decisionImmutabilityChecks = immutabilityLines.length;
+
+      // ---- illegal projection resurrection + valid-precondition proofs (a second/third canonical request driven to rejected/approved through the status graph) ----
+      const validityNegativeLines: string[] = [];
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO approval_requests (id, status, created_at, tenant_id, company_id, project_id, artifact_version_id, action, artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id, policy_key, policy_version, policy_hash, validation_snapshot, required_quorum, revision, legacy_unbound, updated_at)
+         VALUES ('u018-appr-rejected', 'pending', now(), 'u018-tenant-1', 'u018-company-1', 'u018-project-1', 'u018-artv-1', 'reject-path', '${artifactContentHash}', 'u018-ucr-requester', 'sess', 'u018-ucr-owner', 'release-gate', 'v1', '${APPROVAL_SCHEMA_POLICY_HASH_2}', '{}'::jsonb, 1, 0, false, now());
+         UPDATE approval_requests SET status = 'ready_for_human_approval' WHERE id = 'u018-appr-rejected';
+         UPDATE approval_requests SET status = 'rejected' WHERE id = 'u018-appr-rejected';`,
+      );
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO approval_current_validity (approval_request_id, request_revision, artifact_version_id, artifact_hash_snapshot, policy_hash_snapshot, required_quorum, satisfied_quorum, last_decision_sequence, state, updated_at)
+         VALUES ('u018-appr-rejected', 0, 'u018-artv-1', '${artifactContentHash}', '${APPROVAL_SCHEMA_POLICY_HASH_2}', 1, 0, 0, 'invalid', now());`,
+      );
+      validityNegativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'illegal projection resurrection (invalid -> pending)',
+        expect: 'reject',
+        sql: `UPDATE approval_current_validity SET state = 'pending' WHERE approval_request_id = 'u018-appr-rejected';`,
+      }));
+      validityNegativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'valid requires the parent request status=approved (parent is rejected)',
+        expect: 'reject',
+        sql: `UPDATE approval_current_validity SET state = 'valid', satisfied_quorum = 1, evaluated_at = now() WHERE approval_request_id = 'u018-appr-rejected';`,
+      }));
+
+      await execSql(
+        ctx.containerName,
+        conn,
+        `INSERT INTO approval_requests (id, status, created_at, tenant_id, company_id, project_id, artifact_version_id, action, artifact_hash_snapshot, requested_by_assignment_id, requested_session_id, owner_assignment_id, policy_key, policy_version, policy_hash, validation_snapshot, required_quorum, revision, legacy_unbound, updated_at)
+         VALUES ('u018-appr-approved', 'pending', now(), 'u018-tenant-1', 'u018-company-1', 'u018-project-1', 'u018-artv-1', 'approve-path', '${artifactContentHash}', 'u018-ucr-requester', 'sess', 'u018-ucr-owner', 'release-gate', 'v1', 'ff${'ff'.repeat(31)}', '{}'::jsonb, 2, 0, false, now());
+         UPDATE approval_requests SET status = 'ready_for_human_approval' WHERE id = 'u018-appr-approved';
+         UPDATE approval_requests SET status = 'approved' WHERE id = 'u018-appr-approved';
+         INSERT INTO approval_current_validity (approval_request_id, request_revision, artifact_version_id, artifact_hash_snapshot, policy_hash_snapshot, required_quorum, satisfied_quorum, last_decision_sequence, state, updated_at)
+         VALUES ('u018-appr-approved', 0, 'u018-artv-1', '${artifactContentHash}', 'ff${'ff'.repeat(31)}', 2, 0, 0, 'pending', now());`,
+      );
+      validityNegativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'valid requires distinct quorum (satisfied_quorum below required_quorum)',
+        expect: 'reject',
+        sql: `UPDATE approval_current_validity SET state = 'valid', satisfied_quorum = 1, evaluated_at = now() WHERE approval_request_id = 'u018-appr-approved';`,
+      }));
+      validityNegativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'valid requires a non-null evaluatedAt',
+        expect: 'reject',
+        sql: `UPDATE approval_current_validity SET state = 'valid', satisfied_quorum = 2 WHERE approval_request_id = 'u018-appr-approved';`,
+      }));
+      validityNegativeLines.push(await attemptQaInsert(ctx.containerName, conn, {
+        label: 'validity snapshot revision/version/hash/policy/quorum mismatch',
+        expect: 'reject',
+        sql: `UPDATE approval_current_validity SET required_quorum = 99 WHERE approval_request_id = 'u018-appr-approved';`,
+      }));
+      writeFileSync(join(evidenceDir, 'approval-negative.log'), `${[...negativeLines, ...validityNegativeLines].join('\n')}\n`);
+      evidence.validityNegativeFixtureCount = validityNegativeLines.length;
+
+      // ---- reproducible deploy + empty schema diff ----
+      const redeploy = await runWorkspaceMigrateDeploy(ctx.migrationDatabaseUrl, schemaPath);
+      if (redeploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy re-run was not reproducible: ${redeploy.stderr || redeploy.stdout}`);
+      evidence.migrateDeployReproducible = true;
+
+      const diff = await runMigrateDiff(ctx.migrationDatabaseUrl);
+      const diffText = diff.stdout.trim();
+      const isEmptyDiff = diff.code === 0 && (diffText.length === 0 || diffText === '-- This is an empty migration.');
+      writeFileSync(join(evidenceDir, 'migration-diff.sql'), '');
+      if (!isEmptyDiff) throw new ContractFailure(EXIT.CONTRACT, `schema diff not empty after fresh migrate deploy: exit=${diff.code} stdout=${diff.stdout}`);
+      evidence.emptySchemaDiff = true;
+
+      return evidence;
+    },
+  );
+
+  return evidence;
+}
+
+async function runApprovalSchemaSuite(evidenceDir: string): Promise<number> {
+  const runId = `u018${Date.now().toString(36)}`;
+  const startedAt = new Date().toISOString();
+
+  let caughtError: unknown = null;
+  let scenarioEvidence: Record<string, unknown> | null = null;
+  try {
+    scenarioEvidence = await runApprovalSchemaScenario(evidenceDir, runId);
+  } catch (error) {
+    caughtError = error;
+  }
+
+  const labelCounts = await labelResourceCounts(runId, OWNER_UNIT_U018, PURPOSE_U018);
+  const cleanupOk = labelCounts.containers === 0 && labelCounts.networks === 0 && labelCounts.volumes === 0;
+  const cleanup = {
+    schemaVersion: 1,
+    unit: OWNER_UNIT_U018,
+    purpose: PURPOSE_U018,
+    runId,
+    postgres: { containers: labelCounts.containers, networks: labelCounts.networks, volumes: labelCounts.volumes },
+    http: null,
+    httpReason:
+      'U018 db:contract is a DB-only schema/migration/constraint suite with no web/API process to bind or tear down here — no approve/reject/evaluation runtime, no external send/release exists to reach at this unit.',
+    childProcesses: 0,
+    result: cleanupOk ? 'PASS' : 'FAIL',
+    startedAt,
+    finishedAt: new Date().toISOString(),
+  };
+  writeFileSync(join(evidenceDir, 'cleanup.json'), `${JSON.stringify(cleanup, null, 2)}\n`);
+
+  if (!cleanupOk) {
+    process.stderr.write(`run-db-contract: cleanup verification failed: ${JSON.stringify(cleanup)}\n`);
+    return EXIT.CLEANUP;
+  }
+  if (caughtError) {
+    process.stderr.write(`${caughtError instanceof Error ? (caughtError.stack ?? caughtError.message) : String(caughtError)}\n`);
+    return caughtError instanceof ContractFailure ? caughtError.exitCode : EXIT.CONTRACT;
+  }
+
+  writeFileSync(
+    join(evidenceDir, 'db-contract-receipt.json'),
+    `${JSON.stringify({ schemaVersion: 1, unit: OWNER_UNIT_U018, suite: 'approval-schema', result: 'PASS', scenarioEvidence, cleanup, startedAt, finishedAt: new Date().toISOString() }, null, 2)}\n`,
+  );
+  return EXIT.SUCCESS;
+}
+
 async function main(): Promise<number> {
   let args;
   try {
@@ -2234,7 +2805,8 @@ async function main(): Promise<number> {
   if (args.suite === 'principal-session') return runPrincipalSessionSuite(args.evidence);
   if (args.suite === 'business-role') return runBusinessRoleSuite(args.evidence);
   if (args.suite === 'rls-pilot') return runRlsPilotSuite(args.evidence);
-  return runArtifactSchemaSuite(args.evidence);
+  if (args.suite === 'artifact-schema') return runArtifactSchemaSuite(args.evidence);
+  return runApprovalSchemaSuite(args.evidence);
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

@@ -60,6 +60,7 @@ model Project {
   domainDecisionLogs DomainDecisionLog[]
   authSessions       AuthSession[]
   artifacts          Artifact[]
+  approvalRequests   ApprovalRequest[]
 
   // U012: companyId stays optional here (full NOT NULL is deferred to U073 — see
   // packages/db/src/scope-closure.ts) because a live legacy-null Project can be a genuinely
@@ -342,8 +343,138 @@ model ApprovalRequest {
   reason        String?
   createdAt     DateTime @default(now()) @map("created_at")
 
+  // U018/APR-01a: nullable-for-expand scope + version-bound approval fields. Canonical
+  // (legacyUnbound=false) rows require every field below non-null and mutually consistent — see
+  // the named approval_requests_canonical_shape_guard trigger (migration 20260715180000). Legacy
+  // (legacyUnbound=true, the DB default) rows — the unchanged pre-U022 approval-db.ts insert
+  // shape — leave every one of these NULL and confer zero canonical authority.
+  tenantId  String? @map("tenant_id")
+  companyId String? @map("company_id")
+  projectId String? @map("project_id")
+
+  artifactVersionId    String? @map("artifact_version_id")
+  action               String?
+  artifactHashSnapshot String? @map("artifact_hash_snapshot")
+
+  // Immutable after insert (guard trigger enforces this — never Prisma optionality alone).
+  requestedByAssignmentId String? @map("requested_by_assignment_id")
+  requestedSessionId      String? @map("requested_session_id")
+
+  // Mutable CAS pair: U059's compare-and-swap target. The guard trigger requires
+  // ownershipRevision to increment by exactly 1 whenever ownerAssignmentId changes, and to stay
+  // unchanged otherwise — same rule as Artifact's owner CAS (migration 20260715170000).
+  ownerAssignmentId String? @map("owner_assignment_id")
+  ownershipRevision Int     @default(0) @map("ownership_revision")
+
+  policyKey     String? @map("policy_key")
+  policyVersion String? @map("policy_version")
+  policyHash    String? @map("policy_hash")
+
+  // DB-generated-compatible: the named BEFORE INSERT/UPDATE trigger
+  // approval_request_validation_snapshot_guard fills validationSnapshotHash from
+  // validationSnapshot via sangfor_validation_snapshot_sha256() when omitted, requires equality
+  // when the caller supplies it, and denies any UPDATE that changes either field.
+  validationSnapshot     Json?   @map("validation_snapshot")
+  validationSnapshotHash String? @map("validation_snapshot_hash")
+
+  requiredQuorum Int? @map("required_quorum")
+
+  // Decision/state CAS counter — separate from and semantically independent of
+  // ownershipRevision. No forced-increment rule exists at this unit (U022 owns that runtime).
+  revision Int @default(0)
+
+  expiresAt  DateTime? @map("expires_at")
+  resolvedAt DateTime? @map("resolved_at")
+
+  // Required, DB default TRUE. The unchanged pre-U022 approval-db.ts insert omits this column
+  // entirely, so every legacy row keeps the DB default of true. U022 is the only card allowed to
+  // insert a legacyUnbound=false row (never upgrades an existing legacy-unbound row in place).
+  legacyUnbound Boolean  @default(true) @map("legacy_unbound")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "approval_requests_tenant_id_fkey")
+  // U012-compatible composite scope-closure FKs (companies_tenant_id_id_key /
+  // projects_company_id_id_key), same pattern as AuthSession/Artifact.
+  company Company? @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "approval_requests_company_id_fkey")
+  project Project? @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "approval_requests_project_id_fkey")
+
+  artifactVersion ArtifactVersion? @relation(fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "approval_requests_artifact_version_id_fkey")
+
+  // Distinct exact U012 composite assignment relations (user_company_roles_id_company_id_key) —
+  // never an ID-only assignment FK, same pattern as Artifact's createdByAssignment/ownerAssignment.
+  requestedByAssignment UserCompanyRole? @relation("ApprovalRequestedByAssignment", fields: [requestedByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "approval_requests_requested_by_assignment_id_fkey")
+  ownerAssignment       UserCompanyRole? @relation("ApprovalOwnerAssignment", fields: [ownerAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "approval_requests_owner_assignment_id_fkey")
+
+  decisions       ApprovalDecision[]
+  currentValidity ApprovalCurrentValidity?
+
   @@index([status])
   @@map("approval_requests")
+}
+
+// Append-only: UPDATE/DELETE denied by sangfor_approval_decisions_deny_update_trg /
+// sangfor_approval_decisions_deny_delete_trg (reusing the existing sangfor_deny_mutation()
+// function from migration 20260715170000). CHILD_VIA_FK through mandatory approvalRequestId only
+// — no redundant companyId column; the named sangfor_approval_decision_guard_trg insert trigger
+// joins approvalRequestId -> approval_requests.company_id and rejects an actorAssignmentId
+// outside that company, and also rejects any decision recorded against a legacyUnbound=true
+// parent (that request has no canonical scope/version/hash to record against).
+model ApprovalDecision {
+  id                String @id @default(cuid())
+  approvalRequestId String @map("approval_request_id")
+
+  sequence        Int
+  requestRevision Int @map("request_revision")
+
+  artifactVersionId    String @map("artifact_version_id")
+  artifactHashSnapshot String @map("artifact_hash_snapshot")
+
+  decision String
+
+  actorAssignmentId  String  @map("actor_assignment_id")
+  actorSessionId     String  @map("actor_session_id")
+  actorRoleSnapshot  String  @map("actor_role_snapshot")
+  policyHashSnapshot String  @map("policy_hash_snapshot")
+  reason             String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "approval_decisions_approval_request_id_fkey")
+
+  @@unique([approvalRequestId, sequence], map: "approval_decisions_approval_request_id_sequence_key")
+  @@unique([approvalRequestId, actorAssignmentId], map: "approval_decisions_approval_request_id_actor_assignment_id_key")
+  @@map("approval_decisions")
+}
+
+// One-to-one MUTABLE projection, deliberately separate from the append-only ApprovalDecision
+// history above. Migration/backfill creates no row here at all (let alone state=valid); U022 is
+// the only runtime allowed to execute the pending -> valid|invalid|stale|expired,
+// valid -> stale|expired|revoked transitions — the named guard trigger enforces the graph plus
+// the valid/invalid/expired structural preconditions regardless of which unit writes it.
+model ApprovalCurrentValidity {
+  approvalRequestId String @id @map("approval_request_id")
+
+  requestRevision      Int    @map("request_revision")
+  artifactVersionId    String @map("artifact_version_id")
+  artifactHashSnapshot String @map("artifact_hash_snapshot")
+  policyHashSnapshot   String @map("policy_hash_snapshot")
+
+  requiredQuorum       Int @map("required_quorum")
+  satisfiedQuorum      Int @map("satisfied_quorum")
+  lastDecisionSequence Int @map("last_decision_sequence")
+
+  state String
+
+  evaluatedAt   DateTime? @map("evaluated_at")
+  validUntil    DateTime? @map("valid_until")
+  invalidatedAt DateTime? @map("invalidated_at")
+  reasonCode    String?   @map("reason_code")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "approval_current_validity_approval_request_id_fkey")
+
+  @@map("approval_current_validity")
 }
 
 // --- dev ---
@@ -1263,6 +1394,10 @@ model ArtifactVersion {
 
   artifact           Artifact  @relation("ArtifactVersions", fields: [artifactId], references: [id], onDelete: Restrict, map: "artifact_versions_artifact_id_fkey")
   currentForArtifact Artifact? @relation("ArtifactCurrentVersion")
+  // U018/APR-01a: required Prisma back-relation for ApprovalRequest.artifactVersionId — same
+  // plumbing precedent as Tenant/Company/Project's authSessions/artifacts fields above, added by
+  // the unit that introduces the forward FK, not a semantic change to ArtifactVersion itself.
+  approvalRequests   ApprovalRequest[]
 
   @@unique([artifactId, version], map: "artifact_versions_artifact_id_version_key")
   @@unique([artifactId, contentHashVersion, contentHash], map: "artifact_versions_content_hash_key")
@@ -2082,9 +2217,10 @@ model Tenant {
   status    String   @default("active")
   createdAt DateTime @default(now()) @map("created_at")
 
-  companies    Company[]
-  authSessions AuthSession[]
-  artifacts    Artifact[]
+  companies        Company[]
+  authSessions     AuthSession[]
+  artifacts        Artifact[]
+  approvalRequests ApprovalRequest[]
 
   @@map("tenants")
 }
@@ -2103,6 +2239,7 @@ model Company {
   roleChangeRequests RoleChangeRequest[]
   authSessions    AuthSession[]
   artifacts       Artifact[]
+  approvalRequests ApprovalRequest[]
 
   @@unique([tenantId, id], map: "companies_tenant_id_id_key")
   @@index([tenantId])
@@ -2171,6 +2308,10 @@ model UserCompanyRole {
   // (id, companyId) composite unique key below — never an ID-only assignment FK.
   createdArtifacts Artifact[] @relation("ArtifactCreatedByAssignment")
   ownedArtifacts   Artifact[] @relation("ArtifactOwnerAssignment")
+  // U018/APR-01a: the two distinct ApprovalRequest composite-assignment relations, same
+  // (id, companyId) composite unique key — never an ID-only assignment FK.
+  requestedApprovalRequests ApprovalRequest[] @relation("ApprovalRequestedByAssignment")
+  ownedApprovalRequests     ApprovalRequest[] @relation("ApprovalOwnerAssignment")
 
   @@unique([userId, companyId, role])
   @@unique([id, companyId], map: "user_company_roles_id_company_id_key")
