@@ -3,7 +3,7 @@ import express, { type Express } from 'express';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Server } from 'node:http';
-import type { McpStdioClient, ToolRegistry } from '@sangfor/workflow-engine';
+import { OperationOrchestrator, type McpStdioClient, type ToolRegistry } from '@sangfor/workflow-engine';
 import { bootstrapMcpClient } from './bootstrap/mcp-bootstrap.js';
 import {
   UnsafeAuthConfigurationError,
@@ -12,7 +12,6 @@ import {
 import { apiKeyAuth, identityConflictGuard, requireOperatorContext } from './middleware/auth.js';
 import { registerAutoOpsRoutes } from './routes/auto-ops-routes.js';
 import { registerSystemRoutes } from './routes/system-routes.js';
-import { registerWorkflowRoutes } from './routes/workflow-routes.js';
 import {
   createOperatorConsoleContext,
   type OperatorConsoleContext,
@@ -39,7 +38,13 @@ export function createOperatorApp(context: OperatorConsoleContext): Express {
   }
 
   registerSystemRoutes(app, context);
-  registerWorkflowRoutes(app, context);
+  // U028: do not mount legacy in-process workflow authority routes.
+  app.all(['/api/workflows/:id/approve', '/api/workflows/:id/reject', '/api/break-glass/{*path}'], (_request, response) => {
+    response.status(410).json({ error: 'authority_moved', location: '/api/workflow-definitions' });
+  });
+  app.get('/api/config', (_request, response) => {
+    response.json({ workflowAuthority: process.env.SANGFOR_ROOT_URL ? 'root_configured' : 'disabled' });
+  });
   registerAutoOpsRoutes(app, context);
 
   app.use(
@@ -124,6 +129,12 @@ export function installOperatorBootstrap(
 
 export async function startOperatorServer(): Promise<void> {
   assertSafeWorkflowConfiguration(process.env, 'SANGFOR_API_KEY');
+  if (process.env.SANGFOR_TASK_OUTPUT_ROOT) {
+    OperationOrchestrator.configureTaskOutputRoot({
+      outputRoot: process.env.SANGFOR_TASK_OUTPUT_ROOT,
+      attemptRoot: process.env.SANGFOR_TASK_ATTEMPT_ROOT,
+    });
+  }
   // U006 process identity (nested workspace: U002 assertSafeWorkflowConfiguration
   // is the production gate; monorepo packages/config mirrors the same predicates).
   process.env.SANGFOR_PROCESS_NAME ??= 'workflow-operator';

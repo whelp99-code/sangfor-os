@@ -6,7 +6,8 @@ import {
   assertWorkflowMcpPreflight,
   authenticateWorkflowApiKey,
 } from '../../../packages/shared/src/mutation-policy.js';
-import type { JsonRpcRequest, WorkflowToolContext } from './tool-types.js';
+import { OperationOrchestrator } from '@sangfor/workflow-engine';
+import type { JsonRpcRequest, ToolDefinition } from './tool-types.js';
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -34,12 +35,6 @@ function parseRequest(line: string): JsonRpcRequest {
     : { jsonrpc: '2.0', id, method: parsed.method, params: parsed.params };
 }
 
-async function closeContext(context: WorkflowToolContext): Promise<void> {
-  context.breakGlassPolicy.dispose();
-  await context.runtime.mcpClient.stop();
-  context.runtime.ready = false;
-}
-
 /**
  * MCP tool-context init failure policy (D3 fail-closed gate).
  * Soft-fail only when containerLiveness is true (SANGFOR_DOCKER_LIVENESS=1);
@@ -63,23 +58,23 @@ export function applyMcpInitFailurePolicy(
 
 async function startWorkflowMcpServer(): Promise<void> {
   const preflight = assertWorkflowMcpPreflight(process.env);
+  if (process.env.SANGFOR_TASK_OUTPUT_ROOT) {
+    OperationOrchestrator.configureTaskOutputRoot({
+      outputRoot: process.env.SANGFOR_TASK_OUTPUT_ROOT,
+      attemptRoot: process.env.SANGFOR_TASK_ATTEMPT_ROOT,
+    });
+  }
   // U006 process identity (nested workspace: U002 preflight is the production gate).
   process.env.SANGFOR_PROCESS_NAME ??= 'workflow-mcp';
-  const containerLiveness = process.env.SANGFOR_DOCKER_LIVENESS === '1';  const [handlerModule, catalogModule, contextModule] = await Promise.all([
-    import('./json-rpc-handler.js'),
-    import('./tool-catalog.js'),
-    import('./tool-context.js'),
-  ]);
+  const containerLiveness = process.env.SANGFOR_DOCKER_LIVENESS === '1';
+  const [handlerModule] = await Promise.all([import('./json-rpc-handler.js')]);
   const { handleWorkflowJsonRpc } = handlerModule;
-  const { createWorkflowToolCatalog } = catalogModule;
-  const { createWorkflowToolContext, initializeWorkflowToolContext } = contextModule;
-  const context = createWorkflowToolContext();
-  const catalog = createWorkflowToolCatalog(context);
-  try {
-    await initializeWorkflowToolContext(context);
-  } catch (error: unknown) {
-    applyMcpInitFailurePolicy(error, context, containerLiveness);
-  }
+  // stdio cannot derive a tenant/company/project from request JSON.  Until a
+  // server-derived root scope is injected, exposing no tools is safer than the
+  // legacy local approve/reject/execute catalog.
+  const catalog: ReadonlyMap<string, ToolDefinition> = new Map();
+  const context = { runtime: { ready: Boolean(process.env.SANGFOR_ROOT_URL) } };
+  void containerLiveness;
 
   const input = readline.createInterface({
     input: process.stdin,
@@ -91,14 +86,14 @@ async function startWorkflowMcpServer(): Promise<void> {
     if (closing) return;
     closing = true;
     input.close();
-    await closeContext(context);
+    context.runtime.ready = false;
   };
   process.once('SIGTERM', () => void close());
   process.once('SIGINT', () => void close());
   input.once('close', () => {
     if (closing) return;
     closing = true;
-    void closeContext(context);
+    context.runtime.ready = false;
   });
   input.on('line', (line) => {
     if (!line.trim()) return;
@@ -126,7 +121,7 @@ async function startWorkflowMcpServer(): Promise<void> {
     })();
   });
   process.stderr.write('sangfor-mcp-workflow stdio server started\n');
-  process.stderr.write('Registered 26 MCP tools\n');
+  process.stderr.write('Registered 0 authority tools (canonical root adapter)\n');
 }
 
 const modulePath = fileURLToPath(import.meta.url);

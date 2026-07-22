@@ -10,12 +10,27 @@
 
 import { chromium, type Page, type Browser } from 'playwright';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createLogger, nowISO, nowId } from '@sangfor/workflow-shared';
 import { ScenarioDB, type Scenario, type ScenarioSetting } from './scenario-db.js';
 import { SangforAPIDiscovery, type HAREntry } from './sangfor-api-discovery.js';
 
 const log = createLogger('device-verifier');
+const WORKFLOW_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+
+function explicitOutputRoot(outputRoot: string | undefined, attemptRoot?: string): string {
+  if (!outputRoot || !isAbsolute(outputRoot)) throw new Error('explicit absolute task output root is required');
+  const root = resolve(outputRoot);
+  const fromWorkspace = relative(WORKFLOW_ROOT, root);
+  if (fromWorkspace === '' || (!fromWorkspace.startsWith('..') && !isAbsolute(fromWorkspace))) throw new Error('task output root must be outside the workflow workspace');
+  if (attemptRoot) {
+    if (!isAbsolute(attemptRoot)) throw new Error('attempt root must be absolute');
+    const fromAttempt = relative(resolve(attemptRoot), root);
+    if (fromAttempt.startsWith('..') || isAbsolute(fromAttempt)) throw new Error('task output root must be inside the declared attempt root');
+  }
+  return root;
+}
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
 
@@ -70,13 +85,17 @@ export class DeviceVerifier {
 
   constructor(options: {
     scenarioDB: ScenarioDB;
+    /** Explicit caller-owned absolute output root. */
+    outputRoot?: string;
+    attemptRoot?: string;
+    /** @deprecated Use outputRoot. Kept only to report a fail-closed construction error. */
     outputDir?: string;
     cdpPort?: number;
     llmEndpoint?: string;
     llmApiKey?: string;
   }) {
     this.scenarioDB = options.scenarioDB;
-    this.outputDir = options.outputDir ?? './outputs/verification';
+    this.outputDir = explicitOutputRoot(options.outputRoot, options.attemptRoot);
     this.cdpPort = options.cdpPort ?? 9333;
     this.apiDiscovery = new SangforAPIDiscovery({
       llmEndpoint: options.llmEndpoint,
@@ -563,8 +582,8 @@ export interface PostCheckFailure {
 export class PostVerifier {
   private outputDir: string;
 
-  constructor(options?: { outputDir?: string }) {
-    this.outputDir = options?.outputDir ?? './outputs/evidence';
+  constructor(options: { outputRoot: string; attemptRoot?: string }) {
+    this.outputDir = explicitOutputRoot(options.outputRoot, options.attemptRoot);
   }
 
   /**

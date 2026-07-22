@@ -7,6 +7,7 @@ export default defineConfig({
     environment: 'node',
     include: [
       'tests/**/*.test.ts',
+      'packages/workflow-engine/src/**/*.test.ts',
       'apps/operator-console/tests/auth-containment.test.ts',
       'apps/operator-console/tests/health-api.test.ts',
       'apps/operator-console/tests/server-split-regression.test.ts',
