@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useToast } from "@sangfor/ui";
+import { useToast } from "@/components/ui/toast";
 
 const STATUSES = [
   ["pending", "대상 감지"],

@@ -1,4 +1,4 @@
-import { ToastProvider } from "@sangfor/ui"
+import { ToastProvider } from "@/components/ui/toast"
 import { PortalShell } from "@/components/shell/portal-shell"
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {

@@ -1,43 +1,25 @@
 import { NextResponse } from "next/server";
-
-import {
-  checkInfraHealth,
-  isInfraHealthy,
-} from "@/lib/infra-health";
+import { probeCanonicalHealth } from "@sangfor/health";
 
 /**
  * Purpose:
- * - Expose Phase 0 infrastructure readiness (PostgreSQL + Redis) for local dev and CI smoke checks.
- *
- * Failure Points:
- * - Missing DATABASE_URL / REDIS_URL → 503 with configuration hint.
- * - Docker services stopped → dependency-specific error fields in JSON body.
- *
- * Observability:
- * - GET /api/health JSON: { status, checks, timestamp }
- * - scripts/run-all-checks.sh optional curl
- *
- * Tests:
- * - src/lib/infra-health.test.ts
+ * Canonical liveness/readiness endpoint. Service IDs, timeouts, process
+ * profiles, and status semantics are owned by U006's @sangfor/health package.
  */
 export async function GET() {
-  const timestamp = new Date().toISOString();
-
   try {
-    const checks = await checkInfraHealth(process.env);
-    const healthy = isInfraHealthy(checks);
+    const report = await probeCanonicalHealth();
 
     return NextResponse.json(
       {
-        status: healthy ? "ok" : "degraded",
-        checks,
-        timestamp,
+        overall: report.overall,
+        summary: report.summary,
+        services: report.services,
+        timestamp: report.timestamp,
       },
-      { status: healthy ? 200 : 503 },
+      { status: report.httpStatus },
     );
   } catch (error) {
-    // Sanitize: log the real cause server-side, return a stable code (no raw
-    // error.message that could leak DB/Redis host/port/driver internals).
     console.error(
       "[api] health_check_failed:",
       error instanceof Error ? error.stack ?? error.message : error,
@@ -45,9 +27,18 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        status: "error",
+        overall: "error",
+        summary: {
+          total: 0,
+          ok: 0,
+          degraded: 0,
+          error: 1,
+          disabled: 0,
+          timestamp: new Date().toISOString(),
+        },
+        services: [],
         error: "health_check_failed",
-        timestamp,
+        timestamp: new Date().toISOString(),
       },
       { status: 503 },
     );

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { useToast } from "@sangfor/ui";
+import { useToast } from "@/components/ui/toast";
 
 // mail-candidate-actions.tsx의 RejectReasonSelect 미러 — 갈라지면 학습 루프가 조용히 끊긴다.
 const REJECT_REASONS = [

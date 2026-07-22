@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@source "../../../../packages/ui/src";
 /* 계기판(Instrument) fonts loaded via <link> in layout.tsx (Pretendard, IBM Plex Sans KR, IBM Plex Mono) */
 
 @custom-variant dark (&:is(.dark *));

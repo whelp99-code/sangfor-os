@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useToast } from "@sangfor/ui";
+import { useToast } from "@/components/ui/toast";
 
 import { Button } from "@/components/ui/button";
 import { actionErrorMessage } from "@/lib/action-error-labels";

@@ -6,7 +6,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 
-import { ToastProvider } from "@sangfor/ui";
+import { ToastProvider } from "@/components/ui/toast";
 import { SlipActions } from "./slip-actions";
 
 describe("SlipActions render", () => {
