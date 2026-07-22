@@ -42,6 +42,11 @@ export function isBusinessRoleCode(value: string | null | undefined): value is B
   return !!value && BUSINESS_ROLE_CODE_SET.has(value);
 }
 
+/** U024's policy-level high-risk predicate. It consumes U015's one canonical role vocabulary. */
+export function isHighRiskRoleChange(fromRole: string | null | undefined, toRole: string | null | undefined): boolean {
+  return isBusinessRoleCode(fromRole) && isBusinessRoleCode(toRole) && fromRole !== toRole;
+}
+
 /** Allowed non-null UserCompanyRole/ProjectMember lifecycle values. NULL and 'legacy_pending' are
  * both treated as inactive by every runtime — a migration adding this column never blanket-
  * activates a pre-existing row. */

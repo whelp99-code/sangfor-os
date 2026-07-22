@@ -410,6 +410,7 @@ model ApprovalRequest {
 
   decisions       ApprovalDecision[]
   currentValidity ApprovalCurrentValidity?
+  roleChangeRequest RoleChangeRequest?
 
   @@index([status])
   @@map("approval_requests")
@@ -1433,6 +1434,7 @@ model ArtifactVersion {
   // plumbing precedent as Tenant/Company/Project's authSessions/artifacts fields above, added by
   // the unit that introduces the forward FK, not a semantic change to ArtifactVersion itself.
   approvalRequests   ApprovalRequest[]
+  roleChangeRequests RoleChangeRequest[]
   // U019/WF-01a: required Prisma back-relations for WorkflowDefinition.definitionArtifactVersionId
   // and WorkflowRunArtifact.artifactVersionId — same plumbing precedent as approvalRequests above.
   workflowDefinitions  WorkflowDefinition[]
@@ -2507,6 +2509,7 @@ model Tenant {
   authSessions     AuthSession[]
   artifacts        Artifact[]
   approvalRequests ApprovalRequest[]
+  roleChangeRequests RoleChangeRequest[]
   workflowDefinitions WorkflowDefinition[]
   workflowRuns        WorkflowRun[]
   auditLogs           AuditLog[]
@@ -2604,6 +2607,9 @@ model UserCompanyRole {
   // (id, companyId) composite unique key — never an ID-only assignment FK.
   requestedApprovalRequests ApprovalRequest[] @relation("ApprovalRequestedByAssignment")
   ownedApprovalRequests     ApprovalRequest[] @relation("ApprovalOwnerAssignment")
+  targetRoleChangeRequests    RoleChangeRequest[] @relation("RoleChangeTargetMembership")
+  requestedRoleChangeRequests RoleChangeRequest[] @relation("RoleChangeRequestedByAssignment")
+  appliedRoleChangeRequests   RoleChangeRequest[] @relation("RoleChangeAppliedByAssignment")
   // U019/WF-01a: the two distinct WorkflowDefinition/WorkflowRun composite-assignment relations,
   // same (id, companyId) composite unique key — never an ID-only assignment FK.
   createdWorkflowDefinitions WorkflowDefinition[] @relation("WorkflowDefinitionCreatedByAssignment")
@@ -2620,16 +2626,47 @@ model UserCompanyRole {
 // of Company in packages/db/src/scope-inventory.ts (RECLASSIFIED_MODELS).
 model RoleChangeRequest {
   id          String   @id @default(cuid())
+  // These original fields remain query-compatible snapshots; approvedBy is never authority.
   userId      String   @map("user_id")
   fromRole    String   @map("from_role")
   toRole      String   @map("to_role")
-  status      String   @default("pending")
+  status      String   @default("legacy_unbound")
   requestedBy String   @map("requested_by")
   approvedBy  String?  @map("approved_by")
   companyId   String   @map("company_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
+  legacyUnbound              Boolean   @default(true) @map("legacy_unbound")
+  legacyStatus               String?   @map("legacy_status")
+  tenantId                   String?   @map("tenant_id")
+  targetMembershipId         String?   @map("target_membership_id")
+  requestedByAssignmentId    String?   @map("requested_by_assignment_id")
+  expectedMembershipRevision Int?      @map("expected_membership_revision")
+  artifactVersionId          String?   @unique @map("artifact_version_id")
+  approvalRequestId          String?   @unique @map("approval_request_id")
+  snapshotHash               String?   @map("snapshot_hash")
+  policyVersion              String?   @map("policy_version")
+  expiresAt                  DateTime? @map("expires_at")
+  revision                   Int       @default(0)
+  requestIdempotencyKey      String?   @map("request_idempotency_key")
+  requestInputHash           String?   @map("request_input_hash")
+  terminalAt                 DateTime? @map("terminal_at")
+  terminalReasonCode         String?   @map("terminal_reason_code")
+  appliedAt                  DateTime? @map("applied_at")
+  appliedByAssignmentId      String?   @map("applied_by_assignment_id")
+  appliedMembershipRevision  Int?      @map("applied_membership_revision")
+  appliedApprovalRevision    Int?      @map("applied_approval_revision")
+  appliedDecisionSequence    Int?      @map("applied_decision_sequence")
+  // Lifecycle CAS is the only writer; this intentionally is not @updatedAt.
+  updatedAt                  DateTime  @default(now()) @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "role_change_requests_tenant_id_fkey")
   company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  targetMembership UserCompanyRole? @relation("RoleChangeTargetMembership", fields: [targetMembershipId, companyId], references: [id, companyId], onDelete: Restrict, map: "role_change_requests_target_membership_id_fkey")
+  requestedByAssignment UserCompanyRole? @relation("RoleChangeRequestedByAssignment", fields: [requestedByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "role_change_requests_requested_by_assignment_id_fkey")
+  appliedByAssignment UserCompanyRole? @relation("RoleChangeAppliedByAssignment", fields: [appliedByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "role_change_requests_applied_by_assignment_id_fkey")
+  artifactVersion ArtifactVersion? @relation(fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "role_change_requests_artifact_version_id_fkey")
+  approvalRequest ApprovalRequest? @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "role_change_requests_approval_request_id_fkey")
 
   @@index([userId, status])
   @@index([companyId])

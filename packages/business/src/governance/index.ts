@@ -19,3 +19,4 @@ export * from "./stabilization-readiness";
 export * from "./artifact-service";
 export * from "./artifact-release";
 export * from "./internal-principal-replay";
+export * from "./role-change";

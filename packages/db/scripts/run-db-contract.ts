@@ -85,7 +85,14 @@ const NEW_MIGRATION_NAME_U021 = '20260715210000_harden_scoped_audit_chain';
 const OWNER_UNIT_U021 = 'U021';
 const PURPOSE_U021 = 'audit-chain';
 
-const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema', 'governance-bridge', 'audit-chain']);
+// U024 — role-change snapshot suite. It must stay out of every earlier migration-prefix view:
+// those scenarios deliberately deploy historical schemas and a later FK/trigger migration would
+// make their legacy fixtures run against the wrong shape (or fail with SQLSTATE 42830).
+const NEW_MIGRATION_NAME_U024 = '20260715220000_add_role_change_snapshot';
+const OWNER_UNIT_U024 = 'U024';
+const PURPOSE_U024 = 'role-change';
+
+const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema', 'governance-bridge', 'audit-chain', 'role-change']);
 
 const EXIT = Object.freeze({
   SUCCESS: 0,
@@ -235,6 +242,8 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
     // excluded from this pre-U011 prefix too.
     const targetU021 = join(dir, 'migrations', NEW_MIGRATION_NAME_U021);
     if (existsSync(targetU021)) rmSync(targetU021, { recursive: true, force: true });
+    const targetU024 = join(dir, 'migrations', NEW_MIGRATION_NAME_U024);
+    if (existsSync(targetU024)) rmSync(targetU024, { recursive: true, force: true });
   }
   return dir;
 }
@@ -275,6 +284,8 @@ function makeThroughU011PrismaCopy(label: string): string {
   // prefix too.
   const targetU021 = join(dir, 'migrations', NEW_MIGRATION_NAME_U021);
   if (existsSync(targetU021)) rmSync(targetU021, { recursive: true, force: true });
+  const targetU024 = join(dir, 'migrations', NEW_MIGRATION_NAME_U024);
+  if (existsSync(targetU024)) rmSync(targetU024, { recursive: true, force: true });
   return dir;
 }
 
@@ -695,7 +706,8 @@ function listMigrationsThroughU010(): string[] {
         name !== NEW_MIGRATION_NAME_U017 &&
         name !== NEW_MIGRATION_NAME_U018 &&
         name !== NEW_MIGRATION_NAME_U019 &&
-        name !== NEW_MIGRATION_NAME_U021,
+        name !== NEW_MIGRATION_NAME_U021 &&
+        name !== NEW_MIGRATION_NAME_U024,
     )
     .sort();
 }
@@ -708,7 +720,7 @@ function listMigrationsThroughU020(): string[] {
   return readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
-    .filter((name) => name !== NEW_MIGRATION_NAME_U021)
+    .filter((name) => name !== NEW_MIGRATION_NAME_U021 && name !== NEW_MIGRATION_NAME_U024)
     .sort();
 }
 
@@ -4489,8 +4501,17 @@ async function runAuditChainLegacyScenario(evidenceDir: string, runId: string) {
         writeFileSync(join(scenarioEvidenceDir, 'legacy-immutability.log'), `${immutabilityLines.join('\n')}\n`);
         evidence.immutabilityChecks = immutabilityLines.length;
 
-        // ---- reproducible deploy + empty schema diff (U021 is currently the migration tip, so the
-        // view now equals the complete canonical migration set) ----
+        // U024 follows U021. This U021-owned legacy lane must still finish on the current schema
+        // before it asks Prisma for an empty diff; otherwise a newly landed successor is falsely
+        // reported as a U021 regression. Add only the canonical U024 symlink after all U021
+        // observations above, preserving the genuinely pre-U021 fixture/deploy proof.
+        addMigrationToView(view, NEW_MIGRATION_NAME_U024);
+        verifyViewIntegrity(view, [...throughU020, NEW_MIGRATION_NAME_U021, NEW_MIGRATION_NAME_U024]);
+        const deployU024ForCurrentSchema = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (deployU024ForCurrentSchema.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (+U024 after U021 verification) failed: ${deployU024ForCurrentSchema.stderr || deployU024ForCurrentSchema.stdout}`);
+        evidence.deployU024ForCurrentSchema = true;
+
+        // ---- reproducible deploy + empty schema diff against the complete current chain ----
         const redeploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
         if (redeploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy re-run was not reproducible: ${redeploy.stderr || redeploy.stdout}`);
         evidence.migrateDeployReproducible = true;
@@ -4584,6 +4605,84 @@ async function runAuditChainSuite(evidenceDir: string): Promise<number> {
   return EXIT.SUCCESS;
 }
 
+// U024 / SEC-02b. The DB-only receipt intentionally proves migration ordering, legacy freezing,
+// lifecycle objects, delete denial and empty schema diff in two separate U009-owned loopback
+// lanes. Domain-service concurrency is covered by its focused integration test; this runner never
+// points at a caller-provided DATABASE_URL.
+async function runRoleChangeSuite(evidenceDir: string): Promise<number> {
+  const startedAt = new Date().toISOString();
+  const runId = `u024-${Date.now().toString(36)}`;
+  const freshEvidence: Record<string, unknown> = {};
+  const legacyEvidence: Record<string, unknown> = {};
+  let caught: unknown = null;
+  try {
+    await withIsolatedPostgres(
+      { runId, ownerUnit: OWNER_UNIT_U024, purpose: `${PURPOSE_U024}-fresh`, evidenceDir: join(evidenceDir, 'fresh'), imageDigest: IMAGE_DIGEST, migrate: true },
+      async (ctx: any) => {
+        const conn = parseConn(ctx.databaseUrl);
+        const scope = await runScopeCheck();
+        if (scope.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed: ${scope.stdout}\n${scope.stderr}`);
+        const scopeJson = JSON.parse(scope.stdout);
+        if (scopeJson.currentModelCount !== scopeJson.inventoryModelCount || scopeJson.ok !== true) throw new ContractFailure(EXIT.CONTRACT, `scope inventory mismatch: ${scope.stdout}`);
+        const objects = await execSqlTsv(ctx.containerName, conn, `SELECT c.relkind, c.relname FROM pg_class c WHERE c.relname IN ('role_change_requests_request_idempotency_uidx','role_change_requests_open_target_uidx') UNION ALL SELECT 't', tgname FROM pg_trigger WHERE tgname IN ('role_change_requests_canonical_insert_guard_trg','role_change_requests_lifecycle_update_guard_trg','role_change_requests_immutable_delete_trg') ORDER BY 1,2;`);
+        const diff = await runMigrateDiff(ctx.databaseUrl);
+        if (diff.code !== 0 || !['', '-- This is an empty migration.'].includes(diff.stdout.trim())) throw new ContractFailure(EXIT.CONTRACT, `fresh schema diff is non-empty: ${diff.stdout}\n${diff.stderr}`);
+        freshEvidence.scopeCheck = scopeJson;
+        freshEvidence.namedObjects = objects;
+        freshEvidence.schemaDiff = 'empty';
+      },
+    );
+
+    await withIsolatedPostgres(
+      { runId, ownerUnit: OWNER_UNIT_U024, purpose: `${PURPOSE_U024}-legacy`, evidenceDir: join(evidenceDir, 'legacy'), imageDigest: IMAGE_DIGEST, migrate: false },
+      async (ctx: any) => {
+        const conn = parseConn(ctx.databaseUrl);
+        const before = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).filter((name) => name !== NEW_MIGRATION_NAME_U024).sort();
+        const view = buildReadOnlyMigrationView('u024-legacy', before);
+        try {
+          verifyViewIntegrity(view, before);
+          const prefix = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+          if (prefix.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `legacy prefix deploy failed: ${prefix.stderr || prefix.stdout}`);
+          const fixture = readFileSync(join(DB_PKG_ROOT, 'tests/fixtures/role-change-legacy.sql'), 'utf8');
+          const loaded = await spawnCapture(['docker', 'exec', '-i', '-e', `PGPASSWORD=${conn.password}`, ctx.containerName, 'psql', '-h', '127.0.0.1', '-U', conn.user, '-d', conn.database, '-v', 'ON_ERROR_STOP=1'], sanitizedEnv({}), { input: fixture });
+          if (loaded.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `legacy fixture load failed: ${loaded.stderr || loaded.stdout}`);
+          const beforeStatus = await execSql(ctx.containerName, conn, `SELECT status || '|' || id FROM role_change_requests WHERE id='u024-legacy-role-change';`);
+          addMigrationToView(view, NEW_MIGRATION_NAME_U024);
+          verifyViewIntegrity(view, [...before, NEW_MIGRATION_NAME_U024]);
+          const deploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+          if (deploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U024 deploy failed: ${deploy.stderr || deploy.stdout}`);
+          const frozen = await execSql(ctx.containerName, conn, `SELECT status || '|' || legacy_status || '|' || legacy_unbound::text || '|' || revision::text FROM role_change_requests WHERE id='u024-legacy-role-change';`);
+          if (beforeStatus !== 'pending|u024-legacy-role-change' || frozen !== 'legacy_unbound|pending|true|0') throw new ContractFailure(EXIT.CONTRACT, `legacy role-change normalization lost bytes: before=${beforeStatus} after=${frozen}`);
+          const qa = [
+            await attemptQaInsert(ctx.containerName, conn, { label: 'new legacy_unbound denied', expect: 'reject', sql: `INSERT INTO role_change_requests (id,user_id,from_role,to_role,status,requested_by,company_id) VALUES ('u024-illegal','u024-legacy-user','member','admin','legacy_unbound','x','u024-company');` }),
+            await attemptQaInsert(ctx.containerName, conn, { label: 'legacy delete denied', expect: 'reject', sql: `DELETE FROM role_change_requests WHERE id='u024-legacy-role-change';` }),
+          ];
+          const diff = await runMigrateDiff(ctx.databaseUrl);
+          if (diff.code !== 0 || !['', '-- This is an empty migration.'].includes(diff.stdout.trim())) throw new ContractFailure(EXIT.CONTRACT, `legacy schema diff is non-empty: ${diff.stdout}\n${diff.stderr}`);
+          legacyEvidence.migrationPrefix = before;
+          legacyEvidence.migrationHashes = view.membership;
+          legacyEvidence.legacyBefore = beforeStatus;
+          legacyEvidence.legacyAfter = frozen;
+          legacyEvidence.qa = qa;
+          legacyEvidence.schemaDiff = 'empty';
+          writeFileSync(join(evidenceDir, 'role-change-lifecycle.tsv'), `${frozen}\n${qa.join('\n')}\n`);
+        } finally {
+          rmSync(view.dir, { recursive: true, force: true });
+        }
+      },
+    );
+  } catch (error) {
+    caught = error;
+  }
+  const receipt = { schemaVersion: 1, unit: OWNER_UNIT_U024, suite: PURPOSE_U024, runId, freshEvidence, legacyEvidence, startedAt, finishedAt: new Date().toISOString(), result: caught ? 'FAIL' : 'PASS' };
+  writeFileSync(join(evidenceDir, 'db-contract-receipt.json'), `${JSON.stringify(receipt, null, 2)}\n`);
+  if (caught) {
+    process.stderr.write(`${caught instanceof Error ? (caught.stack ?? caught.message) : String(caught)}\n`);
+    return caught instanceof ContractFailure ? caught.exitCode : EXIT.CONTRACT;
+  }
+  return EXIT.SUCCESS;
+}
+
 async function main(): Promise<number> {
   let args;
   try {
@@ -4603,6 +4702,7 @@ async function main(): Promise<number> {
   if (args.suite === 'approval-schema') return runApprovalSchemaSuite(args.evidence);
   if (args.suite === 'governance-bridge') return runGovernanceBridgeSuite(args.evidence);
   if (args.suite === 'audit-chain') return runAuditChainSuite(args.evidence);
+  if (args.suite === 'role-change') return runRoleChangeSuite(args.evidence);
   return runWorkflowSchemaSuite(args.evidence);
 }
 

@@ -6,6 +6,7 @@ import {
   isActiveAssignment,
   isActiveProjectAssignment,
   isBusinessRoleCode,
+  isHighRiskRoleChange,
   resolveActiveCompanyRole,
   resolveCapabilities,
   type PersistedCompanyRoleAssignment,
@@ -64,6 +65,14 @@ describe('BUSINESS_ROLE_CODES / isBusinessRoleCode', () => {
 
   it.each(BUSINESS_ROLE_CODES)('accepts canonical role "%s"', (value) => {
     expect(isBusinessRoleCode(value)).toBe(true);
+  });
+});
+
+describe('isHighRiskRoleChange — U024 RED policy consumer', () => {
+  it('uses the U015 canonical business-role vocabulary and rejects no-op or unknown changes', () => {
+    expect(isHighRiskRoleChange('account_manager', 'security_officer')).toBe(true);
+    expect(isHighRiskRoleChange('ceo', 'ceo')).toBe(false);
+    expect(isHighRiskRoleChange('member', 'ceo')).toBe(false);
   });
 });
 
