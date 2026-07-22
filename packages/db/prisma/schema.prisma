@@ -411,6 +411,7 @@ model ApprovalRequest {
   decisions       ApprovalDecision[]
   currentValidity ApprovalCurrentValidity?
   roleChangeRequest RoleChangeRequest?
+  discountRequests DiscountRequest[]
 
   @@index([status])
   @@map("approval_requests")
@@ -876,6 +877,8 @@ model Customer {
   customerAssets       CustomerAsset[]
   renewalOpportunities RenewalOpportunity[]
   supportCases         SupportCase[]
+  vendorRequests       VendorRequest[]
+  demoLicenses         DemoLicense[]
 
   @@index([projectId, name])
   @@index([projectId, archivedAt, updatedAt, id])
@@ -1467,6 +1470,7 @@ model ArtifactVersion {
   activeCompatibilityRules CompatibilityRule[]   @relation("CompatibilityRuleActiveArtifactVersion")
   provenanceQuotes         Quote[]               @relation("QuoteArtifactVersion")
   sizingQuoteLineItems     QuoteLineItem[]       @relation("QuoteLineSizingArtifactVersion")
+  submissionEvidenceVendorRequests VendorRequest[] @relation("VendorRequestSubmissionEvidenceArtifactVersion")
 
   @@unique([artifactId, version], map: "artifact_versions_artifact_id_version_key")
   @@unique([artifactId, contentHashVersion, contentHash], map: "artifact_versions_content_hash_key")
@@ -2647,6 +2651,10 @@ model UserCompanyRole {
   ownedOpportunities         Opportunity[]        @relation("OpportunityOwnerAssignment")
   ownedWorkTasks             WorkTask[]           @relation("WorkTaskOwnerAssignment")
   assessedDealQualifications DealQualification[]  @relation("DealQualificationAssessedByAssignment")
+  requestedDiscountRequests  DiscountRequest[]    @relation("DiscountRequestRequestedByAssignment")
+  requestedVendorRequests    VendorRequest[]      @relation("VendorRequestRequestedByAssignment")
+  ownedVendorRequests        VendorRequest[]      @relation("VendorRequestOwnerAssignment")
+  vendorRequestEvents        VendorRequestEvent[] @relation("VendorRequestEventActorAssignment")
 
   @@unique([userId, companyId, role])
   @@unique([id, companyId], map: "user_company_roles_id_company_id_key")
@@ -2793,6 +2801,7 @@ model ProductSku {
   targetCompatibilityRules CompatibilityRule[]  @relation("TargetSku")
   assetLicenses            AssetLicense[]
   subscriptions            Subscription[]
+  demoLicenses             DemoLicense[]
 
   @@index([editionId])
   @@index([editionId, status, archivedAt, updatedAt, id])
@@ -2972,6 +2981,7 @@ model Quote {
   lineItems          QuoteLineItem[]
   commercialSnapshot QuoteCommercialSnapshot?
   discountRequests   DiscountRequest[]
+  vendorRequests     VendorRequest[]
 
   @@index([opportunityId])
   @@index([companyId, status])
@@ -3057,49 +3067,120 @@ model QuoteCommercialSnapshot {
 }
 
 model DiscountRequest {
-  id                String   @id @default(cuid())
-  quoteId           String   @map("quote_id")
-  requestedDiscount Decimal  @db.Decimal(5, 2) @map("requested_discount")
-  reason            String
-  status            String   @default("pending")
-  approvedBy        String?  @map("approved_by")
+  id                    String   @id @default(cuid())
+  quoteId               String   @map("quote_id")
+  requestedDiscount     Decimal  @db.Decimal(5, 2) @map("requested_discount")
+  reason                String
+  status                String   @default("pending")
+  approvedBy            String?  @map("approved_by")
+  vendorRequired        Boolean? @map("vendor_required")
+  approvalRequestId     String?  @map("approval_request_id")
+  requestedByAssignmentId String? @map("requested_by_assignment_id")
+  idempotencyKey        String?  @map("idempotency_key")
+  createdAt             DateTime? @map("created_at")
+  decidedAt             DateTime? @map("decided_at")
 
-  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quote                  Quote            @relation(fields: [quoteId], references: [id], onDelete: Restrict, map: "discount_requests_quote_id_fkey")
+  approvalRequest        ApprovalRequest? @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "discount_requests_approval_request_id_fkey")
+  requestedByAssignment  UserCompanyRole? @relation("DiscountRequestRequestedByAssignment", fields: [requestedByAssignmentId], references: [id], onDelete: Restrict, map: "discount_requests_requested_by_assignment_id_fkey")
+  vendorRequests         VendorRequest[]  @relation("DiscountRequestVendorRequest")
 
   @@index([quoteId])
+  @@index([approvalRequestId], map: "discount_requests_approval_request_id_idx")
+  @@index([requestedByAssignmentId], map: "discount_requests_requested_by_assignment_id_idx")
+  @@index([idempotencyKey], map: "discount_requests_idempotency_key_idx")
+  @@index([status, createdAt], map: "discount_requests_status_created_at_idx")
   @@map("discount_requests")
 }
 
 // --- Vendor ---
 
 model VendorRequest {
-  id            String   @id @default(cuid())
-  opportunityId String?  @map("opportunity_id")
-  requestType   String   @map("request_type")
-  vendorName    String   @map("vendor_name")
-  detailsJson   Json     @map("details_json")
-  status        String   @default("draft")
-  createdBy     String   @map("created_by")
+  id                                  String   @id @default(cuid())
+  opportunityId                       String?  @map("opportunity_id")
+  requestType                         String   @map("request_type")
+  vendorName                          String   @map("vendor_name")
+  detailsJson                         Json     @map("details_json")
+  status                              String   @default("draft")
+  createdBy                           String   @map("created_by")
+  quoteId                             String?  @map("quote_id")
+  discountRequestId                   String?  @map("discount_request_id")
+  customerId                          String?  @map("customer_id")
+  requestedByAssignmentId             String?  @map("requested_by_assignment_id")
+  ownerAssignmentId                   String?  @map("owner_assignment_id")
+  ownershipRevision                   Int      @default(0) @map("ownership_revision")
+  revision                            Int      @default(0)
+  idempotencyKey                      String?  @map("idempotency_key")
+  externalReference                   String?  @map("external_reference")
+  submittedAt                         DateTime? @map("submitted_at")
+  submissionEvidenceArtifactVersionId String?  @map("submission_evidence_artifact_version_id")
+  createdAt                           DateTime? @map("created_at")
+  updatedAt                           DateTime? @map("updated_at")
 
-  opportunity Opportunity?         @relation(fields: [opportunityId], references: [id])
-  events      VendorRequestEvent[]
+  opportunity                       Opportunity?     @relation(fields: [opportunityId], references: [id])
+  quote                             Quote?           @relation(fields: [quoteId], references: [id], onDelete: Restrict, map: "vendor_requests_quote_id_fkey")
+  discountRequest                   DiscountRequest? @relation("DiscountRequestVendorRequest", fields: [discountRequestId], references: [id], onDelete: Restrict, map: "vendor_requests_discount_request_id_fkey")
+  customer                          Customer?        @relation(fields: [customerId], references: [id], onDelete: Restrict, map: "vendor_requests_customer_id_fkey")
+  requestedByAssignment             UserCompanyRole? @relation("VendorRequestRequestedByAssignment", fields: [requestedByAssignmentId], references: [id], onDelete: Restrict, map: "vendor_requests_requested_by_assignment_id_fkey")
+  ownerAssignment                   UserCompanyRole? @relation("VendorRequestOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: Restrict, map: "vendor_requests_owner_assignment_id_fkey")
+  submissionEvidenceArtifactVersion ArtifactVersion? @relation("VendorRequestSubmissionEvidenceArtifactVersion", fields: [submissionEvidenceArtifactVersionId], references: [id], onDelete: Restrict, map: "vendor_requests_submission_evidence_artifact_version_id_fkey")
+  events                            VendorRequestEvent[]
+  demoLicenses                      DemoLicense[]
 
   @@index([opportunityId])
   @@index([status])
+  @@index([quoteId], map: "vendor_requests_quote_id_idx")
+  @@index([discountRequestId], map: "vendor_requests_discount_request_id_idx")
+  @@index([customerId], map: "vendor_requests_customer_id_idx")
+  @@index([requestedByAssignmentId], map: "vendor_requests_requested_by_assignment_id_idx")
+  @@index([ownerAssignmentId, ownershipRevision], map: "vendor_requests_owner_assignment_id_ownership_revision_idx")
+  @@index([idempotencyKey], map: "vendor_requests_idempotency_key_idx")
+  @@index([submissionEvidenceArtifactVersionId], map: "vendor_requests_submission_evidence_artifact_version_id_idx")
+  @@index([status, updatedAt], map: "vendor_requests_status_updated_at_idx")
   @@map("vendor_requests")
 }
 
 model VendorRequestEvent {
-  id          String   @id @default(cuid())
-  requestId   String   @map("request_id")
-  eventType   String   @map("event_type")
-  description String?
-  createdBy   String?  @map("created_by")
+  id                String   @id @default(cuid())
+  requestId         String   @map("request_id")
+  eventType         String   @map("event_type")
+  description       String?
+  createdBy         String?  @map("created_by")
+  actorAssignmentId String?  @map("actor_assignment_id")
+  payload           Json?
+  createdAt         DateTime? @map("created_at")
 
-  request VendorRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  request          VendorRequest    @relation(fields: [requestId], references: [id], onDelete: Restrict, map: "vendor_request_events_request_id_fkey")
+  actorAssignment  UserCompanyRole? @relation("VendorRequestEventActorAssignment", fields: [actorAssignmentId], references: [id], onDelete: Restrict, map: "vendor_request_events_actor_assignment_id_fkey")
 
   @@index([requestId])
+  @@index([actorAssignmentId], map: "vendor_request_events_actor_assignment_id_idx")
+  @@index([requestId, createdAt], map: "vendor_request_events_request_id_created_at_idx")
   @@map("vendor_request_events")
+}
+
+model DemoLicense {
+  id              String   @id @default(cuid())
+  vendorRequestId String   @map("vendor_request_id")
+  productSkuId    String   @map("product_sku_id")
+  customerId      String   @map("customer_id")
+  status          String
+  secretRef       String?  @map("secret_ref")
+  issuedAt        DateTime? @map("issued_at")
+  startsAt        DateTime? @map("starts_at")
+  expiresAt       DateTime? @map("expires_at")
+  revokedAt       DateTime? @map("revoked_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  vendorRequest VendorRequest @relation(fields: [vendorRequestId], references: [id], onDelete: Restrict, map: "demo_licenses_vendor_request_id_fkey")
+  productSku    ProductSku    @relation(fields: [productSkuId], references: [id], onDelete: Restrict, map: "demo_licenses_product_sku_id_fkey")
+  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict, map: "demo_licenses_customer_id_fkey")
+
+  @@index([vendorRequestId], map: "demo_licenses_vendor_request_id_idx")
+  @@index([productSkuId], map: "demo_licenses_product_sku_id_idx")
+  @@index([customerId, status, expiresAt], map: "demo_licenses_customer_id_status_expires_at_idx")
+  @@map("demo_licenses")
 }
 
 // --- Delivery ---

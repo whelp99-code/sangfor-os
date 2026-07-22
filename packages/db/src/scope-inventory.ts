@@ -150,6 +150,10 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   // U035: one immutable commercial calculation snapshot inherits its quote's scope through the
   // mandatory quoteId FK. It deliberately carries no redundant project/company scope column.
   { model: 'QuoteCommercialSnapshot', unit: 'U035', category: 'CHILD_VIA_FK' },
+  // U036: DemoLicense has a required customerId -> Customer -> Project scope chain. Its
+  // vendorRequestId is deliberately not the scope basis because VendorRequest.customerId stays
+  // nullable during the expand phase; do not classify through that optional chain.
+  { model: 'DemoLicense', unit: 'U036', category: 'CHILD_VIA_FK' },
 ];
 
 export interface ReclassifiedModel {
@@ -268,6 +272,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   DealRegistration: { model: 'DealRegistration', category: 'CHILD_VIA_FK', parentModel: 'Opportunity', relationField: 'opportunity', scalarFkField: 'opportunityId', nullable: false },
   DeliveryChecklistItem: { model: 'DeliveryChecklistItem', category: 'CHILD_VIA_FK', parentModel: 'Engagement', relationField: 'delivery', scalarFkField: 'deliveryId', nullable: false },
   DiscountRequest: { model: 'DiscountRequest', category: 'CHILD_VIA_FK', parentModel: 'Quote', relationField: 'quote', scalarFkField: 'quoteId', nullable: false },
+  DemoLicense: { model: 'DemoLicense', category: 'CHILD_VIA_FK', parentModel: 'Customer', relationField: 'customer', scalarFkField: 'customerId', nullable: false },
   DocumentTemplate: { model: 'DocumentTemplate', category: 'PROJECT_ROOT' },
   DocumentVersion: { model: 'DocumentVersion', category: 'CHILD_VIA_FK', parentModel: 'GeneratedDocument', relationField: 'generatedDocument', scalarFkField: 'generatedDocumentId', nullable: false },
   DomainDecisionLog: { model: 'DomainDecisionLog', category: 'CHILD_VIA_FK', parentModel: 'Project', relationField: 'project', scalarFkField: 'projectId', nullable: false },
