@@ -107,7 +107,7 @@ Implementation follows the final package, not ad hoc UI redesign plans.
 | DB access and migrations | `packages/db`, infrastructure adapters |
 | External systems, mail, file, LLM, RAG | `packages/infrastructure`, `packages/proxy-core`, `services/*` |
 | API surface | `apps/api/src/routes/*`, `apps/web/src/app/api/*` |
-| UI | `apps/web`, `packages/ui` |
+| UI | `apps/web/src/components/ui` |
 | Verification/evidence | `docs/reports`, `docs/evidence`, service-specific evidence folders |
 
 ## Safety Rules

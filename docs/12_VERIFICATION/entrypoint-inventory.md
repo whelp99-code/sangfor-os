@@ -36,6 +36,14 @@ Candidate (`candidate_for_U030`) entries come from a Knip baseline scan per work
 (`knip --reporter json`) captured against candidateSha `2499a2b343a3c28a7e6f437a804c0f40afede75b`,
 transformed 1:1 into inventory records — no `.omo` audit output was used as a source.
 
+## U030 removal receipt
+
+U030 removed the 18 source candidates, the zero-consumer UI package, the unused shared
+tracing export/dependencies, and the workflow backup after the amended planned-owner scan.
+The scan found no U031–U076 owner for a deleted path; it retained
+`customers-data-table.tsx` (U062), `role-dashboard.tsx` (U063), and
+`edit-opportunity-form.tsx` (U043) as protected fixtures.
+
 ## How it is validated (dispatch points 5, 6, 8)
 
 `node scripts/check-entrypoint-inventory.mjs`:
@@ -63,13 +71,13 @@ transformed 1:1 into inventory records — no `.omo` audit output was used as a 
 
 | | total | used | candidate_for_U030 |
 |---|---|---|---|
-| root | 478 | 308 | 170 |
+| root | 459 | 306 | 153 |
 | engineer | 134 | 113 | 21 |
 | workflow | 74 | 60 | 14 |
-| **all** | **686** | **481** | **205** |
+| **all** | **667** | **479** | **188** |
 
 "0 unexplained" (what `knip:check` reports today) is not the same thing as "0 total
-candidates" (what the table above reports): every one of the 205 `candidate_for_U030` rows
+candidates" (what the table above reports): every one of the 188 `candidate_for_U030` rows
 is a real, currently-explained Knip finding kept alive as U030 input, not a claim that
 nothing is unused.
 

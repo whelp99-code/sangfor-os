@@ -11,11 +11,6 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
-    "./tracing": {
-      "types": "./dist/tracing/otel.d.ts",
-      "import": "./dist/tracing/otel.js",
-      "default": "./dist/tracing/otel.js"
-    },
     "./modes": {
       "types": "./src/modes.ts",
       "import": "./src/modes.ts",
@@ -33,14 +28,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
-  },
-  "dependencies": {
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/exporter-jaeger": "^2.0.0",
-    "@opentelemetry/resources": "^2.0.0",
-    "@opentelemetry/sdk-trace-base": "^2.0.0",
-    "@opentelemetry/sdk-trace-node": "^2.0.0",
-    "@opentelemetry/semantic-conventions": "^1.28.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

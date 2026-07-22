@@ -67,16 +67,13 @@ describe("check-no-false-green-tests", () => {
     }
   });
 
-  it("repo scan currently flags @sangfor/ui as false-green (pre-U030)", () => {
+  it("repo scan excludes the U030-removed @sangfor/ui package", () => {
     const { findings } = scanFalseGreenTests();
     const ui = findings.find((f) => f.name === "@sangfor/ui");
-    assert.ok(ui, "expected @sangfor/ui false-green");
-    assert.equal(ui.path, "packages/ui/package.json");
-    assert.match(ui.script, /No tests/i);
+    assert.equal(ui, undefined);
   });
 
-  it("allowlisting only ui in fixture is not done by scanner (still reports it)", () => {
-    const { findings } = scanFalseGreenTests();
-    assert.ok(findings.some((f) => f.name === "@sangfor/ui"));
+  it("scanner baseline retains the false-green UI fixture without an allowlist", () => {
+    assert.ok(BASELINE_FALSE_GREEN_PACKAGES.includes("@sangfor/ui"));
   });
 });

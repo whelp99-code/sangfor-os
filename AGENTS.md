@@ -12,12 +12,12 @@ This file is the agent entry point — a map, not an encyclopedia. Follow the po
 apps/       web  (Next.js 16, App Router) — the PRIMARY product backend
             api  (Express 4 REST)         — finance/CFO + webhooks/metrics/MCP edge
 packages/   business (domain core, hub) · db (Prisma, ~150 models, formal migrations)
-            agent · infra · auth · mail-intelligence · persona · shared · ui · config · health · api-utils
+            agent · infra · auth · mail-intelligence · persona · shared · config · health · api-utils
 services/   sangfor-engineer-mcp (bridge :3600 · operator :3502 · mock :3400)
             sangfor-mcp-workflow (:3500)
 ```
 
-Dependency direction (leaf → top): `config · db · shared · api-utils` → `auth · health · infra · mail-intelligence · persona · ui` → `business` → `agent`. Clean DAG; `business` is the hub, `agent` the sink.
+Dependency direction (leaf → top): `config · db · shared · api-utils` → `auth · health · infra · mail-intelligence · persona` → `business` → `agent`. Clean DAG; `business` is the hub, `agent` the sink.
 
 ## Documentation
 - [DEV_REFERENCE.md](docs/DEV_REFERENCE.md) — **living master reference**: system map, workstreams, commands, data-model log, known gotchas. Read first, update after each session.

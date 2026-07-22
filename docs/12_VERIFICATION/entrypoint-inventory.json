@@ -8,11 +8,11 @@
     "u007ProductReleaseReceiptSha256": "ea2dac8299749b4d7acffdeeba24b6fe7e2d12180db5aa88ee227149fa734f14"
   },
   "counts": {
-    "total": 686,
-    "used": 481,
-    "candidate_for_U030": 205,
+    "total": 667,
+    "used": 479,
+    "candidate_for_U030": 188,
     "byWorkspace": {
-      "root": 478,
+      "root": 459,
       "engineer": 134,
       "workflow": 74
     }
@@ -2758,109 +2758,7 @@
     {
       "workspace": "root",
       "entryType": "unused-file",
-      "path": "apps/web/src/components/cfo/dashboard-charts.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/components/cfo/runway-gauge.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/components/color-agents/color-agent-dashboard.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/components/companies/customer-hub-header.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/components/customers/customer-search-form.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
       "path": "apps/web/src/components/customers/customers-data-table.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/components/dashboard/aios-v3-status-card.tsx",
       "name": null,
       "discoverySource": "knip baseline scan (files)",
       "usage": {
@@ -2911,23 +2809,6 @@
     {
       "workspace": "root",
       "entryType": "unused-file",
-      "path": "apps/web/src/components/dashboard/charts/index.ts",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
       "path": "apps/web/src/components/dashboard/charts/kpi-sparkline.tsx",
       "name": null,
       "discoverySource": "knip baseline scan (files)",
@@ -2946,23 +2827,6 @@
       "workspace": "root",
       "entryType": "unused-file",
       "path": "apps/web/src/components/dashboard/charts/pipeline-chart.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/components/dashboard/daily-report-section.tsx",
       "name": null,
       "discoverySource": "knip baseline scan (files)",
       "usage": {
@@ -3216,23 +3080,6 @@
     },
     {
       "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/components/opportunities/pipeline-board.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
       "entryType": "unused-type",
       "path": "apps/web/src/components/phase13/context-pack-summary-card.tsx",
       "name": "ContextPackSummary",
@@ -3263,40 +3110,6 @@
       "owner": "root-workspace-maintainers",
       "disposition": "candidate_for_U030",
       "reason": "Knip flagged 1 unused types symbol(s) [PortalOrchestratorRunPanelProps] in apps/web/src/components/phase13/portal-orchestrator-run-panel.tsx at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b. File remains otherwise in use; disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/components/portal/portal-actions.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/components/shell/skeleton-page.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
       "expiry": "U030"
     },
     {
@@ -3348,23 +3161,6 @@
       "owner": "root-workspace-maintainers",
       "disposition": "candidate_for_U030",
       "reason": "Knip flagged 1 unused types symbol(s) [TaskStatus] in apps/web/src/components/tasks/task-meta.ts at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b. File remains otherwise in use; disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/components/ui/avatar.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
       "expiry": "U030"
     },
     {
@@ -3501,23 +3297,6 @@
       "owner": "root-workspace-maintainers",
       "disposition": "candidate_for_U030",
       "reason": "Knip flagged 2 unused types symbol(s) [MetricDelta, MetricCardProps] in apps/web/src/components/ui/metric-card.tsx at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b. File remains otherwise in use; disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/components/ui/page-header.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
       "expiry": "U030"
     },
     {
@@ -3675,23 +3454,6 @@
     },
     {
       "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/components/views/record-layout.tsx",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
       "entryType": "unused-export",
       "path": "apps/web/src/lib/action-error-labels.ts",
       "name": "ACTION_ERROR_LABELS",
@@ -3824,23 +3586,6 @@
       "owner": "root-workspace-maintainers",
       "disposition": "candidate_for_U030",
       "reason": "Knip flagged 1 unused types symbol(s) [WebOperatorContext] in apps/web/src/lib/api-auth.ts at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b. File remains otherwise in use; disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/lib/auth/api-key.ts",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
       "expiry": "U030"
     },
     {
@@ -3998,23 +3743,6 @@
     },
     {
       "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/lib/mail-adapter.ts",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
       "entryType": "unused-type",
       "path": "apps/web/src/lib/project-scope.ts",
       "name": "ProjectScope, ProjectRelatedEntity, ProjectReference",
@@ -4079,23 +3807,6 @@
       "owner": "root-workspace-maintainers",
       "disposition": "candidate_for_U030",
       "reason": "Knip flagged 2 unused exports symbol(s) [runQueryHandler, getCommandRunStats] in apps/web/src/lib/registry/service.ts at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b. File remains otherwise in use; disposition deferred to U030 deletion review.",
-      "expiry": "U030"
-    },
-    {
-      "workspace": "root",
-      "entryType": "unused-file",
-      "path": "apps/web/src/lib/status-display.ts",
-      "name": null,
-      "discoverySource": "knip baseline scan (files)",
-      "usage": {
-        "runtime": false,
-        "build": false,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "candidate_for_U030",
-      "reason": "Knip flagged this file as fully unused at candidateSha 2499a2b343a3c28a7e6f437a804c0f40afede75b; no import/entry reference found. Disposition deferred to U030 deletion review.",
       "expiry": "U030"
     },
     {
@@ -8759,23 +8470,6 @@
     {
       "workspace": "root",
       "entryType": "package-export",
-      "path": "packages/shared/dist/tracing/otel.js",
-      "name": "@sangfor/shared./tracing",
-      "discoverySource": "packages/shared/package.json exports field",
-      "usage": {
-        "runtime": true,
-        "build": true,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "used",
-      "reason": "Declared package export of @sangfor/shared; consumed by workspace dependents via the exports map.",
-      "expiry": null
-    },
-    {
-      "workspace": "root",
-      "entryType": "package-export",
       "path": "packages/shared/src/modes.ts",
       "name": "@sangfor/shared./modes",
       "discoverySource": "packages/shared/package.json exports field",
@@ -8805,23 +8499,6 @@
       "owner": "root-workspace-maintainers",
       "disposition": "used",
       "reason": "Vitest configuration for this package's test script.",
-      "expiry": null
-    },
-    {
-      "workspace": "root",
-      "entryType": "package-export",
-      "path": "packages/ui/src/index.ts",
-      "name": "@sangfor/ui",
-      "discoverySource": "packages/ui/package.json exports field",
-      "usage": {
-        "runtime": true,
-        "build": true,
-        "test": false,
-        "manual": false
-      },
-      "owner": "root-workspace-maintainers",
-      "disposition": "used",
-      "reason": "Declared package export of @sangfor/ui; consumed by workspace dependents via the exports map.",
       "expiry": null
     },
     {
@@ -11680,5 +11357,19 @@
       "reason": "Vitest configuration for the workflow workspace test script.",
       "expiry": null
     }
-  ]
+  ],
+  "removalReceipts": {
+    "U030": {
+      "amendedBoundary": "18 source files; packages/ui; shared tracing export and six direct dependencies; workflow backup",
+      "u029AppLocalPrimitiveOwner": "apps/web/src/components/ui",
+      "deletedSourceCount": 18,
+      "removedInventoryEntryCount": 19,
+      "plannedOwnerConflicts": [],
+      "protectedFixtures": {
+        "apps/web/src/components/customers/customers-data-table.tsx": "U062",
+        "apps/web/src/components/dashboard/role-dashboard.tsx": "U063",
+        "apps/web/src/components/opportunities/edit-opportunity-form.tsx": "U043"
+      }
+    }
+  }
 }
