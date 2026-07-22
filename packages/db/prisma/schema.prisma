@@ -1172,26 +1172,36 @@ model Opportunity {
 }
 
 model DealQualification {
-  id               String            @id @default(cuid())
-  opportunityId    String            @unique @map("opportunity_id")
-  budgetScore      Int               @map("budget_score")
-  authorityScore   Int               @map("authority_score")
-  needScore        Int               @map("need_score")
-  timelineScore    Int               @map("timeline_score")
-  weightedScore    Float             @map("weighted_score")
-  passed           Boolean           @default(false)
-  qualifiedAt      DateTime          @default(now()) @map("qualified_at")
-  qualifiedBy      String?           @map("qualified_by")
-  notes            String?
-  economicBuyerId  String?           @map("economic_buyer_id")
-  championId       String?           @map("champion_id")
+  id                     String            @id @default(cuid())
+  opportunityId          String            @unique @map("opportunity_id")
+  budgetScore            Int               @map("budget_score")
+  authorityScore         Int               @map("authority_score")
+  needScore              Int               @map("need_score")
+  timelineScore          Int               @map("timeline_score")
+  weightedScore          Float             @map("weighted_score")
+  passed                 Boolean           @default(false)
+  qualifiedAt            DateTime          @default(now()) @map("qualified_at")
+  qualifiedBy            String?           @map("qualified_by")
+  notes                  String?
+  economicBuyerId        String?           @map("economic_buyer_id")
+  championId             String?           @map("champion_id")
+  technicalFitScore      Int?              @map("technical_fit_score")
+  scoreTotal             Int?              @map("score_total")
+  scoringVersion         String?           @map("scoring_version")
+  revision               Int?              @map("revision")
+  assessedByAssignmentId String?           @map("assessed_by_assignment_id")
+  assessedAt             DateTime?         @map("assessed_at")
+  updatedAt              DateTime?         @map("updated_at")
+  snapshotHash           String?           @map("snapshot_hash")
 
-  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  economicBuyer Contact?    @relation("DealEconomicBuyer", fields: [economicBuyerId], references: [id])
-  champion      Contact?    @relation("DealChampion", fields: [championId], references: [id])
+  opportunity          Opportunity      @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  economicBuyer        Contact?         @relation("DealEconomicBuyer", fields: [economicBuyerId], references: [id])
+  champion             Contact?         @relation("DealChampion", fields: [championId], references: [id])
+  assessedByAssignment UserCompanyRole? @relation("DealQualificationAssessedByAssignment", fields: [assessedByAssignmentId], references: [id], onDelete: SetNull)
 
   @@index([economicBuyerId])
   @@index([championId])
+  @@index([assessedByAssignmentId])
   @@map("deal_qualifications")
 }
 
@@ -2633,6 +2643,7 @@ model UserCompanyRole {
   requestedWorkflowRuns      WorkflowRun[]        @relation("WorkflowRunRequestedByAssignment")
   ownedOpportunities         Opportunity[]        @relation("OpportunityOwnerAssignment")
   ownedWorkTasks             WorkTask[]           @relation("WorkTaskOwnerAssignment")
+  assessedDealQualifications DealQualification[]  @relation("DealQualificationAssessedByAssignment")
 
   @@unique([userId, companyId, role])
   @@unique([id, companyId], map: "user_company_roles_id_company_id_key")
