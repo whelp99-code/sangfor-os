@@ -51,6 +51,19 @@ export const RequiredSecretsSchema = z.object({
 
 /** 선택적/기능별 시크릿 - 명시적 opt-in */
 export const OptionalSecretsSchema = z.object({
+  // U026/OPS-01 — parsed strictly by getInternalPrincipalConfig(); optional
+  // here because a generic config consumer need not host every signer/verifier.
+  INTERNAL_PRINCIPAL_TTL_SECONDS: z.string().optional(),
+  INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS: z.string().optional(),
+  INTERNAL_PRINCIPAL_ROTATION_OWNER: z.string().optional(),
+  INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID: z.string().optional(),
+  INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON: z.string().optional(),
+  INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID: z.string().optional(),
+  INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON: z.string().optional(),
+  INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID: z.string().optional(),
+  INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON: z.string().optional(),
+  INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID: z.string().optional(),
+  INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON: z.string().optional(),
   // AIOS v1
   AIOS_V1_URL: z.string().url().default('http://localhost:3101'),
   AIOS_V1_API_KEY: z.string().optional(),

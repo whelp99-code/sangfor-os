@@ -1,4 +1,7 @@
 import { runMcpAgent } from "@sangfor/agent";
+import { INTERNAL_PRINCIPAL_HEADER, verifyInternalPrincipal } from "@sangfor/auth";
+import { getInternalPrincipalConfig } from "@sangfor/config";
+import { claimInternalPrincipalReplay } from "@sangfor/business";
 
 import { agentRunStore } from "@/lib/agent/run-store";
 import { playbookStore } from "@/lib/agent/playbook-store";
@@ -18,10 +21,30 @@ export const dynamic = "force-dynamic";
  * the run is recorded, and nextRunAt is advanced.
  */
 export async function POST(request: Request) {
-  const denied = assertApiAccess(request);
-  if (denied) return denied;
-  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/agent/schedules/tick/route.ts");
-  if (capabilityDenied) return capabilityDenied;
+  const envelope = request.headers.get(INTERNAL_PRINCIPAL_HEADER);
+  let principalKind: "human" | "scheduler" = "human";
+  if (envelope !== null) {
+    try {
+      const url = new URL(request.url);
+      const principal = verifyInternalPrincipal(envelope, {
+        profile: "SCHEDULER", method: "POST", path: url.pathname, query: url.search, body: "",
+      }, getInternalPrincipalConfig());
+      await claimInternalPrincipalReplay({
+        profile: principal.profile, subjectId: principal.subjectId, tenantId: principal.tenantId, companyId: principal.companyId, projectId: principal.projectId,
+        jti: principal.jti, nonce: principal.nonce, idempotencyKey: principal.idempotencyKey,
+      });
+      principalKind = "scheduler";
+    } catch {
+      return Response.json({ error: "INVALID_INTERNAL_PRINCIPAL" }, { status: 401 });
+    }
+  } else {
+    // A UI/operator trigger stays on the existing authenticated-human path;
+    // it is never silently reclassified as an automation principal.
+    const denied = assertApiAccess(request);
+    if (denied) return denied;
+    const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/agent/schedules/tick/route.ts");
+    if (capabilityDenied) return capabilityDenied;
+  }
   const now = Date.now();
   const due = dueSchedules(scheduleStore.list(), now);
   const triggered: Array<{ scheduleId: string; playbookId: string; runId?: string; status: string }> = [];
@@ -62,5 +85,5 @@ export async function POST(request: Request) {
     scheduleStore.markRan(schedule.id, now);
   }
 
-  return Response.json({ triggered, count: triggered.length, at: new Date(now).toISOString() });
+  return Response.json({ triggered, count: triggered.length, at: new Date(now).toISOString(), principal: principalKind });
 }

@@ -89,6 +89,21 @@ function userJwtEnv(): Record<string, string> {
   };
 }
 
+function internalPrincipalEnv(): Record<string, string> {
+  const activatedAt = new Date(Date.now() - 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const ring = (kid: string, byte: number) => JSON.stringify({
+    version: 'sangfor.internal-principal-keyring/v1',
+    keys: [{ kid, state: 'active', secretBase64Url: Buffer.alloc(32, byte).toString('base64url'), activatedAt, demotedAt: null, verificationCutoff: null, retiredAt: null }],
+  });
+  return {
+    INTERNAL_PRINCIPAL_TTL_SECONDS: '60', INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS: '5', INTERNAL_PRINCIPAL_ROTATION_OWNER: 'security-auth',
+    INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID: 'finance', INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON: ring('finance', 1),
+    INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID: 'scheduler', INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON: ring('scheduler', 2),
+    INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID: 'workflow', INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON: ring('workflow', 3),
+    INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID: 'engineer', INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON: ring('engineer', 4),
+  };
+}
+
 function b64url(input: Buffer | string): string {
   return (typeof input === 'string' ? Buffer.from(input, 'utf8') : input).toString('base64url');
 }
@@ -229,6 +244,7 @@ beforeAll(async () => {
   vi.stubEnv('MICROSOFT_CLIENT_SECRET', 'index-security-test-client-secret');
   vi.stubEnv('WEBHOOK_CLIENT_STATE', WEBHOOK_CLIENT_STATE);
   for (const [key, value] of Object.entries(userJwtEnv())) vi.stubEnv(key, value);
+  for (const [key, value] of Object.entries(internalPrincipalEnv())) vi.stubEnv(key, value);
 
   // U013: importing the module alone must never open a network listener —
   // index.ts's own `.listen()` call is guarded by `isEntrypoint` (this file
@@ -357,6 +373,20 @@ describe('root MCP transport authority', () => {
       keep: 'value',
       nested: { entries: [{}, {}] },
     });
+  });
+});
+
+describe('finance transport cannot become human authority (U026)', () => {
+  it('rejects a valid finance API key when the signed human envelope is absent', async () => {
+    const response = await fetchClose('/api/cfo/not-a-route', { headers: apiKeyHeaders(FINANCE_API_KEY) });
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: 'INTERNAL_PRINCIPAL_REQUIRED' });
+  });
+
+  it('rejects a present forged envelope rather than falling back to the transport key identity', async () => {
+    const response = await fetchClose('/api/cfo/not-a-route', { headers: { ...apiKeyHeaders(FINANCE_API_KEY), 'x-sangfor-internal-principal': 'forged.unsigned.principal' } });
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: 'INVALID_INTERNAL_PRINCIPAL' });
   });
 });
 

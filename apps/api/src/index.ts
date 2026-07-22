@@ -15,6 +15,8 @@ import {
 } from "@sangfor/infra";
 import {
   apiKeyMiddleware,
+  financeApiKeyTransportMiddleware,
+  createInternalPrincipalMiddleware,
   authMiddleware,
   errorHandler,
   financeAccessGuard,
@@ -164,7 +166,7 @@ export function createApp(): Express {
       credentials: true,
     }),
   );
-  app.use(express.json({ limit: "10mb" }));
+  app.use(express.json({ limit: "10mb", verify: (req, _res, buffer) => { (req as express.Request).rawBody = buffer.toString('utf8'); } }));
   app.use(rateLimiter({ windowMs: 60000, maxRequests: 200 }));
 
   // Metrics tracking
@@ -175,7 +177,8 @@ export function createApp(): Express {
 
   app.use(
     "/api/cfo",
-    apiKeyMiddleware,
+    financeApiKeyTransportMiddleware,
+    createInternalPrincipalMiddleware({ profile: 'FINANCE' }),
     financeAccessGuard,
     createCfoHealthRoutes(),
     createCfoRoutes(),

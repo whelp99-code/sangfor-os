@@ -84,3 +84,15 @@ export function apiKeyMiddleware(req: Request, res: Response, next: NextFunction
   applyDevAuthContext(req, result.name, result.role)
   next()
 }
+
+/** Finance transport authentication only. It deliberately never creates an
+ * AuthContext: the signed FINANCE envelope is the sole actor authority. */
+export function financeApiKeyTransportMiddleware(req: Request, res: Response, next: NextFunction) {
+  const provided = (req.headers['x-api-key'] as string | undefined)?.trim();
+  const configured = process.env.FINANCE_API_KEY?.trim();
+  if (!provided || !configured || provided !== configured) {
+    res.status(401).json({ error: 'Invalid API key' });
+    return;
+  }
+  next();
+}

@@ -1,7 +1,20 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 import { createSessionToken, type SessionUser } from "@/lib/auth/session";
+
+const dbMocks = vi.hoisted(() => ({
+  projectFindUnique: vi.fn(),
+  authSessionFindFirst: vi.fn(),
+  userCompanyRoleFindMany: vi.fn(),
+}));
+vi.mock("@sangfor/db", () => ({
+  prisma: {
+    project: { findUnique: dbMocks.projectFindUnique },
+    authSession: { findFirst: dbMocks.authSessionFindFirst },
+    userCompanyRole: { findMany: dbMocks.userCompanyRoleFindMany },
+  },
+}));
 
 import { GET, POST } from "./route";
 
@@ -23,11 +36,32 @@ const CONFLICT_CASES = IDENTITY_FIELDS.flatMap((field) => [
   [`${field} nested`, { nested: { [field]: "caller-spoof" } }],
   [`${field} array`, { nested: [{ [field]: "caller-spoof" }] }],
 ] as const);
+const protocolEnv = () => {
+  const timestamp = new Date(Date.now() - 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+  const keyring = (kid: string, byte: number) => JSON.stringify({ version: "sangfor.internal-principal-keyring/v1", keys: [{ kid, state: "active", secretBase64Url: Buffer.alloc(32, byte).toString("base64url"), activatedAt: timestamp, demotedAt: null, verificationCutoff: null, retiredAt: null }] });
+  return {
+    INTERNAL_PRINCIPAL_TTL_SECONDS: "60", INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS: "5", INTERNAL_PRINCIPAL_ROTATION_OWNER: "security-auth",
+    INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID: "finance", INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON: keyring("finance", 1),
+    INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID: "scheduler", INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON: keyring("scheduler", 2),
+    INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID: "workflow", INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON: keyring("workflow", 3),
+    INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID: "engineer", INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON: keyring("engineer", 4),
+  };
+};
+const userJwtEnv = () => {
+  const timestamp = new Date(Date.now() - 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+  const secret = Buffer.alloc(32, 9).toString("base64url");
+  return {
+    USER_JWT_ACTIVE_KID: "web-session", USER_JWT_ROTATION_OWNER: "security-auth", USER_JWT_ISSUER: "sangfor-os", USER_JWT_AUDIENCE: "sangfor-os-runtime", USER_JWT_TTL_SECONDS: "900", USER_JWT_CLOCK_SKEW_SECONDS: "30",
+    USER_JWT_KEYRING_JSON: JSON.stringify({ version: "sangfor.user-jwt-keyring/v1", keys: [{ kid: "web-session", state: "active", secretBase64Url: secret, activatedAt: timestamp, demotedAt: null, verifyUntil: null, retiredAt: null }] }),
+  };
+};
 
 beforeAll(() => {
   process.env.AUTH_BYPASS_ENABLED = "0";
   process.env.JWT_SECRET = "u002-finance-route-test-secret";
   process.env.FINANCE_API_KEY = "u002-finance-route-server-key-000000";
+  Object.assign(process.env, protocolEnv());
+  Object.assign(process.env, userJwtEnv());
 });
 afterAll(() => {
   if (prevBypass === undefined) delete process.env.AUTH_BYPASS_ENABLED;
@@ -38,6 +72,11 @@ afterAll(() => {
   else process.env.FINANCE_API_KEY = prevFinanceApiKey;
 });
 
+beforeEach(() => {
+  dbMocks.projectFindUnique.mockResolvedValue({ id: ADMIN_USER.projectId, companyId: "finance-company", company: { tenantId: "finance-tenant" } });
+  dbMocks.authSessionFindFirst.mockResolvedValue({ id: "finance-session-1", tenantId: "finance-tenant", companyId: "finance-company", projectId: ADMIN_USER.projectId });
+  dbMocks.userCompanyRoleFindMany.mockResolvedValue([{ id: "finance-role-1", userId: ADMIN_USER.id, companyId: "finance-company", role: "finance_manager", status: "active", validFrom: null, expiresAt: null, revokedAt: null }]);
+});
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -61,6 +100,27 @@ function financePostReq(body: unknown): NextRequest {
 }
 
 describe("GET /api/finance/[...path]", () => {
+  it("replaces a caller-supplied envelope and forwards a freshly signed human principal instead", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ status: 200, text: async () => "{}" });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const request = financeReq();
+    request.headers.set("x-sangfor-internal-principal", "forged.unsigned.principal");
+    const res = await GET(request);
+
+    expect(res.status).toBe(200);
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(init).toEqual(expect.objectContaining({
+      headers: expect.objectContaining({
+        "X-Sangfor-Internal-Principal": expect.stringMatching(/^[^.]+\.[^.]+\.[^.]+$/),
+      }),
+    }));
+    const headers = (init as { headers: Record<string, string> }).headers;
+    expect(headers["X-Sangfor-Internal-Principal"]).not.toBe("forged.unsigned.principal");
+    expect(headers).not.toHaveProperty("X-Actor-Id");
+    expect(headers).not.toHaveProperty("X-Business-Role");
+  });
+
   it("returns 503 before fetch when FINANCE_API_KEY is missing", async () => {
     // Given: an authenticated finance proxy with no dedicated upstream key.
     vi.stubEnv("FINANCE_API_KEY", "   ");
@@ -122,8 +182,7 @@ describe("GET /api/finance/[...path]", () => {
       expect.any(String),
       expect.objectContaining({
         headers: expect.objectContaining({
-          "X-Actor-Id": ADMIN_USER.id,
-          "X-Business-Role": "system_admin",
+          "X-Sangfor-Internal-Principal": expect.stringMatching(/^[^.]+\.[^.]+\.[^.]+$/),
         }),
       }),
     );
