@@ -92,6 +92,9 @@ const NEW_MIGRATION_NAME_U024 = '20260715220000_add_role_change_snapshot';
 const OWNER_UNIT_U024 = 'U024';
 const PURPOSE_U024 = 'role-change';
 
+// U032's additive owner FKs and triggers must not enter historical fixture prefixes.
+const NEW_MIGRATION_NAME_U032 = '20260716003200_u032_crm_scope_archive_owner_expand';
+
 const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema', 'governance-bridge', 'audit-chain', 'role-change']);
 
 const EXIT = Object.freeze({
@@ -244,6 +247,8 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
     if (existsSync(targetU021)) rmSync(targetU021, { recursive: true, force: true });
     const targetU024 = join(dir, 'migrations', NEW_MIGRATION_NAME_U024);
     if (existsSync(targetU024)) rmSync(targetU024, { recursive: true, force: true });
+    const targetU032 = join(dir, 'migrations', NEW_MIGRATION_NAME_U032);
+    if (existsSync(targetU032)) rmSync(targetU032, { recursive: true, force: true });
   }
   return dir;
 }
@@ -286,6 +291,8 @@ function makeThroughU011PrismaCopy(label: string): string {
   if (existsSync(targetU021)) rmSync(targetU021, { recursive: true, force: true });
   const targetU024 = join(dir, 'migrations', NEW_MIGRATION_NAME_U024);
   if (existsSync(targetU024)) rmSync(targetU024, { recursive: true, force: true });
+  const targetU032 = join(dir, 'migrations', NEW_MIGRATION_NAME_U032);
+  if (existsSync(targetU032)) rmSync(targetU032, { recursive: true, force: true });
   return dir;
 }
 
@@ -707,7 +714,8 @@ function listMigrationsThroughU010(): string[] {
         name !== NEW_MIGRATION_NAME_U018 &&
         name !== NEW_MIGRATION_NAME_U019 &&
         name !== NEW_MIGRATION_NAME_U021 &&
-        name !== NEW_MIGRATION_NAME_U024,
+        name !== NEW_MIGRATION_NAME_U024 &&
+        name !== NEW_MIGRATION_NAME_U032,
     )
     .sort();
 }
@@ -720,7 +728,7 @@ function listMigrationsThroughU020(): string[] {
   return readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
-    .filter((name) => name !== NEW_MIGRATION_NAME_U021 && name !== NEW_MIGRATION_NAME_U024)
+    .filter((name) => name !== NEW_MIGRATION_NAME_U021 && name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032)
     .sort();
 }
 
@@ -4506,7 +4514,8 @@ async function runAuditChainLegacyScenario(evidenceDir: string, runId: string) {
         // reported as a U021 regression. Add only the canonical U024 symlink after all U021
         // observations above, preserving the genuinely pre-U021 fixture/deploy proof.
         addMigrationToView(view, NEW_MIGRATION_NAME_U024);
-        verifyViewIntegrity(view, [...throughU020, NEW_MIGRATION_NAME_U021, NEW_MIGRATION_NAME_U024]);
+        addMigrationToView(view, NEW_MIGRATION_NAME_U032);
+        verifyViewIntegrity(view, [...throughU020, NEW_MIGRATION_NAME_U021, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032]);
         const deployU024ForCurrentSchema = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
         if (deployU024ForCurrentSchema.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (+U024 after U021 verification) failed: ${deployU024ForCurrentSchema.stderr || deployU024ForCurrentSchema.stdout}`);
         evidence.deployU024ForCurrentSchema = true;
@@ -4637,7 +4646,7 @@ async function runRoleChangeSuite(evidenceDir: string): Promise<number> {
       { runId, ownerUnit: OWNER_UNIT_U024, purpose: `${PURPOSE_U024}-legacy`, evidenceDir: join(evidenceDir, 'legacy'), imageDigest: IMAGE_DIGEST, migrate: false },
       async (ctx: any) => {
         const conn = parseConn(ctx.databaseUrl);
-        const before = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).filter((name) => name !== NEW_MIGRATION_NAME_U024).sort();
+        const before = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).filter((name) => name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032).sort();
         const view = buildReadOnlyMigrationView('u024-legacy', before);
         try {
           verifyViewIntegrity(view, before);
@@ -4648,7 +4657,8 @@ async function runRoleChangeSuite(evidenceDir: string): Promise<number> {
           if (loaded.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `legacy fixture load failed: ${loaded.stderr || loaded.stdout}`);
           const beforeStatus = await execSql(ctx.containerName, conn, `SELECT status || '|' || id FROM role_change_requests WHERE id='u024-legacy-role-change';`);
           addMigrationToView(view, NEW_MIGRATION_NAME_U024);
-          verifyViewIntegrity(view, [...before, NEW_MIGRATION_NAME_U024]);
+          addMigrationToView(view, NEW_MIGRATION_NAME_U032);
+          verifyViewIntegrity(view, [...before, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032]);
           const deploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
           if (deploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U024 deploy failed: ${deploy.stderr || deploy.stdout}`);
           const frozen = await execSql(ctx.containerName, conn, `SELECT status || '|' || legacy_status || '|' || legacy_unbound::text || '|' || revision::text FROM role_change_requests WHERE id='u024-legacy-role-change';`);

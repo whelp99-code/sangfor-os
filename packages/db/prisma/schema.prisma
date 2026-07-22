@@ -855,6 +855,7 @@ model PortalTask {
 model Customer {
   id        String   @id @default(cuid())
   projectId String   @map("project_id")
+  archivedAt DateTime? @map("archived_at")
   name      String
   domain    String?
   industry  String?
@@ -877,6 +878,7 @@ model Customer {
   supportCases         SupportCase[]
 
   @@index([projectId, name])
+  @@index([projectId, archivedAt, updatedAt, id])
   @@index([segment, riskScore])
   @@map("customers")
 }
@@ -966,6 +968,8 @@ model WorkTask {
   customerId   String?   @map("customer_id")
   partnerId    String?   @map("partner_id")
   assigneeName String?   @map("assignee_name")
+  ownerAssignmentId String? @map("owner_assignment_id")
+  ownershipRevision Int @default(0) @map("ownership_revision")
   engagementId String?   @map("engagement_id")
   source       String    @default("manual")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -973,10 +977,13 @@ model WorkTask {
 
   customer Customer? @relation(fields: [customerId], references: [id])
   partner  Partner?  @relation(fields: [partnerId], references: [id])
+  ownerAssignment UserCompanyRole? @relation("WorkTaskOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: SetNull)
   links    TaskLink[]
   statusEvents TaskStatusEvent[]
 
   @@index([projectId, status])
+  @@index([projectId, archivedAt, updatedAt, id])
+  @@index([ownerAssignmentId, ownershipRevision])
   @@index([projectId, dueAt])
   @@index([engagementId])
   @@map("work_tasks")
@@ -1129,6 +1136,8 @@ model Opportunity {
   lostReason    String?    @map("lost_reason")
   dealType      String?    @default("NEW_BUILD") @map("deal_type")
   ownerId       String?    @map("owner_id")
+  ownerAssignmentId String? @map("owner_assignment_id")
+  ownershipRevision Int @default(0) @map("ownership_revision")
   amount      Decimal?  @db.Decimal(12, 2)
   probability Int       @default(20)
   closeDate   DateTime? @map("close_date")
@@ -1142,6 +1151,7 @@ model Opportunity {
   customer       Customer? @relation(fields: [customerId], references: [id])
   partner        Partner?  @relation(fields: [partnerId], references: [id])
   owner          User?     @relation(fields: [ownerId], references: [id])
+  ownerAssignment UserCompanyRole? @relation("OpportunityOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: SetNull)
   distributor    Partner?  @relation("OpportunityDistributor", fields: [distributorId], references: [id])
   stageEvents    OpportunityStageEvent[]
   links          OpportunityLink[]
@@ -1152,6 +1162,8 @@ model Opportunity {
   dealRegistration DealRegistration?
 
   @@index([projectId, stage])
+  @@index([projectId, archivedAt, updatedAt, id])
+  @@index([ownerAssignmentId, ownershipRevision])
   @@index([ownerId])
   @@index([dealStatus])
   @@index([customerId, stage])
@@ -2614,6 +2626,8 @@ model UserCompanyRole {
   // same (id, companyId) composite unique key — never an ID-only assignment FK.
   createdWorkflowDefinitions WorkflowDefinition[] @relation("WorkflowDefinitionCreatedByAssignment")
   requestedWorkflowRuns      WorkflowRun[]        @relation("WorkflowRunRequestedByAssignment")
+  ownedOpportunities         Opportunity[]        @relation("OpportunityOwnerAssignment")
+  ownedWorkTasks             WorkTask[]           @relation("WorkTaskOwnerAssignment")
 
   @@unique([userId, companyId, role])
   @@unique([id, companyId], map: "user_company_roles_id_company_id_key")
