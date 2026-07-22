@@ -1,54 +1,71 @@
 import { config as loadEnv } from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { PrismaClient } from "@prisma/client";
+import { describe, expect, it, vi } from "vitest";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 loadEnv({ path: path.join(repoRoot, ".env") });
 
 const integrationEnabled = process.env.CI_INTEGRATION === "1";
 
+class TestOwnedRollback extends Error {
+  constructor(readonly value: unknown) { super("test-owned rollback"); }
+}
+
+async function withTestOwnedRollback<T>(work: (prisma: PrismaClient) => Promise<T>): Promise<T> {
+  const isolated = new PrismaClient();
+  const globalPrisma = globalThis as unknown as { prisma?: PrismaClient };
+  const previous = globalPrisma.prisma;
+  try {
+    await isolated.$transaction(async (tx) => {
+      // engagement-center opens its own transaction. Route that nested call through this test's
+      // transaction client so its fixture and every conversion write roll back together.
+      const transactionFacade = new Proxy(tx, {
+        get(target, property, receiver) {
+          if (property === "$transaction") return async (callback: (nested: typeof tx) => Promise<unknown>) => callback(tx);
+          return Reflect.get(target, property, receiver);
+        },
+      }) as unknown as PrismaClient;
+      globalPrisma.prisma = transactionFacade;
+      throw new TestOwnedRollback(await work(transactionFacade));
+    });
+    throw new Error("test-owned rollback unexpectedly committed");
+  } catch (error) {
+    if (error instanceof TestOwnedRollback) return error.value as T;
+    throw error;
+  } finally {
+    if (previous) globalPrisma.prisma = previous;
+    else delete globalPrisma.prisma;
+    await isolated.$disconnect();
+    vi.resetModules();
+  }
+}
+
 describe.skipIf(!integrationEnabled)("Opportunity → Engagement conversion", () => {
   it("converts idempotently and absorbs proposals/poc/quote/meetings", async () => {
-    const { prisma } = await import("@sangfor/db");
-    const { generateProposal } = await import("./proposal-generator");
-    const { convertOpportunityToProject } = await import("./engagement-center");
-
-    const unique = Date.now();
-    const tag = `IT_ENG_${unique}`;
-    const project = await prisma.project.findFirstOrThrow();
-    const customer = await prisma.customer.create({ data: { projectId: project.id, name: `${tag} 고객` } });
-    const opp = await prisma.opportunity.create({
-      data: { projectId: project.id, customerId: customer.id, title: `${tag} 기회`, stage: "POC", amount: "100" },
-    });
-    const poc = await prisma.pocProject.create({
-      data: { projectId: project.id, customerId: customer.id, title: `${tag} POC`, opportunityId: opp.id },
-    });
-    const proposal = await generateProposal({
-      projectSlug: project.slug,
-      title: `${tag} 제안서`,
-      templateKey: "standard-proposal",
-      customerId: customer.id,
-      opportunityId: opp.id,
-      variables: {},
-    });
-    const quote = await prisma.quote.create({
-      data: {
-        opportunityId: opp.id,
-        companyId: "it-co",
-        status: "sent",
-        version: 2,
-        totalRevenue: "480",
-        totalCost: "300",
-        marginPct: "37.5",
-        createdBy: "integration-test",
-      },
-    });
-    await prisma.meetingNote.create({
-      data: { opportunityId: opp.id, customerId: customer.id, title: `${tag} 미팅`, bodyMarkdown: "POC 계획 고객사 확정" },
-    });
-
-    try {
+    await withTestOwnedRollback(async (prisma) => {
+      const { generateProposal } = await import("./proposal-generator");
+      const { convertOpportunityToProject } = await import("./engagement-center");
+      const unique = Date.now();
+      const tag = `IT_ENG_${unique}`;
+      const project = await prisma.project.findFirstOrThrow();
+      const customer = await prisma.customer.create({ data: { projectId: project.id, name: `${tag} 고객` } });
+      const opp = await prisma.opportunity.create({
+        data: { projectId: project.id, customerId: customer.id, title: `${tag} 기회`, stage: "POC", amount: "100" },
+      });
+      await prisma.pocProject.create({
+        data: { projectId: project.id, customerId: customer.id, title: `${tag} POC`, opportunityId: opp.id },
+      });
+      const proposal = await generateProposal({
+        projectSlug: project.slug, title: `${tag} 제안서`, templateKey: "standard-proposal", customerId: customer.id, opportunityId: opp.id, variables: {},
+      });
+      await prisma.quote.create({ data: {
+        opportunityId: opp.id, companyId: "it-co", status: "sent", version: 2, totalRevenue: "480", totalCost: "300", marginPct: "37.5", createdBy: "integration-test",
+      } });
+      await prisma.meetingNote.create({
+        data: { opportunityId: opp.id, customerId: customer.id, title: `${tag} 미팅`, bodyMarkdown: "POC 계획 고객사 확정" },
+      });
       const first = await convertOpportunityToProject({ opportunityId: opp.id });
       const second = await convertOpportunityToProject({ opportunityId: opp.id });
 
@@ -68,19 +85,7 @@ describe.skipIf(!integrationEnabled)("Opportunity → Engagement conversion", ()
       // FK re-parent actually happened.
       const absorbedProposal = await prisma.generatedDocument.findUnique({ where: { id: proposal!.id } });
       expect(absorbedProposal?.engagementId).toBe(first.engagement.id);
-    } finally {
-      // Cleanup (reverse FK order).
-      await prisma.meetingNote.deleteMany({ where: { opportunityId: opp.id } });
-      await prisma.documentVersion.deleteMany({ where: { generatedDocumentId: proposal!.id } });
-      await prisma.generatedDocument.deleteMany({ where: { id: proposal!.id } });
-      await prisma.quote.deleteMany({ where: { id: quote.id } });
-      await prisma.pocProject.deleteMany({ where: { id: poc.id } });
-      await prisma.opportunityStageEvent.deleteMany({ where: { opportunityId: opp.id } });
-      await prisma.stateTransitionLog.deleteMany({ where: { entityId: opp.id } });
-      await prisma.engagement.deleteMany({ where: { opportunityId: opp.id } });
-      await prisma.opportunity.deleteMany({ where: { id: opp.id } });
-      await prisma.customer.deleteMany({ where: { id: customer.id } });
-    }
+    });
   });
 
   it("rejects conversion without a linked POC unless forced", async () => {

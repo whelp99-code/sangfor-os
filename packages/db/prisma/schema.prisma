@@ -1452,19 +1452,21 @@ model ArtifactVersion {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  artifact           Artifact  @relation("ArtifactVersions", fields: [artifactId], references: [id], onDelete: Restrict, map: "artifact_versions_artifact_id_fkey")
-  currentForArtifact Artifact? @relation("ArtifactCurrentVersion")
+  artifact                 Artifact              @relation("ArtifactVersions", fields: [artifactId], references: [id], onDelete: Restrict, map: "artifact_versions_artifact_id_fkey")
+  currentForArtifact       Artifact?             @relation("ArtifactCurrentVersion")
   // U018/APR-01a: required Prisma back-relation for ApprovalRequest.artifactVersionId — same
   // plumbing precedent as Tenant/Company/Project's authSessions/artifacts fields above, added by
   // the unit that introduces the forward FK, not a semantic change to ArtifactVersion itself.
-  approvalRequests   ApprovalRequest[]
-  roleChangeRequests RoleChangeRequest[]
+  approvalRequests         ApprovalRequest[]
+  roleChangeRequests       RoleChangeRequest[]
   // U019/WF-01a: required Prisma back-relations for WorkflowDefinition.definitionArtifactVersionId
   // and WorkflowRunArtifact.artifactVersionId — same plumbing precedent as approvalRequests above.
-  workflowDefinitions  WorkflowDefinition[]
-  workflowRunArtifacts WorkflowRunArtifact[]
-  activeSizingTemplates    SizingTemplate[]    @relation("SizingTemplateActiveArtifactVersion")
-  activeCompatibilityRules CompatibilityRule[] @relation("CompatibilityRuleActiveArtifactVersion")
+  workflowDefinitions      WorkflowDefinition[]
+  workflowRunArtifacts     WorkflowRunArtifact[]
+  activeSizingTemplates    SizingTemplate[]      @relation("SizingTemplateActiveArtifactVersion")
+  activeCompatibilityRules CompatibilityRule[]   @relation("CompatibilityRuleActiveArtifactVersion")
+  provenanceQuotes         Quote[]               @relation("QuoteArtifactVersion")
+  sizingQuoteLineItems     QuoteLineItem[]       @relation("QuoteLineSizingArtifactVersion")
 
   @@unique([artifactId, version], map: "artifact_versions_artifact_id_version_key")
   @@unique([artifactId, contentHashVersion, contentHash], map: "artifact_versions_content_hash_key")
@@ -2398,18 +2400,19 @@ model HandoffEvent {
 // --- Quote Engine models ---
 
 model QuoteServiceLineItem {
-  id          String   @id @default(cuid())
-  opportunityId String @map("opportunity_id")
-  serviceName String   @map("service_name")
-  description String?
-  quantity    Int      @default(1)
-  unitPrice   Decimal  @db.Decimal(12, 2) @map("unit_price")
-  currency    String   @default("USD")
-  sortOrder   Int      @default(0) @map("sort_order")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(cuid())
+  opportunityId String   @map("opportunity_id")
+  serviceName   String   @map("service_name")
+  description   String?
+  quantity      Int      @default(1)
+  unitPrice     Decimal  @map("unit_price") @db.Decimal(12, 2)
+  currency      String   @default("USD")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunity             Opportunity     @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  canonicalQuoteLineItems QuoteLineItem[]
 
   @@index([opportunityId])
   @@map("quote_service_line_items")
@@ -2736,6 +2739,7 @@ model ProductFamily {
   editions        ProductEdition[]
   licenseMetrics  LicenseMetric[]
   sizingTemplates SizingTemplate[]
+  quoteLineItems  QuoteLineItem[]
 
   @@unique([id, companyId], map: "product_families_id_company_id_key")
   @@index([companyId, status, archivedAt, updatedAt, id])
@@ -2754,8 +2758,9 @@ model ProductEdition {
   createdAt  DateTime? @map("created_at")
   updatedAt  DateTime? @map("updated_at")
 
-  family ProductFamily @relation(fields: [familyId], references: [id], onDelete: Restrict, map: "product_editions_family_id_fkey")
-  skus   ProductSku[]
+  family         ProductFamily   @relation(fields: [familyId], references: [id], onDelete: Restrict, map: "product_editions_family_id_fkey")
+  skus           ProductSku[]
+  quoteLineItems QuoteLineItem[]
 
   @@index([familyId])
   @@index([familyId, status, archivedAt, updatedAt, id])
@@ -2806,8 +2811,9 @@ model LicenseMetric {
   createdAt       DateTime? @map("created_at")
   updatedAt       DateTime? @map("updated_at")
 
-  productFamily ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "license_metrics_product_family_id_fkey")
-  productSkus   ProductSku[]   @relation("ProductSkuLicenseMetric")
+  productFamily  ProductFamily?  @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "license_metrics_product_family_id_fkey")
+  productSkus    ProductSku[]    @relation("ProductSkuLicenseMetric")
+  quoteLineItems QuoteLineItem[]
 
   @@index([productFamilyId, status, updatedAt, id])
   @@map("license_metrics")
@@ -2943,43 +2949,111 @@ enum RegStatus {
 // --- Quotes & Commerce ---
 
 model Quote {
-  id            String   @id @default(cuid())
-  opportunityId String   @map("opportunity_id")
-  companyId     String   @map("company_id")
-  status        String   @default("draft")
-  version       Int      @default(1)
-  totalRevenue  Decimal  @db.Decimal(14, 2) @map("total_revenue")
-  totalCost     Decimal  @db.Decimal(14, 2) @map("total_cost")
-  marginPct     Decimal  @db.Decimal(8, 2) @map("margin_pct")
-  createdBy     String   @map("created_by")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id                String    @id @default(cuid())
+  opportunityId     String    @map("opportunity_id")
+  companyId         String    @map("company_id")
+  status            String    @default("draft")
+  version           Int       @default(1)
+  totalRevenue      Decimal   @map("total_revenue") @db.Decimal(14, 2)
+  totalCost         Decimal   @map("total_cost") @db.Decimal(14, 2)
+  marginPct         Decimal   @map("margin_pct") @db.Decimal(8, 2)
+  createdBy         String    @map("created_by")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  supersedesQuoteId String?   @map("supersedes_quote_id")
+  contentHash       String?   @map("content_hash")
+  currency          String?
+  validUntil        DateTime? @map("valid_until")
+  artifactVersionId String?   @map("artifact_version_id")
 
-  opportunity      Opportunity      @relation(fields: [opportunityId], references: [id])
-  lineItems        QuoteLineItem[]
-  discountRequests DiscountRequest[]
+  opportunity        Opportunity              @relation(fields: [opportunityId], references: [id], onDelete: Restrict, map: "quotes_opportunity_id_fkey")
+  supersedesQuote    Quote?                   @relation("QuoteSupersession", fields: [supersedesQuoteId], references: [id], onDelete: Restrict, map: "quotes_supersedes_quote_id_fkey")
+  supersededQuotes   Quote[]                  @relation("QuoteSupersession")
+  artifactVersion    ArtifactVersion?         @relation("QuoteArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "quotes_artifact_version_id_fkey")
+  lineItems          QuoteLineItem[]
+  commercialSnapshot QuoteCommercialSnapshot?
+  discountRequests   DiscountRequest[]
 
   @@index([opportunityId])
   @@index([companyId, status])
+  @@index([supersedesQuoteId])
+  @@index([artifactVersionId])
   @@map("quotes")
 }
 
 model QuoteLineItem {
-  id          String  @id @default(cuid())
-  quoteId     String  @map("quote_id")
-  skuId       String  @map("sku_id")
-  quantity    Int
-  unitPrice   Decimal @db.Decimal(12, 2) @map("unit_price")
-  costPrice   Decimal @db.Decimal(12, 2) @map("cost_price")
-  discountPct Decimal @db.Decimal(5, 2) @default(0) @map("discount_pct")
-  revenue     Decimal @db.Decimal(14, 2)
-  cost        Decimal @db.Decimal(14, 2)
-  marginPct   Decimal @db.Decimal(8, 2) @map("margin_pct")
+  id                                        String    @id @default(cuid())
+  quoteId                                   String    @map("quote_id")
+  skuId                                     String?   @map("sku_id")
+  quantity                                  Int
+  unitPrice                                 Decimal   @map("unit_price") @db.Decimal(12, 2)
+  costPrice                                 Decimal   @map("cost_price") @db.Decimal(12, 2)
+  discountPct                               Decimal   @default(0) @map("discount_pct") @db.Decimal(5, 2)
+  revenue                                   Decimal   @db.Decimal(14, 2)
+  cost                                      Decimal   @db.Decimal(14, 2)
+  marginPct                                 Decimal   @map("margin_pct") @db.Decimal(8, 2)
+  lineType                                  String?   @map("line_type")
+  description                               String?
+  quantityDecimal                           Decimal?  @map("quantity_decimal") @db.Decimal(20, 6)
+  currency                                  String?
+  sourceServiceLineItemId                   String?   @map("source_service_line_item_id")
+  sourceCostStatus                          String?   @map("source_cost_status")
+  createdAt                                 DateTime? @map("created_at")
+  sortOrder                                 Int?      @map("sort_order")
+  productFamilyId                           String?   @map("product_family_id")
+  productFamilyKey                          String?   @map("product_family_key")
+  productEditionId                          String?   @map("product_edition_id")
+  productEditionKey                         String?   @map("product_edition_key")
+  skuCode                                   String?   @map("sku_code")
+  termMonths                                Int?      @map("term_months")
+  licenseMetricId                           String?   @map("license_metric_id")
+  licenseMetricKey                          String?   @map("license_metric_key")
+  licenseMetricSnapshotHash                 String?   @map("license_metric_snapshot_hash")
+  deploymentType                            String?   @map("deployment_type")
+  supportLevel                              String?   @map("support_level")
+  fulfillmentKind                           String?   @map("fulfillment_kind")
+  catalogSnapshotVersion                    String?   @map("catalog_snapshot_version")
+  catalogSnapshotHash                       String?   @map("catalog_snapshot_hash")
+  sizingArtifactVersionId                   String?   @map("sizing_artifact_version_id")
+  sizingArtifactVersionContentHash          String?   @map("sizing_artifact_version_content_hash")
+  compatibilityArtifactVersionIds           Json?     @map("compatibility_artifact_version_ids")
+  compatibilityArtifactVersionContentHashes Json?     @map("compatibility_artifact_version_content_hashes")
+  fulfillmentSnapshot                       Json?     @map("fulfillment_snapshot")
+  fulfillmentSnapshotHash                   String?   @map("fulfillment_snapshot_hash")
 
-  quote Quote      @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  sku   ProductSku @relation(fields: [skuId], references: [id])
+  quote                 Quote                 @relation(fields: [quoteId], references: [id], onDelete: Restrict, map: "quote_line_items_quote_id_fkey")
+  sku                   ProductSku?           @relation(fields: [skuId], references: [id], onDelete: Restrict, map: "quote_line_items_sku_id_fkey")
+  sourceServiceLineItem QuoteServiceLineItem? @relation(fields: [sourceServiceLineItemId], references: [id], onDelete: Restrict, map: "quote_line_items_source_service_line_item_id_fkey")
+  productFamily         ProductFamily?        @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "quote_line_items_product_family_id_fkey")
+  productEdition        ProductEdition?       @relation(fields: [productEditionId], references: [id], onDelete: Restrict, map: "quote_line_items_product_edition_id_fkey")
+  licenseMetric         LicenseMetric?        @relation(fields: [licenseMetricId], references: [id], onDelete: Restrict, map: "quote_line_items_license_metric_id_fkey")
+  sizingArtifactVersion ArtifactVersion?      @relation("QuoteLineSizingArtifactVersion", fields: [sizingArtifactVersionId], references: [id], onDelete: Restrict, map: "quote_line_items_sizing_artifact_version_id_fkey")
 
   @@index([quoteId])
+  @@index([skuId])
+  @@index([sourceServiceLineItemId])
+  @@index([productFamilyId])
+  @@index([productEditionId])
+  @@index([licenseMetricId])
+  @@index([sizingArtifactVersionId])
   @@map("quote_line_items")
+}
+
+model QuoteCommercialSnapshot {
+  id                  String   @id @default(cuid())
+  quoteId             String   @unique @map("quote_id")
+  policyVersion       String   @map("policy_version")
+  thresholdMarginPct  Decimal  @map("threshold_margin_pct") @db.Decimal(8, 2)
+  calculatedRevenue   Decimal  @map("calculated_revenue") @db.Decimal(14, 2)
+  calculatedCost      Decimal  @map("calculated_cost") @db.Decimal(14, 2)
+  calculatedMarginPct Decimal  @map("calculated_margin_pct") @db.Decimal(8, 2)
+  costCoverageStatus  String   @map("cost_coverage_status")
+  requiresApproval    Boolean  @map("requires_approval")
+  snapshotHash        String   @map("snapshot_hash")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Restrict, map: "quote_commercial_snapshots_quote_id_fkey")
+
+  @@map("quote_commercial_snapshots")
 }
 
 model DiscountRequest {

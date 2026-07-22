@@ -147,6 +147,9 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   { model: 'WorkflowRunStep', unit: 'U019', category: 'CHILD_VIA_FK' },
   { model: 'WorkflowRunArtifact', unit: 'U019', category: 'CHILD_VIA_FK' },
   { model: 'WorkflowRunEvent', unit: 'U019', category: 'CHILD_VIA_FK' },
+  // U035: one immutable commercial calculation snapshot inherits its quote's scope through the
+  // mandatory quoteId FK. It deliberately carries no redundant project/company scope column.
+  { model: 'QuoteCommercialSnapshot', unit: 'U035', category: 'CHILD_VIA_FK' },
 ];
 
 export interface ReclassifiedModel {
@@ -327,6 +330,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   QualityGate: { model: 'QualityGate', category: 'COMPANY_ROOT' },
   QueryRegistry: { model: 'QueryRegistry', category: 'PROJECT_ROOT' },
   Quote: { model: 'Quote', category: 'CHILD_VIA_FK', parentModel: 'Opportunity', relationField: 'opportunity', scalarFkField: 'opportunityId', nullable: false },
+  QuoteCommercialSnapshot: { model: 'QuoteCommercialSnapshot', category: 'CHILD_VIA_FK', parentModel: 'Quote', relationField: 'quote', scalarFkField: 'quoteId', nullable: false },
   QuoteLineItem: { model: 'QuoteLineItem', category: 'CHILD_VIA_FK', parentModel: 'Quote', relationField: 'quote', scalarFkField: 'quoteId', nullable: false },
   QuoteServiceLineItem: { model: 'QuoteServiceLineItem', category: 'CHILD_VIA_FK', parentModel: 'Opportunity', relationField: 'opportunity', scalarFkField: 'opportunityId', nullable: false },
   RenewalOpportunity: { model: 'RenewalOpportunity', category: 'CHILD_VIA_FK', parentModel: 'Customer', relationField: 'customer', scalarFkField: 'customerId', nullable: false },
