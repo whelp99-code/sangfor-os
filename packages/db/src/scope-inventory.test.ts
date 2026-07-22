@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CATALOG_TRANSITIONAL_CANONICAL_SCOPE_PATHS,
   MODEL_SCOPE_INVENTORY,
   RECLASSIFIED_MODELS,
   REGISTERED_ADDITIONS,
@@ -31,6 +32,21 @@ describe('SCOPE_INVENTORY_BASELINE', () => {
       PROJECT_ROOT: 44,
       CHILD_VIA_FK: 60,
     });
+  });
+});
+
+describe('U033 catalog transitional-to-canonical scope paths', () => {
+  it('records the required family/SKU chains without changing the 161-model current classifier before U040', () => {
+    expect(CATALOG_TRANSITIONAL_CANONICAL_SCOPE_PATHS).toEqual({
+      ProductFamily: { relationField: 'company', scalarFkField: 'companyId', parentModel: 'Company', deferredTo: 'U040' },
+      ProductEdition: { relationField: 'family', scalarFkField: 'familyId', parentModel: 'ProductFamily', deferredTo: 'U040' },
+      ProductSku: { relationField: 'edition', scalarFkField: 'editionId', parentModel: 'ProductEdition', deferredTo: 'U040' },
+      LicenseMetric: { relationField: 'productFamily', scalarFkField: 'productFamilyId', parentModel: 'ProductFamily', deferredTo: 'U040' },
+      SizingTemplate: { relationField: 'family', scalarFkField: 'productFamilyId', parentModel: 'ProductFamily', deferredTo: 'U040' },
+      CompatibilityRule: { relationField: 'sourceSku', scalarFkField: 'sourceSkuId', parentModel: 'ProductSku', additionalRequiredRelationFields: ['targetSku'], deferredTo: 'U040' },
+    });
+    expect(classifyModel('ProductFamily')).toEqual({ model: 'ProductFamily', category: 'GLOBAL_SHARED' });
+    expect(classifyModel('LicenseMetric')).toEqual({ model: 'LicenseMetric', category: 'GLOBAL_SHARED' });
   });
 });
 

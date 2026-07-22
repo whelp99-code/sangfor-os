@@ -65,6 +65,21 @@ export interface ChildViaFkEntry {
 
 export type ScopeInventoryEntry = RootScopeEntry | ChildViaFkEntry;
 
+/**
+ * U033 records the catalog's canonical chain without changing the current inventory classifier.
+ * ProductFamily and LicenseMetric remain GLOBAL_SHARED until U040 has the required zero-ambiguity
+ * proof; the other catalog models keep their existing inventory tallies while this map makes the
+ * exact future family/SKU chain explicit for that reclassification unit.
+ */
+export const CATALOG_TRANSITIONAL_CANONICAL_SCOPE_PATHS = Object.freeze({
+  ProductFamily: Object.freeze({ relationField: 'company', scalarFkField: 'companyId', parentModel: 'Company', deferredTo: 'U040' }),
+  ProductEdition: Object.freeze({ relationField: 'family', scalarFkField: 'familyId', parentModel: 'ProductFamily', deferredTo: 'U040' }),
+  ProductSku: Object.freeze({ relationField: 'edition', scalarFkField: 'editionId', parentModel: 'ProductEdition', deferredTo: 'U040' }),
+  LicenseMetric: Object.freeze({ relationField: 'productFamily', scalarFkField: 'productFamilyId', parentModel: 'ProductFamily', deferredTo: 'U040' }),
+  SizingTemplate: Object.freeze({ relationField: 'family', scalarFkField: 'productFamilyId', parentModel: 'ProductFamily', deferredTo: 'U040' }),
+  CompatibilityRule: Object.freeze({ relationField: 'sourceSku', scalarFkField: 'sourceSkuId', parentModel: 'ProductSku', additionalRequiredRelationFields: ['targetSku'], deferredTo: 'U040' }),
+});
+
 export interface ScopeInventoryBaseline {
   baseSha: string;
   modelCount: number;

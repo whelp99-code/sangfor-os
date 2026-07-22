@@ -1408,6 +1408,8 @@ model Artifact {
 
   currentVersion ArtifactVersion?  @relation("ArtifactCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict, map: "artifacts_current_version_id_fkey")
   versions       ArtifactVersion[] @relation("ArtifactVersions")
+  sizingTemplates      SizingTemplate[]      @relation("SizingTemplateArtifact")
+  compatibilityRules   CompatibilityRule[]   @relation("CompatibilityRuleArtifact")
 
   @@unique([legacySourceType, legacySourceId], map: "artifacts_legacy_source_key")
   @@index([companyId, projectId, artifactType])
@@ -1451,6 +1453,8 @@ model ArtifactVersion {
   // and WorkflowRunArtifact.artifactVersionId — same plumbing precedent as approvalRequests above.
   workflowDefinitions  WorkflowDefinition[]
   workflowRunArtifacts WorkflowRunArtifact[]
+  activeSizingTemplates    SizingTemplate[]    @relation("SizingTemplateActiveArtifactVersion")
+  activeCompatibilityRules CompatibilityRule[] @relation("CompatibilityRuleActiveArtifactVersion")
 
   @@unique([artifactId, version], map: "artifact_versions_artifact_id_version_key")
   @@unique([artifactId, contentHashVersion, contentHash], map: "artifact_versions_content_hash_key")
@@ -2547,6 +2551,7 @@ model Company {
   workflowDefinitions WorkflowDefinition[]
   workflowRuns        WorkflowRun[]
   auditLogs           AuditLog[]
+  productFamilies     ProductFamily[]
 
   @@unique([tenantId, id], map: "companies_tenant_id_id_key")
   @@index([tenantId])
@@ -2703,40 +2708,70 @@ model Persona {
 // --- Product Catalog ---
 
 model ProductFamily {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
+  companyId   String?   @map("company_id")
+  familyKey   String?   @map("family_key")
+  vendorKey   String?   @map("vendor_key")
   vendor      String
   name        String
   description String?
+  category    String?
+  status      String?
+  archivedAt  DateTime? @map("archived_at")
+  createdAt   DateTime? @map("created_at")
+  updatedAt   DateTime? @map("updated_at")
 
+  company         Company?         @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "product_families_company_id_fkey")
   editions        ProductEdition[]
+  licenseMetrics  LicenseMetric[]
   sizingTemplates SizingTemplate[]
 
+  @@unique([id, companyId], map: "product_families_id_company_id_key")
+  @@index([companyId, status, archivedAt, updatedAt, id])
+  @@index([companyId, vendorKey, familyKey])
   @@map("product_families")
 }
 
 model ProductEdition {
-  id       String @id @default(cuid())
-  familyId String @map("family_id")
-  name     String
-  version  String
+  id         String    @id @default(cuid())
+  familyId   String    @map("family_id")
+  editionKey String?   @map("edition_key")
+  name       String
+  version    String
+  status     String?
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime? @map("created_at")
+  updatedAt  DateTime? @map("updated_at")
 
-  family ProductFamily @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  family ProductFamily @relation(fields: [familyId], references: [id], onDelete: Restrict, map: "product_editions_family_id_fkey")
   skus   ProductSku[]
 
   @@index([familyId])
+  @@index([familyId, status, archivedAt, updatedAt, id])
+  @@index([familyId, editionKey])
   @@map("product_editions")
 }
 
 model ProductSku {
-  id            String   @id @default(cuid())
-  editionId     String   @map("edition_id")
-  skuCode       String   @unique @map("sku_code")
-  name          String
-  unitPrice     Decimal?  @db.Decimal(12, 2) @map("unit_price")
-  unitCost      Decimal?  @db.Decimal(12, 2) @map("unit_cost")
-  licenseMetric String?  @map("license_metric")
+  id                    String    @id @default(cuid())
+  editionId             String    @map("edition_id")
+  licenseMetricId       String?   @map("license_metric_id")
+  skuCode               String    @unique @map("sku_code")
+  name                  String
+  unitPrice             Decimal?  @db.Decimal(12, 2) @map("unit_price")
+  unitCost              Decimal?  @db.Decimal(12, 2) @map("unit_cost")
+  licenseMetric         String?   @map("license_metric")
+  currency              String?
+  termMonths            Int?      @map("term_months")
+  deploymentType        String?   @map("deployment_type")
+  supportLevel          String?   @map("support_level")
+  status                String?
+  archivedAt            DateTime? @map("archived_at")
+  createdAt             DateTime? @map("created_at")
+  updatedAt             DateTime? @map("updated_at")
 
   edition                  ProductEdition       @relation(fields: [editionId], references: [id])
+  canonicalLicenseMetric   LicenseMetric?       @relation("ProductSkuLicenseMetric", fields: [licenseMetricId], references: [id], onDelete: Restrict, map: "product_skus_license_metric_id_fkey")
   quoteLineItems           QuoteLineItem[]
   sourceCompatibilityRules CompatibilityRule[]  @relation("SourceSku")
   targetCompatibilityRules CompatibilityRule[]  @relation("TargetSku")
@@ -2744,42 +2779,76 @@ model ProductSku {
   subscriptions            Subscription[]
 
   @@index([editionId])
+  @@index([editionId, status, archivedAt, updatedAt, id])
+  @@index([licenseMetricId])
   @@map("product_skus")
 }
 
 model LicenseMetric {
-  id   String @id @default(cuid())
-  key  String @unique
-  name String
-  unit String
+  id              String    @id @default(cuid())
+  productFamilyId String?   @map("product_family_id")
+  key             String    @unique
+  name            String
+  unit            String
+  description     String?
+  status          String?
+  createdAt       DateTime? @map("created_at")
+  updatedAt       DateTime? @map("updated_at")
 
+  productFamily ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "license_metrics_product_family_id_fkey")
+  productSkus   ProductSku[]   @relation("ProductSkuLicenseMetric")
+
+  @@index([productFamilyId, status, updatedAt, id])
   @@map("license_metrics")
 }
 
 model SizingTemplate {
-  id              String @id @default(cuid())
-  productFamilyId String @map("product_family_id")
-  name            String
-  configJson      Json   @map("config_json")
+  id                      String    @id @default(cuid())
+  productFamilyId         String    @map("product_family_id")
+  templateKey             String?   @map("template_key")
+  artifactId              String?   @map("artifact_id")
+  activeArtifactVersionId String?   @map("active_artifact_version_id")
+  name                    String
+  configJson              Json      @map("config_json")
+  status                  String?
+  createdAt               DateTime? @map("created_at")
+  updatedAt               DateTime? @map("updated_at")
 
-  family ProductFamily @relation(fields: [productFamilyId], references: [id], onDelete: Cascade)
+  family                ProductFamily   @relation(fields: [productFamilyId], references: [id], onDelete: Cascade)
+  artifact              Artifact?       @relation("SizingTemplateArtifact", fields: [artifactId], references: [id], onDelete: Restrict, map: "sizing_templates_artifact_id_fkey")
+  activeArtifactVersion ArtifactVersion? @relation("SizingTemplateActiveArtifactVersion", fields: [activeArtifactVersionId], references: [id], onDelete: Restrict, map: "sizing_templates_active_artifact_version_id_fkey")
 
   @@index([productFamilyId])
+  @@index([productFamilyId, status, updatedAt, id])
+  @@index([productFamilyId, templateKey])
+  @@index([artifactId, activeArtifactVersionId])
   @@map("sizing_templates")
 }
 
 model CompatibilityRule {
-  id          String @id @default(cuid())
-  sourceSkuId String @map("source_sku_id")
-  targetSkuId String @map("target_sku_id")
-  ruleType    String @map("rule_type")
-  configJson  Json   @map("config_json")
+  id                      String    @id @default(cuid())
+  sourceSkuId             String    @map("source_sku_id")
+  targetSkuId             String    @map("target_sku_id")
+  ruleKey                 String?   @map("rule_key")
+  artifactId              String?   @map("artifact_id")
+  activeArtifactVersionId String?   @map("active_artifact_version_id")
+  ruleType                String    @map("rule_type")
+  configJson              Json      @map("config_json")
+  severity                String?
+  status                  String?
+  createdAt               DateTime? @map("created_at")
+  updatedAt               DateTime? @map("updated_at")
 
-  sourceSku ProductSku @relation("SourceSku", fields: [sourceSkuId], references: [id], onDelete: Cascade)
-  targetSku ProductSku @relation("TargetSku", fields: [targetSkuId], references: [id], onDelete: Cascade)
+  sourceSku             ProductSku      @relation("SourceSku", fields: [sourceSkuId], references: [id], onDelete: Cascade)
+  targetSku             ProductSku      @relation("TargetSku", fields: [targetSkuId], references: [id], onDelete: Cascade)
+  artifact              Artifact?       @relation("CompatibilityRuleArtifact", fields: [artifactId], references: [id], onDelete: Restrict, map: "compatibility_rules_artifact_id_fkey")
+  activeArtifactVersion ArtifactVersion? @relation("CompatibilityRuleActiveArtifactVersion", fields: [activeArtifactVersionId], references: [id], onDelete: Restrict, map: "compatibility_rules_active_artifact_version_id_fkey")
 
   @@index([sourceSkuId])
   @@index([targetSkuId])
+  @@index([sourceSkuId, status, updatedAt, id])
+  @@index([sourceSkuId, ruleKey])
+  @@index([artifactId, activeArtifactVersionId])
   @@map("compatibility_rules")
 }
 
