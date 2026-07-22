@@ -16,3 +16,5 @@ export * from "./daily-report";
 export * from "./role-dashboard";
 export * from "./role-dashboard-data";
 export * from "./stabilization-readiness";
+export * from "./artifact-service";
+export * from "./artifact-release";
