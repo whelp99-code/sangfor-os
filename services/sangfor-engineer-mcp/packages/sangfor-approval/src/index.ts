@@ -33,3 +33,6 @@ export function requiresApprovalForAction(action: ConsoleAction): ApprovalDecisi
   const joined = `${action.type} ${action.target ?? ''} ${action.value ?? ''}`;
   return requiresApprovalForText(joined);
 }
+
+export * from './internal-principal-client.js';
+export * from './release-client.js';

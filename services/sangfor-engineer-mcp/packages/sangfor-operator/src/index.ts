@@ -161,18 +161,9 @@ export function executeConsoleAction(sessionId: string, action: ConsoleAction): 
 
 function assertRealExecutionAllowed(session: OperatorSession, action: ConsoleAction, approval?: LiveExecutionApproval): void {
   if (action.dryRun !== false) return;
-  if (process.env.SANGFOR_ALLOW_REAL_EXECUTION !== 'true') {
-    throw new Error('Live execution blocked. Set SANGFOR_ALLOW_REAL_EXECUTION=true only in an authorized lab/customer session.');
-  }
-  if (session.mode === 'production' && process.env.SANGFOR_ALLOW_PRODUCTION_EXECUTION !== 'true') {
-    throw new Error('Production execution blocked. Set SANGFOR_ALLOW_PRODUCTION_EXECUTION=true only after formal change approval.');
-  }
-  if (!approval?.approvedBy || !approval.approvalToken || !approval.changeTicketId || !approval.rollbackPlanId) {
-    throw new Error('Live execution requires approvedBy, approvalToken, changeTicketId, and rollbackPlanId.');
-  }
-  if (approval.approvalToken !== process.env.SANGFOR_OPERATOR_APPROVAL_TOKEN) {
-    throw new Error('Live execution approval token mismatch.');
-  }
+  // Plaintext approval fields are migration-only input. They never authorize a device action.
+  void session; void approval;
+  throw new Error('EXTERNAL_ACTION_RELEASE_REQUIRED');
 }
 
 // ─── Chrome Lifecycle ─────────────────────────────────────────────────────────
@@ -416,7 +407,7 @@ export async function executeLiveConsoleAction(input: LiveConsoleActionInput): P
       approvalRequired: approval.required,
       message: action.dryRun !== false
         ? `Live dry-run executed in ${session.mode} mode. Browser=${connectedOverCdp ? 'local-cdp' : 'launched-chromium'}.`
-        : `Live action executed in ${session.mode} mode by ${input.approval?.approvedBy ?? 'unknown'} under change ticket ${input.approval?.changeTicketId ?? 'n/a'}. Browser=${connectedOverCdp ? 'local-cdp' : 'launched-chromium'}.`,
+        : 'EXTERNAL_ACTION_RELEASE_REQUIRED',
       beforeScreenshotPath,
       afterScreenshotPath,
     };

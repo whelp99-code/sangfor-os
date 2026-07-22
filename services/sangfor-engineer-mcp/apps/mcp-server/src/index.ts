@@ -179,8 +179,8 @@ const tools: Record<string, { description: string; inputSchema: any; handler: To
     handler: dryRunProductChange
   },
   'sangfor.apply_approved_product_change': {
-    description: 'Apply only an approved product change. Requires approval payload and SANGFOR_ALLOW_REAL_EXECUTION; production also requires SANGFOR_ALLOW_PRODUCTION_EXECUTION.',
-    inputSchema: { type: 'object', properties: { plan: { type: 'object' }, approval: { type: 'object' }, environment: { type: 'string' }, sessionId: { type: 'string' } }, required: ['plan'] },
+    description: 'External mutation. Requires a root-issued one-use release receipt; plaintext approvals are never authority.',
+    inputSchema: { type: 'object', properties: { plan: { type: 'object' }, receipt: { type: 'string' }, action: { type: 'string' }, target: { type: 'string' }, bodyHash: { type: 'string' }, idempotencyKey: { type: 'string' }, environment: { type: 'string' }, sessionId: { type: 'string' } }, required: ['plan', 'receipt', 'action', 'target', 'bodyHash', 'idempotencyKey'] },
     handler: applyApprovedProductChange
   },
   'sangfor.verify_product_change': {
@@ -298,8 +298,8 @@ const tools: Record<string, { description: string; inputSchema: any; handler: To
     handler: readLiveConsoleState
   },
   'sangfor.execute_console_action_live': {
-    description: 'Execute a real Playwright console action. Requires SANGFOR_ALLOW_REAL_EXECUTION and approval fields for non-dry-run.',
-    inputSchema: { type: 'object', properties: { sessionId: { type: 'string' }, action: { type: 'object' }, approval: { type: 'object' } }, required: ['sessionId', 'action'] },
+    description: 'External mutation. Requires a root-issued one-use release receipt; break-glass is disabled.',
+    inputSchema: { type: 'object', properties: { sessionId: { type: 'string' }, action: { type: 'object' }, receipt: { type: 'string' }, releaseAction: { type: 'string' }, target: { type: 'string' }, bodyHash: { type: 'string' }, idempotencyKey: { type: 'string' } }, required: ['sessionId', 'action', 'receipt', 'releaseAction', 'target', 'bodyHash', 'idempotencyKey'] },
     handler: executeLiveConsoleAction
   },
   'sangfor.kill_session': {

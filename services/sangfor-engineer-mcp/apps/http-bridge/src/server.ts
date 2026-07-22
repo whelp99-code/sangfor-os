@@ -4,14 +4,13 @@ import { dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import {
-  authenticateApiKey,
   authorizeHttpContext,
   enforceProductionAuthPreflight,
-  extractHttpApiKey,
   findCallerIdentityConflict,
   withServerActor,
   type AuthContext,
 } from '../../../packages/shared/src/mutation-policy.js';
+import { authenticateBridgeCredential } from './auth.js';
 
 const MODULE_PATH = fileURLToPath(import.meta.url);
 const CURRENT_DIRECTORY = dirname(MODULE_PATH);
@@ -294,7 +293,7 @@ type HttpBridgeDependencies = Readonly<{
 export function createHttpBridgeServer(dependencies: HttpBridgeDependencies = {}): http.Server {
   const runtime = new McpBridgeRuntime(dependencies.spawnChild);
   const authenticateRequest = dependencies.authenticateRequest
-    ?? ((request: http.IncomingMessage) => authenticateApiKey(extractHttpApiKey(request.headers)));
+    ?? ((request: http.IncomingMessage) => authenticateBridgeCredential(request.headers));
   const requestMcp = dependencies.requestMcp ?? runtime.request.bind(runtime);
   const requestBootstrap = dependencies.requestBootstrap ?? runtime.requestBootstrap.bind(runtime);
 
