@@ -2,7 +2,8 @@ import type { RouteCapabilityClass, RouteCapabilityDefinition } from "@sangfor/a
 
 /**
  * U015/SEC-02a — the static, canonical classification of every apps/web guarded API entry point
- * (the exact 67-file mechanical coverage set: the union of `assertApiAccess(` and
+ * (the exact 68-file mechanical coverage set — U022/APR-01b added the 68th, `approvals/
+ * [approvalId]/decisions/route.ts` — the union of `assertApiAccess(` and
  * `authorizeOperatorRequest(` route.ts files, re-derived and byte-verified against
  * route-capability-registry.test.ts on every test run). Keyed by repo-relative source path so the
  * key set can be diffed directly against a fresh filesystem scan — an unclassified guarded
@@ -25,6 +26,7 @@ const PRIVILEGED: Record<RouteCapabilityKey, RouteCapabilityDefinition> = {
   "apps/web/src/app/api/engineer/domain-proposal/route.ts": { capabilityClass: "privileged", permission: "system.admin" },
   "apps/web/src/app/api/aios-v3/workflow/route.ts": { capabilityClass: "privileged", permission: "system.admin" },
   "apps/web/src/app/api/portal/route.ts": { capabilityClass: "privileged", permission: "system.admin" },
+  "apps/web/src/app/api/approvals/[approvalId]/decisions/route.ts": { capabilityClass: "privileged", permission: "role.manage" },
   "apps/web/src/app/api/approvals/route.ts": { capabilityClass: "privileged", permission: "role.manage" },
 };
 

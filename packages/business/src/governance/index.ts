@@ -2,6 +2,7 @@ export * from "./audit";
 export * from "./audit-chain";
 export * from "./audit-db";
 export * from "./approval-gate";
+export * from "./approval-kernel";
 export * from "./validation-engine";
 export * from "./ai-decision-policy";
 export * from "./ai-decision";

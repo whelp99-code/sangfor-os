@@ -31,11 +31,11 @@ function deriveCurrentCoverageSet(): string[] {
 }
 
 describe("route-capability-registry — static classification proof", () => {
-  it("classifies exactly the current 67-file guarded-route coverage set, byte-identical, no subset filtering", () => {
+  it("classifies exactly the current 68-file guarded-route coverage set, byte-identical, no subset filtering", () => {
     const derived = deriveCurrentCoverageSet();
     const registryKeys = Object.keys(ROUTE_CAPABILITY_REGISTRY).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     expect(registryKeys).toEqual(derived);
-    expect(registryKeys).toHaveLength(67);
+    expect(registryKeys).toHaveLength(68);
   });
 
   it("every registered route file actually exists on disk under apps/web", () => {

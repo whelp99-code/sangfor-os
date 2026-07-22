@@ -69,4 +69,14 @@ export function autoTransition(currentState: ApprovalState, validation: { passed
   return validation.passed ? 'ready_for_human_approval' : 'auto_failed'
 }
 
+// The four re-exports below (and the `ApprovalState`/`ApprovalStateMachine` above) are the
+// pre-U022 command-run risk-gating path: reason-string/status-only rows with NO revision, exact
+// ArtifactVersion/hash, or quorum concept, still used by `ensureApprovalForRun`/
+// `createApprovalIfNeeded` callers (workflow-runner.ts, command-center.ts, phase13-orchestrator.ts)
+// and left byte-behavior-unchanged here for backward compatibility — those legacy rows persist
+// with `legacyUnbound=true` and confer zero canonical authority (U018 dispatch). U022/APR-01b's
+// canonical exact-version CAS/quorum decision kernel (`ApprovalKernelError`, `submitApprovalRequest`,
+// `decideApproval`, …) lives in `./approval-kernel` and is exported separately through
+// `./index` — it does not extend or reuse this file's `ApprovalState` vocabulary, which is
+// unrelated to (and older than) U018's canonical `ApprovalRequest.status` vocabulary.
 export { ensureApprovalForRun, createApprovalIfNeeded, approveRequest, submitCommercialApproval } from "./approval-db";

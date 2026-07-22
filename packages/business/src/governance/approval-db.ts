@@ -1,4 +1,6 @@
-import { prisma } from "@sangfor/db";
+import { createHash } from "node:crypto";
+
+import { Prisma, prisma } from "@sangfor/db";
 
 import { recordCommercialApprovalResolution } from "./ai-decision-commercial-resolution";
 import { logStateTransition } from "./audit";
@@ -158,4 +160,71 @@ export async function submitCommercialApproval(input: CommercialApprovalInput) {
   });
 
   return { approval, created: true as const };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// U022/APR-01b: canonical, exact-version writer. Everything above this line is the pre-U022
+// reason-string/status-only legacy writer (untouched — `ensureApprovalForRun`/
+// `createApprovalIfNeeded`/`submitCommercialApproval` still insert `legacyUnbound=true` rows with
+// zero canonical authority, per the U018 dispatch's grandfather clause). This is the first and
+// only writer allowed to insert a full-shape `legacyUnbound=false` row — it never upgrades an
+// existing legacy row in place. `packages/business/src/governance/approval-kernel.ts` is the sole
+// caller: it resolves/validates every field server-side before calling this, and always OMITS
+// `validationSnapshotHash` on insert so U018's `approval_request_validation_snapshot_guard`
+// trigger computes/fills it — this module never reimplements that PostgreSQL-authoritative digest.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface CreateCanonicalApprovalRequestInput {
+  scope: { tenantId: string; companyId: string; projectId: string };
+  action: string;
+  artifactVersionId: string;
+  artifactHashSnapshot: string;
+  policyVersion: string;
+  requiredQuorum: number;
+  requestedByAssignmentId: string;
+  requestedSessionId: string;
+  ownerAssignmentId: string;
+  expiresAt: Date | null;
+  validationSnapshot: Prisma.InputJsonValue;
+}
+
+/** Deterministic `policyKey::policyVersion` digest — U018 requires `policyHash` non-null on every
+ * canonical row but the U022 request contract carries no caller-supplied hash for it (only
+ * `policyVersion`), so the server derives one. Not a "shadow validation hash": `policyHash` is a
+ * first-class U018 column distinct from `validationSnapshotHash`, and this never touches that
+ * DB-generated field. */
+export function derivePolicyHash(policyKey: string, policyVersion: string): string {
+  return createHash("sha256").update(`${policyKey}::${policyVersion}`).digest("hex");
+}
+
+export async function createCanonicalApprovalRequest(
+  tx: Prisma.TransactionClient,
+  input: CreateCanonicalApprovalRequestInput,
+) {
+  return tx.approvalRequest.create({
+    data: {
+      status: "pending",
+      tenantId: input.scope.tenantId,
+      companyId: input.scope.companyId,
+      projectId: input.scope.projectId,
+      artifactVersionId: input.artifactVersionId,
+      action: input.action,
+      artifactHashSnapshot: input.artifactHashSnapshot,
+      requestedByAssignmentId: input.requestedByAssignmentId,
+      requestedSessionId: input.requestedSessionId,
+      ownerAssignmentId: input.ownerAssignmentId,
+      ownershipRevision: 0,
+      policyKey: input.action,
+      policyVersion: input.policyVersion,
+      policyHash: derivePolicyHash(input.action, input.policyVersion),
+      validationSnapshot: input.validationSnapshot,
+      // validationSnapshotHash intentionally omitted: the U018 BEFORE INSERT trigger
+      // (approval_request_validation_snapshot_guard) computes and fills it from
+      // validationSnapshot; the caller reads the returned row for the authoritative hash.
+      requiredQuorum: input.requiredQuorum,
+      revision: 0,
+      expiresAt: input.expiresAt,
+      legacyUnbound: false,
+    },
+  });
 }

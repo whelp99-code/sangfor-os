@@ -301,6 +301,9 @@ importers:
       '@octokit/rest':
         specifier: ^22.0.1
         version: 22.0.1
+      '@sangfor/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@sangfor/db':
         specifier: workspace:*
         version: link:../db

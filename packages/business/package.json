@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@sangfor/shared": "workspace:*",
+    "@sangfor/auth": "workspace:*",
     "@sangfor/db": "workspace:*",
     "@sangfor/mail-intelligence": "workspace:*",
     "@octokit/rest": "^22.0.1",
