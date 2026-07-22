@@ -99,6 +99,7 @@ const NEW_MIGRATION_NAME_U034 = '20260716003400_u034_qualification_bant_tf_expan
 const NEW_MIGRATION_NAME_U035 = '20260716003500_u035_quote_version_snapshot_expand';
 const NEW_MIGRATION_NAME_U036 = '20260716003600_u036_vendor_discount_demo_expand';
 const NEW_MIGRATION_NAME_U037 = '20260716003700_u037_delivery_lifecycle_expand';
+const NEW_MIGRATION_NAME_U038 = '20260716003800_u038_people_eligibility_expand';
 
 const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema', 'governance-bridge', 'audit-chain', 'role-change']);
 
@@ -278,6 +279,11 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
     // exists and fails with "relation artifact_versions does not exist", same as U033/U035/U036.
     const targetU037 = join(dir, 'migrations', NEW_MIGRATION_NAME_U037);
     if (existsSync(targetU037)) rmSync(targetU037, { recursive: true, force: true });
+    // U038's migration adds certification-evidence FKs to U017's artifact_versions table, so it must
+    // stay excluded from this pre-U011 prefix too — otherwise it deploys before artifact_versions
+    // exists and fails with "relation artifact_versions does not exist", same as U033/U035/U036/U037.
+    const targetU038 = join(dir, 'migrations', NEW_MIGRATION_NAME_U038);
+    if (existsSync(targetU038)) rmSync(targetU038, { recursive: true, force: true });
   }
   return dir;
 }
@@ -341,6 +347,10 @@ function makeThroughU011PrismaCopy(label: string): string {
   // through-U011 prefix, so keep U037's migration out of it too.
   const targetU037 = join(dir, 'migrations', NEW_MIGRATION_NAME_U037);
   if (existsSync(targetU037)) rmSync(targetU037, { recursive: true, force: true });
+  // Same reasoning: U038's certification-evidence FKs target U017 artifact_versions, absent from this
+  // through-U011 prefix, so keep U038's migration out of it too.
+  const targetU038 = join(dir, 'migrations', NEW_MIGRATION_NAME_U038);
+  if (existsSync(targetU038)) rmSync(targetU038, { recursive: true, force: true });
   return dir;
 }
 
@@ -768,7 +778,8 @@ function listMigrationsThroughU010(): string[] {
         name !== NEW_MIGRATION_NAME_U034 &&
         name !== NEW_MIGRATION_NAME_U035 &&
         name !== NEW_MIGRATION_NAME_U036 &&
-        name !== NEW_MIGRATION_NAME_U037,
+        name !== NEW_MIGRATION_NAME_U037 &&
+        name !== NEW_MIGRATION_NAME_U038,
     )
     .sort();
 }
@@ -781,7 +792,7 @@ function listMigrationsThroughU020(): string[] {
   return readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
-    .filter((name) => name !== NEW_MIGRATION_NAME_U021 && name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037)
+    .filter((name) => name !== NEW_MIGRATION_NAME_U021 && name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037 && name !== NEW_MIGRATION_NAME_U038)
     .sort();
 }
 
@@ -973,12 +984,13 @@ async function runLegacyLifecycleScenario(evidenceDir: string, runId: string) {
         // current file) — so these tallies track the CURRENT total registered-model tally, not a
         // point-in-time snapshot at U012. GLOBAL_SHARED (13) is unaffected by U012's reclassification
         // math staying stable through every later unit that never touches that category; CHILD_VIA_FK
-        // (71 as of U037 — RoleChangeRequest's U012 reclassification plus every later CHILD_VIA_FK
-        // registration, most recently U036's DemoLicense [68 -> 69] and U037's DeliveryAcceptance +
-        // RenewalReminderEvent [69 -> 71]) must be
+        // (74 as of U038 — RoleChangeRequest's U012 reclassification plus every later CHILD_VIA_FK
+        // registration, most recently U037's DeliveryAcceptance + RenewalReminderEvent [69 -> 71] and
+        // U038's CertificationEvidence + EngagementCapabilityRequirement + EngineerAssignment
+        // [71 -> 74]) must be
         // updated by any future unit that adds a new CHILD_VIA_FK model, exactly as U017/U018/U019
         // updated it here.
-        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 71 || scopeCheckJson.tallies.GLOBAL_SHARED !== 13) {
+        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 74 || scopeCheckJson.tallies.GLOBAL_SHARED !== 13) {
           throw new ContractFailure(EXIT.CONTRACT, `scope:check tallies do not reflect the U012 RoleChangeRequest reclassification: ${JSON.stringify(scopeCheckJson.tallies)}`);
         }
         writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
@@ -4574,7 +4586,8 @@ async function runAuditChainLegacyScenario(evidenceDir: string, runId: string) {
         addMigrationToView(view, NEW_MIGRATION_NAME_U035);
         addMigrationToView(view, NEW_MIGRATION_NAME_U036);
         addMigrationToView(view, NEW_MIGRATION_NAME_U037);
-        verifyViewIntegrity(view, [...throughU020, NEW_MIGRATION_NAME_U021, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037]);
+        addMigrationToView(view, NEW_MIGRATION_NAME_U038);
+        verifyViewIntegrity(view, [...throughU020, NEW_MIGRATION_NAME_U021, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037, NEW_MIGRATION_NAME_U038]);
         const deployU024ForCurrentSchema = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
         if (deployU024ForCurrentSchema.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (+U024 after U021 verification) failed: ${deployU024ForCurrentSchema.stderr || deployU024ForCurrentSchema.stdout}`);
         evidence.deployU024ForCurrentSchema = true;
@@ -4705,7 +4718,7 @@ async function runRoleChangeSuite(evidenceDir: string): Promise<number> {
       { runId, ownerUnit: OWNER_UNIT_U024, purpose: `${PURPOSE_U024}-legacy`, evidenceDir: join(evidenceDir, 'legacy'), imageDigest: IMAGE_DIGEST, migrate: false },
       async (ctx: any) => {
         const conn = parseConn(ctx.databaseUrl);
-        const before = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).filter((name) => name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037).sort();
+        const before = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).filter((name) => name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037 && name !== NEW_MIGRATION_NAME_U038).sort();
         const view = buildReadOnlyMigrationView('u024-legacy', before);
         try {
           verifyViewIntegrity(view, before);
@@ -4722,7 +4735,8 @@ async function runRoleChangeSuite(evidenceDir: string): Promise<number> {
           addMigrationToView(view, NEW_MIGRATION_NAME_U035);
           addMigrationToView(view, NEW_MIGRATION_NAME_U036);
           addMigrationToView(view, NEW_MIGRATION_NAME_U037);
-          verifyViewIntegrity(view, [...before, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037]);
+          addMigrationToView(view, NEW_MIGRATION_NAME_U038);
+          verifyViewIntegrity(view, [...before, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037, NEW_MIGRATION_NAME_U038]);
           const deploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
           if (deploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U024 deploy failed: ${deploy.stderr || deploy.stdout}`);
           const frozen = await execSql(ctx.containerName, conn, `SELECT status || '|' || legacy_status || '|' || legacy_unbound::text || '|' || revision::text FROM role_change_requests WHERE id='u024-legacy-role-change';`);

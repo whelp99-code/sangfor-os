@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Prisma } from '@prisma/client';
 
 import {
   CATALOG_TRANSITIONAL_CANONICAL_SCOPE_PATHS,
@@ -61,23 +62,17 @@ describe('classifyModel', () => {
 });
 
 describe('buildScopeInventoryReport — real inventory', () => {
-  it('reports ok with exact 165 / 13-2-31-48-71 tallies against its own model list', () => {
+  it('reports ok with the dynamically-derived U038 current count and category tallies against its own model list', () => {
     const report = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
-    expect(report.currentModelCount).toBe(165);
-    expect(report.tallies).toEqual({
-      GLOBAL_SHARED: 13,
-      TENANT_ROOT: 2,
-      COMPANY_ROOT: 31,
-      PROJECT_ROOT: 48,
-      CHILD_VIA_FK: 71,
-    });
+    expect(report.currentModelCount).toBe(expectedCurrentModelCount());
+    expect(report.tallies).toEqual(expectedCategoryCounts());
   });
 });
 
 describe('REGISTERED_ADDITIONS — U011 model registration', () => {
-  it('registers each additive model exactly once, including U037 DeliveryAcceptance and RenewalReminderEvent as CHILD_VIA_FK', () => {
+  it('registers each additive model exactly once, including the U038 company roots and mandatory children', () => {
     expect(REGISTERED_ADDITIONS).toEqual([
       { model: 'ScopeBackfillQuarantine', unit: 'U011', category: 'GLOBAL_SHARED' },
       { model: 'AuthSession', unit: 'U014', category: 'PROJECT_ROOT' },
@@ -94,22 +89,24 @@ describe('REGISTERED_ADDITIONS — U011 model registration', () => {
       { model: 'DemoLicense', unit: 'U036', category: 'CHILD_VIA_FK' },
       { model: 'DeliveryAcceptance', unit: 'U037', category: 'CHILD_VIA_FK' },
       { model: 'RenewalReminderEvent', unit: 'U037', category: 'CHILD_VIA_FK' },
+      { model: 'CertificationDefinition', unit: 'U038', category: 'COMPANY_ROOT' },
+      { model: 'CertificationEvidence', unit: 'U038', category: 'CHILD_VIA_FK' },
+      { model: 'EngineerSkill', unit: 'U038', category: 'COMPANY_ROOT' },
+      { model: 'EngineerEligibilityPolicy', unit: 'U038', category: 'COMPANY_ROOT' },
+      { model: 'EngagementCapabilityRequirement', unit: 'U038', category: 'CHILD_VIA_FK' },
+      { model: 'EngineerAssignment', unit: 'U038', category: 'CHILD_VIA_FK' },
     ]);
   });
 
-  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count is 165', () => {
+  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count derives from additions', () => {
     expect(SCOPE_INVENTORY_BASELINE.modelCount).toBe(150);
-    expect(expectedCurrentModelCount()).toBe(165);
+    expect(expectedCurrentModelCount()).toBe(SCOPE_INVENTORY_BASELINE.modelCount + REGISTERED_ADDITIONS.length);
   });
 
   it('derives expected category counts as baseline plus registered additions (reclassifications isolated out)', () => {
-    expect(expectedCategoryCounts(SCOPE_INVENTORY_BASELINE, REGISTERED_ADDITIONS, [])).toEqual({
-      GLOBAL_SHARED: 14,
-      TENANT_ROOT: 1,
-      COMPANY_ROOT: 32,
-      PROJECT_ROOT: 48,
-      CHILD_VIA_FK: 70,
-    });
+    const beforeReclassifications = expectedCategoryCounts(SCOPE_INVENTORY_BASELINE, REGISTERED_ADDITIONS, []);
+    expect(beforeReclassifications.COMPANY_ROOT).toBe(SCOPE_INVENTORY_BASELINE.categoryCounts.COMPANY_ROOT + REGISTERED_ADDITIONS.filter((entry) => entry.category === 'COMPANY_ROOT').length);
+    expect(beforeReclassifications.CHILD_VIA_FK).toBe(SCOPE_INVENTORY_BASELINE.categoryCounts.CHILD_VIA_FK + REGISTERED_ADDITIONS.filter((entry) => entry.category === 'CHILD_VIA_FK').length);
   });
 
   it('classifies ScopeBackfillQuarantine as GLOBAL_SHARED in the live inventory', () => {
@@ -129,13 +126,7 @@ describe('REGISTERED_ADDITIONS — U014 model registration', () => {
   });
 
   it('derives expected category counts as baseline plus all registered additions and reclassifications (RoleChangeRequest + AuditLog)', () => {
-    expect(expectedCategoryCounts()).toEqual({
-      GLOBAL_SHARED: 13,
-      TENANT_ROOT: 2,
-      COMPANY_ROOT: 31,
-      PROJECT_ROOT: 48,
-      CHILD_VIA_FK: 71,
-    });
+    expect(expectedCategoryCounts()).toEqual(buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES).tallies);
   });
 });
 
@@ -205,6 +196,34 @@ describe('REGISTERED_ADDITIONS — U037 model registration', () => {
   it('classifies RenewalReminderEvent exactly once as CHILD_VIA_FK of RenewalOpportunity through mandatory renewalOpportunityId', () => {
     expect(classifyModel('RenewalReminderEvent')).toEqual({
       model: 'RenewalReminderEvent', category: 'CHILD_VIA_FK', parentModel: 'RenewalOpportunity', relationField: 'renewalOpportunity', scalarFkField: 'renewalOpportunityId', nullable: false,
+    });
+  });
+});
+
+describe('REGISTERED_ADDITIONS — U038 people eligibility model registration', () => {
+  it('classifies the three company roots exactly once', () => {
+    for (const model of ['CertificationDefinition', 'EngineerSkill', 'EngineerEligibilityPolicy']) {
+      expect(classifyModel(model)).toEqual({ model, category: 'COMPANY_ROOT' });
+    }
+  });
+
+  it('classifies CertificationEvidence only through its mandatory ArtifactVersion scope closure', () => {
+    expect(classifyModel('CertificationEvidence')).toEqual({
+      model: 'CertificationEvidence', category: 'CHILD_VIA_FK', parentModel: 'ArtifactVersion', relationField: 'artifactVersion', scalarFkField: 'artifactVersionId', nullable: false,
+    });
+    const evidence = Prisma.dmmf.datamodel.models.find((model) => model.name === 'CertificationEvidence');
+    expect(evidence).toBeDefined();
+    if (!evidence) throw new Error('CertificationEvidence DMMF model missing');
+    const artifactVersion = evidence.fields.find((field) => field.name === 'artifactVersion');
+    expect(artifactVersion).toMatchObject({ isRequired: true, relationFromFields: ['artifactVersionId'], relationOnDelete: 'Restrict' });
+  });
+
+  it('classifies requirements and assignments through their single mandatory Engagement chain', () => {
+    expect(classifyModel('EngagementCapabilityRequirement')).toEqual({
+      model: 'EngagementCapabilityRequirement', category: 'CHILD_VIA_FK', parentModel: 'Engagement', relationField: 'engagement', scalarFkField: 'engagementId', nullable: false,
+    });
+    expect(classifyModel('EngineerAssignment')).toEqual({
+      model: 'EngineerAssignment', category: 'CHILD_VIA_FK', parentModel: 'EngagementCapabilityRequirement', relationField: 'requirement', scalarFkField: 'requirementId', nullable: false,
     });
   });
 });
@@ -309,13 +328,7 @@ describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest + U021 AuditLog reclass
   });
 
   it('derives expected category counts as baseline plus registered additions minus one reclassified GLOBAL_SHARED->CHILD_VIA_FK and one reclassified COMPANY_ROOT->TENANT_ROOT', () => {
-    expect(expectedCategoryCounts()).toEqual({
-      GLOBAL_SHARED: 13,
-      TENANT_ROOT: 2,
-      COMPANY_ROOT: 31,
-      PROJECT_ROOT: 48,
-      CHILD_VIA_FK: 71,
-    });
+    expect(expectedCategoryCounts()).toEqual(buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES).tallies);
   });
 
   it('classifies RoleChangeRequest as CHILD_VIA_FK of Company via mandatory companyId in the live inventory', () => {

@@ -160,6 +160,15 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   // U037: RenewalReminderEvent inherits through mandatory renewalOpportunityId; work-task and
   // notification links are nullable internal projections, never alternate scope roots.
   { model: 'RenewalReminderEvent', unit: 'U037', category: 'CHILD_VIA_FK' },
+  // U038: three company-root policy/catalog records plus three children. CertificationEvidence
+  // deliberately inherits only through mandatory ArtifactVersion -> Artifact, never the optional
+  // legacy EngineerCertification links; assignments inherit only through requirement -> Engagement.
+  { model: 'CertificationDefinition', unit: 'U038', category: 'COMPANY_ROOT' },
+  { model: 'CertificationEvidence', unit: 'U038', category: 'CHILD_VIA_FK' },
+  { model: 'EngineerSkill', unit: 'U038', category: 'COMPANY_ROOT' },
+  { model: 'EngineerEligibilityPolicy', unit: 'U038', category: 'COMPANY_ROOT' },
+  { model: 'EngagementCapabilityRequirement', unit: 'U038', category: 'CHILD_VIA_FK' },
+  { model: 'EngineerAssignment', unit: 'U038', category: 'CHILD_VIA_FK' },
 ];
 
 export interface ReclassifiedModel {
@@ -248,6 +257,8 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   BuildRun: { model: 'BuildRun', category: 'PROJECT_ROOT' },
   Canvas: { model: 'Canvas', category: 'PROJECT_ROOT' },
   Cashflow: { model: 'Cashflow', category: 'COMPANY_ROOT' },
+  CertificationDefinition: { model: 'CertificationDefinition', category: 'COMPANY_ROOT' },
+  CertificationEvidence: { model: 'CertificationEvidence', category: 'CHILD_VIA_FK', parentModel: 'ArtifactVersion', relationField: 'artifactVersion', scalarFkField: 'artifactVersionId', nullable: false },
   ChangedFile: { model: 'ChangedFile', category: 'CHILD_VIA_FK', parentModel: 'CodeChange', relationField: 'codeChange', scalarFkField: 'codeChangeId', nullable: false },
   ChatMessage: { model: 'ChatMessage', category: 'CHILD_VIA_FK', parentModel: 'ChatSession', relationField: 'session', scalarFkField: 'sessionId', nullable: false },
   ChatSession: { model: 'ChatSession', category: 'COMPANY_ROOT' },
@@ -285,7 +296,11 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   DomainDecisionLog: { model: 'DomainDecisionLog', category: 'CHILD_VIA_FK', parentModel: 'Project', relationField: 'project', scalarFkField: 'projectId', nullable: false },
   DomainMemory: { model: 'DomainMemory', category: 'CHILD_VIA_FK', parentModel: 'Project', relationField: 'project', scalarFkField: 'projectId', nullable: false },
   Engagement: { model: 'Engagement', category: 'CHILD_VIA_FK', parentModel: 'Opportunity', relationField: 'opportunity', scalarFkField: 'opportunityId', nullable: false },
+  EngagementCapabilityRequirement: { model: 'EngagementCapabilityRequirement', category: 'CHILD_VIA_FK', parentModel: 'Engagement', relationField: 'engagement', scalarFkField: 'engagementId', nullable: false },
+  EngineerAssignment: { model: 'EngineerAssignment', category: 'CHILD_VIA_FK', parentModel: 'EngagementCapabilityRequirement', relationField: 'requirement', scalarFkField: 'requirementId', nullable: false },
   EngineerCertification: { model: 'EngineerCertification', category: 'COMPANY_ROOT' },
+  EngineerEligibilityPolicy: { model: 'EngineerEligibilityPolicy', category: 'COMPANY_ROOT' },
+  EngineerSkill: { model: 'EngineerSkill', category: 'COMPANY_ROOT' },
   ErrorEvent: { model: 'ErrorEvent', category: 'COMPANY_ROOT' },
   ExecutionPolicy: { model: 'ExecutionPolicy', category: 'COMPANY_ROOT' },
   Expense: { model: 'Expense', category: 'COMPANY_ROOT' },
@@ -635,15 +650,26 @@ export function deriveStructuralMismatches(
 ): ScopeInventoryError[] {
   const errors: ScopeInventoryError[] = [];
   const declared = new Map(entries.map((e) => [e.model, e]));
-  // Authority/actor models: a mandatory FK to one of these records WHO acted (a role assignment),
-  // not WHERE the row is scoped. A child's scope is never inherited through its creator/acceptor/
-  // owner assignment — that is attribution, per the assignment notes above (ownerAssignmentId/
-  // createdByAssignmentId are authority, not scope). Such edges are therefore excluded from the
-  // scope-root derivation below so a model can be an unambiguous CHILD_VIA_FK through its real
-  // scope chain even when it also carries a required actor FK. (U037 DeliveryAcceptance is the
-  // first model to require this: its mandatory acceptedByAssignmentId -> UserCompanyRole would
-  // otherwise add COMPANY_ROOT and make its engagement/quote/artifact PROJECT_ROOT chain ambiguous.)
-  const AUTHORITY_ACTOR_MODELS = new Set<string>(['UserCompanyRole']);
+  // Non-scope-parent models: a mandatory FK whose TARGET is one of these does NOT determine WHERE
+  // the row is scoped, so its edge is excluded from the scope-root derivation below. This lets a
+  // model be an unambiguous CHILD_VIA_FK through its real scope chain even when it also carries a
+  // required FK to one of these. Two distinct rationales, both "this target is not a scope parent":
+  //   - UserCompanyRole is an authority/actor: a mandatory FK to it records WHO acted (a role
+  //     assignment), not where scoped — attribution, per the assignment notes above
+  //     (ownerAssignmentId/createdByAssignmentId are authority, not scope). U037 DeliveryAcceptance
+  //     was the first to require this: its mandatory acceptedByAssignmentId -> UserCompanyRole would
+  //     otherwise add COMPANY_ROOT beside its engagement/quote/artifact PROJECT_ROOT chain.
+  //   - EngineerCertification is legacy credential history, not a scope authority for the evidence
+  //     that references it: U038 CertificationEvidence deliberately inherits scope only through its
+  //     mandatory ArtifactVersion -> Artifact -> Project closure (the dispatch's ArtifactVersion-only
+  //     rule); following the legacy certification link would manufacture a second COMPANY_ROOT. The
+  //     certification/artifact/verifier company agreement is enforced separately by the evidence
+  //     scope-guard trigger, not by structural scope inheritance. No other model scopes through
+  //     EngineerCertification, so excluding it here affects only CertificationEvidence.
+  const NON_SCOPE_PARENT_MODELS = new Set<string>([
+    'UserCompanyRole',
+    'EngineerCertification',
+  ]);
   const relationsByModel = new Map<string, DmmfRelationField[]>();
   for (const rel of dmmfRelations) {
     const list = relationsByModel.get(rel.model) ?? [];
@@ -682,8 +708,9 @@ export function deriveStructuralMismatches(
     const roots = new Set<RootCategory>();
     let sawGlobalOnly = mandatoryEdges.length === 0;
     for (const edge of mandatoryEdges) {
-      // Skip authority/actor FKs (who acted, not where scoped) — see AUTHORITY_ACTOR_MODELS above.
-      if (AUTHORITY_ACTOR_MODELS.has(edge.targetModel)) continue;
+      // Skip FKs whose target is not a scope parent (authority/actor or legacy credential) — see
+      // NON_SCOPE_PARENT_MODELS above.
+      if (NON_SCOPE_PARENT_MODELS.has(edge.targetModel)) continue;
       const targetResolved = resolve(edge.targetModel);
       if (targetResolved === 'GLOBAL_SHARED') {
         sawGlobalOnly = true;

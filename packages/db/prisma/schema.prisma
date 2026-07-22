@@ -1474,6 +1474,8 @@ model ArtifactVersion {
   sizingQuoteLineItems     QuoteLineItem[]       @relation("QuoteLineSizingArtifactVersion")
   submissionEvidenceVendorRequests VendorRequest[] @relation("VendorRequestSubmissionEvidenceArtifactVersion")
   deliveryAcceptances      DeliveryAcceptance[]  @relation("DeliveryAcceptanceArtifactVersion")
+  certificationEvidence    CertificationEvidence[] @relation("CertificationEvidenceArtifactVersion")
+  engineerSkills           EngineerSkill[] @relation("EngineerSkillSourceArtifactVersion")
 
   @@unique([artifactId, version], map: "artifact_versions_artifact_id_version_key")
   @@unique([artifactId, contentHashVersion, contentHash], map: "artifact_versions_content_hash_key")
@@ -2477,17 +2479,177 @@ model SupportSlaPolicy {
 }
 
 model EngineerCertification {
-  id           String   @id @default(cuid())
-  engineerId   String
-  productName  String
-  level        String?
-  issuedAt     DateTime?
-  expiresAt    DateTime?
-  isValid      Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  engineerId           String
+  productName          String
+  level                String?
+  issuedAt             DateTime?
+  expiresAt            DateTime?
+  isValid              Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  definitionId         String?  @map("definition_id")
+  engineerMembershipId String?  @map("engineer_membership_id")
+  status               String?
+  revokedAt            DateTime? @map("revoked_at")
+  revocationReason     String?  @map("revocation_reason")
+  revision             Int?
+
+  definition         CertificationDefinition? @relation("EngineerCertificationDefinition", fields: [definitionId], references: [id], onDelete: Restrict, map: "engineer_certifications_definition_id_fkey")
+  engineerMembership UserCompanyRole?         @relation("EngineerCertificationMembership", fields: [engineerMembershipId], references: [id], onDelete: Restrict, map: "engineer_certifications_engineer_membership_id_fkey")
+  evidence           CertificationEvidence[]
+
+  @@index([definitionId], map: "engineer_certifications_definition_id_idx")
+  @@index([engineerMembershipId], map: "engineer_certifications_engineer_membership_id_idx")
 
   @@map("engineer_certifications")
+}
+
+// U038 is schema-only. Eligibility evaluation and all assignment runtime remain deferred to U053.
+// Certification/evidence history is guarded in the formal migration; these types only expose the
+// durable relations without granting competence through an auth role.
+model CertificationDefinition {
+  id              String    @id @default(cuid())
+  companyId       String    @map("company_id")
+  key             String
+  name            String
+  vendorKey       String    @map("vendor_key")
+  productFamilyId String?   @map("product_family_id")
+  level           String?
+  issuer          String
+  validityDays    Int?      @map("validity_days")
+  status          String
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  company         Company        @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "certification_definitions_company_id_fkey")
+  productFamily   ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "certification_definitions_product_family_id_fkey")
+  certifications  EngineerCertification[] @relation("EngineerCertificationDefinition")
+  eligibilityPolicies EngineerEligibilityPolicy[] @relation("EligibilityPolicyCertificationDefinition")
+  capabilityRequirements EngagementCapabilityRequirement[] @relation("CapabilityRequirementCertificationDefinition")
+
+  @@unique([companyId, key], map: "certification_definitions_company_id_key_key")
+  @@index([productFamilyId], map: "certification_definitions_product_family_id_idx")
+  @@map("certification_definitions")
+}
+
+model CertificationEvidence {
+  id                     String   @id @default(cuid())
+  certificationId        String   @map("certification_id")
+  artifactVersionId      String   @map("artifact_version_id")
+  issuer                 String
+  externalReference      String?  @map("external_reference")
+  verifiedAt             DateTime @map("verified_at")
+  verifiedByAssignmentId String   @map("verified_by_assignment_id")
+  revokedAt              DateTime? @map("revoked_at")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  certification        EngineerCertification @relation(fields: [certificationId], references: [id], onDelete: Restrict, map: "certification_evidence_certification_id_fkey")
+  artifactVersion      ArtifactVersion       @relation("CertificationEvidenceArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "certification_evidence_artifact_version_id_fkey")
+  verifiedByAssignment UserCompanyRole       @relation("CertificationEvidenceVerifiedByAssignment", fields: [verifiedByAssignmentId], references: [id], onDelete: Restrict, map: "certification_evidence_verified_by_assignment_id_fkey")
+
+  @@index([certificationId], map: "certification_evidence_certification_id_idx")
+  @@index([artifactVersionId], map: "certification_evidence_artifact_version_id_idx")
+  @@index([verifiedByAssignmentId], map: "certification_evidence_verified_by_assignment_id_idx")
+  @@map("certification_evidence")
+}
+
+model EngineerSkill {
+  id                      String    @id @default(cuid())
+  companyId               String    @map("company_id")
+  engineerMembershipId    String    @map("engineer_membership_id")
+  productFamilyId         String    @map("product_family_id")
+  capabilityKey           String    @map("capability_key")
+  level                   Int
+  status                  String
+  sourceArtifactVersionId String?   @map("source_artifact_version_id")
+  verifiedAt              DateTime? @map("verified_at")
+  verifiedByAssignmentId  String?   @map("verified_by_assignment_id")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  company                Company          @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "engineer_skills_company_id_fkey")
+  engineerMembership     UserCompanyRole  @relation("EngineerSkillMembership", fields: [engineerMembershipId], references: [id], onDelete: Restrict, map: "engineer_skills_engineer_membership_id_fkey")
+  productFamily          ProductFamily    @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "engineer_skills_product_family_id_fkey")
+  sourceArtifactVersion  ArtifactVersion? @relation("EngineerSkillSourceArtifactVersion", fields: [sourceArtifactVersionId], references: [id], onDelete: Restrict, map: "engineer_skills_source_artifact_version_id_fkey")
+  verifiedByAssignment   UserCompanyRole? @relation("EngineerSkillVerifiedByAssignment", fields: [verifiedByAssignmentId], references: [id], onDelete: Restrict, map: "engineer_skills_verified_by_assignment_id_fkey")
+
+  @@index([companyId, engineerMembershipId], map: "engineer_skills_company_id_engineer_membership_id_idx")
+  @@index([productFamilyId], map: "engineer_skills_product_family_id_idx")
+  @@index([sourceArtifactVersionId], map: "engineer_skills_source_artifact_version_id_idx")
+  @@index([verifiedByAssignmentId], map: "engineer_skills_verified_by_assignment_id_idx")
+  @@map("engineer_skills")
+}
+
+model EngineerEligibilityPolicy {
+  id                        String    @id @default(cuid())
+  companyId                 String    @map("company_id")
+  key                       String
+  version                   Int
+  productFamilyId           String?   @map("product_family_id")
+  capabilityKey             String    @map("capability_key")
+  minimumSkillLevel         Int       @map("minimum_skill_level")
+  certificationDefinitionId String?   @map("certification_definition_id")
+  status                    String
+  contentHash               String    @map("content_hash")
+  effectiveAt               DateTime  @map("effective_at")
+  createdAt                 DateTime  @default(now()) @map("created_at")
+
+  company                 Company                  @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "engineer_eligibility_policies_company_id_fkey")
+  productFamily           ProductFamily?           @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "engineer_eligibility_policies_product_family_id_fkey")
+  certificationDefinition CertificationDefinition? @relation("EligibilityPolicyCertificationDefinition", fields: [certificationDefinitionId], references: [id], onDelete: Restrict, map: "engineer_eligibility_policies_certification_definition_id_fkey")
+  capabilityRequirements  EngagementCapabilityRequirement[]
+
+  @@unique([companyId, key, version], map: "engineer_eligibility_policies_company_id_key_version_key")
+  @@index([productFamilyId], map: "engineer_eligibility_policies_product_family_id_idx")
+  @@index([certificationDefinitionId], map: "engineer_eligibility_policies_certification_definition_id_idx")
+  @@map("engineer_eligibility_policies")
+}
+
+model EngagementCapabilityRequirement {
+  id                        String    @id @default(cuid())
+  engagementId              String    @map("engagement_id")
+  eligibilityPolicyId       String?   @map("eligibility_policy_id")
+  productFamilyId           String    @map("product_family_id")
+  capabilityKey             String    @map("capability_key")
+  minimumSkillLevel         Int       @map("minimum_skill_level")
+  certificationDefinitionId String?   @map("certification_definition_id")
+  headcount                 Int
+  createdAt                 DateTime  @default(now()) @map("created_at")
+
+  engagement              Engagement                 @relation("EngagementCapabilityRequirementEngagement", fields: [engagementId], references: [id], onDelete: Restrict, map: "engagement_capability_requirements_engagement_id_fkey")
+  eligibilityPolicy       EngineerEligibilityPolicy? @relation(fields: [eligibilityPolicyId], references: [id], onDelete: Restrict, map: "engagement_capability_requirements_eligibility_policy_id_fkey")
+  productFamily           ProductFamily              @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "engagement_capability_requirements_product_family_id_fkey")
+  certificationDefinition CertificationDefinition?   @relation("CapabilityRequirementCertificationDefinition", fields: [certificationDefinitionId], references: [id], onDelete: Restrict, map: "engagement_capability_requirements_cert_definition_id_fkey")
+  assignments             EngineerAssignment[]
+
+  @@index([engagementId], map: "engagement_capability_requirements_engagement_id_idx")
+  @@index([eligibilityPolicyId], map: "engagement_capability_requirements_eligibility_policy_id_idx")
+  @@index([productFamilyId], map: "engagement_capability_requirements_product_family_id_idx")
+  @@index([certificationDefinitionId], map: "engagement_capability_requirements_cert_definition_id_idx")
+  @@map("engagement_capability_requirements")
+}
+
+model EngineerAssignment {
+  id                      String    @id @default(cuid())
+  requirementId           String    @map("requirement_id")
+  engineerMembershipId    String    @map("engineer_membership_id")
+  status                  String
+  eligibilitySnapshotJson Json      @map("eligibility_snapshot_json")
+  eligibilitySnapshotHash String    @map("eligibility_snapshot_hash")
+  assignedByAssignmentId  String    @map("assigned_by_assignment_id")
+  assignedAt              DateTime  @map("assigned_at")
+  endedAt                 DateTime? @map("ended_at")
+  createdAt               DateTime  @default(now()) @map("created_at")
+
+  requirement          EngagementCapabilityRequirement @relation(fields: [requirementId], references: [id], onDelete: Restrict, map: "engineer_assignments_requirement_id_fkey")
+  engineerMembership   UserCompanyRole                 @relation("EngineerAssignmentMembership", fields: [engineerMembershipId], references: [id], onDelete: Restrict, map: "engineer_assignments_engineer_membership_id_fkey")
+  assignedByAssignment UserCompanyRole                 @relation("EngineerAssignmentAssignedByAssignment", fields: [assignedByAssignmentId], references: [id], onDelete: Restrict, map: "engineer_assignments_assigned_by_assignment_id_fkey")
+
+  @@unique([requirementId, engineerMembershipId], map: "engineer_assignments_requirement_id_engineer_membership_id_key")
+  @@index([engineerMembershipId], map: "engineer_assignments_engineer_membership_id_idx")
+  @@index([assignedByAssignmentId], map: "engineer_assignments_assigned_by_assignment_id_idx")
+  @@map("engineer_assignments")
 }
 
 model RenewalOpportunity {
@@ -2620,6 +2782,9 @@ model Company {
   workflowRuns        WorkflowRun[]
   auditLogs           AuditLog[]
   productFamilies     ProductFamily[]
+  certificationDefinitions CertificationDefinition[]
+  engineerSkills      EngineerSkill[]
+  engineerEligibilityPolicies EngineerEligibilityPolicy[]
 
   @@unique([tenantId, id], map: "companies_tenant_id_id_key")
   @@index([tenantId])
@@ -2708,6 +2873,12 @@ model UserCompanyRole {
   vendorRequestEvents        VendorRequestEvent[] @relation("VendorRequestEventActorAssignment")
   acceptedDeliveryAcceptances DeliveryAcceptance[] @relation("DeliveryAcceptanceAcceptedByAssignment")
   ownedRenewalOpportunities   RenewalOpportunity[] @relation("RenewalOpportunityOwnerAssignment")
+  engineerCertifications      EngineerCertification[] @relation("EngineerCertificationMembership")
+  verifiedCertificationEvidence CertificationEvidence[] @relation("CertificationEvidenceVerifiedByAssignment")
+  engineerSkills              EngineerSkill[] @relation("EngineerSkillMembership")
+  verifiedEngineerSkills      EngineerSkill[] @relation("EngineerSkillVerifiedByAssignment")
+  engineerAssignments         EngineerAssignment[] @relation("EngineerAssignmentMembership")
+  assignedEngineerAssignments EngineerAssignment[] @relation("EngineerAssignmentAssignedByAssignment")
 
   @@unique([userId, companyId, role])
   @@unique([id, companyId], map: "user_company_roles_id_company_id_key")
@@ -2802,6 +2973,10 @@ model ProductFamily {
   sizingTemplates SizingTemplate[]
   quoteLineItems  QuoteLineItem[]
   customerAssets  CustomerAsset[] @relation("CustomerAssetProductFamily")
+  certificationDefinitions CertificationDefinition[]
+  engineerSkills EngineerSkill[]
+  engineerEligibilityPolicies EngineerEligibilityPolicy[]
+  engagementCapabilityRequirements EngagementCapabilityRequirement[]
 
   @@unique([id, companyId], map: "product_families_id_company_id_key")
   @@index([companyId, status, archivedAt, updatedAt, id])
@@ -3271,6 +3446,7 @@ model Engagement {
   expenses           Expense[]
   taxInvoices        TaxInvoice[]
   deliveryAcceptances DeliveryAcceptance[] @relation("DeliveryAcceptanceEngagement")
+  capabilityRequirements EngagementCapabilityRequirement[] @relation("EngagementCapabilityRequirementEngagement")
 
   @@map("delivery_projects")
 }
