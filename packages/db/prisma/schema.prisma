@@ -63,6 +63,7 @@ model Project {
   approvalRequests   ApprovalRequest[]
   workflowDefinitions WorkflowDefinition[]
   workflowRuns        WorkflowRun[]
+  auditLogs           AuditLog[]
 
   // U012: companyId stays optional here (full NOT NULL is deferred to U073 — see
   // packages/db/src/scope-closure.ts) because a live legacy-null Project can be a genuinely
@@ -683,21 +684,53 @@ model OutboxEvent {
   @@map("outbox_events")
 }
 
+// U021/AUD-01b: scoped, concurrency-safe, append-only audit chain. Extends the pre-existing
+// AuditLog model only — no AuditChainHead/AuditScopeHead/sequence model (forbidden by the U021
+// contract). `tenantId` is always mandatory; `companyId`/`projectId` narrow the chain per
+// `scopeLevel`'s exact nullability matrix (TENANT: both null; COMPANY: companyId set, projectId
+// null; PROJECT: both set) — enforced by the named `audit_logs_scope_nullability_check` CHECK and
+// independently re-derived/verified by the `sangfor_audit_logs_scope_guard_trg` trigger (migration
+// 20260715210000), which also derives/verifies `chainScopeKey`. `previousHash`/`eventHash` are
+// required (non-null) 64-lowercase-hex once that migration's guarded legacy backfill completes;
+// `sequence` is a positive per-chain (`chainScopeKey`) counter, unique together with
+// `chainScopeKey`. `idempotencyKey` is an optional caller-supplied dedup key, unique together with
+// `chainScopeKey` when non-null via a partial index (not representable in this DSL — see the
+// migration). Append-only: UPDATE/DELETE are denied by
+// `sangfor_audit_logs_deny_update_trg`/`sangfor_audit_logs_deny_delete_trg` (reusing the existing
+// `sangfor_deny_mutation()` function from migration 20260715170000).
 model AuditLog {
-  id           String   @id @default(cuid())
+  id            String @id @default(cuid())
+  tenantId      String @map("tenant_id")
+  scopeLevel    String @map("scope_level")
+  companyId     String? @map("company_id")
+  projectId     String? @map("project_id")
+  chainScopeKey String @map("chain_scope_key")
+  sequence      Int
+
   eventType    String   @map("event_type")
   actorId      String?  @map("actor_id")
   resourceType String   @map("resource_type")
   resourceId   String?  @map("resource_id")
   details      Json?
-  previousHash String?  @map("previous_hash")
-  eventHash    String?  @map("event_hash")
-  timestamp    DateTime @default(now())
-  createdAt    DateTime @default(now()) @map("created_at")
 
+  previousHash   String  @map("previous_hash")
+  eventHash      String  @map("event_hash")
+  idempotencyKey String? @map("idempotency_key")
+
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "audit_logs_tenant_id_fkey")
+  // U012-compatible composite scope-closure FKs (companies_tenant_id_id_key /
+  // projects_company_id_id_key), same pattern as ApprovalRequest/Artifact/AuthSession.
+  company Company? @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "audit_logs_company_id_fkey")
+  project Project? @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "audit_logs_project_id_fkey")
+
+  @@unique([chainScopeKey, sequence])
   @@index([eventType, createdAt])
   @@index([actorId])
   @@index([resourceType, resourceId])
+  @@index([tenantId])
   @@map("audit_logs")
 }
 
@@ -2476,6 +2509,7 @@ model Tenant {
   approvalRequests ApprovalRequest[]
   workflowDefinitions WorkflowDefinition[]
   workflowRuns        WorkflowRun[]
+  auditLogs           AuditLog[]
 
   @@map("tenants")
 }
@@ -2497,6 +2531,7 @@ model Company {
   approvalRequests ApprovalRequest[]
   workflowDefinitions WorkflowDefinition[]
   workflowRuns        WorkflowRun[]
+  auditLogs           AuditLog[]
 
   @@unique([tenantId, id], map: "companies_tenant_id_id_key")
   @@index([tenantId])

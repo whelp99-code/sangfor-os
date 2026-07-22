@@ -154,6 +154,12 @@ export interface ReclassifiedModel {
  */
 export const RECLASSIFIED_MODELS: ReclassifiedModel[] = [
   { model: 'RoleChangeRequest', unit: 'U012', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
+  // U021/AUD-01b: AuditLog's tenantId becomes mandatory (every row is now scope-bound) while
+  // companyId/projectId only narrow the chain under the enforced scope-level matrix — exactly the
+  // CHILD_VIA_FK-vs-root reasoning above, but for TENANT_ROOT: a model carrying a real, always-set
+  // tenant identity is a root, not a child. Reclassified exactly once from its U010-baseline
+  // COMPANY_ROOT; no Prisma model is added or removed by this unit.
+  { model: 'AuditLog', unit: 'U021', fromCategory: 'COMPANY_ROOT', toCategory: 'TENANT_ROOT' },
 ];
 
 export function expectedCurrentModelCount(
@@ -203,7 +209,10 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   ArtifactAccessEvent: { model: 'ArtifactAccessEvent', category: 'COMPANY_ROOT' },
   ArtifactVersion: { model: 'ArtifactVersion', category: 'CHILD_VIA_FK', parentModel: 'Artifact', relationField: 'artifact', scalarFkField: 'artifactId', nullable: false },
   AssetLicense: { model: 'AssetLicense', category: 'CHILD_VIA_FK', parentModel: 'CustomerAsset', relationField: 'asset', scalarFkField: 'assetId', nullable: false },
-  AuditLog: { model: 'AuditLog', category: 'COMPANY_ROOT' },
+  // U021/AUD-01b: reclassified from COMPANY_ROOT to TENANT_ROOT (tenantId always mandatory) — see
+  // RECLASSIFIED_MODELS below; the RECLASSIFIED_MODELS entry is what documents the change, this is
+  // simply the model's one current entry (never counted under both categories).
+  AuditLog: { model: 'AuditLog', category: 'TENANT_ROOT' },
   AuthSession: { model: 'AuthSession', category: 'PROJECT_ROOT' },
   AutonomyPolicy: { model: 'AutonomyPolicy', category: 'COMPANY_ROOT' },
   BlockRegistry: { model: 'BlockRegistry', category: 'PROJECT_ROOT' },

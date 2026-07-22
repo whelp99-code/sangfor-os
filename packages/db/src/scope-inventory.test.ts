@@ -45,15 +45,15 @@ describe('classifyModel', () => {
 });
 
 describe('buildScopeInventoryReport — real inventory', () => {
-  it('reports ok with exact 161 / 13-1-32-48-67 tallies against its own model list (post-U012 RoleChangeRequest reclassification, post-U014 AuthSession registration, post-U017 Artifact/ArtifactVersion registration, post-U018 ApprovalDecision/ApprovalCurrentValidity registration, post-U019 WorkflowDefinition/WorkflowRun/WorkflowRunStep/WorkflowRunArtifact/WorkflowRunEvent registration)', () => {
+  it('reports ok with exact 161 / 13-2-31-48-67 tallies against its own model list (post-U012 RoleChangeRequest reclassification, post-U014 AuthSession registration, post-U017 Artifact/ArtifactVersion registration, post-U018 ApprovalDecision/ApprovalCurrentValidity registration, post-U019 WorkflowDefinition/WorkflowRun/WorkflowRunStep/WorkflowRunArtifact/WorkflowRunEvent registration, post-U021 AuditLog reclassification)', () => {
     const report = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
     expect(report.currentModelCount).toBe(161);
     expect(report.tallies).toEqual({
       GLOBAL_SHARED: 13,
-      TENANT_ROOT: 1,
-      COMPANY_ROOT: 32,
+      TENANT_ROOT: 2,
+      COMPANY_ROOT: 31,
       PROJECT_ROOT: 48,
       CHILD_VIA_FK: 67,
     });
@@ -108,11 +108,11 @@ describe('REGISTERED_ADDITIONS — U014 model registration', () => {
     });
   });
 
-  it('derives expected category counts as baseline plus all registered additions', () => {
+  it('derives expected category counts as baseline plus all registered additions and reclassifications (RoleChangeRequest + AuditLog)', () => {
     expect(expectedCategoryCounts()).toEqual({
       GLOBAL_SHARED: 13,
-      TENANT_ROOT: 1,
-      COMPANY_ROOT: 32,
+      TENANT_ROOT: 2,
+      COMPANY_ROOT: 31,
       PROJECT_ROOT: 48,
       CHILD_VIA_FK: 67,
     });
@@ -233,23 +233,26 @@ describe('REGISTERED_ADDITIONS — U019 model registration', () => {
   });
 });
 
-describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest reclassification', () => {
-  it('reclassifies exactly RoleChangeRequest from GLOBAL_SHARED to CHILD_VIA_FK for U012', () => {
+describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest + U021 AuditLog reclassifications', () => {
+  it('reclassifies exactly RoleChangeRequest (GLOBAL_SHARED -> CHILD_VIA_FK, U012) and AuditLog (COMPANY_ROOT -> TENANT_ROOT, U021), each exactly once', () => {
     expect(RECLASSIFIED_MODELS).toEqual([
       { model: 'RoleChangeRequest', unit: 'U012', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
+      { model: 'AuditLog', unit: 'U021', fromCategory: 'COMPANY_ROOT', toCategory: 'TENANT_ROOT' },
     ]);
   });
 
-  it('leaves SCOPE_INVENTORY_BASELINE immutable (RoleChangeRequest stays GLOBAL_SHARED in the historical baseline)', () => {
+  it('leaves SCOPE_INVENTORY_BASELINE immutable (RoleChangeRequest stays GLOBAL_SHARED and AuditLog stays COMPANY_ROOT in the historical baseline)', () => {
     expect(SCOPE_INVENTORY_BASELINE.categoryCounts.GLOBAL_SHARED).toBe(13);
     expect(SCOPE_INVENTORY_BASELINE.categoryCounts.CHILD_VIA_FK).toBe(60);
+    expect(SCOPE_INVENTORY_BASELINE.categoryCounts.TENANT_ROOT).toBe(1);
+    expect(SCOPE_INVENTORY_BASELINE.categoryCounts.COMPANY_ROOT).toBe(32);
   });
 
-  it('derives expected category counts as baseline plus the registered GLOBAL_SHARED/PROJECT_ROOT/CHILD_VIA_FK additions minus one reclassified GLOBAL_SHARED->CHILD_VIA_FK', () => {
+  it('derives expected category counts as baseline plus registered additions minus one reclassified GLOBAL_SHARED->CHILD_VIA_FK and one reclassified COMPANY_ROOT->TENANT_ROOT', () => {
     expect(expectedCategoryCounts()).toEqual({
       GLOBAL_SHARED: 13,
-      TENANT_ROOT: 1,
-      COMPANY_ROOT: 32,
+      TENANT_ROOT: 2,
+      COMPANY_ROOT: 31,
       PROJECT_ROOT: 48,
       CHILD_VIA_FK: 67,
     });
@@ -264,6 +267,16 @@ describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest reclassification', () =
       scalarFkField: 'companyId',
       nullable: false,
     });
+  });
+
+  it('classifies AuditLog as TENANT_ROOT in the live inventory (tenantId always mandatory; companyId/projectId only narrow the chain under the enforced scope-level matrix)', () => {
+    expect(classifyModel('AuditLog')).toEqual({ model: 'AuditLog', category: 'TENANT_ROOT' });
+  });
+
+  it('AuditLog is classified exactly once, as TENANT_ROOT — not double-counted with its historical COMPANY_ROOT class', () => {
+    const auditLogEntries = REAL_ENTRIES.filter((e) => e.model === 'AuditLog');
+    expect(auditLogEntries).toHaveLength(1);
+    expect(auditLogEntries[0]).toEqual({ model: 'AuditLog', category: 'TENANT_ROOT' });
   });
 });
 

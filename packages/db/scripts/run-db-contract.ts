@@ -75,7 +75,17 @@ const PURPOSE_U019 = 'workflow-schema';
 const OWNER_UNIT_U020 = 'U020';
 const PURPOSE_U020 = 'governance-bridge';
 
-const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema', 'governance-bridge']);
+// U021 — audit-chain suite (registered alongside U011-U020 above; those suites' functions/fixtures
+// are untouched reuse, see the U021 dispatch file boundary — this unit only adds the `audit-chain`
+// allow-listed suite and its own scenarios below). Unlike U020's empty migration, U021's
+// (20260715210000_harden_scoped_audit_chain) does real DDL + a guarded legacy backfill, so it needs
+// the SAME exclusion treatment as U012-U019 in makeTempPrismaCopy/makeThroughU011PrismaCopy/
+// listMigrationsThroughU010 below.
+const NEW_MIGRATION_NAME_U021 = '20260715210000_harden_scoped_audit_chain';
+const OWNER_UNIT_U021 = 'U021';
+const PURPOSE_U021 = 'audit-chain';
+
+const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema', 'governance-bridge', 'audit-chain']);
 
 const EXIT = Object.freeze({
   SUCCESS: 0,
@@ -220,6 +230,11 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
     // from this pre-U011 prefix too.
     const targetU019 = join(dir, 'migrations', NEW_MIGRATION_NAME_U019);
     if (existsSync(targetU019)) rmSync(targetU019, { recursive: true, force: true });
+    // U021's migration depends on U012's composite unique keys (companies/projects) for its
+    // composite FKs and does real DDL/backfill (unlike U020's empty migration), so it stays
+    // excluded from this pre-U011 prefix too.
+    const targetU021 = join(dir, 'migrations', NEW_MIGRATION_NAME_U021);
+    if (existsSync(targetU021)) rmSync(targetU021, { recursive: true, force: true });
   }
   return dir;
 }
@@ -256,6 +271,10 @@ function makeThroughU011PrismaCopy(label: string): string {
   // prefix too.
   const targetU019 = join(dir, 'migrations', NEW_MIGRATION_NAME_U019);
   if (existsSync(targetU019)) rmSync(targetU019, { recursive: true, force: true });
+  // Same reasoning as makeTempPrismaCopy above: keep U021's migration out of this through-U011
+  // prefix too.
+  const targetU021 = join(dir, 'migrations', NEW_MIGRATION_NAME_U021);
+  if (existsSync(targetU021)) rmSync(targetU021, { recursive: true, force: true });
   return dir;
 }
 
@@ -675,8 +694,21 @@ function listMigrationsThroughU010(): string[] {
         name !== NEW_MIGRATION_NAME_U016 &&
         name !== NEW_MIGRATION_NAME_U017 &&
         name !== NEW_MIGRATION_NAME_U018 &&
-        name !== NEW_MIGRATION_NAME_U019,
+        name !== NEW_MIGRATION_NAME_U019 &&
+        name !== NEW_MIGRATION_NAME_U021,
     )
+    .sort();
+}
+
+/** Every real migration EXCEPT U021's own — the exact formal migration prefix "through U020" the
+ * U021 legacy-upgrade lane deploys BEFORE loading the pre-U021 fixture (U021 dispatch: "the exact
+ * formal migration prefix through U020"). Computed from disk (not a fixed unit list): U021 is
+ * currently the newest migration, so this is simply every directory except U021's own. */
+function listMigrationsThroughU020(): string[] {
+  return readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .filter((name) => name !== NEW_MIGRATION_NAME_U021)
     .sort();
 }
 
@@ -3879,6 +3911,679 @@ async function runGovernanceBridgeSuite(evidenceDir: string): Promise<number> {
   return EXIT.SUCCESS;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// U021 — audit-chain suite. Two disjoint lanes (U021 dispatch "Implementation and acceptance"):
+// a fresh lane (the complete migration chain, through 20260715210000_harden_scoped_audit_chain,
+// deployed on an empty scratch database) and a legacy-upgrade lane (the formal migration prefix
+// through U020, then packages/db/tests/fixtures/audit-chain-legacy.sql while genuinely pre-U021,
+// then only U021's migration, so its backfill/scope-derivation/hashing/immutability-freeze observes
+// real legacy rows). Verification independently reconstructs sangfor.audit-chain/v1 bytes with this
+// package's own canonicalizeRfc8785 (packages/db/src/canonical-content-hash.ts) rather than
+// importing packages/business/src/governance/audit-chain.ts — packages/db has no dependency on
+// packages/business, and two independent implementations of the same byte spec agreeing with what
+// PostgreSQL itself computed is stronger evidence than one implementation checking itself.
+// ─────────────────────────────────────────────────────────────────────────
+
+const AUDIT_CHAIN_VERSION = 'sangfor.audit-chain/v1';
+const AUDIT_CHAIN_ZERO_HASH = '0'.repeat(64);
+
+const AUDIT_CHAIN_FRESH_FIXTURE_SQL = `INSERT INTO tenants (id, name, slug, status, created_at) VALUES
+  ('u021-fresh-tenant-1', 'U021 Fresh Tenant', 'u021-fresh-tenant-1', 'active', now());
+
+INSERT INTO companies (id, tenant_id, name, slug, created_at) VALUES
+  ('u021-fresh-company-1', 'u021-fresh-tenant-1', 'U021 Fresh Company', 'u021-fresh-company-1', now());
+
+INSERT INTO projects (id, slug, name, company_id, created_at, updated_at) VALUES
+  ('u021-fresh-project-1', 'u021-fresh-project-1', 'U021 Fresh Project', 'u021-fresh-company-1', now(), now());
+`;
+
+function auditChainSqlString(value: string | null): string {
+  return value === null ? 'NULL' : `'${value.replace(/'/g, "''")}'`;
+}
+
+function auditChainSqlJsonb(value: unknown): string {
+  if (value === null || value === undefined) return 'NULL';
+  return `'${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`;
+}
+
+interface AuditChainRowSpec {
+  id: string;
+  tenantId: string;
+  scopeLevel: 'TENANT' | 'COMPANY' | 'PROJECT';
+  companyId: string | null;
+  projectId: string | null;
+  chainScopeKey: string;
+  sequence: number;
+  previousHash: string;
+  eventType: string;
+  actorId: string | null;
+  resourceType: string;
+  resourceId: string | null;
+  details: unknown;
+  /** `YYYY-MM-DD HH:MI:SS.mmm` — a PostgreSQL `TIMESTAMP` literal. */
+  timestampLiteral: string;
+  idempotencyKey?: string | null;
+  /** Deliberately wrong event_hash, for negative tests only — never set for a row expected to pass the guard triggers. */
+  eventHashOverride?: string;
+}
+
+/** Builds one `audit_logs` INSERT statement, computing `event_hash` the same way
+ * `sangfor_audit_logs_hash_guard_trg` (migration 20260715210000) independently recomputes it:
+ * probe the row's own stored `timestamp` through the exact `to_char(... AT TIME ZONE 'UTC', ...)`
+ * formula first (never a JS-side date format, which could drift from the server's session
+ * timezone), then hash the RFC 8785 JCS bytes of the fixed 10-field envelope via this package's own
+ * `canonicalizeRfc8785` — a genuinely independent (JS, not SQL) computation of the same spec the
+ * trigger enforces in PL/pgSQL. Does not execute the statement — callers use it for both a positive
+ * insert (`insertAuditChainRow`) and a deliberately-tampered negative `attemptQaInsert`. */
+async function buildAuditChainInsertSql(
+  containerName: string,
+  conn: { user: string; password: string; database: string },
+  canonicalize: (value: unknown) => string,
+  spec: AuditChainRowSpec,
+): Promise<{ sql: string; eventHash: string; occurredAt: string }> {
+  const occurredAt = await execSql(containerName, conn, `SELECT to_char(TIMESTAMP '${spec.timestampLiteral}' AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"');`);
+  const envelopeValue = {
+    actorId: spec.actorId,
+    chainScopeKey: spec.chainScopeKey,
+    details: spec.details ?? null,
+    eventType: spec.eventType,
+    occurredAt,
+    previousHash: spec.previousHash,
+    resourceId: spec.resourceId,
+    resourceType: spec.resourceType,
+    scope: { companyId: spec.companyId, level: spec.scopeLevel, projectId: spec.projectId, tenantId: spec.tenantId },
+    sequence: spec.sequence,
+    version: AUDIT_CHAIN_VERSION,
+  };
+  const computedHash = createHash('sha256').update(Buffer.from(canonicalize(envelopeValue), 'utf8')).digest('hex');
+  const eventHash = spec.eventHashOverride ?? computedHash;
+  const sql = `INSERT INTO audit_logs (id, tenant_id, scope_level, company_id, project_id, chain_scope_key, sequence, event_type, actor_id, resource_type, resource_id, details, previous_hash, event_hash, idempotency_key, "timestamp", created_at) VALUES (${auditChainSqlString(spec.id)}, ${auditChainSqlString(spec.tenantId)}, ${auditChainSqlString(spec.scopeLevel)}, ${auditChainSqlString(spec.companyId)}, ${auditChainSqlString(spec.projectId)}, ${auditChainSqlString(spec.chainScopeKey)}, ${spec.sequence}, ${auditChainSqlString(spec.eventType)}, ${auditChainSqlString(spec.actorId)}, ${auditChainSqlString(spec.resourceType)}, ${auditChainSqlString(spec.resourceId)}, ${auditChainSqlJsonb(spec.details)}, ${auditChainSqlString(spec.previousHash)}, ${auditChainSqlString(eventHash)}, ${auditChainSqlString(spec.idempotencyKey ?? null)}, TIMESTAMP '${spec.timestampLiteral}', now());`;
+  return { sql, eventHash, occurredAt };
+}
+
+async function insertAuditChainRow(
+  containerName: string,
+  conn: { user: string; password: string; database: string },
+  canonicalize: (value: unknown) => string,
+  spec: AuditChainRowSpec,
+): Promise<{ id: string; chainScopeKey: string; sequence: number; eventHash: string }> {
+  const { sql, eventHash } = await buildAuditChainInsertSql(containerName, conn, canonicalize, spec);
+  await execSql(containerName, conn, sql);
+  return { id: spec.id, chainScopeKey: spec.chainScopeKey, sequence: spec.sequence, eventHash };
+}
+
+interface AuditChainPersistedRow {
+  id: string;
+  chainScopeKey: string;
+  sequence: number;
+  tenantId: string;
+  companyId: string | null;
+  projectId: string | null;
+  scopeLevel: 'TENANT' | 'COMPANY' | 'PROJECT';
+  eventType: string;
+  actorId: string | null;
+  resourceType: string;
+  resourceId: string | null;
+  details: unknown;
+  previousHash: string;
+  eventHash: string;
+  occurredAt: string;
+}
+
+/** Reads back every `audit_logs` row as one JSON array (never TSV — `details` is arbitrary JSON and
+ * must round-trip exactly), with `occurredAt` re-derived server-side via the same `to_char(...)`
+ * formula the migration/triggers use, so the value this function returns for a given row is
+ * byte-identical to what PostgreSQL itself used when it validated that row. */
+async function fetchAuditChainRows(containerName: string, conn: { user: string; password: string; database: string }): Promise<AuditChainPersistedRow[]> {
+  const json = await execSql(
+    containerName,
+    conn,
+    `SELECT COALESCE(json_agg(row_to_json(t) ORDER BY t."chainScopeKey", t.sequence), '[]'::json) FROM (
+       SELECT id, chain_scope_key AS "chainScopeKey", sequence, tenant_id AS "tenantId", company_id AS "companyId",
+              project_id AS "projectId", scope_level AS "scopeLevel", event_type AS "eventType", actor_id AS "actorId",
+              resource_type AS "resourceType", resource_id AS "resourceId", details,
+              previous_hash AS "previousHash", event_hash AS "eventHash",
+              to_char("timestamp" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "occurredAt"
+       FROM audit_logs
+     ) t;`,
+  );
+  return JSON.parse(json) as AuditChainPersistedRow[];
+}
+
+interface AuditChainVerification {
+  ok: boolean;
+  chains: number;
+  rows: number;
+  errors: string[];
+}
+
+/** Independently reconstructs every row's exact `sangfor.audit-chain/v1` bytes, partitions by
+ * `chainScopeKey`, and orders by `sequence` — never by timestamp (U021 contract point 3). A second,
+ * from-scratch implementation of the same verification `packages/business/src/governance/
+ * audit-chain.ts`'s `verifyAuditChainRows` performs — this one never imports that module. */
+function verifyAuditChainRowsIndependently(rows: AuditChainPersistedRow[], canonicalize: (value: unknown) => string): AuditChainVerification {
+  const errors: string[] = [];
+  const byScope = new Map<string, AuditChainPersistedRow[]>();
+  for (const row of rows) {
+    const list = byScope.get(row.chainScopeKey) ?? [];
+    list.push(row);
+    byScope.set(row.chainScopeKey, list);
+  }
+  for (const [chainScopeKey, chainRows] of byScope) {
+    const ordered = [...chainRows].sort((a, b) => a.sequence - b.sequence);
+    let previousHash = AUDIT_CHAIN_ZERO_HASH;
+    let expectedSequence = 1;
+    for (const row of ordered) {
+      if (row.sequence !== expectedSequence) errors.push(`${chainScopeKey}: expected sequence ${expectedSequence}, got ${row.sequence}`);
+      if (row.previousHash !== previousHash) errors.push(`${chainScopeKey}: sequence ${row.sequence} previousHash ${row.previousHash} !== expected predecessor ${previousHash}`);
+      const envelopeValue = {
+        actorId: row.actorId,
+        chainScopeKey: row.chainScopeKey,
+        details: row.details ?? null,
+        eventType: row.eventType,
+        occurredAt: row.occurredAt,
+        previousHash: row.previousHash,
+        resourceId: row.resourceId,
+        resourceType: row.resourceType,
+        scope: { companyId: row.companyId, level: row.scopeLevel, projectId: row.projectId, tenantId: row.tenantId },
+        sequence: row.sequence,
+        version: AUDIT_CHAIN_VERSION,
+      };
+      const recomputed = createHash('sha256').update(Buffer.from(canonicalize(envelopeValue), 'utf8')).digest('hex');
+      if (recomputed !== row.eventHash) errors.push(`${chainScopeKey}: sequence ${row.sequence} eventHash ${row.eventHash} !== recomputed ${recomputed}`);
+      previousHash = row.eventHash;
+      expectedSequence += 1;
+    }
+  }
+  return { ok: errors.length === 0, chains: byScope.size, rows: rows.length, errors };
+}
+
+/** Runs one UPDATE/DELETE directly (never wrapped in a caught DO block) so the raw PostgreSQL error
+ * text is available to assert against — proves the rejection is specifically the named
+ * `sangfor_deny_mutation()` append-only error (ERRCODE 0A000, message containing "append-only"),
+ * the same text `audit-db.integration.test.ts` asserts via `.rejects.toThrow(/append-only/i)`. */
+async function attemptDirectMutationRejection(containerName: string, conn: { user: string; password: string; database: string }, label: string, sql: string): Promise<string> {
+  const r = await spawnCapture(
+    ['docker', 'exec', '-i', '-e', `PGPASSWORD=${conn.password}`, containerName, 'psql', '-h', '127.0.0.1', '-U', conn.user, '-d', conn.database, '-v', 'ON_ERROR_STOP=1', '-c', sql],
+    sanitizedEnv({}),
+  );
+  if (r.code === 0) throw new ContractFailure(EXIT.CONTRACT, `${label}: expected the named append-only DB error but the statement succeeded`);
+  if (!/append-only/i.test(r.stderr)) throw new ContractFailure(EXIT.CONTRACT, `${label}: statement was rejected but the error text did not name "append-only": ${r.stderr}`);
+  const errorLine = r.stderr.split('\n').find((line) => /ERROR/i.test(line)) ?? r.stderr.trim();
+  return `[invalid] ${label}: ${errorLine.trim()}`;
+}
+
+async function runAuditChainFreshScenario(evidenceDir: string, runId: string) {
+  const evidence: Record<string, unknown> = {};
+  const scenarioEvidenceDir = join(evidenceDir, 'fresh-scenario');
+
+  await withIsolatedPostgres(
+    { runId, ownerUnit: OWNER_UNIT_U021, purpose: `${PURPOSE_U021}-fresh`, evidenceDir: scenarioEvidenceDir, imageDigest: IMAGE_DIGEST, migrate: true },
+    async (ctx: any) => {
+      const conn = parseConn(ctx.databaseUrl);
+      const cch = await import('../src/canonical-content-hash.ts');
+      const canonicalize = cch.canonicalizeRfc8785;
+
+      await execSql(ctx.containerName, conn, AUDIT_CHAIN_FRESH_FIXTURE_SQL);
+
+      const u021ColumnCount = await execSql(
+        ctx.containerName,
+        conn,
+        `SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'audit_logs' AND column_name IN ('tenant_id', 'scope_level', 'chain_scope_key', 'sequence', 'idempotency_key');`,
+      );
+      if (u021ColumnCount !== '5') throw new ContractFailure(EXIT.CONTRACT, `fresh lane: expected all 5 U021 audit_logs columns after migrate:true deploy, found ${u021ColumnCount}`);
+      evidence.u021ColumnsPresent = true;
+
+      // ---- two independent chains: TENANT scope, PROJECT scope ----
+      const tenantScope = { tenantId: 'u021-fresh-tenant-1', companyId: null as string | null, projectId: null as string | null, scopeLevel: 'TENANT' as const };
+      const projectScope = { tenantId: 'u021-fresh-tenant-1', companyId: 'u021-fresh-company-1', projectId: 'u021-fresh-project-1', scopeLevel: 'PROJECT' as const };
+
+      const inserted: Array<{ id: string; chainScopeKey: string; sequence: number; eventHash: string }> = [];
+      let tenantPrev = AUDIT_CHAIN_ZERO_HASH;
+      for (let seq = 1; seq <= 2; seq++) {
+        const row = await insertAuditChainRow(ctx.containerName, conn, canonicalize, {
+          id: `u021-fresh-tenant-row-${seq}`,
+          tenantId: tenantScope.tenantId,
+          scopeLevel: tenantScope.scopeLevel,
+          companyId: tenantScope.companyId,
+          projectId: tenantScope.projectId,
+          chainScopeKey: 'tenant:u021-fresh-tenant-1',
+          sequence: seq,
+          previousHash: tenantPrev,
+          eventType: 'fresh.probe',
+          actorId: `user-${seq}`,
+          resourceType: 'demo',
+          resourceId: `fresh-res-${seq}`,
+          details: { seq },
+          timestampLiteral: `2026-07-01 00:0${seq}:00.000`,
+        });
+        tenantPrev = row.eventHash;
+        inserted.push(row);
+      }
+
+      let projectPrev = AUDIT_CHAIN_ZERO_HASH;
+      for (let seq = 1; seq <= 2; seq++) {
+        const row = await insertAuditChainRow(ctx.containerName, conn, canonicalize, {
+          id: `u021-fresh-project-row-${seq}`,
+          tenantId: projectScope.tenantId,
+          scopeLevel: projectScope.scopeLevel,
+          companyId: projectScope.companyId,
+          projectId: projectScope.projectId,
+          chainScopeKey: 'project:u021-fresh-tenant-1:u021-fresh-company-1:u021-fresh-project-1',
+          sequence: seq,
+          previousHash: projectPrev,
+          eventType: 'fresh.probe',
+          actorId: `user-${seq}`,
+          resourceType: 'demo',
+          resourceId: `fresh-res-p-${seq}`,
+          details: { seq },
+          timestampLiteral: `2026-07-01 00:1${seq}:00.000`,
+        });
+        projectPrev = row.eventHash;
+        inserted.push(row);
+      }
+
+      const idemRow = await insertAuditChainRow(ctx.containerName, conn, canonicalize, {
+        id: 'u021-fresh-tenant-row-3-idem',
+        tenantId: tenantScope.tenantId,
+        scopeLevel: tenantScope.scopeLevel,
+        companyId: tenantScope.companyId,
+        projectId: tenantScope.projectId,
+        chainScopeKey: 'tenant:u021-fresh-tenant-1',
+        sequence: 3,
+        previousHash: tenantPrev,
+        eventType: 'idempotent.probe',
+        actorId: 'user-idem',
+        resourceType: 'demo',
+        resourceId: 'fresh-res-idem',
+        details: null,
+        timestampLiteral: '2026-07-01 00:20:00.000',
+        idempotencyKey: 'u021-fresh-idem-1',
+      });
+      tenantPrev = idemRow.eventHash;
+      inserted.push(idemRow);
+      writeFileSync(join(scenarioEvidenceDir, 'fresh-inserts.json'), `${JSON.stringify(inserted, null, 2)}\n`);
+      evidence.freshInsertCount = inserted.length;
+
+      // ---- negative: the guard triggers/unique indexes reject a malformed row, never silently accept it ----
+      const negativeLines: string[] = [];
+
+      const { sql: dupIdemSql } = await buildAuditChainInsertSql(ctx.containerName, conn, canonicalize, {
+        id: 'u021-fresh-tenant-row-4-dup-idem',
+        tenantId: tenantScope.tenantId,
+        scopeLevel: tenantScope.scopeLevel,
+        companyId: tenantScope.companyId,
+        projectId: tenantScope.projectId,
+        chainScopeKey: 'tenant:u021-fresh-tenant-1',
+        sequence: 4,
+        previousHash: tenantPrev,
+        eventType: 'idempotent.probe',
+        actorId: 'user-idem',
+        resourceType: 'demo',
+        resourceId: 'fresh-res-idem-dup',
+        details: null,
+        timestampLiteral: '2026-07-01 00:21:00.000',
+        idempotencyKey: 'u021-fresh-idem-1',
+      });
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, { label: 'duplicate (chain_scope_key, idempotency_key) rejected', expect: 'reject', sql: dupIdemSql }));
+
+      const { sql: correctNextSql, eventHash: correctNextHash } = await buildAuditChainInsertSql(ctx.containerName, conn, canonicalize, {
+        id: 'u021-fresh-project-row-3-tampered',
+        tenantId: projectScope.tenantId,
+        scopeLevel: projectScope.scopeLevel,
+        companyId: projectScope.companyId,
+        projectId: projectScope.projectId,
+        chainScopeKey: 'project:u021-fresh-tenant-1:u021-fresh-company-1:u021-fresh-project-1',
+        sequence: 3,
+        previousHash: projectPrev,
+        eventType: 'tamper.probe',
+        actorId: 'user-tamper',
+        resourceType: 'demo',
+        resourceId: 'fresh-res-tamper',
+        details: null,
+        timestampLiteral: '2026-07-01 00:22:00.000',
+      });
+      const tamperedHash = correctNextHash.slice(0, -1) + (correctNextHash.endsWith('0') ? '1' : '0');
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, { label: 'tampered event_hash rejected', expect: 'reject', sql: correctNextSql.replace(`'${correctNextHash}'`, `'${tamperedHash}'`) }));
+
+      const { sql: badGenesisSql } = await buildAuditChainInsertSql(ctx.containerName, conn, canonicalize, {
+        id: 'u021-fresh-company-row-1-bad-genesis',
+        tenantId: 'u021-fresh-tenant-1',
+        scopeLevel: 'COMPANY',
+        companyId: 'u021-fresh-company-1',
+        projectId: null,
+        chainScopeKey: 'company:u021-fresh-tenant-1:u021-fresh-company-1',
+        sequence: 1,
+        previousHash: 'a'.repeat(64),
+        eventType: 'genesis.probe',
+        actorId: null,
+        resourceType: 'demo',
+        resourceId: null,
+        details: null,
+        timestampLiteral: '2026-07-01 00:23:00.000',
+      });
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, { label: 'non-zero genesis previous_hash rejected', expect: 'reject', sql: badGenesisSql }));
+
+      const { sql: badPredecessorSql } = await buildAuditChainInsertSql(ctx.containerName, conn, canonicalize, {
+        id: 'u021-fresh-project-row-3-bad-predecessor',
+        tenantId: projectScope.tenantId,
+        scopeLevel: projectScope.scopeLevel,
+        companyId: projectScope.companyId,
+        projectId: projectScope.projectId,
+        chainScopeKey: 'project:u021-fresh-tenant-1:u021-fresh-company-1:u021-fresh-project-1',
+        sequence: 3,
+        previousHash: 'b'.repeat(64),
+        eventType: 'predecessor.probe',
+        actorId: null,
+        resourceType: 'demo',
+        resourceId: null,
+        details: null,
+        timestampLiteral: '2026-07-01 00:24:00.000',
+      });
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, { label: 'predecessor hash mismatch rejected', expect: 'reject', sql: badPredecessorSql }));
+
+      const { sql: badNullabilitySql } = await buildAuditChainInsertSql(ctx.containerName, conn, canonicalize, {
+        id: 'u021-fresh-tenant-row-nullability',
+        tenantId: 'u021-fresh-tenant-1',
+        scopeLevel: 'TENANT',
+        companyId: 'u021-fresh-company-1',
+        projectId: null,
+        chainScopeKey: 'tenant:u021-fresh-tenant-1:nullability-probe',
+        sequence: 1,
+        previousHash: AUDIT_CHAIN_ZERO_HASH,
+        eventType: 'nullability.probe',
+        actorId: null,
+        resourceType: 'demo',
+        resourceId: null,
+        details: null,
+        timestampLiteral: '2026-07-01 00:25:00.000',
+      });
+      negativeLines.push(await attemptQaInsert(ctx.containerName, conn, { label: 'TENANT scope with non-null company_id rejected', expect: 'reject', sql: badNullabilitySql }));
+      writeFileSync(join(scenarioEvidenceDir, 'trigger-negative.log'), `${negativeLines.join('\n')}\n`);
+      evidence.negativeChecks = negativeLines.length;
+
+      // ---- immutability: PostgreSQL itself rejects UPDATE/DELETE against canonical audit rows ----
+      const immutabilityLines: string[] = [];
+      immutabilityLines.push(await attemptDirectMutationRejection(ctx.containerName, conn, 'UPDATE audit_logs denied (append-only)', `UPDATE audit_logs SET event_type = 'tampered' WHERE id = 'u021-fresh-tenant-row-1';`));
+      immutabilityLines.push(await attemptDirectMutationRejection(ctx.containerName, conn, 'DELETE audit_logs denied (append-only)', `DELETE FROM audit_logs WHERE id = 'u021-fresh-tenant-row-1';`));
+      writeFileSync(join(scenarioEvidenceDir, 'immutability.log'), `${immutabilityLines.join('\n')}\n`);
+      evidence.immutabilityChecks = immutabilityLines.length;
+
+      // ---- independent chain verification ----
+      const rows = await fetchAuditChainRows(ctx.containerName, conn);
+      writeFileSync(
+        join(scenarioEvidenceDir, 'chain-projection.json'),
+        `${JSON.stringify(rows.map((r) => ({ chainScopeKey: r.chainScopeKey, sequence: r.sequence, previousHash: r.previousHash, eventHash: r.eventHash })), null, 2)}\n`,
+      );
+      const verification = verifyAuditChainRowsIndependently(rows, canonicalize);
+      writeFileSync(join(scenarioEvidenceDir, 'chain-verification.json'), `${JSON.stringify(verification, null, 2)}\n`);
+      if (!verification.ok || verification.chains !== 2 || verification.rows !== 5) {
+        throw new ContractFailure(EXIT.CONTRACT, `fresh lane: chain verification failed: ${JSON.stringify(verification)}`);
+      }
+      evidence.chainVerification = { ok: verification.ok, chains: verification.chains, rows: verification.rows };
+
+      // ---- trigger definitions (real surface QA) ----
+      const triggerDefs = await execSqlTsv(ctx.containerName, conn, `SELECT tgname, pg_get_triggerdef(oid) FROM pg_trigger WHERE tgrelid = 'audit_logs'::regclass AND NOT tgisinternal ORDER BY tgname;`);
+      writeFileSync(join(scenarioEvidenceDir, 'trigger-definitions.tsv'), triggerDefs);
+      const triggerNames = triggerDefs
+        .trim()
+        .split('\n')
+        .filter((line) => /^sangfor_audit_logs_/.test(line));
+      if (triggerNames.length !== 4) throw new ContractFailure(EXIT.CONTRACT, `fresh lane: expected 4 audit_logs triggers, found ${triggerNames.length}: ${triggerDefs}`);
+      evidence.triggerCount = triggerNames.length;
+
+      // ---- reproducible deploy + empty schema diff ----
+      const schemaPath = join(REAL_PRISMA_DIR, 'schema.prisma');
+      const redeploy = await runWorkspaceMigrateDeploy(ctx.migrationDatabaseUrl, schemaPath);
+      if (redeploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy re-run was not reproducible: ${redeploy.stderr || redeploy.stdout}`);
+      const diff = await runMigrateDiff(ctx.migrationDatabaseUrl);
+      const diffText = diff.stdout.trim();
+      const isEmptyDiff = diff.code === 0 && (diffText.length === 0 || diffText === '-- This is an empty migration.');
+      writeFileSync(join(scenarioEvidenceDir, 'migration-diff.sql'), '');
+      if (!isEmptyDiff) throw new ContractFailure(EXIT.CONTRACT, `schema diff not empty after fresh migrate deploy: exit=${diff.code} stdout=${diff.stdout}`);
+      evidence.emptySchemaDiff = true;
+
+      // ---- scope:check via the UNMODIFIED checker — dynamic currentModelCount===inventoryModelCount, never a hard-pinned count ----
+      const scopeCheck = await runScopeCheck();
+      if (scopeCheck.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed: ${scopeCheck.stdout}\n${scopeCheck.stderr}`);
+      const scopeCheckJson = JSON.parse(scopeCheck.stdout);
+      if (scopeCheckJson.currentModelCount !== scopeCheckJson.inventoryModelCount || scopeCheckJson.ok !== true) {
+        throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true with schema matching the canonical inventory: ${scopeCheck.stdout}`);
+      }
+      writeFileSync(join(scenarioEvidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
+      evidence.scopeCheck = { currentModelCount: scopeCheckJson.currentModelCount, ok: scopeCheckJson.ok, tallies: scopeCheckJson.tallies };
+
+      return evidence;
+    },
+  );
+
+  return evidence;
+}
+
+async function runAuditChainLegacyScenario(evidenceDir: string, runId: string) {
+  const evidence: Record<string, unknown> = {};
+  let view: MigrationView | null = null;
+  const scenarioEvidenceDir = join(evidenceDir, 'legacy-scenario');
+
+  try {
+    await withIsolatedPostgres(
+      { runId, ownerUnit: OWNER_UNIT_U021, purpose: `${PURPOSE_U021}-legacy`, evidenceDir: scenarioEvidenceDir, imageDigest: IMAGE_DIGEST, migrate: false },
+      async (ctx: any) => {
+        const conn = parseConn(ctx.databaseUrl);
+        const cch = await import('../src/canonical-content-hash.ts');
+        const canonicalize = cch.canonicalizeRfc8785;
+        const throughU020 = listMigrationsThroughU020();
+
+        view = buildReadOnlyMigrationView('audit-legacy', throughU020);
+        verifyViewIntegrity(view, throughU020);
+        evidence.viewMembershipThroughU020 = { ...view.membership };
+
+        const genPrefix = await runWorkspaceGenerate(join(REAL_PRISMA_DIR, 'schema.prisma'));
+        if (genPrefix.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `generate failed: ${genPrefix.stderr || genPrefix.stdout}`);
+
+        const deployPrefix = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (deployPrefix.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (through U020, symlink view) failed: ${deployPrefix.stderr || deployPrefix.stdout}`);
+        evidence.deployThroughU020 = { migrated: true, migrationCount: throughU020.length };
+
+        // Prove the database is genuinely pre-U021 BEFORE the fixture loads: deploying U021/full
+        // chain before the fixture, or loading the fixture after U021, is a runner error per the
+        // dispatch.
+        const preU021ColumnCount = await execSql(
+          ctx.containerName,
+          conn,
+          `SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'audit_logs' AND column_name IN ('tenant_id', 'scope_level', 'chain_scope_key', 'sequence', 'idempotency_key');`,
+        );
+        if (preU021ColumnCount !== '0') throw new ContractFailure(EXIT.CONTRACT, `legacy lane: expected zero U021 audit_logs columns before the fixture load, found ${preU021ColumnCount}`);
+        evidence.genuinelyPreU021 = true;
+
+        // ---- load the legacy fixture strictly between the U020-prefix deploy and adding U021's
+        // migration symlink, so U021's backfill observes real pre-existing rows ----
+        const fixturePath = join(DB_PKG_ROOT, 'tests/fixtures/audit-chain-legacy.sql');
+        const fixtureBytes = readFileSync(fixturePath);
+        const fixtureSha256 = createHash('sha256').update(fixtureBytes).digest('hex');
+        await execSql(ctx.containerName, conn, fixtureBytes.toString('utf8'));
+
+        const fixtureRowHashes = await execSqlTsv(
+          ctx.containerName,
+          conn,
+          `SELECT id, encode(digest(convert_to(id || '|' || event_type || '|' || coalesce(resource_type, '') || '|' || coalesce(resource_id, '') || '|' || "timestamp"::text, 'UTF8'), 'sha256'), 'hex') FROM audit_logs ORDER BY id;`,
+        );
+        writeFileSync(join(scenarioEvidenceDir, 'legacy-fixture-row-hashes.tsv'), fixtureRowHashes);
+        const fixtureRowCount = await execSql(ctx.containerName, conn, `SELECT count(*) FROM audit_logs;`);
+        evidence.fixtureLoad = { fileSha256: fixtureSha256, rowCount: Number(fixtureRowCount) };
+        writeFileSync(join(scenarioEvidenceDir, 'legacy-fixture-load.json'), `${JSON.stringify(evidence.fixtureLoad, null, 2)}\n`);
+        if (fixtureRowCount !== '7') throw new ContractFailure(EXIT.CONTRACT, `legacy lane: expected the 7-row audit-chain-legacy.sql fixture, loaded ${fixtureRowCount}`);
+
+        // ---- add only U021's migration and deploy: its backfill/scope-derivation/hashing/freeze
+        // must observe these already-loaded legacy rows ----
+        addMigrationToView(view, NEW_MIGRATION_NAME_U021);
+        verifyViewIntegrity(view, [...throughU020, NEW_MIGRATION_NAME_U021]);
+        evidence.viewMembershipWithU021 = { ...view.membership };
+
+        const genFull = await runWorkspaceGenerate(join(REAL_PRISMA_DIR, 'schema.prisma'));
+        if (genFull.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `generate (full schema) failed: ${genFull.stderr || genFull.stdout}`);
+
+        const deployU021 = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (deployU021.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (+U021, symlink view) failed: ${deployU021.stderr || deployU021.stdout}`);
+        evidence.deployU021 = { migrated: true };
+
+        // ---- backfill/hash verification, including the exact tie-break the fixture is designed to
+        // prove (aud-log-tenant-a/aud-log-tenant-b share one timestamp, inserted out of id order) ----
+        const rows = await fetchAuditChainRows(ctx.containerName, conn);
+        writeFileSync(
+          join(scenarioEvidenceDir, 'legacy-backfill-chain.json'),
+          `${JSON.stringify(rows.map((r) => ({ id: r.id, chainScopeKey: r.chainScopeKey, sequence: r.sequence, previousHash: r.previousHash, eventHash: r.eventHash })), null, 2)}\n`,
+        );
+        const verification = verifyAuditChainRowsIndependently(rows, canonicalize);
+        writeFileSync(join(scenarioEvidenceDir, 'legacy-chain-verification.json'), `${JSON.stringify(verification, null, 2)}\n`);
+        if (!verification.ok || verification.chains !== 4 || verification.rows !== 7) {
+          throw new ContractFailure(EXIT.CONTRACT, `legacy lane: backfilled chain verification failed: ${JSON.stringify(verification)}`);
+        }
+        const tenantA = rows.find((r) => r.id === 'aud-log-tenant-a');
+        const tenantB = rows.find((r) => r.id === 'aud-log-tenant-b');
+        if (tenantA?.sequence !== 1 || tenantB?.sequence !== 2) {
+          throw new ContractFailure(
+            EXIT.CONTRACT,
+            `legacy lane: expected the id-COLLATE-"C" tie-break (aud-log-tenant-a=seq1, aud-log-tenant-b=seq2), got a=${tenantA?.sequence} b=${tenantB?.sequence}`,
+          );
+        }
+        evidence.legacyTieBreakByIdCollateC = true;
+        evidence.chainVerification = { ok: verification.ok, chains: verification.chains, rows: verification.rows };
+
+        // ---- named CHECK/FK constraints (validated) + the two unique indexes ----
+        const constraintTsv = await execSqlTsv(
+          ctx.containerName,
+          conn,
+          `SELECT conname, contype, convalidated FROM pg_constraint WHERE conrelid = 'audit_logs'::regclass AND conname IN (
+             'audit_logs_scope_level_check','audit_logs_scope_nullability_check','audit_logs_sequence_positive_check',
+             'audit_logs_event_hash_format_check','audit_logs_previous_hash_format_check',
+             'audit_logs_tenant_id_fkey','audit_logs_company_id_fkey','audit_logs_project_id_fkey'
+           ) ORDER BY conname;`,
+        );
+        writeFileSync(join(scenarioEvidenceDir, 'legacy-constraints.tsv'), constraintTsv);
+        const constraintRows = constraintTsv
+          .trim()
+          .split('\n')
+          .filter((line) => /^\S+\t[a-z]\t[tf]$/.test(line));
+        if (constraintRows.length !== 8) throw new ContractFailure(EXIT.CONTRACT, `legacy lane: expected exactly 8 named CHECK/FK constraints on audit_logs, got ${constraintRows.length}: ${constraintTsv}`);
+        for (const line of constraintRows) {
+          const [name, , validated] = line.split('\t');
+          if (validated !== 't') throw new ContractFailure(EXIT.CONTRACT, `legacy lane: constraint ${name} is not convalidated=true`);
+        }
+        const uniqueIndexTsv = await execSqlTsv(
+          ctx.containerName,
+          conn,
+          `SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'audit_logs' AND indexname IN ('audit_logs_chain_scope_key_sequence_key', 'audit_logs_chain_scope_key_idempotency_key_key') ORDER BY indexname;`,
+        );
+        const uniqueIndexRows = uniqueIndexTsv
+          .trim()
+          .split('\n')
+          .filter((line) => /^audit_logs_/.test(line));
+        if (uniqueIndexRows.length !== 2) throw new ContractFailure(EXIT.CONTRACT, `legacy lane: expected both audit_logs unique indexes, got ${uniqueIndexRows.length}: ${uniqueIndexTsv}`);
+        evidence.namedConstraintsAndIndexes = { checkAndFkCount: constraintRows.length, uniqueIndexCount: uniqueIndexRows.length };
+
+        // ---- immutability freeze OBSERVES the legacy-backfilled rows too, not only fresh inserts ----
+        const immutabilityLines: string[] = [];
+        immutabilityLines.push(await attemptDirectMutationRejection(ctx.containerName, conn, 'UPDATE of a legacy-backfilled row denied (append-only)', `UPDATE audit_logs SET event_type = 'tampered' WHERE id = 'aud-log-tenant-a';`));
+        immutabilityLines.push(await attemptDirectMutationRejection(ctx.containerName, conn, 'DELETE of a legacy-backfilled row denied (append-only)', `DELETE FROM audit_logs WHERE id = 'aud-log-tenant-a';`));
+        writeFileSync(join(scenarioEvidenceDir, 'legacy-immutability.log'), `${immutabilityLines.join('\n')}\n`);
+        evidence.immutabilityChecks = immutabilityLines.length;
+
+        // ---- reproducible deploy + empty schema diff (U021 is currently the migration tip, so the
+        // view now equals the complete canonical migration set) ----
+        const redeploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (redeploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy re-run was not reproducible: ${redeploy.stderr || redeploy.stdout}`);
+        evidence.migrateDeployReproducible = true;
+
+        const diff = await runMigrateDiff(ctx.databaseUrl);
+        const diffText = diff.stdout.trim();
+        const isEmptyDiff = diff.code === 0 && (diffText.length === 0 || diffText === '-- This is an empty migration.');
+        writeFileSync(join(scenarioEvidenceDir, 'migration-diff.sql'), '');
+        if (!isEmptyDiff) throw new ContractFailure(EXIT.CONTRACT, `legacy lane: schema diff not empty after full deploy: exit=${diff.code} stdout=${diff.stdout}`);
+        evidence.emptySchemaDiff = true;
+
+        // ---- scope:check via the UNMODIFIED checker — dynamic form, never a hard-pinned count ----
+        const scopeCheck = await runScopeCheck();
+        if (scopeCheck.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `scope:check failed: ${scopeCheck.stdout}\n${scopeCheck.stderr}`);
+        const scopeCheckJson = JSON.parse(scopeCheck.stdout);
+        if (scopeCheckJson.currentModelCount !== scopeCheckJson.inventoryModelCount || scopeCheckJson.ok !== true) {
+          throw new ContractFailure(EXIT.CONTRACT, `scope:check did not report ok=true with schema matching the canonical inventory: ${scopeCheck.stdout}`);
+        }
+        writeFileSync(join(scenarioEvidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
+        evidence.scopeCheck = { currentModelCount: scopeCheckJson.currentModelCount, ok: scopeCheckJson.ok, tallies: scopeCheckJson.tallies };
+
+        return evidence;
+      },
+    );
+  } finally {
+    if (view) {
+      const viewDirToRemove = (view as MigrationView).dir;
+      rmSync(viewDirToRemove, { recursive: true, force: true });
+      const canonicalLockHash = sha256File(join(REAL_PRISMA_DIR, 'migrations', 'migration_lock.toml'));
+      const recordedLockHash = (evidence.viewMembershipWithU021 as Record<string, string> | undefined)?.['migration_lock.toml'];
+      evidence.viewRemovedInFinally = true;
+      evidence.canonicalMigrationLockUntouchedAfterCleanup = recordedLockHash === undefined ? null : canonicalLockHash === recordedLockHash;
+    }
+  }
+
+  return evidence;
+}
+
+async function runAuditChainSuite(evidenceDir: string): Promise<number> {
+  const runId = `u021${Date.now().toString(36)}`;
+  const startedAt = new Date().toISOString();
+
+  let caughtError: unknown = null;
+  let freshEvidence: Record<string, unknown> | null = null;
+  let legacyEvidence: Record<string, unknown> | null = null;
+  try {
+    freshEvidence = await runAuditChainFreshScenario(evidenceDir, runId);
+    legacyEvidence = await runAuditChainLegacyScenario(evidenceDir, runId);
+  } catch (error) {
+    caughtError = error;
+  }
+
+  const [freshCounts, legacyCounts] = await Promise.all([
+    labelResourceCounts(runId, OWNER_UNIT_U021, `${PURPOSE_U021}-fresh`),
+    labelResourceCounts(runId, OWNER_UNIT_U021, `${PURPOSE_U021}-legacy`),
+  ]);
+  const totalCounts = {
+    containers: freshCounts.containers + legacyCounts.containers,
+    networks: freshCounts.networks + legacyCounts.networks,
+    volumes: freshCounts.volumes + legacyCounts.volumes,
+  };
+  const cleanupOk = totalCounts.containers === 0 && totalCounts.networks === 0 && totalCounts.volumes === 0;
+  const cleanup = {
+    schemaVersion: 1,
+    unit: OWNER_UNIT_U021,
+    purpose: PURPOSE_U021,
+    runId,
+    postgres: totalCounts,
+    http: null,
+    httpReason: 'U021 db:contract is a DB-only append-only audit-chain suite — neither the fresh nor the legacy-upgrade lane starts an HTTP server or any other process to tear down here.',
+    childProcesses: 0,
+    result: cleanupOk ? 'PASS' : 'FAIL',
+    startedAt,
+    finishedAt: new Date().toISOString(),
+  };
+  writeFileSync(join(evidenceDir, 'cleanup.json'), `${JSON.stringify(cleanup, null, 2)}\n`);
+
+  if (!cleanupOk) {
+    process.stderr.write(`run-db-contract: cleanup verification failed: ${JSON.stringify(cleanup)}\n`);
+    return EXIT.CLEANUP;
+  }
+  if (caughtError) {
+    process.stderr.write(`${caughtError instanceof Error ? (caughtError.stack ?? caughtError.message) : String(caughtError)}\n`);
+    return caughtError instanceof ContractFailure ? caughtError.exitCode : EXIT.CONTRACT;
+  }
+
+  writeFileSync(
+    join(evidenceDir, 'db-contract-receipt.json'),
+    `${JSON.stringify({ schemaVersion: 1, unit: OWNER_UNIT_U021, suite: 'audit-chain', result: 'PASS', freshEvidence, legacyEvidence, cleanup, startedAt, finishedAt: new Date().toISOString() }, null, 2)}\n`,
+  );
+  return EXIT.SUCCESS;
+}
+
 async function main(): Promise<number> {
   let args;
   try {
@@ -3897,6 +4602,7 @@ async function main(): Promise<number> {
   if (args.suite === 'artifact-schema') return runArtifactSchemaSuite(args.evidence);
   if (args.suite === 'approval-schema') return runApprovalSchemaSuite(args.evidence);
   if (args.suite === 'governance-bridge') return runGovernanceBridgeSuite(args.evidence);
+  if (args.suite === 'audit-chain') return runAuditChainSuite(args.evidence);
   return runWorkflowSchemaSuite(args.evidence);
 }
 
