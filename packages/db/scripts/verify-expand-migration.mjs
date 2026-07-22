@@ -14,7 +14,7 @@ const IMAGE_DIGEST = 'sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58f
 const SUITES = new Map([
   ['crm-owner-guards', 'src/schema-contracts/crm-domain-schema.integration.test.ts'],
   ['vendor-owner-guards', 'src/schema-contracts/vendor-domain-schema.integration.test.ts'],
-  ['renewal-owner-guards', 'src/schema-contracts/renewal-domain-schema.integration.test.ts'],
+  ['renewal-owner-guards', 'src/schema-contracts/delivery-lifecycle-schema.integration.test.ts'],
   ['support-owner-guards', 'src/schema-contracts/support-domain-schema.integration.test.ts'],
   ['commercial-history-guards', 'src/schema-contracts/commercial-domain-schema.integration.test.ts'],
   ['people-credential-guards', 'src/schema-contracts/people-domain-schema.integration.test.ts'],

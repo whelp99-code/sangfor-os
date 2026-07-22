@@ -154,6 +154,12 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   // vendorRequestId is deliberately not the scope basis because VendorRequest.customerId stays
   // nullable during the expand phase; do not classify through that optional chain.
   { model: 'DemoLicense', unit: 'U036', category: 'CHILD_VIA_FK' },
+  // U037: DeliveryAcceptance inherits its only scope through mandatory engagementId; its quote,
+  // artifact-version, and accepting-assignment relations are immutable provenance/attribution.
+  { model: 'DeliveryAcceptance', unit: 'U037', category: 'CHILD_VIA_FK' },
+  // U037: RenewalReminderEvent inherits through mandatory renewalOpportunityId; work-task and
+  // notification links are nullable internal projections, never alternate scope roots.
+  { model: 'RenewalReminderEvent', unit: 'U037', category: 'CHILD_VIA_FK' },
 ];
 
 export interface ReclassifiedModel {
@@ -271,6 +277,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   DealQualification: { model: 'DealQualification', category: 'CHILD_VIA_FK', parentModel: 'Opportunity', relationField: 'opportunity', scalarFkField: 'opportunityId', nullable: false },
   DealRegistration: { model: 'DealRegistration', category: 'CHILD_VIA_FK', parentModel: 'Opportunity', relationField: 'opportunity', scalarFkField: 'opportunityId', nullable: false },
   DeliveryChecklistItem: { model: 'DeliveryChecklistItem', category: 'CHILD_VIA_FK', parentModel: 'Engagement', relationField: 'delivery', scalarFkField: 'deliveryId', nullable: false },
+  DeliveryAcceptance: { model: 'DeliveryAcceptance', category: 'CHILD_VIA_FK', parentModel: 'Engagement', relationField: 'engagement', scalarFkField: 'engagementId', nullable: false },
   DiscountRequest: { model: 'DiscountRequest', category: 'CHILD_VIA_FK', parentModel: 'Quote', relationField: 'quote', scalarFkField: 'quoteId', nullable: false },
   DemoLicense: { model: 'DemoLicense', category: 'CHILD_VIA_FK', parentModel: 'Customer', relationField: 'customer', scalarFkField: 'customerId', nullable: false },
   DocumentTemplate: { model: 'DocumentTemplate', category: 'PROJECT_ROOT' },
@@ -339,6 +346,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   QuoteLineItem: { model: 'QuoteLineItem', category: 'CHILD_VIA_FK', parentModel: 'Quote', relationField: 'quote', scalarFkField: 'quoteId', nullable: false },
   QuoteServiceLineItem: { model: 'QuoteServiceLineItem', category: 'CHILD_VIA_FK', parentModel: 'Opportunity', relationField: 'opportunity', scalarFkField: 'opportunityId', nullable: false },
   RenewalOpportunity: { model: 'RenewalOpportunity', category: 'CHILD_VIA_FK', parentModel: 'Customer', relationField: 'customer', scalarFkField: 'customerId', nullable: false },
+  RenewalReminderEvent: { model: 'RenewalReminderEvent', category: 'CHILD_VIA_FK', parentModel: 'RenewalOpportunity', relationField: 'renewalOpportunity', scalarFkField: 'renewalOpportunityId', nullable: false },
   Report: { model: 'Report', category: 'CHILD_VIA_FK', parentModel: 'ValidationResult', relationField: 'validationResult', scalarFkField: 'validationResultId', nullable: false },
   Repository: { model: 'Repository', category: 'COMPANY_ROOT' },
   ReviewThread: { model: 'ReviewThread', category: 'PROJECT_ROOT' },
@@ -627,6 +635,15 @@ export function deriveStructuralMismatches(
 ): ScopeInventoryError[] {
   const errors: ScopeInventoryError[] = [];
   const declared = new Map(entries.map((e) => [e.model, e]));
+  // Authority/actor models: a mandatory FK to one of these records WHO acted (a role assignment),
+  // not WHERE the row is scoped. A child's scope is never inherited through its creator/acceptor/
+  // owner assignment — that is attribution, per the assignment notes above (ownerAssignmentId/
+  // createdByAssignmentId are authority, not scope). Such edges are therefore excluded from the
+  // scope-root derivation below so a model can be an unambiguous CHILD_VIA_FK through its real
+  // scope chain even when it also carries a required actor FK. (U037 DeliveryAcceptance is the
+  // first model to require this: its mandatory acceptedByAssignmentId -> UserCompanyRole would
+  // otherwise add COMPANY_ROOT and make its engagement/quote/artifact PROJECT_ROOT chain ambiguous.)
+  const AUTHORITY_ACTOR_MODELS = new Set<string>(['UserCompanyRole']);
   const relationsByModel = new Map<string, DmmfRelationField[]>();
   for (const rel of dmmfRelations) {
     const list = relationsByModel.get(rel.model) ?? [];
@@ -665,6 +682,8 @@ export function deriveStructuralMismatches(
     const roots = new Set<RootCategory>();
     let sawGlobalOnly = mandatoryEdges.length === 0;
     for (const edge of mandatoryEdges) {
+      // Skip authority/actor FKs (who acted, not where scoped) — see AUTHORITY_ACTOR_MODELS above.
+      if (AUTHORITY_ACTOR_MODELS.has(edge.targetModel)) continue;
       const targetResolved = resolve(edge.targetModel);
       if (targetResolved === 'GLOBAL_SHARED') {
         sawGlobalOnly = true;

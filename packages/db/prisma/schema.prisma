@@ -983,6 +983,7 @@ model WorkTask {
   ownerAssignment UserCompanyRole? @relation("WorkTaskOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: SetNull)
   links    TaskLink[]
   statusEvents TaskStatusEvent[]
+  renewalReminderEvents RenewalReminderEvent[] @relation("RenewalReminderEventWorkTask")
 
   @@index([projectId, status])
   @@index([projectId, archivedAt, updatedAt, id])
@@ -1163,6 +1164,7 @@ model Opportunity {
   vendorRequests  VendorRequest[]
   engagement      Engagement?
   dealRegistration DealRegistration?
+  renewalOpportunities RenewalOpportunity[] @relation("RenewalOpportunityOpportunity")
 
   @@index([projectId, stage])
   @@index([projectId, archivedAt, updatedAt, id])
@@ -1471,6 +1473,7 @@ model ArtifactVersion {
   provenanceQuotes         Quote[]               @relation("QuoteArtifactVersion")
   sizingQuoteLineItems     QuoteLineItem[]       @relation("QuoteLineSizingArtifactVersion")
   submissionEvidenceVendorRequests VendorRequest[] @relation("VendorRequestSubmissionEvidenceArtifactVersion")
+  deliveryAcceptances      DeliveryAcceptance[]  @relation("DeliveryAcceptanceArtifactVersion")
 
   @@unique([artifactId, version], map: "artifact_versions_artifact_id_version_key")
   @@unique([artifactId, contentHashVersion, contentHash], map: "artifact_versions_content_hash_key")
@@ -2434,16 +2437,29 @@ model CustomerAsset {
   purchaseDate DateTime? @map("purchase_date")
   warrantyEnd DateTime? @map("warranty_end")
   metadata    Json?
+  deliveryAcceptanceId  String?   @map("delivery_acceptance_id")
+  sourceQuoteLineItemId String?   @map("source_quote_line_item_id")
+  productFamilyId       String?   @map("product_family_id")
+  productSkuId          String?   @map("product_sku_id")
+  installedAt           DateTime? @map("installed_at")
+  activationReference   String?   @map("activation_reference")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deliveryAcceptance DeliveryAcceptance? @relation("CustomerAssetDeliveryAcceptance", fields: [deliveryAcceptanceId], references: [id], onDelete: Restrict, map: "customer_assets_delivery_acceptance_id_fkey")
+  sourceQuoteLineItem QuoteLineItem? @relation("CustomerAssetSourceQuoteLineItem", fields: [sourceQuoteLineItemId], references: [id], onDelete: Restrict, map: "customer_assets_source_quote_line_item_id_fkey")
+  productFamily ProductFamily? @relation("CustomerAssetProductFamily", fields: [productFamilyId], references: [id], onDelete: Restrict, map: "customer_assets_product_family_id_fkey")
+  productSku ProductSku? @relation("CustomerAssetProductSku", fields: [productSkuId], references: [id], onDelete: Restrict, map: "customer_assets_product_sku_id_fkey")
 
   assetLicenses        AssetLicense[]
   subscriptions        Subscription[]
   maintenanceContracts MaintenanceContract[]
+  renewalOpportunities RenewalOpportunity[] @relation("RenewalOpportunityAsset")
 
   @@index([customerId])
+  @@index([deliveryAcceptanceId], map: "customer_assets_delivery_acceptance_id_idx")
+  @@index([sourceQuoteLineItemId], map: "customer_assets_source_quote_line_item_id_idx")
   @@map("customer_assets")
 }
 
@@ -2478,20 +2494,55 @@ model RenewalOpportunity {
   id          String    @id @default(cuid())
   customerId  String    @map("customer_id")
   assetId     String?   @map("asset_id")
+  subscriptionId String? @unique(map: "renewal_opportunities_subscription_id_key") @map("subscription_id")
+  opportunityId String?  @map("opportunity_id")
   renewalType String    @map("renewal_type")
   amount      Decimal?  @db.Decimal(12, 2)
   status      String    @default("pending")
   expiresAt   DateTime? @map("expires_at")
+  renewalDueAt DateTime? @map("renewal_due_at")
   renewedAt   DateTime? @map("renewed_at")
   notes       String?
+  ownerAssignmentId String? @map("owner_assignment_id")
+  ownershipRevision Int @default(0) @map("ownership_revision")
+  idempotencyKey String? @map("idempotency_key")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict, map: "renewal_opportunities_customer_id_fkey")
+  asset CustomerAsset? @relation("RenewalOpportunityAsset", fields: [assetId], references: [id], onDelete: Restrict, map: "renewal_opportunities_asset_id_fkey")
+  subscription Subscription? @relation("RenewalOpportunitySubscription", fields: [subscriptionId], references: [id], onDelete: Restrict, map: "renewal_opportunities_subscription_id_fkey")
+  opportunity Opportunity? @relation("RenewalOpportunityOpportunity", fields: [opportunityId], references: [id], onDelete: Restrict, map: "renewal_opportunities_opportunity_id_fkey")
+  ownerAssignment UserCompanyRole? @relation("RenewalOpportunityOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: Restrict, map: "renewal_opportunities_owner_assignment_id_fkey")
+  reminderEvents RenewalReminderEvent[] @relation("RenewalReminderEventOpportunity")
 
   @@index([customerId])
   @@index([status])
+  @@index([assetId], map: "renewal_opportunities_asset_id_idx")
+  @@index([subscriptionId], map: "renewal_opportunities_subscription_id_idx")
+  @@index([opportunityId], map: "renewal_opportunities_opportunity_id_idx")
+  @@index([ownerAssignmentId, ownershipRevision], map: "renewal_opportunities_owner_assignment_revision_idx")
+  @@index([idempotencyKey], map: "renewal_opportunities_idempotency_key_idx")
   @@map("renewal_opportunities")
+}
+
+model RenewalReminderEvent {
+  id                    String   @id @default(cuid())
+  renewalOpportunityId  String   @map("renewal_opportunity_id")
+  thresholdDays         Int      @map("threshold_days")
+  idempotencyKey        String   @map("idempotency_key")
+  workTaskId            String?  @map("work_task_id")
+  notificationEventId   String?  @map("notification_event_id")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  renewalOpportunity RenewalOpportunity @relation("RenewalReminderEventOpportunity", fields: [renewalOpportunityId], references: [id], onDelete: Restrict, map: "renewal_reminder_events_renewal_opportunity_id_fkey")
+  workTask           WorkTask?          @relation("RenewalReminderEventWorkTask", fields: [workTaskId], references: [id], onDelete: Restrict, map: "renewal_reminder_events_work_task_id_fkey")
+  notificationEvent  NotificationEvent? @relation("RenewalReminderEventNotification", fields: [notificationEventId], references: [id], onDelete: Restrict, map: "renewal_reminder_events_notification_event_id_fkey")
+
+  @@unique([renewalOpportunityId, thresholdDays], map: "renewal_reminder_events_opportunity_threshold_key")
+  @@index([workTaskId], map: "renewal_reminder_events_work_task_id_idx")
+  @@index([notificationEventId], map: "renewal_reminder_events_notification_event_id_idx")
+  @@map("renewal_reminder_events")
 }
 
 // --- AI Quality Gate models ---
@@ -2655,6 +2706,8 @@ model UserCompanyRole {
   requestedVendorRequests    VendorRequest[]      @relation("VendorRequestRequestedByAssignment")
   ownedVendorRequests        VendorRequest[]      @relation("VendorRequestOwnerAssignment")
   vendorRequestEvents        VendorRequestEvent[] @relation("VendorRequestEventActorAssignment")
+  acceptedDeliveryAcceptances DeliveryAcceptance[] @relation("DeliveryAcceptanceAcceptedByAssignment")
+  ownedRenewalOpportunities   RenewalOpportunity[] @relation("RenewalOpportunityOwnerAssignment")
 
   @@unique([userId, companyId, role])
   @@unique([id, companyId], map: "user_company_roles_id_company_id_key")
@@ -2748,6 +2801,7 @@ model ProductFamily {
   licenseMetrics  LicenseMetric[]
   sizingTemplates SizingTemplate[]
   quoteLineItems  QuoteLineItem[]
+  customerAssets  CustomerAsset[] @relation("CustomerAssetProductFamily")
 
   @@unique([id, companyId], map: "product_families_id_company_id_key")
   @@index([companyId, status, archivedAt, updatedAt, id])
@@ -2802,6 +2856,7 @@ model ProductSku {
   assetLicenses            AssetLicense[]
   subscriptions            Subscription[]
   demoLicenses             DemoLicense[]
+  customerAssets           CustomerAsset[]       @relation("CustomerAssetProductSku")
 
   @@index([editionId])
   @@index([editionId, status, archivedAt, updatedAt, id])
@@ -2982,6 +3037,7 @@ model Quote {
   commercialSnapshot QuoteCommercialSnapshot?
   discountRequests   DiscountRequest[]
   vendorRequests     VendorRequest[]
+  deliveryAcceptances DeliveryAcceptance[] @relation("DeliveryAcceptanceQuote")
 
   @@index([opportunityId])
   @@index([companyId, status])
@@ -3037,6 +3093,9 @@ model QuoteLineItem {
   productEdition        ProductEdition?       @relation(fields: [productEditionId], references: [id], onDelete: Restrict, map: "quote_line_items_product_edition_id_fkey")
   licenseMetric         LicenseMetric?        @relation(fields: [licenseMetricId], references: [id], onDelete: Restrict, map: "quote_line_items_license_metric_id_fkey")
   sizingArtifactVersion ArtifactVersion?      @relation("QuoteLineSizingArtifactVersion", fields: [sizingArtifactVersionId], references: [id], onDelete: Restrict, map: "quote_line_items_sizing_artifact_version_id_fkey")
+  customerAssets        CustomerAsset[]       @relation("CustomerAssetSourceQuoteLineItem")
+  assetLicenses         AssetLicense[]        @relation("AssetLicenseSourceQuoteLineItem")
+  subscriptions         Subscription[]        @relation("SubscriptionSourceQuoteLineItem")
 
   @@index([quoteId])
   @@index([skuId])
@@ -3211,8 +3270,36 @@ model Engagement {
   invoices           Invoice[]
   expenses           Expense[]
   taxInvoices        TaxInvoice[]
+  deliveryAcceptances DeliveryAcceptance[] @relation("DeliveryAcceptanceEngagement")
 
   @@map("delivery_projects")
+}
+
+// Immutable, idempotent acceptance evidence. Runtime projection is intentionally deferred to U051.
+model DeliveryAcceptance {
+  id                     String   @id @default(cuid())
+  engagementId           String   @unique(map: "delivery_acceptances_engagement_id_key") @map("engagement_id")
+  quoteId                String   @map("quote_id")
+  artifactVersionId      String   @map("artifact_version_id")
+  acceptedByAssignmentId String   @map("accepted_by_assignment_id")
+  acceptedAt             DateTime @map("accepted_at")
+  acceptanceHash         String   @map("acceptance_hash")
+  snapshotJson           Json     @map("snapshot_json")
+  idempotencyKey         String   @unique(map: "delivery_acceptances_idempotency_key_key") @map("idempotency_key")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  engagement           Engagement      @relation("DeliveryAcceptanceEngagement", fields: [engagementId], references: [id], onDelete: Restrict, map: "delivery_acceptances_engagement_id_fkey")
+  quote                Quote           @relation("DeliveryAcceptanceQuote", fields: [quoteId], references: [id], onDelete: Restrict, map: "delivery_acceptances_quote_id_fkey")
+  artifactVersion      ArtifactVersion @relation("DeliveryAcceptanceArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "delivery_acceptances_artifact_version_id_fkey")
+  acceptedByAssignment UserCompanyRole @relation("DeliveryAcceptanceAcceptedByAssignment", fields: [acceptedByAssignmentId], references: [id], onDelete: Restrict, map: "delivery_acceptances_accepted_by_assignment_id_fkey")
+  customerAssets       CustomerAsset[] @relation("CustomerAssetDeliveryAcceptance")
+  assetLicenses        AssetLicense[]  @relation("AssetLicenseDeliveryAcceptance")
+  subscriptions        Subscription[]  @relation("SubscriptionDeliveryAcceptance")
+
+  @@index([quoteId], map: "delivery_acceptances_quote_id_idx")
+  @@index([artifactVersionId], map: "delivery_acceptances_artifact_version_id_idx")
+  @@index([acceptedByAssignmentId], map: "delivery_acceptances_accepted_by_assignment_id_idx")
+  @@map("delivery_acceptances")
 }
 
 model DeliveryChecklistItem {
@@ -3295,11 +3382,23 @@ model AssetLicense {
   status      String    @default("active")
   activatedAt DateTime? @map("activated_at")
   expiresAt   DateTime? @map("expires_at")
+  deliveryAcceptanceId  String?   @map("delivery_acceptance_id")
+  sourceQuoteLineItemId String?   @map("source_quote_line_item_id")
+  secretRef             String?   @map("secret_ref")
+  licenseMetricKey      String?   @map("license_metric_key")
+  licensedQuantity      Decimal?  @map("licensed_quantity") @db.Decimal(20, 6)
+  createdAt             DateTime? @map("created_at")
+  updatedAt             DateTime? @map("updated_at")
 
   asset CustomerAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
   sku   ProductSku    @relation(fields: [skuId], references: [id])
+  deliveryAcceptance DeliveryAcceptance? @relation("AssetLicenseDeliveryAcceptance", fields: [deliveryAcceptanceId], references: [id], onDelete: Restrict, map: "asset_licenses_delivery_acceptance_id_fkey")
+  sourceQuoteLineItem QuoteLineItem? @relation("AssetLicenseSourceQuoteLineItem", fields: [sourceQuoteLineItemId], references: [id], onDelete: Restrict, map: "asset_licenses_source_quote_line_item_id_fkey")
+  subscriptions Subscription[] @relation("SubscriptionAssetLicense")
 
   @@index([assetId])
+  @@index([deliveryAcceptanceId], map: "asset_licenses_delivery_acceptance_id_idx")
+  @@index([sourceQuoteLineItemId], map: "asset_licenses_source_quote_line_item_id_idx")
   @@map("asset_licenses")
 }
 
@@ -3311,12 +3410,23 @@ model Subscription {
   endDate   DateTime  @map("end_date")
   status    String    @default("active")
   autoRenew Boolean   @default(false) @map("auto_renew")
+  deliveryAcceptanceId  String?   @map("delivery_acceptance_id")
+  assetLicenseId        String?   @map("asset_license_id")
+  sourceQuoteLineItemId String?   @map("source_quote_line_item_id")
+  createdAt             DateTime? @map("created_at")
+  updatedAt             DateTime? @map("updated_at")
 
   asset CustomerAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
   sku   ProductSku    @relation(fields: [skuId], references: [id])
+  deliveryAcceptance DeliveryAcceptance? @relation("SubscriptionDeliveryAcceptance", fields: [deliveryAcceptanceId], references: [id], onDelete: Restrict, map: "subscriptions_delivery_acceptance_id_fkey")
+  assetLicense AssetLicense? @relation("SubscriptionAssetLicense", fields: [assetLicenseId], references: [id], onDelete: Restrict, map: "subscriptions_asset_license_id_fkey")
+  sourceQuoteLineItem QuoteLineItem? @relation("SubscriptionSourceQuoteLineItem", fields: [sourceQuoteLineItemId], references: [id], onDelete: Restrict, map: "subscriptions_source_quote_line_item_id_fkey")
+  renewalOpportunities RenewalOpportunity[] @relation("RenewalOpportunitySubscription")
 
   @@index([assetId])
   @@index([endDate, status])
+  @@index([deliveryAcceptanceId], map: "subscriptions_delivery_acceptance_id_idx")
+  @@index([sourceQuoteLineItemId], map: "subscriptions_source_quote_line_item_id_idx")
   @@map("subscriptions")
 }
 
@@ -3432,6 +3542,7 @@ model NotificationEvent {
   payloadJson Json     @map("payload_json")
   status      String   @default("pending")
   sentAt      DateTime? @map("sent_at")
+  renewalReminderEvents RenewalReminderEvent[] @relation("RenewalReminderEventNotification")
 
   @@index([companyId, eventType])
   @@map("notification_events")

@@ -61,23 +61,23 @@ describe('classifyModel', () => {
 });
 
 describe('buildScopeInventoryReport — real inventory', () => {
-  it('reports ok with exact 163 / 13-2-31-48-69 tallies against its own model list', () => {
+  it('reports ok with exact 165 / 13-2-31-48-71 tallies against its own model list', () => {
     const report = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
-    expect(report.currentModelCount).toBe(163);
+    expect(report.currentModelCount).toBe(165);
     expect(report.tallies).toEqual({
       GLOBAL_SHARED: 13,
       TENANT_ROOT: 2,
       COMPANY_ROOT: 31,
       PROJECT_ROOT: 48,
-      CHILD_VIA_FK: 69,
+      CHILD_VIA_FK: 71,
     });
   });
 });
 
 describe('REGISTERED_ADDITIONS — U011 model registration', () => {
-  it('registers each additive model exactly once, including U035 QuoteCommercialSnapshot and U036 DemoLicense as CHILD_VIA_FK', () => {
+  it('registers each additive model exactly once, including U037 DeliveryAcceptance and RenewalReminderEvent as CHILD_VIA_FK', () => {
     expect(REGISTERED_ADDITIONS).toEqual([
       { model: 'ScopeBackfillQuarantine', unit: 'U011', category: 'GLOBAL_SHARED' },
       { model: 'AuthSession', unit: 'U014', category: 'PROJECT_ROOT' },
@@ -92,12 +92,14 @@ describe('REGISTERED_ADDITIONS — U011 model registration', () => {
       { model: 'WorkflowRunEvent', unit: 'U019', category: 'CHILD_VIA_FK' },
       { model: 'QuoteCommercialSnapshot', unit: 'U035', category: 'CHILD_VIA_FK' },
       { model: 'DemoLicense', unit: 'U036', category: 'CHILD_VIA_FK' },
+      { model: 'DeliveryAcceptance', unit: 'U037', category: 'CHILD_VIA_FK' },
+      { model: 'RenewalReminderEvent', unit: 'U037', category: 'CHILD_VIA_FK' },
     ]);
   });
 
-  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count is 163', () => {
+  it('leaves SCOPE_INVENTORY_BASELINE immutable at 150 while the expected current count is 165', () => {
     expect(SCOPE_INVENTORY_BASELINE.modelCount).toBe(150);
-    expect(expectedCurrentModelCount()).toBe(163);
+    expect(expectedCurrentModelCount()).toBe(165);
   });
 
   it('derives expected category counts as baseline plus registered additions (reclassifications isolated out)', () => {
@@ -106,7 +108,7 @@ describe('REGISTERED_ADDITIONS — U011 model registration', () => {
       TENANT_ROOT: 1,
       COMPANY_ROOT: 32,
       PROJECT_ROOT: 48,
-      CHILD_VIA_FK: 68,
+      CHILD_VIA_FK: 70,
     });
   });
 
@@ -132,7 +134,7 @@ describe('REGISTERED_ADDITIONS — U014 model registration', () => {
       TENANT_ROOT: 2,
       COMPANY_ROOT: 31,
       PROJECT_ROOT: 48,
-      CHILD_VIA_FK: 69,
+      CHILD_VIA_FK: 71,
     });
   });
 });
@@ -189,6 +191,20 @@ describe('REGISTERED_ADDITIONS — U036 model registration', () => {
       relationField: 'customer',
       scalarFkField: 'customerId',
       nullable: false,
+    });
+  });
+});
+
+describe('REGISTERED_ADDITIONS — U037 model registration', () => {
+  it('classifies DeliveryAcceptance exactly once as CHILD_VIA_FK of Engagement through mandatory engagementId', () => {
+    expect(classifyModel('DeliveryAcceptance')).toEqual({
+      model: 'DeliveryAcceptance', category: 'CHILD_VIA_FK', parentModel: 'Engagement', relationField: 'engagement', scalarFkField: 'engagementId', nullable: false,
+    });
+  });
+
+  it('classifies RenewalReminderEvent exactly once as CHILD_VIA_FK of RenewalOpportunity through mandatory renewalOpportunityId', () => {
+    expect(classifyModel('RenewalReminderEvent')).toEqual({
+      model: 'RenewalReminderEvent', category: 'CHILD_VIA_FK', parentModel: 'RenewalOpportunity', relationField: 'renewalOpportunity', scalarFkField: 'renewalOpportunityId', nullable: false,
     });
   });
 });
@@ -298,7 +314,7 @@ describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest + U021 AuditLog reclass
       TENANT_ROOT: 2,
       COMPANY_ROOT: 31,
       PROJECT_ROOT: 48,
-      CHILD_VIA_FK: 69,
+      CHILD_VIA_FK: 71,
     });
   });
 
