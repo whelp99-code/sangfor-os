@@ -1473,6 +1473,8 @@ model ArtifactVersion {
   provenanceQuotes         Quote[]               @relation("QuoteArtifactVersion")
   sizingQuoteLineItems     QuoteLineItem[]       @relation("QuoteLineSizingArtifactVersion")
   submissionEvidenceVendorRequests VendorRequest[] @relation("VendorRequestSubmissionEvidenceArtifactVersion")
+  rcaSupportCases          SupportCase[]          @relation("SupportCaseRcaArtifactVersion")
+  submissionEvidenceVendorEscalations VendorEscalation[] @relation("VendorEscalationSubmissionEvidenceArtifactVersion")
   deliveryAcceptances      DeliveryAcceptance[]  @relation("DeliveryAcceptanceArtifactVersion")
   certificationEvidence    CertificationEvidence[] @relation("CertificationEvidenceArtifactVersion")
   engineerSkills           EngineerSkill[] @relation("EngineerSkillSourceArtifactVersion")
@@ -2458,6 +2460,7 @@ model CustomerAsset {
   subscriptions        Subscription[]
   maintenanceContracts MaintenanceContract[]
   renewalOpportunities RenewalOpportunity[] @relation("RenewalOpportunityAsset")
+  supportCases         SupportCase[] @relation("SupportCaseAsset")
 
   @@index([customerId])
   @@index([deliveryAcceptanceId], map: "customer_assets_delivery_acceptance_id_idx")
@@ -2466,16 +2469,59 @@ model CustomerAsset {
 }
 
 model SupportSlaPolicy {
-  id              String   @id @default(cuid())
-  name            String
-  responseTimeHrs Int?
+  id               String   @id @default(cuid())
+  name             String
+  responseTimeHrs  Int?
   resolutionTimeHrs Int?
-  severity        String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  severity         String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  companyId        String?  @map("company_id")
+  policyKey        String?  @map("policy_key")
+  currentVersionId String?  @map("current_version_id")
+  archivedAt       DateTime? @map("archived_at")
 
+  // U039 keeps the legacy policy record unscoped in the inventory until U040 proves every
+  // historic row can be assigned a canonical company. New writes are DB-guarded instead.
+  company        Company?                @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "support_sla_policies_company_id_fkey")
+  currentVersion SupportSlaPolicyVersion? @relation("SupportSlaPolicyCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict, map: "support_sla_policies_current_version_id_fkey")
+  versions       SupportSlaPolicyVersion[] @relation("SupportSlaPolicyVersions")
+
+  @@unique([id, companyId], map: "support_sla_policies_id_company_id_key")
+  @@index([companyId], map: "support_sla_policies_company_id_idx")
+  @@index([currentVersionId], map: "support_sla_policies_current_version_id_idx")
   @@map("support_sla_policies")
+}
+
+// U039 policy versions carry the direct company anchor intentionally. It is a transitional
+// canonical boundary, not a redundant child scope: the parent policy remains legacy-unscoped
+// until U040's zero-null/zero-ambiguity proof.
+model SupportSlaPolicyVersion {
+  id                      String   @id @default(cuid())
+  companyId               String   @map("company_id")
+  policyId                String   @map("policy_id")
+  version                 Int
+  severity                String
+  responseMinutes         Int      @map("response_minutes")
+  resolutionMinutes       Int      @map("resolution_minutes")
+  vendorEscalationMinutes Int?     @map("vendor_escalation_minutes")
+  customerUpdateMinutes   Int?     @map("customer_update_minutes")
+  clockKind               String   @default("elapsed_24x7") @map("clock_kind")
+  contentHash             String   @map("content_hash")
+  effectiveAt             DateTime @map("effective_at")
+  retiredAt               DateTime? @map("retired_at")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  company             Company                  @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "support_sla_policy_versions_company_id_fkey")
+  policy              SupportSlaPolicy         @relation("SupportSlaPolicyVersions", fields: [policyId, companyId], references: [id, companyId], onDelete: Restrict, map: "support_sla_policy_versions_policy_company_fkey")
+  currentForPolicies  SupportSlaPolicy[]       @relation("SupportSlaPolicyCurrentVersion")
+  caseSlaSnapshots    SupportCaseSlaSnapshot[]
+
+  @@unique([id, companyId], map: "support_sla_policy_versions_id_company_id_key")
+  @@unique([policyId, version], map: "support_sla_policy_versions_policy_id_version_key")
+  @@index([companyId, policyId], map: "support_sla_policy_versions_company_id_policy_id_idx")
+  @@map("support_sla_policy_versions")
 }
 
 model EngineerCertification {
@@ -2785,6 +2831,8 @@ model Company {
   certificationDefinitions CertificationDefinition[]
   engineerSkills      EngineerSkill[]
   engineerEligibilityPolicies EngineerEligibilityPolicy[]
+  supportSlaPolicies SupportSlaPolicy[]
+  supportSlaPolicyVersions SupportSlaPolicyVersion[]
 
   @@unique([tenantId, id], map: "companies_tenant_id_id_key")
   @@index([tenantId])
@@ -2873,6 +2921,7 @@ model UserCompanyRole {
   vendorRequestEvents        VendorRequestEvent[] @relation("VendorRequestEventActorAssignment")
   acceptedDeliveryAcceptances DeliveryAcceptance[] @relation("DeliveryAcceptanceAcceptedByAssignment")
   ownedRenewalOpportunities   RenewalOpportunity[] @relation("RenewalOpportunityOwnerAssignment")
+  ownedSupportCases           SupportCase[] @relation("SupportCaseOwnerAssignment")
   engineerCertifications      EngineerCertification[] @relation("EngineerCertificationMembership")
   verifiedCertificationEvidence CertificationEvidence[] @relation("CertificationEvidenceVerifiedByAssignment")
   engineerSkills              EngineerSkill[] @relation("EngineerSkillMembership")
@@ -3360,6 +3409,7 @@ model VendorRequest {
   submissionEvidenceArtifactVersion ArtifactVersion? @relation("VendorRequestSubmissionEvidenceArtifactVersion", fields: [submissionEvidenceArtifactVersionId], references: [id], onDelete: Restrict, map: "vendor_requests_submission_evidence_artifact_version_id_fkey")
   events                            VendorRequestEvent[]
   demoLicenses                      DemoLicense[]
+  vendorEscalation                  VendorEscalation? @relation("VendorRequestEscalation")
 
   @@index([opportunityId])
   @@index([status])
@@ -3518,33 +3568,86 @@ model MeetingNote {
 // --- Support ---
 
 model SupportCase {
-  id          String    @id @default(cuid())
-  customerId  String    @map("customer_id")
-  subject     String
-  severity    String    @default("medium")
-  status      String    @default("open")
-  slaDeadline DateTime? @map("sla_deadline")
-  assignedTo  String?   @map("assigned_to")
+  id                    String    @id @default(cuid())
+  customerId            String    @map("customer_id")
+  subject               String
+  severity              String    @default("medium")
+  status                String    @default("open")
+  slaDeadline           DateTime? @map("sla_deadline")
+  assignedTo            String?   @map("assigned_to")
+  assetId               String?   @map("asset_id")
+  ownerAssignmentId     String?   @map("owner_assignment_id")
+  ownershipRevision     Int       @default(0) @map("ownership_revision")
+  revision              Int       @default(0)
+  respondedAt           DateTime? @map("responded_at")
+  resolvedAt            DateTime? @map("resolved_at")
+  closedAt              DateTime? @map("closed_at")
+  rcaArtifactVersionId  String?   @map("rca_artifact_version_id")
+  rcaRequiredAt         DateTime? @map("rca_required_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
-  customer          Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  vendorEscalations VendorEscalation[]
+  customer           Customer                @relation(fields: [customerId], references: [id], onDelete: Restrict, map: "support_cases_customer_id_fkey")
+  asset              CustomerAsset?          @relation("SupportCaseAsset", fields: [assetId], references: [id], onDelete: Restrict, map: "support_cases_asset_id_fkey")
+  ownerAssignment    UserCompanyRole?        @relation("SupportCaseOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: Restrict, map: "support_cases_owner_assignment_id_fkey")
+  rcaArtifactVersion ArtifactVersion?        @relation("SupportCaseRcaArtifactVersion", fields: [rcaArtifactVersionId], references: [id], onDelete: Restrict, map: "support_cases_rca_artifact_version_id_fkey")
+  slaSnapshot        SupportCaseSlaSnapshot?
+  vendorEscalations  VendorEscalation[]
 
-  @@index([customerId])
+  @@index([customerId], map: "support_cases_customer_id_idx")
   @@index([status, severity])
+  @@index([assetId], map: "support_cases_asset_id_idx")
+  @@index([ownerAssignmentId, ownershipRevision], map: "support_cases_owner_assignment_id_ownership_revision_idx")
+  @@index([rcaArtifactVersionId], map: "support_cases_rca_artifact_version_id_idx")
   @@map("support_cases")
 }
 
+model SupportCaseSlaSnapshot {
+  id                      String   @id @default(cuid())
+  supportCaseId           String   @unique @map("support_case_id")
+  policyVersionId         String   @map("policy_version_id")
+  severity                String
+  responseMinutes         Int      @map("response_minutes")
+  resolutionMinutes       Int      @map("resolution_minutes")
+  vendorEscalationMinutes Int?     @map("vendor_escalation_minutes")
+  customerUpdateMinutes   Int?     @map("customer_update_minutes")
+  clockKind               String   @map("clock_kind")
+  startedAt               DateTime @map("started_at")
+  responseDueAt           DateTime @map("response_due_at")
+  resolutionDueAt         DateTime @map("resolution_due_at")
+  snapshotHash            String   @map("snapshot_hash")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  supportCase   SupportCase             @relation(fields: [supportCaseId], references: [id], onDelete: Restrict, map: "support_case_sla_snapshots_support_case_id_fkey")
+  policyVersion SupportSlaPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict, map: "support_case_sla_snapshots_policy_version_id_fkey")
+
+  @@index([policyVersionId], map: "support_case_sla_snapshots_policy_version_id_idx")
+  @@map("support_case_sla_snapshots")
+}
+
 model VendorEscalation {
-  id         String  @id @default(cuid())
-  caseId     String  @map("case_id")
-  vendor     String
-  reason     String
-  status     String  @default("draft")
-  resolution String?
+  id                                  String    @id @default(cuid())
+  caseId                              String    @map("case_id")
+  vendor                              String
+  reason                              String
+  status                              String    @default("draft")
+  resolution                          String?
+  vendorRequestId                     String?   @unique @map("vendor_request_id")
+  revision                            Int       @default(0)
+  externalReference                   String?   @map("external_reference")
+  submittedAt                         DateTime? @map("submitted_at")
+  resolvedAt                          DateTime? @map("resolved_at")
+  submissionEvidenceArtifactVersionId String?   @map("submission_evidence_artifact_version_id")
+  createdAt                           DateTime  @default(now()) @map("created_at")
+  updatedAt                           DateTime  @updatedAt @map("updated_at")
 
-  supportCase SupportCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  supportCase                      SupportCase     @relation(fields: [caseId], references: [id], onDelete: Restrict, map: "vendor_escalations_case_id_fkey")
+  vendorRequest                    VendorRequest?  @relation("VendorRequestEscalation", fields: [vendorRequestId], references: [id], onDelete: Restrict, map: "vendor_escalations_vendor_request_id_fkey")
+  submissionEvidenceArtifactVersion ArtifactVersion? @relation("VendorEscalationSubmissionEvidenceArtifactVersion", fields: [submissionEvidenceArtifactVersionId], references: [id], onDelete: Restrict, map: "vendor_escalations_submission_evidence_artifact_version_id_fkey")
 
-  @@index([caseId])
+  @@index([caseId], map: "vendor_escalations_case_id_idx")
+  @@index([submissionEvidenceArtifactVersionId], map: "vendor_escalations_submission_evidence_artifact_version_id_idx")
+  @@index([status, updatedAt], map: "vendor_escalations_status_updated_at_idx")
   @@map("vendor_escalations")
 }
 

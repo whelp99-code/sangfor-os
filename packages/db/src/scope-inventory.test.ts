@@ -72,7 +72,7 @@ describe('buildScopeInventoryReport — real inventory', () => {
 });
 
 describe('REGISTERED_ADDITIONS — U011 model registration', () => {
-  it('registers each additive model exactly once, including the U038 company roots and mandatory children', () => {
+  it('registers each additive model exactly once, including the U038/U039 roots and mandatory children', () => {
     expect(REGISTERED_ADDITIONS).toEqual([
       { model: 'ScopeBackfillQuarantine', unit: 'U011', category: 'GLOBAL_SHARED' },
       { model: 'AuthSession', unit: 'U014', category: 'PROJECT_ROOT' },
@@ -95,6 +95,8 @@ describe('REGISTERED_ADDITIONS — U011 model registration', () => {
       { model: 'EngineerEligibilityPolicy', unit: 'U038', category: 'COMPANY_ROOT' },
       { model: 'EngagementCapabilityRequirement', unit: 'U038', category: 'CHILD_VIA_FK' },
       { model: 'EngineerAssignment', unit: 'U038', category: 'CHILD_VIA_FK' },
+      { model: 'SupportSlaPolicyVersion', unit: 'U039', category: 'COMPANY_ROOT' },
+      { model: 'SupportCaseSlaSnapshot', unit: 'U039', category: 'CHILD_VIA_FK' },
     ]);
   });
 
@@ -251,6 +253,23 @@ describe('REGISTERED_ADDITIONS — U017 model registration', () => {
     const artifactEntries = REAL_ENTRIES.filter((e) => e.model === 'Artifact');
     expect(artifactEntries).toHaveLength(1);
     expect(artifactEntries[0]).toEqual({ model: 'Artifact', category: 'PROJECT_ROOT' });
+  });
+});
+
+describe('REGISTERED_ADDITIONS — U039 support SLA registration', () => {
+  it('classifies SupportSlaPolicyVersion exactly once as COMPANY_ROOT through its required direct company anchor', () => {
+    expect(classifyModel('SupportSlaPolicyVersion')).toEqual({ model: 'SupportSlaPolicyVersion', category: 'COMPANY_ROOT' });
+    const version = Prisma.dmmf.datamodel.models.find((model) => model.name === 'SupportSlaPolicyVersion');
+    expect(version).toBeDefined();
+    if (!version) throw new Error('SupportSlaPolicyVersion DMMF model missing');
+    const company = version.fields.find((field) => field.name === 'company');
+    expect(company).toMatchObject({ isRequired: true, relationFromFields: ['companyId'], relationOnDelete: 'Restrict' });
+  });
+
+  it('classifies SupportCaseSlaSnapshot exactly once through its required SupportCase chain', () => {
+    expect(classifyModel('SupportCaseSlaSnapshot')).toEqual({
+      model: 'SupportCaseSlaSnapshot', category: 'CHILD_VIA_FK', parentModel: 'SupportCase', relationField: 'supportCase', scalarFkField: 'supportCaseId', nullable: false,
+    });
   });
 });
 

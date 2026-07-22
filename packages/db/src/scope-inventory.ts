@@ -169,6 +169,10 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   { model: 'EngineerEligibilityPolicy', unit: 'U038', category: 'COMPANY_ROOT' },
   { model: 'EngagementCapabilityRequirement', unit: 'U038', category: 'CHILD_VIA_FK' },
   { model: 'EngineerAssignment', unit: 'U038', category: 'CHILD_VIA_FK' },
+  // U039: the version's required direct company anchor is intentional during the legacy-policy
+  // transition. SupportCaseSlaSnapshot inherits only through its mandatory case relation.
+  { model: 'SupportSlaPolicyVersion', unit: 'U039', category: 'COMPANY_ROOT' },
+  { model: 'SupportCaseSlaSnapshot', unit: 'U039', category: 'CHILD_VIA_FK' },
 ];
 
 export interface ReclassifiedModel {
@@ -376,7 +380,9 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   StateTransitionLog: { model: 'StateTransitionLog', category: 'PROJECT_ROOT' },
   Subscription: { model: 'Subscription', category: 'CHILD_VIA_FK', parentModel: 'CustomerAsset', relationField: 'asset', scalarFkField: 'assetId', nullable: false },
   SupportCase: { model: 'SupportCase', category: 'CHILD_VIA_FK', parentModel: 'Customer', relationField: 'customer', scalarFkField: 'customerId', nullable: false },
+  SupportCaseSlaSnapshot: { model: 'SupportCaseSlaSnapshot', category: 'CHILD_VIA_FK', parentModel: 'SupportCase', relationField: 'supportCase', scalarFkField: 'supportCaseId', nullable: false },
   SupportSlaPolicy: { model: 'SupportSlaPolicy', category: 'COMPANY_ROOT' },
+  SupportSlaPolicyVersion: { model: 'SupportSlaPolicyVersion', category: 'COMPANY_ROOT' },
   TaskLink: { model: 'TaskLink', category: 'CHILD_VIA_FK', parentModel: 'WorkTask', relationField: 'workTask', scalarFkField: 'workTaskId', nullable: false },
   TaskStatusEvent: { model: 'TaskStatusEvent', category: 'CHILD_VIA_FK', parentModel: 'WorkTask', relationField: 'workTask', scalarFkField: 'workTaskId', nullable: false },
   TaxInvoice: { model: 'TaxInvoice', category: 'COMPANY_ROOT' },
@@ -669,6 +675,13 @@ export function deriveStructuralMismatches(
   const NON_SCOPE_PARENT_MODELS = new Set<string>([
     'UserCompanyRole',
     'EngineerCertification',
+    // U039: SupportCaseSlaSnapshot records WHICH immutable SLA policy version a case snapshotted —
+    // policyVersionId -> SupportSlaPolicyVersion is a config reference, not the snapshot's scope
+    // container. The snapshot is scoped by its mandatory supportCaseId -> SupportCase -> Customer
+    // (PROJECT_ROOT); following the COMPANY_ROOT policy-version link would manufacture a second root.
+    // No other model scopes through SupportSlaPolicyVersion, so excluding it affects only
+    // SupportCaseSlaSnapshot (SupportSlaPolicy.currentVersion is a nullable, non-scope-determining edge).
+    'SupportSlaPolicyVersion',
   ]);
   const relationsByModel = new Map<string, DmmfRelationField[]>();
   for (const rel of dmmfRelations) {
