@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 // @ts-expect-error -- U009's committed reuse module is plain JS (scripts/lib/isolated-postgres.mjs), no .d.ts.
 import { LABEL_PURPOSE, LABEL_RUN, LABEL_UNIT, withIsolatedPostgres } from '../../../scripts/lib/isolated-postgres.mjs';
+import { canonicalizeRfc8785 } from '../src/canonical-content-hash';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -103,13 +104,16 @@ const NEW_MIGRATION_NAME_U038 = '20260716003800_u038_people_eligibility_expand';
 const NEW_MIGRATION_NAME_U039 = '20260716003900_u039_support_sla_rca_expand';
 const NEW_MIGRATION_NAME_U040 = '20260716004000_u040_domain_backfill_validate_tighten';
 const NEW_MIGRATION_NAME_U041 = '20260716004100_u041_ai_quality_artifact_expand';
+const NEW_MIGRATION_NAME_U042 = '20260716004200_u042_retention_legal_hold_ownership_expand';
+const OWNER_UNIT_U042 = 'U042';
+const PURPOSE_U042 = 'governance-schema';
 
 // U041 / AIQ-01: this suite owns only its allowlisted isolated-postgres upgrade proof. Historical
 // suite prefix filters remain owned by their respective units (see the U041 dispatch boundary).
 const OWNER_UNIT_U041 = 'U041';
 const PURPOSE_U041 = 'ai-quality-schema';
 
-const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema', 'governance-bridge', 'audit-chain', 'role-change', 'ai-quality-schema']);
+const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema', 'governance-bridge', 'audit-chain', 'role-change', 'ai-quality-schema', 'governance-schema']);
 
 const EXIT = Object.freeze({
   SUCCESS: 0,
@@ -203,13 +207,14 @@ async function runGovernanceValidate(databaseUrl: string): Promise<CaptureResult
   return spawnCapture(argv, sanitizedEnv({ DATABASE_URL: databaseUrl }));
 }
 
-async function runMigrateDiff(databaseUrl: string): Promise<CaptureResult> {
+async function runMigrateDiff(databaseUrl: string, exitCodeOnDifference = false): Promise<CaptureResult> {
   const schemaPath = join(DB_PKG_ROOT, 'prisma/schema.prisma');
   const argv = [
     'bash', join(REPO_ROOT, 'scripts/run-workspace-runtime.sh'), 'root', '--',
     'corepack', 'pnpm', '--filter', '@sangfor/db', 'exec', 'prisma', 'migrate', 'diff',
     '--from-url', databaseUrl, '--to-schema-datamodel', schemaPath, '--script',
   ];
+  if (exitCodeOnDifference) argv.push('--exit-code');
   return spawnCapture(argv, sanitizedEnv({}));
 }
 
@@ -306,6 +311,8 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
     // historical prefix just like the U040 domain-backfill dependencies above.
     const targetU041 = join(dir, 'migrations', NEW_MIGRATION_NAME_U041);
     if (existsSync(targetU041)) rmSync(targetU041, { recursive: true, force: true });
+    const targetU042 = join(dir, 'migrations', NEW_MIGRATION_NAME_U042);
+    if (existsSync(targetU042)) rmSync(targetU042, { recursive: true, force: true });
   }
   return dir;
 }
@@ -384,6 +391,8 @@ function makeThroughU011PrismaCopy(label: string): string {
   // U041 references U017 ArtifactVersion, which this through-U011 view deliberately omits.
   const targetU041 = join(dir, 'migrations', NEW_MIGRATION_NAME_U041);
   if (existsSync(targetU041)) rmSync(targetU041, { recursive: true, force: true });
+  const targetU042 = join(dir, 'migrations', NEW_MIGRATION_NAME_U042);
+  if (existsSync(targetU042)) rmSync(targetU042, { recursive: true, force: true });
   return dir;
 }
 
@@ -815,7 +824,8 @@ function listMigrationsThroughU010(): string[] {
         name !== NEW_MIGRATION_NAME_U038 &&
         name !== NEW_MIGRATION_NAME_U039 &&
         name !== NEW_MIGRATION_NAME_U040 &&
-        name !== NEW_MIGRATION_NAME_U041,
+        name !== NEW_MIGRATION_NAME_U041 &&
+        name !== NEW_MIGRATION_NAME_U042,
     )
     .sort();
 }
@@ -828,7 +838,7 @@ function listMigrationsThroughU020(): string[] {
   return readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
-    .filter((name) => name !== NEW_MIGRATION_NAME_U021 && name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037 && name !== NEW_MIGRATION_NAME_U038 && name !== NEW_MIGRATION_NAME_U039 && name !== NEW_MIGRATION_NAME_U040 && name !== NEW_MIGRATION_NAME_U041)
+    .filter((name) => name !== NEW_MIGRATION_NAME_U021 && name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037 && name !== NEW_MIGRATION_NAME_U038 && name !== NEW_MIGRATION_NAME_U039 && name !== NEW_MIGRATION_NAME_U040 && name !== NEW_MIGRATION_NAME_U041 && name !== NEW_MIGRATION_NAME_U042)
     .sort();
 }
 
@@ -1021,13 +1031,15 @@ async function runLegacyLifecycleScenario(evidenceDir: string, runId: string) {
         // point-in-time snapshot at U012. GLOBAL_SHARED was 13 through U039, but U040 is the first unit
         // to reduce it: its mandatory catalog reclassification moves ProductFamily GLOBAL_SHARED ->
         // COMPANY_ROOT and LicenseMetric GLOBAL_SHARED -> CHILD_VIA_FK, so GLOBAL_SHARED 13 -> 11.
-        // CHILD_VIA_FK (82 as of U041 — RoleChangeRequest's U012 reclassification plus every later
+        // CHILD_VIA_FK (88 as of U042 — U042 adds six CHILD_VIA_FK models and four COMPANY_DIRECT
+        // entries: new RetentionRun/LegalHoldScope plus reclassified DataExportRequest/ArtifactAccessEvent,
+        // reaching 189 models; RoleChangeRequest's U012 reclassification plus every later
         // CHILD_VIA_FK registration, most recently U039's SupportCaseSlaSnapshot [74 -> 75], U040's
         // LicenseMetric reclassification [75 -> 76], and U041's six immutable AI quality children
         // [76 -> 82]: AiQualityAssessment/Evidence/Review/ReleaseEvaluation/PromptSnapshot/ModelSnapshot)
         // must be updated by any future unit that adds/
         // reclassifies a CHILD_VIA_FK or GLOBAL_SHARED model, exactly as U017/U018/U019 updated it here.
-        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 82 || scopeCheckJson.tallies.GLOBAL_SHARED !== 11) {
+        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 88 || scopeCheckJson.tallies.GLOBAL_SHARED !== 11) {
           throw new ContractFailure(EXIT.CONTRACT, `scope:check tallies do not reflect the U012 RoleChangeRequest reclassification: ${JSON.stringify(scopeCheckJson.tallies)}`);
         }
         writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
@@ -4627,7 +4639,8 @@ async function runAuditChainLegacyScenario(evidenceDir: string, runId: string) {
         addMigrationToView(view, NEW_MIGRATION_NAME_U039);
         addMigrationToView(view, NEW_MIGRATION_NAME_U040);
         addMigrationToView(view, NEW_MIGRATION_NAME_U041);
-        verifyViewIntegrity(view, [...throughU020, NEW_MIGRATION_NAME_U021, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037, NEW_MIGRATION_NAME_U038, NEW_MIGRATION_NAME_U039, NEW_MIGRATION_NAME_U040, NEW_MIGRATION_NAME_U041]);
+        addMigrationToView(view, NEW_MIGRATION_NAME_U042);
+        verifyViewIntegrity(view, [...throughU020, NEW_MIGRATION_NAME_U021, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037, NEW_MIGRATION_NAME_U038, NEW_MIGRATION_NAME_U039, NEW_MIGRATION_NAME_U040, NEW_MIGRATION_NAME_U041, NEW_MIGRATION_NAME_U042]);
         const deployU024ForCurrentSchema = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
         if (deployU024ForCurrentSchema.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (+U024 after U021 verification) failed: ${deployU024ForCurrentSchema.stderr || deployU024ForCurrentSchema.stdout}`);
         evidence.deployU024ForCurrentSchema = true;
@@ -4758,7 +4771,7 @@ async function runRoleChangeSuite(evidenceDir: string): Promise<number> {
       { runId, ownerUnit: OWNER_UNIT_U024, purpose: `${PURPOSE_U024}-legacy`, evidenceDir: join(evidenceDir, 'legacy'), imageDigest: IMAGE_DIGEST, migrate: false },
       async (ctx: any) => {
         const conn = parseConn(ctx.databaseUrl);
-        const before = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).filter((name) => name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037 && name !== NEW_MIGRATION_NAME_U038 && name !== NEW_MIGRATION_NAME_U039 && name !== NEW_MIGRATION_NAME_U040 && name !== NEW_MIGRATION_NAME_U041).sort();
+        const before = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).filter((name) => name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037 && name !== NEW_MIGRATION_NAME_U038 && name !== NEW_MIGRATION_NAME_U039 && name !== NEW_MIGRATION_NAME_U040 && name !== NEW_MIGRATION_NAME_U041 && name !== NEW_MIGRATION_NAME_U042).sort();
         const view = buildReadOnlyMigrationView('u024-legacy', before);
         try {
           verifyViewIntegrity(view, before);
@@ -4779,7 +4792,8 @@ async function runRoleChangeSuite(evidenceDir: string): Promise<number> {
           addMigrationToView(view, NEW_MIGRATION_NAME_U039);
           addMigrationToView(view, NEW_MIGRATION_NAME_U040);
           addMigrationToView(view, NEW_MIGRATION_NAME_U041);
-          verifyViewIntegrity(view, [...before, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037, NEW_MIGRATION_NAME_U038, NEW_MIGRATION_NAME_U039, NEW_MIGRATION_NAME_U040, NEW_MIGRATION_NAME_U041]);
+          addMigrationToView(view, NEW_MIGRATION_NAME_U042);
+          verifyViewIntegrity(view, [...before, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037, NEW_MIGRATION_NAME_U038, NEW_MIGRATION_NAME_U039, NEW_MIGRATION_NAME_U040, NEW_MIGRATION_NAME_U041, NEW_MIGRATION_NAME_U042]);
           const deploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
           if (deploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U024 deploy failed: ${deploy.stderr || deploy.stdout}`);
           const frozen = await execSql(ctx.containerName, conn, `SELECT status || '|' || legacy_status || '|' || legacy_unbound::text || '|' || revision::text FROM role_change_requests WHERE id='u024-legacy-role-change';`);
@@ -4859,7 +4873,8 @@ async function runAiQualitySchemaSuite(evidenceDir: string): Promise<number> {
         writeFileSync(join(evidenceDir, 'legacy-fixture-before.json'), `${legacyBefore}\n`);
 
         addMigrationToView(view, NEW_MIGRATION_NAME_U041);
-        verifyViewIntegrity(view, [...prefix, NEW_MIGRATION_NAME_U041]);
+        addMigrationToView(view, NEW_MIGRATION_NAME_U042);
+        verifyViewIntegrity(view, [...prefix, NEW_MIGRATION_NAME_U041, NEW_MIGRATION_NAME_U042]);
         const deployU041 = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
         if (deployU041.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U041 deploy failed: ${deployU041.stderr || deployU041.stdout}`);
         const legacyAfter = await execSql(ctx.containerName, conn, `SELECT jsonb_build_object('tenant', (SELECT to_jsonb(t) FROM tenants t WHERE id='u041-fixture-tenant'), 'company', (SELECT to_jsonb(c) FROM companies c WHERE id='u041-fixture-company'), 'artifact', (SELECT to_jsonb(a) FROM artifacts a WHERE id='u041-fixture-artifact'), 'artifactVersion', (SELECT to_jsonb(v) FROM artifact_versions v WHERE id='u041-fixture-artifact-version'))::text;`);
@@ -4927,6 +4942,973 @@ async function runAiQualitySchemaSuite(evidenceDir: string): Promise<number> {
   return EXIT.SUCCESS;
 }
 
+export async function runGovernanceSchemaSuite(evidenceDir: string): Promise<number> {
+  mkdirSync(evidenceDir, { recursive: true });
+  const startedAt = new Date().toISOString();
+  const runId = `u042-${Date.now().toString(36)}`;
+  const evidence: Record<string, unknown> = {};
+  const log: string[] = [];
+  let caught: unknown = null;
+  let view: MigrationView | null = null;
+
+  const expectedFunctions = [
+    'public.governance_history_immutable_update_reject_fn()',
+    'public.governance_history_immutable_delete_reject_fn()',
+    'public.artifact_access_events_canonical_insert_guard_fn()',
+    'public.data_export_requests_canonical_insert_guard_fn()',
+    'public.data_export_requests_lifecycle_update_guard_fn()',
+    'public.export_capabilities_canonical_insert_guard_fn()',
+    'public.export_capabilities_lifecycle_update_guard_fn()',
+    'public.ownership_transfers_canonical_insert_guard_fn()',
+    'public.ownership_transfers_lifecycle_update_guard_fn()',
+    'public.ownership_transfer_items_canonical_insert_guard_fn()',
+  ].sort();
+  const triggerSpecs = [
+    ['retention_runs_immutable_update_trg', 'retention_runs', 'UPDATE', 'public.governance_history_immutable_update_reject_fn()'],
+    ['retention_runs_immutable_delete_trg', 'retention_runs', 'DELETE', 'public.governance_history_immutable_delete_reject_fn()'],
+    ['retention_run_items_immutable_update_trg', 'retention_run_items', 'UPDATE', 'public.governance_history_immutable_update_reject_fn()'],
+    ['retention_run_items_immutable_delete_trg', 'retention_run_items', 'DELETE', 'public.governance_history_immutable_delete_reject_fn()'],
+    ['retention_policy_versions_immutable_update_trg', 'retention_policy_versions', 'UPDATE', 'public.governance_history_immutable_update_reject_fn()'],
+    ['retention_policy_versions_immutable_delete_trg', 'retention_policy_versions', 'DELETE', 'public.governance_history_immutable_delete_reject_fn()'],
+    ['legal_hold_scopes_immutable_update_trg', 'legal_hold_scopes', 'UPDATE', 'public.governance_history_immutable_update_reject_fn()'],
+    ['legal_hold_scopes_immutable_delete_trg', 'legal_hold_scopes', 'DELETE', 'public.governance_history_immutable_delete_reject_fn()'],
+    ['artifact_access_events_canonical_insert_guard_trg', 'artifact_access_events', 'INSERT', 'public.artifact_access_events_canonical_insert_guard_fn()'],
+    ['artifact_access_events_immutable_update_trg', 'artifact_access_events', 'UPDATE', 'public.governance_history_immutable_update_reject_fn()'],
+    ['artifact_access_events_immutable_delete_trg', 'artifact_access_events', 'DELETE', 'public.governance_history_immutable_delete_reject_fn()'],
+    ['data_export_requests_canonical_insert_guard_trg', 'data_export_requests', 'INSERT', 'public.data_export_requests_canonical_insert_guard_fn()'],
+    ['data_export_requests_lifecycle_update_guard_trg', 'data_export_requests', 'UPDATE', 'public.data_export_requests_lifecycle_update_guard_fn()'],
+    ['data_export_requests_immutable_delete_trg', 'data_export_requests', 'DELETE', 'public.governance_history_immutable_delete_reject_fn()'],
+    ['export_capabilities_canonical_insert_guard_trg', 'export_capabilities', 'INSERT', 'public.export_capabilities_canonical_insert_guard_fn()'],
+    ['export_capabilities_lifecycle_update_guard_trg', 'export_capabilities', 'UPDATE', 'public.export_capabilities_lifecycle_update_guard_fn()'],
+    ['export_capabilities_immutable_delete_trg', 'export_capabilities', 'DELETE', 'public.governance_history_immutable_delete_reject_fn()'],
+    ['ownership_transfers_canonical_insert_guard_trg', 'ownership_transfers', 'INSERT', 'public.ownership_transfers_canonical_insert_guard_fn()'],
+    ['ownership_transfers_lifecycle_update_guard_trg', 'ownership_transfers', 'UPDATE', 'public.ownership_transfers_lifecycle_update_guard_fn()'],
+    ['ownership_transfers_immutable_delete_trg', 'ownership_transfers', 'DELETE', 'public.governance_history_immutable_delete_reject_fn()'],
+    ['ownership_transfer_items_canonical_insert_guard_trg', 'ownership_transfer_items', 'INSERT', 'public.ownership_transfer_items_canonical_insert_guard_fn()'],
+    ['ownership_transfer_items_immutable_update_trg', 'ownership_transfer_items', 'UPDATE', 'public.governance_history_immutable_update_reject_fn()'],
+    ['ownership_transfer_items_immutable_delete_trg', 'ownership_transfer_items', 'DELETE', 'public.governance_history_immutable_delete_reject_fn()'],
+  ] as const;
+  const hashHex = (text: string) => createHash('sha256').update(Buffer.from(text, 'utf8')).digest('hex');
+  const hashJcs = (value: unknown) => hashHex(canonicalizeRfc8785(value));
+  const artifactEnvelopeA = '{"contract":"sangfor.artifact-content","payload":{},"version":1}';
+  const artifactEnvelopeB = '{"contract":"sangfor.artifact-content","payload":{"company":"b"},"version":1}';
+  const artifactHashA = hashHex(artifactEnvelopeA);
+  const artifactHashB = hashHex(artifactEnvelopeB);
+  const h = 'a'.repeat(64);
+  const h2 = 'b'.repeat(64);
+
+  const legacySnapshotSql = `
+    SELECT jsonb_build_object(
+      'dataExportRequests', COALESCE((
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id', id, 'artifact_id', artifact_id, 'requested_by', requested_by,
+            'reason', reason, 'status', status, 'approved_by', approved_by
+          ) ORDER BY id
+        )
+        FROM data_export_requests WHERE id = 'u042-legacy-export'
+      ), '[]'::jsonb),
+      'artifactAccessEvents', COALESCE((
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id', id, 'artifact_id', artifact_id, 'user_id', user_id,
+            'access_type', access_type, 'timestamp', "timestamp"
+          ) ORDER BY id
+        )
+        FROM artifact_access_events WHERE id = 'u042-legacy-access'
+      ), '[]'::jsonb),
+      'ownerRows', jsonb_build_object(
+        'Artifact', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM (SELECT * FROM artifacts WHERE id='u042-artifact-a') x), '[]'::jsonb),
+        'ApprovalRequest', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM (SELECT * FROM approval_requests WHERE id='u042-approval-a') x), '[]'::jsonb),
+        'Opportunity', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM (SELECT * FROM opportunities WHERE id='u042-opportunity-a') x), '[]'::jsonb),
+        'WorkTask', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM (SELECT * FROM work_tasks WHERE id='u042-work-task-a') x), '[]'::jsonb),
+        'VendorRequest', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM (SELECT * FROM vendor_requests WHERE id='u042-vendor-request-a') x), '[]'::jsonb),
+        'RenewalOpportunity', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM (SELECT * FROM renewal_opportunities WHERE id='u042-renewal-a') x), '[]'::jsonb),
+        'SupportCase', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM (SELECT * FROM support_cases WHERE id='u042-support-case-a') x), '[]'::jsonb)
+      )
+    )::text;
+  `;
+
+  type LegacySnapshot = {
+    dataExportRequests: Array<Record<string, unknown>>;
+    artifactAccessEvents: Array<Record<string, unknown>>;
+    ownerRows: Record<string, Array<Record<string, unknown>>>;
+  };
+  type QuarantineRow = {
+    sourceModel: string;
+    sourceId: string;
+    reasonCode: string;
+    sourceRowJson: Record<string, unknown>;
+    sourceRowHash: string;
+    candidateScopeJson: Record<string, unknown>;
+    reviewDigest: string;
+    resolutionJson: unknown;
+  };
+  interface AuthorityRow {
+    triggerName: string;
+    table: string;
+    event: string;
+    timing: string;
+    enabled: boolean;
+    eventCount: number;
+    functionName: string;
+    functionDefinitionHash: string;
+  }
+
+  try {
+    await withIsolatedPostgres(
+      {
+        runId,
+        ownerUnit: OWNER_UNIT_U042,
+        purpose: PURPOSE_U042,
+        evidenceDir: join(evidenceDir, 'scratch'),
+        imageDigest: IMAGE_DIGEST,
+        migrate: false,
+      },
+      async (ctx: { databaseUrl: string; containerName: string; databaseName: string; sentinel: Record<string, unknown> }) => {
+        const conn = parseConn(ctx.databaseUrl);
+        evidence.scratchIdentity = {
+          containerName: ctx.containerName,
+          databaseName: ctx.databaseName,
+          sentinel: ctx.sentinel,
+        };
+
+        const prefix = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
+          .filter((entry) => entry.isDirectory())
+          .map((entry) => entry.name)
+          .filter((name) => name <= NEW_MIGRATION_NAME_U041)
+          .sort();
+        if (prefix.at(-1) !== NEW_MIGRATION_NAME_U041 || prefix.includes(NEW_MIGRATION_NAME_U042)) {
+          throw new ContractFailure(EXIT.CONTRACT, `U042 exact prefix must end at ${NEW_MIGRATION_NAME_U041}`);
+        }
+
+        view = buildReadOnlyMigrationView('u042-prefix', prefix);
+        verifyViewIntegrity(view, prefix);
+        const deployPrefix = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (deployPrefix.code !== 0) {
+          throw new ContractFailure(EXIT.CONTRACT, `U042 prefix deploy failed: ${deployPrefix.stderr || deployPrefix.stdout}`);
+        }
+        const prefixReceipt = {
+          schemaVersion: 1,
+          endingMigration: NEW_MIGRATION_NAME_U041,
+          migrationCount: prefix.length,
+          membership: { ...view.membership },
+        };
+        writeFileSync(join(evidenceDir, 'upgrade-prefix.json'), `${JSON.stringify(prefixReceipt, null, 2)}\n`);
+        evidence.prefix = { endingMigration: NEW_MIGRATION_NAME_U041, migrationCount: prefix.length };
+        log.push(`prefix deploy: exit=0 endingMigration=${NEW_MIGRATION_NAME_U041}`);
+
+        const fixturePath = join(DB_PKG_ROOT, 'src/fixtures/u042-governance-pre-migration.sql');
+        const fixtureBytes = readFileSync(fixturePath);
+        const fixtureLoad = await spawnCapture(
+          ['docker', 'exec', '-i', '-e', `PGPASSWORD=${conn.password}`, ctx.containerName, 'psql', '-h', '127.0.0.1', '-U', conn.user, '-d', conn.database, '-v', 'ON_ERROR_STOP=1'],
+          sanitizedEnv({}),
+          { input: fixtureBytes.toString('utf8') },
+        );
+        if (fixtureLoad.code !== 0) {
+          throw new ContractFailure(EXIT.CONTRACT, `U042 pre-migration fixture load failed: ${fixtureLoad.stderr || fixtureLoad.stdout}`);
+        }
+        log.push(`pre-U042 fixture load: exit=0 sha256=${createHash('sha256').update(fixtureBytes).digest('hex')}`);
+
+        const beforeRaw = await execSql(ctx.containerName, conn, legacySnapshotSql);
+        const before = JSON.parse(beforeRaw) as LegacySnapshot;
+        const ownerNames = ['Artifact', 'ApprovalRequest', 'Opportunity', 'WorkTask', 'VendorRequest', 'RenewalOpportunity', 'SupportCase'];
+        if (
+          before.dataExportRequests.length !== 1
+          || before.artifactAccessEvents.length !== 1
+          || ownerNames.some((name) => before.ownerRows[name]?.length !== 1)
+        ) {
+          throw new ContractFailure(EXIT.CONTRACT, `U042 prefix fixture is incomplete: ${beforeRaw}`);
+        }
+        const beforeReceipt = {
+          schemaVersion: 1,
+          capturedBeforeMigration: NEW_MIGRATION_NAME_U042,
+          sourceCounts: {
+            DataExportRequest: before.dataExportRequests.length,
+            ArtifactAccessEvent: before.artifactAccessEvents.length,
+            ownerModels: Object.fromEntries(ownerNames.map((name) => [name, before.ownerRows[name]!.length])),
+          },
+          jcsSha256: hashJcs(before),
+          snapshot: before,
+        };
+        writeFileSync(join(evidenceDir, 'legacy-fixture-before.json'), `${JSON.stringify(beforeReceipt, null, 2)}\n`);
+
+        addMigrationToView(view, NEW_MIGRATION_NAME_U042);
+        verifyViewIntegrity(view, [...prefix, NEW_MIGRATION_NAME_U042]);
+        const deployU042 = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (deployU042.code !== 0) {
+          throw new ContractFailure(EXIT.CONTRACT, `U042 migration deploy failed: ${deployU042.stderr || deployU042.stdout}`);
+        }
+        log.push(`U042 migrate deploy: exit=0 migration=${NEW_MIGRATION_NAME_U042}`);
+
+        const afterRaw = await execSql(ctx.containerName, conn, legacySnapshotSql);
+        const after = JSON.parse(afterRaw) as LegacySnapshot;
+        const afterHash = hashJcs(after);
+        if (afterRaw !== beforeRaw || afterHash !== beforeReceipt.jcsSha256) {
+          throw new ContractFailure(EXIT.CONTRACT, 'U042 changed a pre-migration source/owner row byte projection');
+        }
+        const afterReceipt = {
+          schemaVersion: 1,
+          capturedAfterMigration: NEW_MIGRATION_NAME_U042,
+          sourceCounts: beforeReceipt.sourceCounts,
+          jcsSha256: afterHash,
+          snapshot: after,
+        };
+        writeFileSync(join(evidenceDir, 'legacy-fixture-after.json'), `${JSON.stringify(afterReceipt, null, 2)}\n`);
+        writeFileSync(
+          join(evidenceDir, 'legacy-source-hashes.json'),
+          `${JSON.stringify({
+            schemaVersion: 1,
+            before: beforeReceipt.jcsSha256,
+            after: afterHash,
+            countsUnchanged: true,
+            hashesUnchanged: true,
+          }, null, 2)}\n`,
+        );
+
+        const quarantineRows = await execSqlJsonRows<QuarantineRow>(ctx.containerName, conn, `
+          SELECT source_model AS "sourceModel", source_id AS "sourceId", reason_code AS "reasonCode",
+                 source_row_json AS "sourceRowJson", source_row_hash AS "sourceRowHash",
+                 candidate_scope_json AS "candidateScopeJson", review_digest AS "reviewDigest",
+                 resolution_json AS "resolutionJson"
+          FROM scope_backfill_quarantine
+          WHERE source_model IN ('DataExportRequest','ArtifactAccessEvent')
+          ORDER BY source_model, source_id
+        `);
+        if (quarantineRows.length !== 2) {
+          throw new ContractFailure(EXIT.CONTRACT, `expected two U042 quarantine snapshots, got ${quarantineRows.length}`);
+        }
+        const beforeByModel: Record<string, Record<string, unknown>> = {
+          DataExportRequest: before.dataExportRequests[0]!,
+          ArtifactAccessEvent: before.artifactAccessEvents[0]!,
+        };
+        const allowedReasons = new Set([
+          'governance_legacy_unresolved',
+          'governance_legacy_ambiguous',
+          'governance_legacy_invalid_status',
+          'governance_legacy_cross_scope',
+        ]);
+        const candidateKeys = [
+          'candidateArtifactVersionIds',
+          'candidateAssignmentIds',
+          'legacyRowSnapshot',
+          'schemaVersion',
+          'sourceId',
+          'sourceModel',
+        ];
+        for (const row of quarantineRows) {
+          const candidate = row.candidateScopeJson;
+          if (
+            !allowedReasons.has(row.reasonCode)
+            || row.resolutionJson !== null
+            || row.sourceRowHash !== hashJcs(row.sourceRowJson)
+            || row.reviewDigest !== hashJcs(candidate)
+            || canonicalizeRfc8785(row.sourceRowJson) !== canonicalizeRfc8785(beforeByModel[row.sourceModel])
+            || canonicalizeRfc8785(candidate.legacyRowSnapshot) !== canonicalizeRfc8785(row.sourceRowJson)
+            || candidate.schemaVersion !== 'governance-legacy-quarantine/v1'
+            || candidate.sourceModel !== row.sourceModel
+            || candidate.sourceId !== row.sourceId
+            || JSON.stringify(Object.keys(candidate).sort()) !== JSON.stringify(candidateKeys)
+            || !Array.isArray(candidate.candidateArtifactVersionIds)
+            || candidate.candidateArtifactVersionIds.length !== 0
+            || !Array.isArray(candidate.candidateAssignmentIds)
+            || candidate.candidateAssignmentIds.length !== 0
+          ) {
+            throw new ContractFailure(EXIT.CONTRACT, `U042 quarantine snapshot/JCS mismatch: ${JSON.stringify(row)}`);
+          }
+        }
+        writeFileSync(
+          join(evidenceDir, 'quarantine-snapshots.json'),
+          `${JSON.stringify({
+            schemaVersion: 1,
+            expectedCount: 2,
+            observedCount: quarantineRows.length,
+            independentJcsDigestMatches: true,
+            sourceRowHashMatches: true,
+            byteRereadMatches: true,
+            rows: quarantineRows,
+          }, null, 2)}\n`,
+        );
+
+        const zeroActivations = await execSql(
+          ctx.containerName,
+          conn,
+          `SELECT (SELECT count(*) FROM data_export_requests WHERE id='u042-legacy-export' AND canonical_activated_at IS NOT NULL)
+                + (SELECT count(*) FROM artifact_access_events WHERE id='u042-legacy-access' AND canonical_activated_at IS NOT NULL);`,
+        );
+        if (zeroActivations !== '0') throw new ContractFailure(EXIT.CONTRACT, 'U042 activated a preserved legacy row');
+
+        const tableCount = await execSql(
+          ctx.containerName,
+          conn,
+          `SELECT count(*) FROM pg_class WHERE relkind='r' AND relname IN (
+            'retention_policies','retention_policy_versions','retention_assignments','legal_holds',
+            'legal_hold_scopes','retention_runs','retention_run_items','export_capabilities',
+            'ownership_transfers','ownership_transfer_items'
+          );`,
+        );
+        if (tableCount !== '10') throw new ContractFailure(EXIT.CONTRACT, `U042 table count drift: ${tableCount}`);
+
+        const authorityRows = await execSqlJsonRows<AuthorityRow>(ctx.containerName, conn, `
+          SELECT t.tgname AS "triggerName", c.relname AS "table",
+            CASE
+              WHEN (t.tgtype & 4) <> 0 THEN 'INSERT'
+              WHEN (t.tgtype & 8) <> 0 THEN 'DELETE'
+              WHEN (t.tgtype & 16) <> 0 THEN 'UPDATE'
+              ELSE 'OTHER'
+            END AS event,
+            CASE
+              WHEN (t.tgtype & 2) <> 0 THEN 'BEFORE'
+              WHEN (t.tgtype & 64) <> 0 THEN 'INSTEAD OF'
+              ELSE 'AFTER'
+            END AS timing,
+            (t.tgenabled = 'O') AS enabled,
+            (((t.tgtype & 4) <> 0)::int + ((t.tgtype & 8) <> 0)::int
+              + ((t.tgtype & 16) <> 0)::int + ((t.tgtype & 32) <> 0)::int) AS "eventCount",
+            'public.' || p.proname || '()' AS "functionName",
+            public.sangfor_sha256_utf8(pg_get_functiondef(p.oid)) AS "functionDefinitionHash"
+          FROM pg_trigger t
+          JOIN pg_class c ON c.oid = t.tgrelid
+          JOIN pg_proc p ON p.oid = t.tgfoid
+          WHERE NOT t.tgisinternal
+            AND c.relname IN (
+              'retention_runs','retention_run_items','retention_policy_versions','legal_hold_scopes',
+              'artifact_access_events','data_export_requests','export_capabilities',
+              'ownership_transfers','ownership_transfer_items'
+            )
+          ORDER BY t.tgname
+        `);
+        const expectedAuthorities = triggerSpecs
+          .map(([triggerName, table, event, functionName]) => ({
+            triggerName,
+            table,
+            event,
+            timing: 'BEFORE',
+            enabled: true,
+            functionName,
+          }))
+          .sort((a, b) => a.triggerName.localeCompare(b.triggerName));
+        const observedAuthorities = authorityRows
+          .map((row) => ({
+            triggerName: row.triggerName,
+            table: row.table,
+            event: row.event,
+            timing: row.timing,
+            enabled: row.enabled,
+            functionName: row.functionName,
+          }))
+          .sort((a, b) => a.triggerName.localeCompare(b.triggerName));
+        const observedFunctions = [...new Set(authorityRows.map((row) => row.functionName))].sort();
+        const authorityKeys = authorityRows.map((row) => `${row.triggerName}|${row.table}|${row.event}`);
+        const duplicateAuthorities = authorityKeys.filter((key, index) => authorityKeys.indexOf(key) !== index);
+        if (
+          authorityRows.length !== 23
+          || observedFunctions.length !== 10
+          || JSON.stringify(observedFunctions) !== JSON.stringify(expectedFunctions)
+          || JSON.stringify(observedAuthorities) !== JSON.stringify(expectedAuthorities)
+          || duplicateAuthorities.length !== 0
+          || authorityRows.some((row) => !row.enabled || row.eventCount !== 1 || !/^[0-9a-f]{64}$/.test(row.functionDefinitionHash))
+        ) {
+          throw new ContractFailure(EXIT.CONTRACT, `U042 authority inventory mismatch: ${JSON.stringify(authorityRows)}`);
+        }
+        const authorityInventory = {
+          schemaVersion: 1,
+          unit: OWNER_UNIT_U042,
+          result: 'PASS',
+          expectedFunctionCount: 10,
+          expectedTriggerCount: 23,
+          observedFunctionCount: observedFunctions.length,
+          observedTriggerCount: authorityRows.length,
+          expectedFunctions,
+          observedFunctions,
+          expectedTriggers: expectedAuthorities,
+          observedTriggers: authorityRows,
+          missing: [],
+          extra: [],
+          duplicateAuthorities,
+          combinedAuthorities: authorityRows.filter((row) => row.eventCount !== 1),
+        };
+        writeFileSync(join(evidenceDir, 'governance-authority-inventory.json'), `${JSON.stringify(authorityInventory, null, 2)}\n`);
+
+        const activationQa: string[] = [];
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'new inactive legacy export branch denied',
+          expect: 'reject',
+          sql: `INSERT INTO data_export_requests (id,artifact_id,requested_by,reason,status,updated_at) VALUES ('u042-illegal-legacy-export','x','x','x','pending',now());`,
+        }));
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'new inactive legacy access branch denied',
+          expect: 'reject',
+          sql: `INSERT INTO artifact_access_events (id,artifact_id,user_id,access_type,"timestamp") VALUES ('u042-illegal-legacy-access','x','x','view',now());`,
+        }));
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'classification outside allowlist denied',
+          expect: 'reject',
+          sql: `INSERT INTO data_export_requests (id,canonical_activated_at,company_id,artifact_version_id,artifact_content_hash,classification,format,requested_by_assignment_id,approval_request_id,purpose,canonical_status,issued_at,expires_at,idempotency_key,request_input_hash,audit_log_id,updated_at) VALUES ('u042-bad-class',now(),'u042-company-a','u042-artifact-version-a','${artifactHashA}','secret','json','u042-assignment-requester','u042-approval-a','fixture','issued',TIMESTAMP '2026-07-16 01:00:00',TIMESTAMP '2026-07-16 01:10:00','bad-class','${h}','u042-audit-export',now());`,
+        }));
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'access type outside allowlist denied',
+          expect: 'reject',
+          sql: `INSERT INTO artifact_access_events (id,canonical_activated_at,company_id,artifact_version_id,actor_assignment_id,canonical_access_type,"requestId",policy_result,watermark_applied,redaction_applied,request_metadata,canonical_created_at) VALUES ('u042-bad-access-type',now(),'u042-company-a','u042-artifact-version-a','u042-assignment-requester','execute','req-bad-type','allowed',false,false,'{}'::jsonb,now());`,
+        }));
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'policy result outside allowlist denied',
+          expect: 'reject',
+          sql: `INSERT INTO artifact_access_events (id,canonical_activated_at,company_id,artifact_version_id,actor_assignment_id,canonical_access_type,"requestId",policy_result,watermark_applied,redaction_applied,request_metadata,canonical_created_at) VALUES ('u042-bad-policy-result',now(),'u042-company-a','u042-artifact-version-a','u042-assignment-requester','view','req-bad-policy','maybe',false,false,'{}'::jsonb,now());`,
+        }));
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'allowed access with denial reason denied',
+          expect: 'reject',
+          sql: `INSERT INTO artifact_access_events (id,canonical_activated_at,company_id,artifact_version_id,actor_assignment_id,canonical_access_type,"requestId",policy_result,watermark_applied,redaction_applied,request_metadata,denial_reason,canonical_created_at) VALUES ('u042-bad-allowed-reason',now(),'u042-company-a','u042-artifact-version-a','u042-assignment-requester','view','req-bad-allowed','allowed',false,false,'{}'::jsonb,'not allowed',now());`,
+        }));
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'denied access with blank denial reason denied',
+          expect: 'reject',
+          sql: `INSERT INTO artifact_access_events (id,canonical_activated_at,company_id,artifact_version_id,actor_assignment_id,canonical_access_type,"requestId",policy_result,watermark_applied,redaction_applied,request_metadata,denial_reason,canonical_created_at) VALUES ('u042-bad-denied-reason',now(),'u042-company-a','u042-artifact-version-a','u042-assignment-requester','view','req-bad-denied','denied',false,false,'{}'::jsonb,'   ',now());`,
+        }));
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'cross-company export artifact version denied',
+          expect: 'reject',
+          sql: `INSERT INTO data_export_requests (id,canonical_activated_at,company_id,artifact_version_id,artifact_content_hash,classification,format,requested_by_assignment_id,approval_request_id,purpose,canonical_status,issued_at,expires_at,idempotency_key,request_input_hash,audit_log_id,updated_at) VALUES ('u042-cross-export-artifact',now(),'u042-company-a','u042-artifact-version-b','${artifactHashB}','internal','json','u042-assignment-requester','u042-approval-a','fixture','issued',TIMESTAMP '2026-07-16 01:00:00',TIMESTAMP '2026-07-16 01:10:00','cross-export-artifact','${h}','u042-audit-export',now());`,
+        }));
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'cross-company access artifact version denied',
+          expect: 'reject',
+          sql: `INSERT INTO artifact_access_events (id,canonical_activated_at,company_id,artifact_version_id,actor_assignment_id,canonical_access_type,"requestId",policy_result,watermark_applied,redaction_applied,request_metadata,canonical_created_at) VALUES ('u042-cross-access-artifact',now(),'u042-company-a','u042-artifact-version-b','u042-assignment-requester','view','req-cross-artifact','allowed',false,false,'{}'::jsonb,now());`,
+        }));
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'cross-company access actor denied',
+          expect: 'reject',
+          sql: `INSERT INTO artifact_access_events (id,canonical_activated_at,company_id,artifact_version_id,actor_assignment_id,canonical_access_type,"requestId",policy_result,watermark_applied,redaction_applied,request_metadata,canonical_created_at) VALUES ('u042-cross-access-actor',now(),'u042-company-a','u042-artifact-version-a','u042-assignment-cross','view','req-cross-actor','allowed',false,false,'{}'::jsonb,now());`,
+        }));
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'cross-company export approval denied',
+          expect: 'reject',
+          sql: `INSERT INTO data_export_requests (id,canonical_activated_at,company_id,artifact_version_id,artifact_content_hash,classification,format,requested_by_assignment_id,approval_request_id,purpose,canonical_status,issued_at,expires_at,idempotency_key,request_input_hash,audit_log_id,updated_at) VALUES ('u042-cross-export-approval',now(),'u042-company-a','u042-artifact-version-a','${artifactHashA}','internal','json','u042-assignment-requester','u042-approval-b','fixture','issued',TIMESTAMP '2026-07-16 01:00:00',TIMESTAMP '2026-07-16 01:10:00','cross-export-approval','${h}','u042-audit-export',now());`,
+        }));
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'cross-company export audit denied',
+          expect: 'reject',
+          sql: `INSERT INTO data_export_requests (id,canonical_activated_at,company_id,artifact_version_id,artifact_content_hash,classification,format,requested_by_assignment_id,approval_request_id,purpose,canonical_status,issued_at,expires_at,idempotency_key,request_input_hash,audit_log_id,updated_at) VALUES ('u042-cross-export-audit',now(),'u042-company-a','u042-artifact-version-a','${artifactHashA}','internal','json','u042-assignment-requester','u042-approval-a','fixture','issued',TIMESTAMP '2026-07-16 01:00:00',TIMESTAMP '2026-07-16 01:10:00','cross-export-audit','${h}','u042-audit-cross',now());`,
+        }));
+
+        await execSql(ctx.containerName, conn, `
+          INSERT INTO retention_policies (id,company_id,key,status,updated_at)
+          VALUES ('u042-policy-a','u042-company-a','default','active',now());
+          INSERT INTO retention_policy_versions (id,policy_id,version,duration_days,action,legal_basis,content_hash)
+          VALUES ('u042-policy-version-a','u042-policy-a',1,30,'purge','contract','${h}');
+          UPDATE retention_policies SET current_version_id='u042-policy-version-a',updated_at=now() WHERE id='u042-policy-a';
+          INSERT INTO retention_assignments (id,policy_version_id,artifact_classification,resource_kind,due_at,active,updated_at)
+          VALUES ('u042-retention-assignment-a','u042-policy-version-a','internal','knowledge_chunk',TIMESTAMP '2026-07-20 00:00:00',true,now());
+          INSERT INTO legal_holds (id,company_id,policy_id,custodian_assignment_id,status,reason,started_at,updated_at)
+          VALUES ('u042-legal-hold-a','u042-company-a','u042-policy-a','u042-assignment-requester','active','fixture',TIMESTAMP '2026-07-15 00:00:00',now());
+          INSERT INTO legal_hold_scopes (id,legal_hold_id,company_id,artifact_version_id,resource_kind,resource_id)
+          VALUES ('u042-legal-hold-scope-a','u042-legal-hold-a','u042-company-a','u042-artifact-version-a','artifact_version','u042-artifact-version-a');
+        `);
+        activationQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'cross-company legal hold artifact version denied',
+          expect: 'reject',
+          sql: `INSERT INTO legal_hold_scopes (id,legal_hold_id,company_id,artifact_version_id,resource_kind,resource_id) VALUES ('u042-cross-hold','u042-legal-hold-a','u042-company-a','u042-artifact-version-b','artifact_version','u042-artifact-version-b');`,
+        }));
+
+        const insertExport = async (id: string, idempotencyKey: string) => {
+          await execSql(ctx.containerName, conn, `
+            INSERT INTO data_export_requests (
+              id,canonical_activated_at,company_id,artifact_version_id,artifact_content_hash,
+              classification,format,requested_by_assignment_id,approval_request_id,purpose,
+              canonical_status,issued_at,expires_at,completed_at,idempotency_key,
+              request_input_hash,audit_log_id,updated_at
+            ) VALUES (
+              '${id}',TIMESTAMP '2026-07-16 01:00:00','u042-company-a','u042-artifact-version-a','${artifactHashA}',
+              'internal','json','u042-assignment-requester','u042-approval-a','fixture export',
+              'issued',TIMESTAMP '2026-07-16 01:00:00',TIMESTAMP '2026-07-16 01:10:00',NULL,'${idempotencyKey}',
+              '${h}','u042-audit-export',TIMESTAMP '2026-07-16 01:00:00'
+            );
+          `);
+        };
+        for (const [id, key] of [
+          ['u042-export-consume', 'export-consume'],
+          ['u042-export-expire', 'export-expire'],
+          ['u042-export-revoke', 'export-revoke'],
+          ['u042-export-tamper', 'export-tamper'],
+          ['u042-export-noop', 'export-noop'],
+          ['u042-export-cap-consume', 'export-cap-consume'],
+          ['u042-export-cap-revoke', 'export-cap-revoke'],
+          ['u042-export-cap-tamper', 'export-cap-tamper'],
+          ['u042-export-cap-noop', 'export-cap-noop'],
+        ] as const) {
+          await insertExport(id, key);
+        }
+
+        await execSql(ctx.containerName, conn, `
+          INSERT INTO artifact_access_events (
+            id,canonical_activated_at,company_id,artifact_version_id,actor_assignment_id,
+            canonical_access_type,"requestId",policy_result,watermark_applied,redaction_applied,
+            request_metadata,denial_reason,canonical_created_at
+          ) VALUES (
+            'u042-access-valid',TIMESTAMP '2026-07-16 01:00:00','u042-company-a',
+            'u042-artifact-version-a','u042-assignment-requester','view','request-valid',
+            'allowed',false,false,'{"source":"fixture"}'::jsonb,NULL,TIMESTAMP '2026-07-16 01:00:00'
+          );
+        `);
+
+        const lifecycleQa: string[] = [];
+        lifecycleQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'issued export consumed',
+          expect: 'ok',
+          sql: `UPDATE data_export_requests SET canonical_status='consumed',completed_at=TIMESTAMP '2026-07-16 01:01:00',updated_at=now() WHERE id='u042-export-consume';`,
+        }));
+        lifecycleQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'issued export expired',
+          expect: 'ok',
+          sql: `UPDATE data_export_requests SET canonical_status='expired',completed_at=TIMESTAMP '2026-07-16 01:10:00',updated_at=now() WHERE id='u042-export-expire';`,
+        }));
+        lifecycleQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'issued export revoked',
+          expect: 'ok',
+          sql: `UPDATE data_export_requests SET canonical_status='revoked',completed_at=TIMESTAMP '2026-07-16 01:02:00',updated_at=now() WHERE id='u042-export-revoke';`,
+        }));
+        lifecycleQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'export terminal replay denied',
+          expect: 'reject',
+          sql: `UPDATE data_export_requests SET canonical_status='revoked',updated_at=now() WHERE id='u042-export-consume';`,
+        }));
+        lifecycleQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'export no-op update denied',
+          expect: 'reject',
+          sql: `UPDATE data_export_requests SET canonical_status=canonical_status WHERE id='u042-export-noop';`,
+        }));
+        lifecycleQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'export same-transition immutable hash tamper denied',
+          expect: 'reject',
+          sql: `UPDATE data_export_requests SET canonical_status='consumed',completed_at=now(),artifact_content_hash='${h2}',updated_at=now() WHERE id='u042-export-tamper';`,
+        }));
+
+        const secretBytes = Buffer.alloc(32, 0x2a);
+        const encodedSecret = secretBytes.toString('base64url');
+        const rawDigest = createHash('sha256').update(secretBytes).digest('hex');
+        const encodedDigest = hashHex(encodedSecret);
+        if (secretBytes.length !== 32 || encodedSecret.length !== 43 || rawDigest === encodedDigest) {
+          throw new ContractFailure(EXIT.CONTRACT, 'U042 capability raw-byte digest fixture is invalid');
+        }
+        for (const [id, requestId, digest] of [
+          ['u042-cap-consume', 'u042-export-cap-consume', rawDigest],
+          ['u042-cap-revoke', 'u042-export-cap-revoke', 'c'.repeat(64)],
+          ['u042-cap-tamper', 'u042-export-cap-tamper', 'd'.repeat(64)],
+          ['u042-cap-noop', 'u042-export-cap-noop', 'e'.repeat(64)],
+        ] as const) {
+          await execSql(ctx.containerName, conn, `
+            INSERT INTO export_capabilities (
+              id,export_request_id,artifact_version_id,artifact_content_hash,
+              requester_assignment_id,token_digest,expires_at
+            ) VALUES (
+              '${id}','${requestId}','u042-artifact-version-a','${artifactHashA}',
+              'u042-assignment-requester','${digest}',TIMESTAMP '2026-07-16 01:10:00'
+            );
+          `);
+        }
+        lifecycleQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'capability consumed once',
+          expect: 'ok',
+          sql: `UPDATE export_capabilities SET consumed_at=TIMESTAMP '2026-07-16 01:01:00' WHERE id='u042-cap-consume';`,
+        }));
+        lifecycleQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'capability revoked once',
+          expect: 'ok',
+          sql: `UPDATE export_capabilities SET revoked_at=TIMESTAMP '2026-07-16 01:01:00' WHERE id='u042-cap-revoke';`,
+        }));
+        lifecycleQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'capability terminal replay denied',
+          expect: 'reject',
+          sql: `UPDATE export_capabilities SET revoked_at=TIMESTAMP '2026-07-16 01:02:00' WHERE id='u042-cap-consume';`,
+        }));
+        lifecycleQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'capability no-op update denied',
+          expect: 'reject',
+          sql: `UPDATE export_capabilities SET token_digest=token_digest WHERE id='u042-cap-noop';`,
+        }));
+        lifecycleQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'capability same-transition digest tamper denied',
+          expect: 'reject',
+          sql: `UPDATE export_capabilities SET consumed_at=now(),token_digest='${h2}' WHERE id='u042-cap-tamper';`,
+        }));
+        lifecycleQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'duplicate export idempotency denied',
+          expect: 'reject',
+          sql: `INSERT INTO data_export_requests (id,canonical_activated_at,company_id,artifact_version_id,artifact_content_hash,classification,format,requested_by_assignment_id,approval_request_id,purpose,canonical_status,issued_at,expires_at,idempotency_key,request_input_hash,audit_log_id,updated_at) VALUES ('u042-export-duplicate',now(),'u042-company-a','u042-artifact-version-a','${artifactHashA}','internal','json','u042-assignment-requester','u042-approval-a','fixture','issued',TIMESTAMP '2026-07-16 01:00:00',TIMESTAMP '2026-07-16 01:10:00','export-cap-consume','${h}','u042-audit-export',now());`,
+        }));
+        writeFileSync(
+          join(evidenceDir, 'capability-contract.json'),
+          `${JSON.stringify({
+            schemaVersion: 1,
+            secretByteLength: 32,
+            canonicalBase64urlLength: 43,
+            rawByteDigestStored: true,
+            encodedTextDigestRejectedByContract: rawDigest !== encodedDigest,
+            rawCapabilityPersistedOrEmitted: false,
+            checks: lifecycleQa.filter((line) => line.includes('capability') || line.includes('idempotency')),
+          }, null, 2)}\n`,
+        );
+
+        await execSql(ctx.containerName, conn, `
+          INSERT INTO retention_runs (
+            id,company_id,phase,status,revision,retention_assignment_id,policy_version_id,
+            policy_content_hash,resource_kind,action,cutoff_at,max_items,preview_hash,
+            item_count,candidate_count,held_count,ineligible_count,actor_assignment_id,
+            idempotency_key,input_hash,audit_log_id
+          ) VALUES (
+            'u042-retention-preview','u042-company-a','preview','completed',0,
+            'u042-retention-assignment-a','u042-policy-version-a','${h}',
+            'knowledge_chunk','purge',TIMESTAMP '2026-07-01 00:00:00',10,'${h}',
+            1,1,0,0,'u042-assignment-requester','retention-preview','${h2}','u042-audit-retention'
+          );
+          INSERT INTO retention_run_items (
+            id,retention_run_id,phase,ordinal,resource_kind,resource_id,document_id,project_id,
+            policy_version_id,policy_content_hash,pre_action_hash,hold_set_hash,decision,outcome
+          ) VALUES (
+            'u042-retention-preview-item','u042-retention-preview','preview',0,'knowledge_chunk',
+            'u042-chunk-1','u042-document-a','u042-project-a','u042-policy-version-a','${h}',
+            '${h}','${h2}','candidate','not_executed'
+          );
+          INSERT INTO retention_runs (
+            id,company_id,phase,status,revision,retention_assignment_id,policy_version_id,
+            policy_content_hash,resource_kind,action,cutoff_at,max_items,preview_hash,
+            item_count,candidate_count,held_count,ineligible_count,actor_assignment_id,
+            idempotency_key,input_hash,audit_log_id,preview_run_id,execution_mode,revalidation_hash,
+            approval_request_id,approval_request_revision,approval_manifest_artifact_version_id,
+            approval_manifest_content_hash,approval_policy_hash,would_purge_count,purged_count,
+            blocked_count,failed_count
+          ) VALUES (
+            'u042-retention-dry','u042-company-a','execution','completed',1,
+            'u042-retention-assignment-a','u042-policy-version-a','${h}',
+            'knowledge_chunk','purge',TIMESTAMP '2026-07-01 00:00:00',10,'${h}',
+            1,1,0,0,'u042-assignment-requester','retention-dry','${h}','u042-audit-retention',
+            'u042-retention-preview','dry_run','${h}','u042-approval-a',0,'u042-artifact-version-a',
+            '${artifactHashA}','${h}',1,0,0,0
+          );
+          INSERT INTO retention_run_items (
+            id,retention_run_id,phase,ordinal,resource_kind,resource_id,document_id,project_id,
+            policy_version_id,policy_content_hash,pre_action_hash,hold_set_hash,decision,outcome
+          ) VALUES (
+            'u042-retention-dry-item','u042-retention-dry','execution',0,'knowledge_chunk',
+            'u042-chunk-1','u042-document-a','u042-project-a','u042-policy-version-a','${h}',
+            '${h}','${h2}','candidate','would_purge'
+          );
+          INSERT INTO retention_runs (
+            id,company_id,phase,status,revision,retention_assignment_id,policy_version_id,
+            policy_content_hash,resource_kind,action,cutoff_at,max_items,preview_hash,
+            item_count,candidate_count,held_count,ineligible_count,actor_assignment_id,
+            idempotency_key,input_hash,audit_log_id,preview_run_id,execution_mode,revalidation_hash,
+            approval_request_id,approval_request_revision,approval_manifest_artifact_version_id,
+            approval_manifest_content_hash,approval_policy_hash,would_purge_count,purged_count,
+            blocked_count,failed_count
+          ) VALUES (
+            'u042-retention-local','u042-company-a','execution','completed',1,
+            'u042-retention-assignment-a','u042-policy-version-a','${h}',
+            'knowledge_chunk','purge',TIMESTAMP '2026-07-01 00:00:00',10,'${h}',
+            1,1,0,0,'u042-assignment-requester','retention-local','${h2}','u042-audit-retention',
+            'u042-retention-preview','local_purge','${h2}','u042-approval-a',0,'u042-artifact-version-a',
+            '${artifactHashA}','${h}',0,1,0,0
+          );
+          INSERT INTO retention_run_items (
+            id,retention_run_id,phase,ordinal,resource_kind,resource_id,document_id,project_id,
+            policy_version_id,policy_content_hash,pre_action_hash,hold_set_hash,decision,outcome
+          ) VALUES (
+            'u042-retention-local-item','u042-retention-local','execution',0,'knowledge_chunk',
+            'u042-chunk-1','u042-document-a','u042-project-a','u042-policy-version-a','${h}',
+            '${h}','${h2}','candidate','purged'
+          );
+        `);
+
+        const retentionQa: string[] = [];
+        retentionQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'dry run purged count identity denied',
+          expect: 'reject',
+          sql: `INSERT INTO retention_runs (id,company_id,phase,status,revision,retention_assignment_id,policy_version_id,policy_content_hash,resource_kind,action,cutoff_at,max_items,preview_hash,item_count,candidate_count,held_count,ineligible_count,actor_assignment_id,idempotency_key,input_hash,audit_log_id,preview_run_id,execution_mode,revalidation_hash,approval_request_id,approval_request_revision,approval_manifest_artifact_version_id,approval_manifest_content_hash,approval_policy_hash,would_purge_count,purged_count,blocked_count,failed_count) VALUES ('u042-bad-dry-count','u042-company-a','execution','completed',1,'u042-retention-assignment-a','u042-policy-version-a','${h}','knowledge_chunk','purge',now(),10,'${h}',1,1,0,0,'u042-assignment-requester','bad-dry-count','${h}','u042-audit-retention','u042-retention-preview','dry_run','${h}','u042-approval-a',0,'u042-artifact-version-a','${artifactHashA}','${h}',1,1,0,0);`,
+        }));
+        retentionQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'local purge would-purge count identity denied',
+          expect: 'reject',
+          sql: `INSERT INTO retention_runs (id,company_id,phase,status,revision,retention_assignment_id,policy_version_id,policy_content_hash,resource_kind,action,cutoff_at,max_items,preview_hash,item_count,candidate_count,held_count,ineligible_count,actor_assignment_id,idempotency_key,input_hash,audit_log_id,preview_run_id,execution_mode,revalidation_hash,approval_request_id,approval_request_revision,approval_manifest_artifact_version_id,approval_manifest_content_hash,approval_policy_hash,would_purge_count,purged_count,blocked_count,failed_count) VALUES ('u042-bad-local-count','u042-company-a','execution','completed',1,'u042-retention-assignment-a','u042-policy-version-a','${h}','knowledge_chunk','purge',now(),10,'${h}',1,1,0,0,'u042-assignment-requester','bad-local-count','${h}','u042-audit-retention','u042-retention-preview','local_purge','${h}','u042-approval-a',0,'u042-artifact-version-a','${artifactHashA}','${h}',1,0,0,0);`,
+        }));
+        retentionQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'cross-company retention manifest denied',
+          expect: 'reject',
+          sql: `INSERT INTO retention_runs (id,company_id,phase,status,revision,retention_assignment_id,policy_version_id,policy_content_hash,resource_kind,action,cutoff_at,max_items,preview_hash,item_count,candidate_count,held_count,ineligible_count,actor_assignment_id,idempotency_key,input_hash,audit_log_id,preview_run_id,execution_mode,revalidation_hash,approval_request_id,approval_request_revision,approval_manifest_artifact_version_id,approval_manifest_content_hash,approval_policy_hash,would_purge_count,purged_count,blocked_count,failed_count) VALUES ('u042-cross-retention-manifest','u042-company-a','execution','completed',1,'u042-retention-assignment-a','u042-policy-version-a','${h}','knowledge_chunk','purge',now(),10,'${h}',1,1,0,0,'u042-assignment-requester','cross-retention','${h}','u042-audit-retention','u042-retention-preview','dry_run','${h}','u042-approval-a',0,'u042-artifact-version-b','${artifactHashB}','${h}',1,0,0,0);`,
+        }));
+        retentionQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'dry run candidate with purged item denied',
+          expect: 'reject',
+          sql: `INSERT INTO retention_run_items (id,retention_run_id,phase,ordinal,resource_kind,resource_id,document_id,project_id,policy_version_id,policy_content_hash,pre_action_hash,hold_set_hash,decision,outcome) VALUES ('u042-bad-dry-item','u042-retention-dry','execution',1,'knowledge_chunk','u042-chunk-2','u042-document-a','u042-project-a','u042-policy-version-a','${h}','${h}','${h2}','candidate','purged');`,
+        }));
+        writeFileSync(join(evidenceDir, 'retention-run-contract.json'), `${JSON.stringify({ schemaVersion: 1, checks: retentionQa }, null, 2)}\n`);
+
+        const ownershipTuples = [
+          { entityType: 'Artifact', entityId: 'u042-artifact-a', ownerAssignmentId: 'u042-assignment-source', ownershipRevision: 3 },
+          { entityType: 'ApprovalRequest', entityId: 'u042-approval-a', ownerAssignmentId: 'u042-assignment-source', ownershipRevision: 4 },
+          { entityType: 'Opportunity', entityId: 'u042-opportunity-a', ownerAssignmentId: 'u042-assignment-source', ownershipRevision: 5 },
+          { entityType: 'RenewalOpportunity', entityId: 'u042-renewal-a', ownerAssignmentId: 'u042-assignment-source', ownershipRevision: 8 },
+          { entityType: 'SupportCase', entityId: 'u042-support-case-a', ownerAssignmentId: 'u042-assignment-source', ownershipRevision: 9 },
+          { entityType: 'VendorRequest', entityId: 'u042-vendor-request-a', ownerAssignmentId: 'u042-assignment-source', ownershipRevision: 7 },
+          { entityType: 'WorkTask', entityId: 'u042-work-task-a', ownerAssignmentId: 'u042-assignment-source', ownershipRevision: 6 },
+        ].sort((a, b) => {
+          if (a.entityType !== b.entityType) return a.entityType < b.entityType ? -1 : 1;
+          if (a.entityId !== b.entityId) return a.entityId < b.entityId ? -1 : 1;
+          return 0;
+        });
+        const ownershipPreviewHash = hashJcs(ownershipTuples);
+        const ownershipInsertSql = (
+          id: string,
+          roleChangeRequestId: string,
+          idempotencyKey: string,
+          previewHash = ownershipPreviewHash,
+        ) => {
+          const parent = `INSERT INTO ownership_transfers (id,role_change_request_id,source_assignment_id,successor_assignment_id,requested_by_assignment_id,preview_schema_version,preview_hash,item_count,status,revision,preview_idempotency_key,preview_input_hash,preview_audit_log_id,requested_at,updated_at) VALUES ('${id}','${roleChangeRequestId}','u042-assignment-source','u042-assignment-successor','u042-assignment-requester','ownership-transfer/v1','${previewHash}',${ownershipTuples.length},'requested',0,'${idempotencyKey}','${h}','u042-audit-transfer-preview',TIMESTAMP '2026-07-16 02:00:00',TIMESTAMP '2026-07-16 02:00:00');`;
+          const items = ownershipTuples.map((tuple, ordinal) =>
+            `INSERT INTO ownership_transfer_items (id,ownership_transfer_id,ordinal,entity_type,entity_id,owner_assignment_id,ownership_revision,after_owner_assignment_id,after_ownership_revision) VALUES ('${id}-item-${ordinal}','${id}',${ordinal},'${tuple.entityType}','${tuple.entityId}','${tuple.ownerAssignmentId}',${tuple.ownershipRevision},'u042-assignment-successor',${tuple.ownershipRevision + 1});`,
+          ).join('\n');
+          return `${parent}\n${items}`;
+        };
+
+        const ownershipQa: string[] = [];
+        ownershipQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'forged ownership preview hash denied by final tuple',
+          expect: 'reject',
+          sql: ownershipInsertSql('u042-transfer-forged', 'u042-role-change-tamper', 'preview-forged', h2),
+        }));
+        for (const [id, roleChange, key] of [
+          ['u042-transfer-main', 'u042-role-change-main', 'preview-main'],
+          ['u042-transfer-requested-cancel', 'u042-role-change-requested-cancel', 'preview-requested-cancel'],
+          ['u042-transfer-blocked', 'u042-role-change-blocked', 'preview-blocked'],
+          ['u042-transfer-approved-cancel', 'u042-role-change-approved-cancel', 'preview-approved-cancel'],
+          ['u042-transfer-tamper', 'u042-role-change-tamper', 'preview-tamper'],
+        ] as const) {
+          await execSql(ctx.containerName, conn, ownershipInsertSql(id, roleChange, key));
+        }
+        ownershipQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'requested ownership transfer approved',
+          expect: 'ok',
+          sql: `UPDATE ownership_transfers SET status='approved',revision=1,approved_by_assignment_id='u042-assignment-requester',approved_at=TIMESTAMP '2026-07-16 02:01:00',updated_at=now() WHERE id='u042-transfer-main';`,
+        }));
+        ownershipQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'requested ownership transfer cancelled',
+          expect: 'ok',
+          sql: `UPDATE ownership_transfers SET status='cancelled',revision=1,updated_at=now() WHERE id='u042-transfer-requested-cancel';`,
+        }));
+        ownershipQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'requested ownership transfer approved for blocked edge',
+          expect: 'ok',
+          sql: `UPDATE ownership_transfers SET status='approved',revision=1,approved_by_assignment_id='u042-assignment-requester',approved_at=TIMESTAMP '2026-07-16 02:01:00',updated_at=now() WHERE id='u042-transfer-blocked';`,
+        }));
+        ownershipQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'approved ownership transfer blocked',
+          expect: 'ok',
+          sql: `UPDATE ownership_transfers SET status='blocked',revision=2,execute_idempotency_key='execute-blocked',execute_input_hash='${h2}',blocked_reason='CAS mismatch',updated_at=now() WHERE id='u042-transfer-blocked';`,
+        }));
+        ownershipQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'requested ownership transfer approved for cancellation edge',
+          expect: 'ok',
+          sql: `UPDATE ownership_transfers SET status='approved',revision=1,approved_by_assignment_id='u042-assignment-requester',approved_at=TIMESTAMP '2026-07-16 02:01:00',updated_at=now() WHERE id='u042-transfer-approved-cancel';`,
+        }));
+        ownershipQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'approved ownership transfer cancelled',
+          expect: 'ok',
+          sql: `UPDATE ownership_transfers SET status='cancelled',revision=2,updated_at=now() WHERE id='u042-transfer-approved-cancel';`,
+        }));
+        ownershipQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'approved ownership transfer completed',
+          expect: 'ok',
+          sql: `UPDATE ownership_transfers SET status='completed',revision=2,execute_idempotency_key='execute-main',execute_input_hash='${h2}',completion_audit_log_id='u042-audit-transfer-complete',completed_at=TIMESTAMP '2026-07-16 02:02:00',updated_at=now() WHERE id='u042-transfer-main';`,
+        }));
+        ownershipQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'ownership direct requested to completed denied',
+          expect: 'reject',
+          sql: `UPDATE ownership_transfers SET status='completed',revision=1,approved_by_assignment_id='u042-assignment-requester',approved_at=now(),execute_idempotency_key='execute-illegal',execute_input_hash='${h2}',completion_audit_log_id='u042-audit-transfer-complete',completed_at=now(),updated_at=now() WHERE id='u042-transfer-tamper';`,
+        }));
+        ownershipQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'ownership legal edge with preview hash tamper denied',
+          expect: 'reject',
+          sql: `UPDATE ownership_transfers SET status='approved',revision=1,approved_by_assignment_id='u042-assignment-requester',approved_at=now(),preview_hash='${h2}',updated_at=now() WHERE id='u042-transfer-tamper';`,
+        }));
+        ownershipQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'ownership terminal replay denied',
+          expect: 'reject',
+          sql: `UPDATE ownership_transfers SET status='blocked',revision=3,blocked_reason='replay',completion_audit_log_id=NULL,completed_at=NULL,updated_at=now() WHERE id='u042-transfer-main';`,
+        }));
+        ownershipQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'ownership item parent owner mismatch denied',
+          expect: 'reject',
+          sql: `INSERT INTO ownership_transfer_items (id,ownership_transfer_id,ordinal,entity_type,entity_id,owner_assignment_id,ownership_revision,after_owner_assignment_id,after_ownership_revision) VALUES ('u042-bad-owner-item','u042-transfer-tamper',7,'Artifact','u042-artifact-a','u042-assignment-successor',3,'u042-assignment-source',4);`,
+        }));
+        writeFileSync(
+          join(evidenceDir, 'ownership-transfer-contract.json'),
+          `${JSON.stringify({
+            schemaVersion: 1,
+            tupleCount: ownershipTuples.length,
+            previewHash: ownershipPreviewHash,
+            exactTupleOrder: ownershipTuples.map(({ entityType, entityId }) => ({ entityType, entityId })),
+            checks: ownershipQa,
+          }, null, 2)}\n`,
+        );
+
+        const immutableQa: string[] = [];
+        for (const [table, id] of [
+          ['retention_policy_versions', 'u042-policy-version-a'],
+          ['legal_hold_scopes', 'u042-legal-hold-scope-a'],
+          ['artifact_access_events', 'u042-access-valid'],
+          ['retention_runs', 'u042-retention-preview'],
+          ['retention_run_items', 'u042-retention-preview-item'],
+          ['ownership_transfer_items', 'u042-transfer-main-item-0'],
+        ] as const) {
+          immutableQa.push(await attemptQaInsert(ctx.containerName, conn, {
+            label: `${table} mutating update denied`,
+            expect: 'reject',
+            sql: `UPDATE ${table} SET id=id || '-tampered' WHERE id='${id}';`,
+          }));
+          immutableQa.push(await attemptQaInsert(ctx.containerName, conn, {
+            label: `${table} no-op update denied`,
+            expect: 'reject',
+            sql: `UPDATE ${table} SET id=id WHERE id='${id}';`,
+          }));
+          immutableQa.push(await attemptQaInsert(ctx.containerName, conn, {
+            label: `${table} delete denied`,
+            expect: 'reject',
+            sql: `DELETE FROM ${table} WHERE id='${id}';`,
+          }));
+        }
+        immutableQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'preserved legacy export update denied',
+          expect: 'reject',
+          sql: `UPDATE data_export_requests SET reason='tampered' WHERE id='u042-legacy-export';`,
+        }));
+        immutableQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'preserved legacy export delete denied',
+          expect: 'reject',
+          sql: `DELETE FROM data_export_requests WHERE id='u042-legacy-export';`,
+        }));
+        immutableQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'preserved legacy access update denied',
+          expect: 'reject',
+          sql: `UPDATE artifact_access_events SET access_type='tampered' WHERE id='u042-legacy-access';`,
+        }));
+        immutableQa.push(await attemptQaInsert(ctx.containerName, conn, {
+          label: 'preserved legacy access delete denied',
+          expect: 'reject',
+          sql: `DELETE FROM artifact_access_events WHERE id='u042-legacy-access';`,
+        }));
+
+        const negativeMatrix = {
+          schemaVersion: 1,
+          activationAndCompany: activationQa,
+          lifecycle: lifecycleQa,
+          retention: retentionQa,
+          ownership: ownershipQa,
+          immutableHistory: immutableQa,
+          totalChecks: activationQa.length + lifecycleQa.length + retentionQa.length + ownershipQa.length + immutableQa.length,
+        };
+        writeFileSync(join(evidenceDir, 'activation-checks.json'), `${JSON.stringify({ schemaVersion: 1, zeroLegacyActivations: true, checks: activationQa }, null, 2)}\n`);
+        writeFileSync(join(evidenceDir, 'governance-negative-matrix.json'), `${JSON.stringify(negativeMatrix, null, 2)}\n`);
+
+        const scopeCheck = await runScopeCheck();
+        if (scopeCheck.code !== 0) {
+          throw new ContractFailure(EXIT.CONTRACT, `U042 scope:check failed: ${scopeCheck.stdout}\n${scopeCheck.stderr}`);
+        }
+        const scope = JSON.parse(scopeCheck.stdout) as {
+          ok: boolean;
+          currentModelCount: number;
+          inventoryModelCount: number;
+          tallies: Record<string, number>;
+          errors: unknown[];
+        };
+        const expectedTallies = {
+          GLOBAL_SHARED: 11,
+          TENANT_ROOT: 2,
+          COMPANY_ROOT: 36,
+          PROJECT_ROOT: 48,
+          CHILD_VIA_FK: 88,
+          COMPANY_DIRECT: 4,
+        };
+        if (
+          scope.ok !== true
+          || scope.currentModelCount !== 189
+          || scope.inventoryModelCount !== 189
+          || scope.errors.length !== 0
+          || Object.entries(expectedTallies).some(([key, value]) => scope.tallies[key] !== value)
+        ) {
+          throw new ContractFailure(EXIT.CONTRACT, `U042 scope vector drift: ${JSON.stringify(scope)}`);
+        }
+        writeFileSync(join(evidenceDir, 'scope-inventory.json'), `${JSON.stringify(scope, null, 2)}\n`);
+        writeFileSync(
+          join(evidenceDir, 'governance-dmmf-contract.json'),
+          `${JSON.stringify({
+            schemaVersion: 1,
+            currentModelCount: scope.currentModelCount,
+            newModels: [
+              'RetentionPolicy','RetentionPolicyVersion','RetentionAssignment','LegalHold','LegalHoldScope',
+              'RetentionRun','RetentionRunItem','ExportCapability','OwnershipTransfer','OwnershipTransferItem',
+            ],
+            activationAwareReclassifications: ['DataExportRequest','ArtifactAccessEvent'],
+            scopeTallies: scope.tallies,
+          }, null, 2)}\n`,
+        );
+
+        const schemaDiff = await runMigrateDiff(ctx.databaseUrl, true);
+        const schemaDiffText = schemaDiff.stdout.replace(/^run-workspace-runtime: selected nvm\.sh=.*\n/, '').trim();
+        if (
+          schemaDiff.code !== 0
+          || !['', '-- This is an empty migration.', 'No difference detected.', 'No difference detected'].includes(schemaDiffText)
+        ) {
+          throw new ContractFailure(EXIT.CONTRACT, `U042 schema diff is not empty: exit=${schemaDiff.code}\n${schemaDiff.stderr || schemaDiff.stdout}`);
+        }
+        evidence.emptySchemaDiff = true;
+        evidence.authorityInventory = { functions: observedFunctions.length, triggers: authorityRows.length };
+        evidence.negativeChecks = negativeMatrix.totalChecks;
+        log.push('prisma migrate diff --exit-code: exit=0');
+        log.push('No difference detected');
+      },
+    );
+  } catch (error) {
+    caught = error;
+  } finally {
+    if (view) rmSync(view.dir, { recursive: true, force: true });
+  }
+
+  const result = caught ? 'FAIL' : 'PASS';
+  const finishedAt = new Date().toISOString();
+  const receipt = {
+    schemaVersion: 1,
+    unit: OWNER_UNIT_U042,
+    suite: PURPOSE_U042,
+    runId,
+    result,
+    startedAt,
+    finishedAt,
+    evidence,
+  };
+  writeFileSync(join(evidenceDir, 'db-contract-receipt.json'), `${JSON.stringify(receipt, null, 2)}\n`);
+  writeFileSync(
+    join(evidenceDir, 'cleanup.json'),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      runId,
+      migrationViewRemoved: view === null || !existsSync(view.dir),
+      isolatedLifecycle: 'completed',
+      result,
+    }, null, 2)}\n`,
+  );
+  if (caught) {
+    log.push(`FAIL: ${caught instanceof Error ? (caught.stack ?? caught.message) : String(caught)}`);
+  } else {
+    log.push('governance-schema: PASS');
+  }
+  writeFileSync(join(evidenceDir, 'db-contract.txt'), `${log.join('\n')}\n`);
+  if (caught) {
+    process.stderr.write(`${caught instanceof Error ? (caught.stack ?? caught.message) : String(caught)}\n`);
+    return caught instanceof ContractFailure ? caught.exitCode : EXIT.CONTRACT;
+  }
+  return EXIT.SUCCESS;
+}
+
 async function main(): Promise<number> {
   let args;
   try {
@@ -4948,6 +5930,7 @@ async function main(): Promise<number> {
   if (args.suite === 'audit-chain') return runAuditChainSuite(args.evidence);
   if (args.suite === 'role-change') return runRoleChangeSuite(args.evidence);
   if (args.suite === 'ai-quality-schema') return runAiQualitySchemaSuite(args.evidence);
+  if (args.suite === 'governance-schema') return runGovernanceSchemaSuite(args.evidence);
   return runWorkflowSchemaSuite(args.evidence);
 }
 

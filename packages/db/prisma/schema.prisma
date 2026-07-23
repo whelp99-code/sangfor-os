@@ -64,6 +64,7 @@ model Project {
   workflowDefinitions WorkflowDefinition[]
   workflowRuns        WorkflowRun[]
   auditLogs           AuditLog[]
+  retentionRunItems RetentionRunItem[]
 
   // U012: companyId stays optional here (full NOT NULL is deferred to U073 — see
   // packages/db/src/scope-closure.ts) because a live legacy-null Project can be a genuinely
@@ -413,6 +414,8 @@ model ApprovalRequest {
   roleChangeRequest RoleChangeRequest?
   discountRequests DiscountRequest[]
   aiReleaseEvaluations AiReleaseEvaluation[]
+  retentionRuns RetentionRun[] @relation("RetentionRunApprovalRequest")
+  dataExportRequests DataExportRequest[] @relation("DataExportRequestApprovalRequest")
 
   @@index([status])
   @@map("approval_requests")
@@ -728,6 +731,10 @@ model AuditLog {
   // projects_company_id_id_key), same pattern as ApprovalRequest/Artifact/AuthSession.
   company Company? @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "audit_logs_company_id_fkey")
   project Project? @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "audit_logs_project_id_fkey")
+  retentionRuns RetentionRun[] @relation("RetentionRunAuditLog")
+  dataExportRequests DataExportRequest[] @relation("DataExportRequestAuditLog")
+  ownershipTransfersAsPreview OwnershipTransfer[] @relation("OwnershipTransferPreviewAuditLog")
+  ownershipTransfersAsCompletion OwnershipTransfer[] @relation("OwnershipTransferCompletionAuditLog")
 
   @@unique([chainScopeKey, sequence])
   @@index([eventType, createdAt])
@@ -1252,6 +1259,7 @@ model KnowledgeDocument {
 
   chunks KnowledgeChunk[]
   mailInsightThreads MailInsightThread[]
+  retentionRunItems RetentionRunItem[]
 
   @@index([projectId])
   @@map("knowledge_documents")
@@ -1483,6 +1491,11 @@ model ArtifactVersion {
   aiQualityEvidenceSources AiQualityEvidence[]     @relation("AiQualityEvidenceSourceArtifactVersion")
   aiQualityReviews         AiQualityReview[]       @relation("AiQualityReviewArtifactVersion")
   aiReleaseEvaluations     AiReleaseEvaluation[]   @relation("AiReleaseEvaluationArtifactVersion")
+  dataExportRequests DataExportRequest[] @relation("DataExportRequestArtifactVersion")
+  artifactAccessEvents ArtifactAccessEvent[] @relation("ArtifactAccessEventArtifactVersion")
+  legalHoldScopes LegalHoldScope[] @relation("LegalHoldScopeArtifactVersion")
+  retentionRunsAsManifest RetentionRun[] @relation("RetentionRunApprovalManifestArtifactVersion")
+  exportCapabilities ExportCapability[] @relation("ExportCapabilityArtifactVersion")
 
   @@unique([artifactId, version], map: "artifact_versions_artifact_id_version_key")
   @@unique([artifactId, contentHashVersion, contentHash], map: "artifact_versions_content_hash_key")
@@ -2995,6 +3008,12 @@ model Company {
   engineerEligibilityPolicies EngineerEligibilityPolicy[]
   supportSlaPolicies SupportSlaPolicy[]
   supportSlaPolicyVersions SupportSlaPolicyVersion[]
+  retentionPolicies RetentionPolicy[] @relation("RetentionPolicyCompany")
+  legalHolds LegalHold[] @relation("LegalHoldCompany")
+  legalHoldScopes LegalHoldScope[] @relation("LegalHoldScopeCompany")
+  retentionRuns RetentionRun[] @relation("RetentionRunCompany")
+  dataExportRequests DataExportRequest[] @relation("DataExportRequestCompany")
+  artifactAccessEvents ArtifactAccessEvent[] @relation("ArtifactAccessEventCompany")
 
   @@unique([tenantId, id], map: "companies_tenant_id_id_key")
   @@index([tenantId])
@@ -3092,6 +3111,17 @@ model UserCompanyRole {
   assignedEngineerAssignments EngineerAssignment[] @relation("EngineerAssignmentAssignedByAssignment")
   assessedAiQualityAssessments AiQualityAssessment[] @relation("AiQualityAssessmentAssessedByAssignment")
   reviewedAiQualityReviews     AiQualityReview[]     @relation("AiQualityReviewReviewerAssignment")
+  legalHoldsAsCustodian LegalHold[] @relation("LegalHoldCustodianAssignment")
+  retentionRunsAsActor RetentionRun[] @relation("RetentionRunActorAssignment")
+  requestedDataExportRequests DataExportRequest[] @relation("DataExportRequestRequestedByAssignment")
+  artifactAccessEvents ArtifactAccessEvent[] @relation("ArtifactAccessEventActorAssignment")
+  exportCapabilities ExportCapability[] @relation("ExportCapabilityRequesterAssignment")
+  ownershipTransfersAsSource OwnershipTransfer[] @relation("OwnershipTransferSourceAssignment")
+  ownershipTransfersAsSuccessor OwnershipTransfer[] @relation("OwnershipTransferSuccessorAssignment")
+  ownershipTransfersAsRequester OwnershipTransfer[] @relation("OwnershipTransferRequestedByAssignment")
+  ownershipTransfersAsApprover OwnershipTransfer[] @relation("OwnershipTransferApprovedByAssignment")
+  ownershipTransferItemsBefore OwnershipTransferItem[] @relation("OwnershipTransferItemOwnerAssignment")
+  ownershipTransferItemsAfter OwnershipTransferItem[] @relation("OwnershipTransferItemAfterOwnerAssignment")
 
   @@unique([userId, companyId, role])
   @@unique([id, companyId], map: "user_company_roles_id_company_id_key")
@@ -3145,6 +3175,7 @@ model RoleChangeRequest {
   appliedByAssignment UserCompanyRole? @relation("RoleChangeAppliedByAssignment", fields: [appliedByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "role_change_requests_applied_by_assignment_id_fkey")
   artifactVersion ArtifactVersion? @relation(fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "role_change_requests_artifact_version_id_fkey")
   approvalRequest ApprovalRequest? @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "role_change_requests_approval_request_id_fkey")
+  ownershipTransfer OwnershipTransfer?
 
   @@index([userId, status])
   @@index([companyId])
@@ -3956,25 +3987,310 @@ model AgentPlaybook {
 // --- Security & Audit ---
 
 model DataExportRequest {
-  id          String  @id @default(cuid())
-  artifactId  String  @map("artifact_id")
-  requestedBy String  @map("requested_by")
-  reason      String
-  status      String  @default("pending")
-  approvedBy  String? @map("approved_by")
+  id                    String    @id @default(cuid())
+  legacyArtifactId      String?   @map("artifact_id")
+  legacyRequestedBy     String?   @map("requested_by")
+  legacyReason          String?   @map("reason")
+  legacyStatus          String?   @map("status")
+  legacyApprovedBy      String?   @map("approved_by")
+  canonicalActivatedAt  DateTime? @map("canonical_activated_at")
+  companyId             String?   @map("company_id")
+  artifactVersionId     String?   @map("artifact_version_id")
+  artifactContentHash   String?   @map("artifact_content_hash")
+  classification        String?
+  format                String?
+  requestedByAssignmentId String? @map("requested_by_assignment_id")
+  approvalRequestId     String?   @map("approval_request_id")
+  purpose               String?
+  canonicalStatus       String?   @map("canonical_status")
+  issuedAt              DateTime? @map("issued_at")
+  expiresAt             DateTime? @map("expires_at")
+  completedAt           DateTime? @map("completed_at")
+  idempotencyKey        String?   @map("idempotency_key")
+  requestInputHash      String?   @map("request_input_hash")
+  auditLogId            String?   @map("audit_log_id")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
+  company Company? @relation("DataExportRequestCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  artifactVersion ArtifactVersion? @relation("DataExportRequestArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict)
+  requestedByAssignment UserCompanyRole? @relation("DataExportRequestRequestedByAssignment", fields: [requestedByAssignmentId], references: [id], onDelete: Restrict)
+  approvalRequest ApprovalRequest? @relation("DataExportRequestApprovalRequest", fields: [approvalRequestId], references: [id], onDelete: Restrict)
+  auditLog AuditLog? @relation("DataExportRequestAuditLog", fields: [auditLogId], references: [id], onDelete: Restrict)
+  exportCapabilities ExportCapability[]
+
+  @@unique([requestedByAssignmentId, idempotencyKey], map: "data_export_requests_requested_assignment_idempotency_key")
+  @@index([companyId, canonicalActivatedAt])
   @@map("data_export_requests")
 }
 
 model ArtifactAccessEvent {
-  id         String   @id @default(cuid())
-  artifactId String   @map("artifact_id")
-  userId     String   @map("user_id")
-  accessType String   @map("access_type")
-  timestamp  DateTime @default(now())
+  id                  String    @id @default(cuid())
+  legacyArtifactId    String?   @map("artifact_id")
+  legacyUserId        String?   @map("user_id")
+  legacyAccessType    String?   @map("access_type")
+  legacyTimestamp     DateTime? @map("timestamp")
+  canonicalActivatedAt DateTime? @map("canonical_activated_at")
+  companyId           String?   @map("company_id")
+  artifactVersionId   String?   @map("artifact_version_id")
+  actorAssignmentId   String?   @map("actor_assignment_id")
+  accessType          String?   @map("canonical_access_type")
+  requestId           String?
+  policyResult        String?   @map("policy_result")
+  watermarkApplied    Boolean?  @map("watermark_applied")
+  redactionApplied    Boolean?  @map("redaction_applied")
+  requestMetadata     Json?     @map("request_metadata")
+  denialReason        String?   @map("denial_reason")
+  createdAt           DateTime? @map("canonical_created_at")
 
-  @@index([artifactId])
+  company Company? @relation("ArtifactAccessEventCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  artifactVersion ArtifactVersion? @relation("ArtifactAccessEventArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict)
+  actorAssignment UserCompanyRole? @relation("ArtifactAccessEventActorAssignment", fields: [actorAssignmentId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, canonicalActivatedAt])
   @@map("artifact_access_events")
+}
+
+// --- Governance lifecycle receipts (U042 / GOV-01) ---
+model RetentionPolicy {
+  id String @id @default(cuid())
+  companyId String @map("company_id")
+  key String
+  status String
+  currentVersionId String? @unique @map("current_version_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  company Company @relation("RetentionPolicyCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  versions RetentionPolicyVersion[] @relation("RetentionPolicyVersions")
+  currentVersion RetentionPolicyVersion? @relation("RetentionPolicyCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  legalHolds LegalHold[]
+  @@unique([companyId, key])
+  @@map("retention_policies")
+}
+
+model RetentionPolicyVersion {
+  id String @id @default(cuid())
+  policyId String @map("policy_id")
+  version Int
+  durationDays Int @map("duration_days")
+  action String
+  legalBasis String @map("legal_basis")
+  contentHash String @map("content_hash")
+  supersedesVersionId String? @map("supersedes_version_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  policy RetentionPolicy @relation("RetentionPolicyVersions", fields: [policyId], references: [id], onDelete: Restrict)
+  supersedesVersion RetentionPolicyVersion? @relation("RetentionPolicySupersession", fields: [supersedesVersionId], references: [id], onDelete: Restrict)
+  supersededBy RetentionPolicyVersion[] @relation("RetentionPolicySupersession")
+  currentForPolicy RetentionPolicy? @relation("RetentionPolicyCurrentVersion")
+  assignments RetentionAssignment[]
+  retentionRuns RetentionRun[]
+  retentionRunItems RetentionRunItem[]
+  @@unique([policyId, version])
+  @@map("retention_policy_versions")
+}
+
+model RetentionAssignment {
+  id String @id @default(cuid())
+  policyVersionId String @map("policy_version_id")
+  artifactClassification String @map("artifact_classification")
+  resourceKind String @map("resource_kind")
+  dueAt DateTime? @map("due_at")
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  policyVersion RetentionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  retentionRuns RetentionRun[]
+  @@unique([policyVersionId, artifactClassification, resourceKind])
+  @@index([active, dueAt])
+  @@map("retention_assignments")
+}
+
+model LegalHold {
+  id String @id @default(cuid())
+  companyId String @map("company_id")
+  policyId String? @map("policy_id")
+  custodianAssignmentId String @map("custodian_assignment_id")
+  status String
+  reason String
+  startedAt DateTime @map("started_at")
+  releasedAt DateTime? @map("released_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  company Company @relation("LegalHoldCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  policy RetentionPolicy? @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  custodianAssignment UserCompanyRole @relation("LegalHoldCustodianAssignment", fields: [custodianAssignmentId], references: [id], onDelete: Restrict)
+  scopes LegalHoldScope[]
+  @@index([companyId, status, releasedAt])
+  @@map("legal_holds")
+}
+
+model LegalHoldScope {
+  id String @id @default(cuid())
+  legalHoldId String @map("legal_hold_id")
+  companyId String @map("company_id")
+  artifactVersionId String? @map("artifact_version_id")
+  resourceKind String @map("resource_kind")
+  resourceId String? @map("resource_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  legalHold LegalHold @relation(fields: [legalHoldId], references: [id], onDelete: Restrict)
+  company Company @relation("LegalHoldScopeCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  artifactVersion ArtifactVersion? @relation("LegalHoldScopeArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict)
+  @@unique([legalHoldId, resourceKind, resourceId])
+  @@index([companyId, resourceKind, resourceId])
+  @@map("legal_hold_scopes")
+}
+
+model RetentionRun {
+  id String @id @default(cuid())
+  companyId String @map("company_id")
+  phase String
+  status String
+  revision Int
+  retentionAssignmentId String @map("retention_assignment_id")
+  policyVersionId String @map("policy_version_id")
+  policyContentHash String @map("policy_content_hash")
+  resourceKind String @map("resource_kind")
+  action String
+  cutoffAt DateTime @map("cutoff_at")
+  maxItems Int @map("max_items")
+  previewHash String @map("preview_hash")
+  itemCount Int @map("item_count")
+  candidateCount Int @map("candidate_count")
+  heldCount Int @map("held_count")
+  ineligibleCount Int @map("ineligible_count")
+  actorAssignmentId String @map("actor_assignment_id")
+  idempotencyKey String @map("idempotency_key")
+  inputHash String @map("input_hash")
+  auditLogId String @map("audit_log_id")
+  previewRunId String? @map("preview_run_id")
+  executionMode String? @map("execution_mode")
+  revalidationHash String? @map("revalidation_hash")
+  approvalRequestId String? @map("approval_request_id")
+  approvalRequestRevision Int? @map("approval_request_revision")
+  approvalManifestArtifactVersionId String? @map("approval_manifest_artifact_version_id")
+  approvalManifestContentHash String? @map("approval_manifest_content_hash")
+  approvalPolicyHash String? @map("approval_policy_hash")
+  wouldPurgeCount Int @default(0) @map("would_purge_count")
+  purgedCount Int @default(0) @map("purged_count")
+  blockedCount Int @default(0) @map("blocked_count")
+  failedCount Int @default(0) @map("failed_count")
+  createdAt DateTime @default(now()) @map("created_at")
+  company Company @relation("RetentionRunCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  retentionAssignment RetentionAssignment @relation(fields: [retentionAssignmentId], references: [id], onDelete: Restrict)
+  policyVersion RetentionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  actorAssignment UserCompanyRole @relation("RetentionRunActorAssignment", fields: [actorAssignmentId], references: [id], onDelete: Restrict)
+  auditLog AuditLog @relation("RetentionRunAuditLog", fields: [auditLogId], references: [id], onDelete: Restrict)
+  previewRun RetentionRun? @relation("RetentionRunPreview", fields: [previewRunId], references: [id], onDelete: Restrict)
+  executionRuns RetentionRun[] @relation("RetentionRunPreview")
+  approvalRequest ApprovalRequest? @relation("RetentionRunApprovalRequest", fields: [approvalRequestId], references: [id], onDelete: Restrict)
+  approvalManifestArtifactVersion ArtifactVersion? @relation("RetentionRunApprovalManifestArtifactVersion", fields: [approvalManifestArtifactVersionId], references: [id], onDelete: Restrict)
+  items RetentionRunItem[]
+  @@unique([id, phase], map: "retention_runs_id_phase_key")
+  @@unique([retentionAssignmentId, phase, actorAssignmentId, idempotencyKey], map: "retention_runs_assignment_phase_actor_idempotency_key")
+  @@unique([previewRunId, phase, actorAssignmentId, idempotencyKey], map: "retention_runs_preview_phase_actor_idempotency_key")
+  @@map("retention_runs")
+}
+
+model RetentionRunItem {
+  id String @id @default(cuid())
+  retentionRunId String @map("retention_run_id")
+  phase String
+  ordinal Int
+  resourceKind String @map("resource_kind")
+  resourceId String @map("resource_id")
+  documentId String @map("document_id")
+  projectId String @map("project_id")
+  policyVersionId String @map("policy_version_id")
+  policyContentHash String @map("policy_content_hash")
+  preActionHash String @map("pre_action_hash")
+  holdSetHash String @map("hold_set_hash")
+  decision String
+  outcome String
+  reasonCode String? @map("reason_code")
+  createdAt DateTime @default(now()) @map("created_at")
+  retentionRun RetentionRun @relation(fields: [retentionRunId, phase], references: [id, phase], onDelete: Restrict)
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  policyVersion RetentionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  @@unique([retentionRunId, resourceKind, resourceId], map: "retention_run_items_run_resource_key")
+  @@unique([retentionRunId, ordinal], map: "retention_run_items_run_ordinal_key")
+  @@map("retention_run_items")
+}
+
+model ExportCapability {
+  id String @id @default(cuid())
+  exportRequestId String @map("export_request_id")
+  artifactVersionId String @map("artifact_version_id")
+  artifactContentHash String @map("artifact_content_hash")
+  requesterAssignmentId String @map("requester_assignment_id")
+  tokenDigest String @map("token_digest")
+  expiresAt DateTime @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  exportRequest DataExportRequest @relation(fields: [exportRequestId], references: [id], onDelete: Restrict)
+  artifactVersion ArtifactVersion @relation("ExportCapabilityArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict)
+  requesterAssignment UserCompanyRole @relation("ExportCapabilityRequesterAssignment", fields: [requesterAssignmentId], references: [id], onDelete: Restrict)
+  @@unique([tokenDigest])
+  @@index([expiresAt, consumedAt, revokedAt])
+  @@map("export_capabilities")
+}
+
+model OwnershipTransfer {
+  id String @id @default(cuid())
+  roleChangeRequestId String @unique @map("role_change_request_id")
+  sourceAssignmentId String @map("source_assignment_id")
+  successorAssignmentId String @map("successor_assignment_id")
+  requestedByAssignmentId String @map("requested_by_assignment_id")
+  approvedByAssignmentId String? @map("approved_by_assignment_id")
+  previewSchemaVersion String @map("preview_schema_version")
+  previewHash String @map("preview_hash")
+  itemCount Int @map("item_count")
+  status String
+  revision Int
+  previewIdempotencyKey String @map("preview_idempotency_key")
+  previewInputHash String @map("preview_input_hash")
+  executeIdempotencyKey String? @map("execute_idempotency_key")
+  executeInputHash String? @map("execute_input_hash")
+  previewAuditLogId String @map("preview_audit_log_id")
+  completionAuditLogId String? @map("completion_audit_log_id")
+  blockedReason String? @map("blocked_reason")
+  requestedAt DateTime? @map("requested_at")
+  approvedAt DateTime? @map("approved_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  roleChangeRequest RoleChangeRequest @relation(fields: [roleChangeRequestId], references: [id], onDelete: Restrict)
+  sourceAssignment UserCompanyRole @relation("OwnershipTransferSourceAssignment", fields: [sourceAssignmentId], references: [id], onDelete: Restrict)
+  successorAssignment UserCompanyRole @relation("OwnershipTransferSuccessorAssignment", fields: [successorAssignmentId], references: [id], onDelete: Restrict)
+  requestedByAssignment UserCompanyRole @relation("OwnershipTransferRequestedByAssignment", fields: [requestedByAssignmentId], references: [id], onDelete: Restrict)
+  approvedByAssignment UserCompanyRole? @relation("OwnershipTransferApprovedByAssignment", fields: [approvedByAssignmentId], references: [id], onDelete: Restrict)
+  previewAuditLog AuditLog @relation("OwnershipTransferPreviewAuditLog", fields: [previewAuditLogId], references: [id], onDelete: Restrict)
+  completionAuditLog AuditLog? @relation("OwnershipTransferCompletionAuditLog", fields: [completionAuditLogId], references: [id], onDelete: Restrict)
+  items OwnershipTransferItem[]
+  @@unique([sourceAssignmentId, previewIdempotencyKey], map: "ownership_transfers_source_preview_idempotency_key")
+  @@unique([id, executeIdempotencyKey], map: "ownership_transfers_id_execute_idempotency_key")
+  @@index([sourceAssignmentId, successorAssignmentId, status])
+  @@map("ownership_transfers")
+}
+
+model OwnershipTransferItem {
+  id String @id @default(cuid())
+  ownershipTransferId String @map("ownership_transfer_id")
+  ordinal Int
+  entityType String @map("entity_type")
+  entityId String @map("entity_id")
+  ownerAssignmentId String @map("owner_assignment_id")
+  ownershipRevision Int @map("ownership_revision")
+  afterOwnerAssignmentId String @map("after_owner_assignment_id")
+  afterOwnershipRevision Int @map("after_ownership_revision")
+  createdAt DateTime @default(now()) @map("created_at")
+  ownershipTransfer OwnershipTransfer @relation(fields: [ownershipTransferId], references: [id], onDelete: Restrict)
+  ownerAssignment UserCompanyRole @relation("OwnershipTransferItemOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: Restrict)
+  afterOwnerAssignment UserCompanyRole @relation("OwnershipTransferItemAfterOwnerAssignment", fields: [afterOwnerAssignmentId], references: [id], onDelete: Restrict)
+  @@unique([ownershipTransferId, entityType, entityId], map: "ownership_transfer_items_transfer_entity_key")
+  @@unique([ownershipTransferId, ordinal], map: "ownership_transfer_items_transfer_ordinal_key")
+  @@map("ownership_transfer_items")
 }
 
 model NotificationEvent {

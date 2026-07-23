@@ -40,7 +40,8 @@ export type ScopeCategory =
   | 'TENANT_ROOT'
   | 'COMPANY_ROOT'
   | 'PROJECT_ROOT'
-  | 'CHILD_VIA_FK';
+  | 'CHILD_VIA_FK'
+  | 'COMPANY_DIRECT';
 
 export const ROOT_CATEGORIES = ['TENANT_ROOT', 'COMPANY_ROOT', 'PROJECT_ROOT'] as const;
 export type RootCategory = (typeof ROOT_CATEGORIES)[number];
@@ -48,6 +49,14 @@ export type RootCategory = (typeof ROOT_CATEGORIES)[number];
 export interface RootScopeEntry {
   model: string;
   category: RootCategory | 'GLOBAL_SHARED';
+}
+
+/** A canonical row anchored by a required companyId while preserving an inactive legacy branch. */
+export interface CompanyDirectEntry {
+  model: string;
+  category: 'COMPANY_DIRECT';
+  companyField: 'companyId';
+  activationField?: 'canonicalActivatedAt';
 }
 
 export interface ChildViaFkEntry {
@@ -72,7 +81,7 @@ export interface ChildViaFkEntry {
   nullable: false;
 }
 
-export type ScopeInventoryEntry = RootScopeEntry | ChildViaFkEntry;
+export type ScopeInventoryEntry = RootScopeEntry | ChildViaFkEntry | CompanyDirectEntry;
 
 /**
  * U040 completed the catalog receipt: ProductFamily is now a company root and LicenseMetric
@@ -104,6 +113,7 @@ export const SCOPE_INVENTORY_BASELINE: ScopeInventoryBaseline = Object.freeze({
     COMPANY_ROOT: 32,
     PROJECT_ROOT: 44,
     CHILD_VIA_FK: 60,
+    COMPANY_DIRECT: 0,
   }),
 });
 
@@ -189,6 +199,16 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   { model: 'AiReleaseEvaluation', unit: 'U041', category: 'CHILD_VIA_FK' },
   { model: 'AiPromptSnapshot', unit: 'U041', category: 'CHILD_VIA_FK' },
   { model: 'AiModelSnapshot', unit: 'U041', category: 'CHILD_VIA_FK' },
+  { model: 'RetentionPolicy', unit: 'U042', category: 'COMPANY_ROOT' },
+  { model: 'RetentionPolicyVersion', unit: 'U042', category: 'CHILD_VIA_FK' },
+  { model: 'RetentionAssignment', unit: 'U042', category: 'CHILD_VIA_FK' },
+  { model: 'LegalHold', unit: 'U042', category: 'COMPANY_ROOT' },
+  { model: 'LegalHoldScope', unit: 'U042', category: 'COMPANY_DIRECT' },
+  { model: 'RetentionRun', unit: 'U042', category: 'COMPANY_DIRECT' },
+  { model: 'RetentionRunItem', unit: 'U042', category: 'CHILD_VIA_FK' },
+  { model: 'ExportCapability', unit: 'U042', category: 'CHILD_VIA_FK' },
+  { model: 'OwnershipTransfer', unit: 'U042', category: 'CHILD_VIA_FK' },
+  { model: 'OwnershipTransferItem', unit: 'U042', category: 'CHILD_VIA_FK' },
 ];
 
 export interface ReclassifiedModel {
@@ -220,6 +240,8 @@ export const RECLASSIFIED_MODELS: ReclassifiedModel[] = [
   // U040 validates the non-null catalog anchors after its conservative, zero-ambiguity backfill.
   { model: 'ProductFamily', unit: 'U040', fromCategory: 'GLOBAL_SHARED', toCategory: 'COMPANY_ROOT' },
   { model: 'LicenseMetric', unit: 'U040', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
+  { model: 'DataExportRequest', unit: 'U042', fromCategory: 'COMPANY_ROOT', toCategory: 'COMPANY_DIRECT' },
+  { model: 'ArtifactAccessEvent', unit: 'U042', fromCategory: 'COMPANY_ROOT', toCategory: 'COMPANY_DIRECT' },
 ];
 
 export function expectedCurrentModelCount(
@@ -272,7 +294,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   ApprovalDecision: { model: 'ApprovalDecision', category: 'CHILD_VIA_FK', parentModel: 'ApprovalRequest', relationField: 'approvalRequest', scalarFkField: 'approvalRequestId', nullable: false },
   ApprovalRequest: { model: 'ApprovalRequest', category: 'PROJECT_ROOT' },
   Artifact: { model: 'Artifact', category: 'PROJECT_ROOT' },
-  ArtifactAccessEvent: { model: 'ArtifactAccessEvent', category: 'COMPANY_ROOT' },
+  ArtifactAccessEvent: { model: 'ArtifactAccessEvent', category: 'COMPANY_DIRECT', companyField: 'companyId', activationField: 'canonicalActivatedAt' },
   ArtifactVersion: { model: 'ArtifactVersion', category: 'CHILD_VIA_FK', parentModel: 'Artifact', relationField: 'artifact', scalarFkField: 'artifactId', nullable: false },
   AssetLicense: { model: 'AssetLicense', category: 'CHILD_VIA_FK', parentModel: 'CustomerAsset', relationField: 'asset', scalarFkField: 'assetId', nullable: false },
   // U021/AUD-01b: reclassified from COMPANY_ROOT to TENANT_ROOT (tenantId always mandatory) — see
@@ -313,7 +335,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   CustomerActivityLog: { model: 'CustomerActivityLog', category: 'CHILD_VIA_FK', parentModel: 'Customer', relationField: 'customer', scalarFkField: 'customerId', nullable: false },
   CustomerAsset: { model: 'CustomerAsset', category: 'CHILD_VIA_FK', parentModel: 'Customer', relationField: 'customer', scalarFkField: 'customerId', nullable: false },
   CustomerPartnerLink: { model: 'CustomerPartnerLink', category: 'CHILD_VIA_FK', parentModel: 'Customer', relationField: 'customer', scalarFkField: 'customerId', nullable: false },
-  DataExportRequest: { model: 'DataExportRequest', category: 'COMPANY_ROOT' },
+  DataExportRequest: { model: 'DataExportRequest', category: 'COMPANY_DIRECT', companyField: 'companyId', activationField: 'canonicalActivatedAt' },
   DealQualification: { model: 'DealQualification', category: 'CHILD_VIA_FK', parentModel: 'Opportunity', relationField: 'opportunity', scalarFkField: 'opportunityId', nullable: false },
   DealRegistration: { model: 'DealRegistration', category: 'CHILD_VIA_FK', parentModel: 'Opportunity', relationField: 'opportunity', scalarFkField: 'opportunityId', nullable: false },
   DeliveryChecklistItem: { model: 'DeliveryChecklistItem', category: 'CHILD_VIA_FK', parentModel: 'Engagement', relationField: 'delivery', scalarFkField: 'deliveryId', nullable: false },
@@ -442,6 +464,16 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   WorkflowTemplate: { model: 'WorkflowTemplate', category: 'PROJECT_ROOT' },
   Workspace: { model: 'Workspace', category: 'PROJECT_ROOT' },
   WorkTask: { model: 'WorkTask', category: 'PROJECT_ROOT' },
+  RetentionPolicy: { model: 'RetentionPolicy', category: 'COMPANY_ROOT' },
+  RetentionPolicyVersion: { model: 'RetentionPolicyVersion', category: 'CHILD_VIA_FK', parentModel: 'RetentionPolicy', relationField: 'policy', scalarFkField: 'policyId', nullable: false },
+  RetentionAssignment: { model: 'RetentionAssignment', category: 'CHILD_VIA_FK', parentModel: 'RetentionPolicyVersion', relationField: 'policyVersion', scalarFkField: 'policyVersionId', nullable: false },
+  LegalHold: { model: 'LegalHold', category: 'COMPANY_ROOT' },
+  LegalHoldScope: { model: 'LegalHoldScope', category: 'COMPANY_DIRECT', companyField: 'companyId' },
+  RetentionRun: { model: 'RetentionRun', category: 'COMPANY_DIRECT', companyField: 'companyId' },
+  RetentionRunItem: { model: 'RetentionRunItem', category: 'CHILD_VIA_FK', parentModel: 'RetentionRun', relationField: 'retentionRun', scalarFkField: 'retentionRunId', additionalRequiredRelationFields: ['document', 'project', 'policyVersion'], nullable: false },
+  ExportCapability: { model: 'ExportCapability', category: 'CHILD_VIA_FK', parentModel: 'DataExportRequest', relationField: 'exportRequest', scalarFkField: 'exportRequestId', additionalRequiredRelationFields: ['artifactVersion', 'requesterAssignment'], nullable: false },
+  OwnershipTransfer: { model: 'OwnershipTransfer', category: 'CHILD_VIA_FK', parentModel: 'UserCompanyRole', relationField: 'sourceAssignment', scalarFkField: 'sourceAssignmentId', additionalRequiredRelationFields: ['roleChangeRequest', 'successorAssignment', 'requestedByAssignment', 'previewAuditLog'], nullable: false },
+  OwnershipTransferItem: { model: 'OwnershipTransferItem', category: 'CHILD_VIA_FK', parentModel: 'OwnershipTransfer', relationField: 'ownershipTransfer', scalarFkField: 'ownershipTransferId', additionalRequiredRelationFields: ['ownerAssignment', 'afterOwnerAssignment'], nullable: false },
 };
 
 /** Look up a single model's classification. Returns `undefined` for an unknown model. */
@@ -484,6 +516,7 @@ const EMPTY_TALLIES = (): Record<ScopeCategory, number> => ({
   COMPANY_ROOT: 0,
   PROJECT_ROOT: 0,
   CHILD_VIA_FK: 0,
+  COMPANY_DIRECT: 0,
 });
 
 /**
@@ -717,7 +750,7 @@ export function deriveStructuralMismatches(
 
   const declaredRootCategory = new Map<string, RootCategory>();
   for (const entry of entries) {
-    if (entry.category !== 'CHILD_VIA_FK' && entry.category !== 'GLOBAL_SHARED') {
+    if (entry.category !== 'CHILD_VIA_FK' && entry.category !== 'GLOBAL_SHARED' && entry.category !== 'COMPANY_DIRECT') {
       declaredRootCategory.set(entry.model, entry.category);
     }
   }
@@ -737,6 +770,10 @@ export function deriveStructuralMismatches(
       resolved.set(model, 'GLOBAL_SHARED');
       return 'GLOBAL_SHARED';
     }
+    if (entry && entry.category === 'COMPANY_DIRECT') {
+      resolved.set(model, 'COMPANY_ROOT');
+      return 'COMPANY_ROOT';
+    }
     if (resolving.has(model)) {
       resolved.set(model, 'DEAD_END');
       return 'DEAD_END';
@@ -754,7 +791,10 @@ export function deriveStructuralMismatches(
     for (const edge of mandatoryEdges) {
       // Skip FKs whose target is not a scope parent (authority/actor or legacy credential) — see
       // NON_SCOPE_PARENT_MODELS above.
-      if (NON_SCOPE_PARENT_MODELS.has(edge.targetModel)) continue;
+      if (NON_SCOPE_PARENT_MODELS.has(edge.targetModel)) {
+        if (declaredEntry?.category === 'CHILD_VIA_FK' && declaredEntry.relationField === edge.relationField && edge.targetModel === 'UserCompanyRole') roots.add('COMPANY_ROOT');
+        continue;
+      }
       // Skip this model's declared non-scope reference edges (additionalRequiredRelationFields):
       // required FKs that point at a which-config/which-catalog reference, not the scope parent.
       if (nonScopeRefFields.has(edge.relationField)) continue;
