@@ -8,11 +8,13 @@
  *  디알비동일         600,000  100. Renewal/001. 진플러스/002. DRB동일/DRB동일 Renewal - 20260501.pdf
  *  GS건설 DT팀 HCI  5,000,000  100. Renewal/002. GSITM/20260408 - GS건설 DT팀 - HCI 3 Nodes - 리뉴얼.pdf
  *
- * Usage: tsx packages/business/scripts/fill-uninvoiced-deals.ts [--apply]
+ * legacy_quote_mutator — dry-run by default; apply only with --apply-legacy-only.
  */
 import { prisma } from "@sangfor/db";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
-const APPLY = process.argv.includes("--apply");
+const APPLY = process.argv.includes("--apply-legacy-only");
 
 const UNINVOICED = "세금계산서 미발행 — 발행 필요";
 
@@ -46,8 +48,44 @@ const FILLS = [
 // (GS건설 VDI 라이선스 공급 1Y, 9,000,000)이 따로 있으므로 두면 이중계상된다.
 const PURCHASE_THREAD = "GS E&C Sangfor Renewal";
 
+function redactIdentifier(id: string) {
+  return `${id.slice(0, 6)}…`;
+}
+
+export function assertNoCanonicalQuoteMutation(quotes: ReadonlyArray<{ id: string; contentHash: string | null }>) {
+  const canonical = quotes.filter((quote) => quote.contentHash !== null);
+  if (canonical.length > 0) {
+    throw new Error(`CANONICAL_QUOTE_IMMUTABLE: ${canonical.map((quote) => redactIdentifier(quote.id)).join(",")}`);
+  }
+}
+
+async function preflightLegacyQuotes(opportunityId: string) {
+  const quotes = await prisma.quote.findMany({
+    where: { opportunityId },
+    select: { id: true, contentHash: true },
+  });
+  const canonical = quotes.filter((quote) => quote.contentHash !== null);
+  const legacy = quotes.filter((quote) => quote.contentHash === null);
+  console.log(`[legacy_quote_mutator] canonical matches=${canonical.length} ids=${canonical.map((quote) => redactIdentifier(quote.id)).join(",") || "none"}`);
+  console.log(`[legacy_quote_mutator] legacy matches=${legacy.length} ids=${legacy.map((quote) => redactIdentifier(quote.id)).join(",") || "none"}`);
+  assertNoCanonicalQuoteMutation(quotes);
+}
+
 async function main() {
-  console.log(`미발행 딜 마무리${APPLY ? "" : " (dry-run — --apply로 반영)"}\n`);
+  const dup = await prisma.opportunity.findFirst({
+    where: { title: { contains: PURCHASE_THREAD } },
+    select: { id: true, title: true },
+  });
+  const keep = dup
+    ? await prisma.opportunity.findFirst({
+        where: { title: { contains: "GS건설 VDI 라이선스 공급(1Y)" } },
+        select: { id: true },
+      })
+    : null;
+  // This preflight is intentionally before every write in this script.
+  if (dup && keep) await preflightLegacyQuotes(dup.id);
+
+  console.log(`미발행 딜 마무리${APPLY ? "" : " (dry-run — --apply-legacy-only로 반영)"}\n`);
 
   for (const f of FILLS) {
     const deal = await prisma.opportunity.findFirst({
@@ -89,23 +127,15 @@ async function main() {
     });
   }
 
-  const dup = await prisma.opportunity.findFirst({
-    where: { title: { contains: PURCHASE_THREAD } },
-    select: { id: true, title: true },
-  });
   if (dup) {
     console.log(`■ 삭제: ${dup.title.slice(0, 54)}`);
     console.log(
       `   넥시아스 발신 매입 견적 스레드(2026-02-05). 매출 딜 'GS건설 VDI 라이선스 공급(1Y)' 9,000,000이 같은 건이다`,
     );
     if (APPLY) {
-      const keep = await prisma.opportunity.findFirst({
-        where: { title: { contains: "GS건설 VDI 라이선스 공급(1Y)" } },
-        select: { id: true },
-      });
       if (keep) {
         await prisma.quote.updateMany({
-          where: { opportunityId: dup.id },
+          where: { opportunityId: dup.id, contentHash: null },
           data: { opportunityId: keep.id },
         });
         const taken = await prisma.engagement.findUnique({ where: { opportunityId: keep.id } });
@@ -138,9 +168,11 @@ async function main() {
   }
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exitCode = 1;
-  })
-  .finally(() => prisma.$disconnect());
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
+}

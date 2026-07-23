@@ -112,7 +112,7 @@ const results = await runDomainPipeline({ id, subject, tags }, { generate });
 - **실데이터 구축**: Notion CFO CSV(프로젝트·미수금·매입·자금흐름) import + 원본 대조 검증. **날짜 off-by-one 수정**(KST 자정→UTC 자정 저장).
 - **통장 임포트**: `POST /api/cfo/cashflows/import` — CSV/xlsx 직접(SheetJS), 헤더행 자동탐지·합계행 제외, **중복 자동 제외**(date+cashChange+거래처+적요+`balanceAfter`).
 - **프로젝트 자동매칭**: 거래처명 정규화 후 입금→미수금/출금→매입처 해석, import 시 자동 + `POST /api/cfo/cashflows/rematch`.
-- **데이터 신뢰성(P0)**: 유실 근본원인 = stale `schema.prisma` + 반복 `db push`로 테이블 drop. → 비파괴 스냅샷/복원(`cfo:snapshot`/`cfo:restore`, 멱등), import footgun 가드(FORCE=1), 마이그레이션 전환(§3.G).
+- **데이터 신뢰성(P0)**: 유실 근본원인 = stale `schema.prisma` + 반복 `db push`로 테이블 drop. → export-only `cfo:snapshot`, U009 격리 restore drill, import footgun 가드(FORCE=1), formal migration 전환(§3.G).
 - **품질/보안**: 매칭 단위테스트 + `CI_INTEGRATION` 통합테스트, `financeAccessGuard`(system_admin·finance_manager·ceo만), `FINANCE_API_KEY` 문서화.
 - **재디자인(PR #31)**: "잉크 위 장부(ledger)" — 토큰 `lib/cfo-theme`(ink/paper/hairline, 입금 teal·출금 brick·강조 brass), **현금 런웨이 게이지**(0–12개월, 3개월 위험선), 등폭 tabular ₩ 타이포. CFO를 `PortalShell`로 감싸 좌측 사이드바 통일.
 
@@ -210,7 +210,7 @@ POC 확정 시 영업기회를 **멱등·원자적**으로 Engagement(프로젝�
 
 - **근본 문제**: `prisma migrate dev`는 파괴적 리셋을 요구 → 메일/재무 데이터 보호 위해 그동안 `db push` 사용. 그러나 stale 스키마 + 반복 push가 테이블 drop을 유발(데이터 유실).
 - **전환**: db-push 갭을 baseline 마이그레이션으로 생성, fresh DB에서 `migrate deploy` → schema와 empty-diff 검증. **CI test를 `db:push` → `db:migrate:deploy`** 로 전환.
-- **안전망**: `db:push:safe`(스냅샷 후 push), `cfo:snapshot`/`cfo:restore`(비파괴 멱등), 시간별 cron 가이드.
+- **안전망**: `cfo:snapshot`은 export-only이며, U009 isolated restore drill이 복원 검증의 유일한 자동 경로다. 직접 `db push`와 `cfo:restore`는 U031에서 폐기됐다.
 - **규칙**: 스키마 변경 전 반드시 `git diff origin/main -- packages/db/prisma/schema.prisma` 확인. `db push --accept-data-loss` 금지.
 
 > `memory/`의 [DB uses db push not migrate] 메모는 이 전환으로 갱신 필요(현재 마이그레이션 전환 중).
@@ -306,9 +306,9 @@ branch protection 없으면 `--auto`는 mergeable 즉시 머지(게이트 없음
 ```bash
 cd packages/db && npx prisma generate
 pnpm --filter @sangfor/db db:migrate:deploy   # 정식(마이그레이션)
-pnpm --filter @sangfor/db db:push:safe         # 부득이할 때(스냅샷 후 push)
 pnpm --filter @sangfor/db cfo:snapshot         # 비파괴 백업
-pnpm --filter @sangfor/db cfo:restore          # 멱등 복원
+pnpm restore:drill                             # U009 격리 fixture 복원 검증
+pnpm verify:operational-entrypoints            # 금지된 운영 진입점 검사
 # 스키마 변경 전 필수:
 git diff origin/main -- packages/db/prisma/schema.prisma
 ```

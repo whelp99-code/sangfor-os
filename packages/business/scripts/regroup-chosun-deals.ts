@@ -10,11 +10,13 @@
  * 귀속은 대표 확인(2026-07-14)을 따른다 — 2025-12 계산서 2,400,000은 조선일보JNS
  * 견적서 금액과 같지만 실제로는 디지틀조선일보 자체 운영 건이다.
  *
- * Usage: tsx packages/business/scripts/regroup-chosun-deals.ts [--apply]
+ * legacy_quote_mutator — dry-run by default; apply only with --apply-legacy-only.
  */
 import { prisma } from "@sangfor/db";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
-const APPLY = process.argv.includes("--apply");
+const APPLY = process.argv.includes("--apply-legacy-only");
 
 const PARTNER = "디지틀조선일보";
 
@@ -45,8 +47,51 @@ const CASES = [
   },
 ];
 
+function redactIdentifier(id: string) {
+  return `${id.slice(0, 6)}…`;
+}
+
+export function assertNoCanonicalQuoteMutation(quotes: ReadonlyArray<{ id: string; contentHash: string | null }>) {
+  const canonical = quotes.filter((quote) => quote.contentHash !== null);
+  if (canonical.length > 0) {
+    throw new Error(`CANONICAL_QUOTE_IMMUTABLE: ${canonical.map((quote) => redactIdentifier(quote.id)).join(",")}`);
+  }
+}
+
+async function preflightLegacyQuotes() {
+  const duplicateIds = new Set<string>();
+  for (const entry of CASES) {
+    const keep = await prisma.opportunity.findFirst({
+      where: { title: entry.title },
+      select: { id: true },
+    });
+    for (const fragment of entry.absorb) {
+      const candidates = await prisma.opportunity.findMany({
+        where: { title: { contains: fragment } },
+        select: { id: true },
+      });
+      for (const candidate of candidates) {
+        if (candidate.id !== keep?.id) duplicateIds.add(candidate.id);
+      }
+    }
+  }
+  const quotes = duplicateIds.size === 0
+    ? []
+    : await prisma.quote.findMany({
+        where: { opportunityId: { in: [...duplicateIds] } },
+        select: { id: true, contentHash: true },
+      });
+  const canonical = quotes.filter((quote) => quote.contentHash !== null);
+  const legacy = quotes.filter((quote) => quote.contentHash === null);
+  console.log(`[legacy_quote_mutator] canonical matches=${canonical.length} ids=${canonical.map((quote) => redactIdentifier(quote.id)).join(",") || "none"}`);
+  console.log(`[legacy_quote_mutator] legacy matches=${legacy.length} ids=${legacy.map((quote) => redactIdentifier(quote.id)).join(",") || "none"}`);
+  assertNoCanonicalQuoteMutation(quotes);
+}
+
 async function main() {
-  console.log(`조선일보 계열 재구성${APPLY ? "" : " (dry-run — --apply로 반영)"}\n`);
+  // Canonical Quote matches are a hard stop before any opportunity/engagement write.
+  await preflightLegacyQuotes();
+  console.log(`조선일보 계열 재구성${APPLY ? "" : " (dry-run — --apply-legacy-only로 반영)"}\n`);
 
   const projectId = (await prisma.opportunity.findFirst({ select: { projectId: true } }))?.projectId;
   if (!projectId) throw new Error("projectId를 찾을 수 없다");
@@ -111,7 +156,7 @@ async function main() {
           if (orphan) throw new Error(`납품 이력 충돌 — 수동 확인 필요: ${d.title} / ${c.title}`);
         }
         const quotes = await prisma.quote.updateMany({
-          where: { opportunityId: d.id },
+          where: { opportunityId: d.id, contentHash: null },
           data: { opportunityId: dealId },
         });
         const carried = [
@@ -149,9 +194,11 @@ async function main() {
   );
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exitCode = 1;
-  })
-  .finally(() => prisma.$disconnect());
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
+}

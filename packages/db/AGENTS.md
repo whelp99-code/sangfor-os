@@ -6,12 +6,12 @@
 
 ## Constraints
 - **Migrations are the system of record.** `prisma/migrations/` holds formal timestamped migrations; CI runs `db:migrate:deploy`. `db push --accept-data-loss` is BANNED.
-- **Schema changes are additive/nullable.** Before editing `prisma/schema.prisma` run `git diff origin/main -- packages/db/prisma/schema.prisma`. Prefer `db:push:safe` (CFO-snapshots first) over raw push in dev.
+- **Schema changes are additive/nullable.** Before editing `prisma/schema.prisma` run `git diff origin/main -- packages/db/prisma/schema.prisma`; apply only formal migrations with `db:migrate:deploy`.
 - **One client only.** `src/index.ts` exports a global-cached singleton `prisma`; every consumer imports it. Never construct another client.
 - Columns are snake_case via `@map`/`@@map`; ids are cuid; keep `created_at`/`updated_at` pairs. Multi-tenant + RLS by design — see `src/rls.ts` (`RLS_BASELINE_POLICIES`).
 
 ## Working Here
-- Add a model → author a migration (`db:migrate` locally, or `migrate diff` + shadow DB) → verify `migrate deploy` on a fresh DB yields an empty diff vs schema. Non-destructive, idempotent data-safety scripts live in `scripts/`/`prisma/scripts/` (`cfo:snapshot`/`cfo:restore`).
+- Add a model → author a migration (`db:migrate` locally, or `migrate diff` + shadow DB) → verify `migrate deploy` on a fresh DB yields an empty diff vs schema. `cfo:snapshot` is export-only; restore verification uses the U009 isolated drill, never a direct package restore script.
 - Model groups: core/tenant, CRM, PoC, mail, finance/CFO, engagement/support, product-catalog, governance/audit, AI, color-agent (full list in `prisma/schema.prisma`).
 
 ## Dependencies

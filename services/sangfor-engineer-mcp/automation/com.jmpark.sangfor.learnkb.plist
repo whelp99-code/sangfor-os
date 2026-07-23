@@ -13,11 +13,11 @@
 
     <key>ProgramArguments</key>
     <array>
-      <string>/Users/jmpark/Documents/Playground/whelp99-code-sangfor-engineer-mcp/automation/scripts/run-learn-kb-full.sh</string>
+      <string>__SERVICE_ROOT__/automation/scripts/run-learn-kb-full.sh</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/jmpark/Documents/Playground/whelp99-code-sangfor-engineer-mcp</string>
+    <string>__SERVICE_ROOT__</string>
 
     <key>RunAtLoad</key>
     <false/>

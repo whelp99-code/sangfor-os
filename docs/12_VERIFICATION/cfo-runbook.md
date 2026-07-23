@@ -4,29 +4,28 @@
 > 매월 반복 작업과 데이터 안전 절차를 한 곳에 정리.
 
 ## 사전 점검 (필수) — 데이터 유실 방지
-재무 데이터가 두 차례 유실된 근본 원인은 **로컬 `schema.prisma`가 main과 어긋난 상태에서 `db:push`** 한 것이었다.
-**스키마 변경/푸시 전 반드시 확인:**
+재무 데이터 유실의 원인은 로컬 스키마 드리프트 상태에서의 직접 `db push`였다. 직접 push와 직접 CFO 복원 진입점은 폐기되었다.
+**스키마 변경 전 반드시 확인:**
 
 ```bash
 # 1) 스키마 드리프트 확인 — finance 외 모델이 +/- 되면 중단하고 origin/main과 동기화할 것
 git fetch origin
 git diff origin/main -- packages/db/prisma/schema.prisma
 
-# 2) 푸시 직전 스냅샷 (안전망)
+# 2) export-only 스냅샷 (안전망)
 pnpm --filter @sangfor/db cfo:snapshot
 ```
 
-- `db:push`는 **드리프트가 의도한 변경(예: finance 필드 추가)만** 있을 때 실행.
-- 의심되면 먼저 `git show origin/main:packages/db/prisma/schema.prisma > packages/db/prisma/schema.prisma`로 복원 후 의도한 변경만 재적용.
+- 스키마는 formal migration으로만 적용한다. 의심되면 변경을 중단하고 schema diff를 검토한다.
 
-## 데이터 백업 / 복원
+## 데이터 백업 / 복원 검증
 
 ```bash
-pnpm --filter @sangfor/db cfo:snapshot   # 현재 재무 데이터 → 로컬 백업(gitignore)
-pnpm --filter @sangfor/db cfo:restore    # 스냅샷에서 id 기준 upsert 복원(비파괴·멱등)
+pnpm --filter @sangfor/db cfo:snapshot   # 현재 재무 데이터 → 로컬 export (복원 명령 아님)
+bash scripts/run-workspace-runtime.sh root -- corepack pnpm restore:drill -- --fixture --image-digest <locked digest> --run-id <new run id> --evidence-dir <new absolute directory>
 ```
-- 데이터가 사라지면 **`cfo:restore` 한 번**으로 직전 스냅샷 상태 복구.
-- 데이터를 크게 바꾼 직후에는 `cfo:snapshot`으로 백업 갱신.
+- 복원 검증은 U009의 격리된 fixture drill만 사용한다. 운영 복원은 `MANUAL_EXTERNAL_PENDING` 승인 절차다.
+- 데이터를 크게 바꾼 직후에는 `cfo:snapshot` export를 갱신한다.
 
 ### 자동 정기 스냅샷 (cron)
 매시간 자동 백업 — `crontab -e`에 추가:
@@ -35,7 +34,7 @@ pnpm --filter @sangfor/db cfo:restore    # 스냅샷에서 id 기준 upsert 복�
 ```
 
 ## 스키마 변경 = 마이그레이션 (db push 아님)
-스키마는 **`prisma migrate`로 정식 관리**한다(CI도 `db:migrate:deploy` 사용). 드리프트로 인한 데이터 유실을 막기 위해 로컬 `db push`는 지양하고, 부득이 쓸 경우 스냅샷을 먼저 뜨는 **`pnpm db:push:safe`**를 사용한다.
+스키마는 **`prisma migrate`로 정식 관리**한다(CI도 `db:migrate:deploy` 사용). 직접 `db push`는 금지다.
 
 ```bash
 # 스키마 변경 절차
@@ -59,7 +58,7 @@ pnpm --filter @sangfor/db exec prisma migrate dev --name <change>   # 마이그�
 ```bash
 NOTION_CSV_DIR="/path/to/개인 페이지 & 공유된 페이지" pnpm --filter @sangfor/db import:finance-csv
 ```
-- **주의**: 이 임포터는 cashflow를 전량 삭제하므로 은행 자금흐름이 있으면 `FORCE=1` 없이는 실행 거부된다(footgun 가드). 일반 복구는 `cfo:restore` 사용.
+- **주의**: 이 임포터는 cashflow를 전량 삭제하므로 은행 자금흐름이 있으면 `FORCE=1` 없이는 실행 거부된다(footgun 가드). 복원 검증은 U009 isolated drill을 사용한다.
 
 ## 서비스 기동
 ```bash

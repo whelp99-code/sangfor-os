@@ -17,8 +17,8 @@
     "test:coverage": "pnpm -r --if-present test:coverage",
     "typecheck": "pnpm -r typecheck",
     "verify:release": "node scripts/verify-release.mjs --manifest scripts/release-gate.manifest.json",
+    "verify:operational-entrypoints": "node scripts/verify-operational-entrypoints.mjs",
     "db:generate": "pnpm --filter @sangfor/db db:generate",
-    "db:push": "pnpm --filter @sangfor/db db:push",
     "db:migrate": "pnpm --filter @sangfor/db db:migrate",
     "db:migrate:deploy": "pnpm --filter @sangfor/db db:migrate:deploy",
     "db:seed": "pnpm --filter @sangfor/db db:seed",
@@ -32,7 +32,6 @@
     "docker:down": "docker compose down",
     "docker:dev": "docker compose -f docker-compose.yml up -d postgres redis",
     "cfo:snapshot": "pnpm --filter @sangfor/db cfo:snapshot",
-    "db:push:safe": "pnpm --filter @sangfor/db cfo:snapshot || true; pnpm --filter @sangfor/db db:push",
     "restore:drill": "node scripts/restore-drill.mjs"
   },
   "pnpm": {

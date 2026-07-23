@@ -39,6 +39,7 @@ Dependency direction (leaf → top): `config · db · shared · api-utils` → `
 4. **DB: additive & migration-first.** Schema changes are additive/nullable; formal `pnpm db:migrate:deploy` is the system of record; `db push --accept-data-loss` is banned. Before any schema edit run `git diff origin/main -- packages/db/prisma/schema.prisma`. Access Prisma only via `import { prisma } from "@sangfor/db"` — never `new PrismaClient()`.
 5. **Quality gate before merge:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. DB-dependent (integration) tests run under `CI_INTEGRATION=1`.
 6. **Concurrent-worktree hazard.** Multiple worktrees share this root and can revert uncommitted edits (thrashing). Commit early to a dedicated branch; see DEV_REFERENCE §8.
+7. **Operational entrypoints are fail-closed.** Run `pnpm verify:operational-entrypoints`; use formal migrations and the U009 isolated restore drill, never `db push` or a direct restore script.
 
 ## Working Norms (Fable Doctrine)
 How every agent thinks, executes, and reports here. Rule numbers (F1–F14) are stable identifiers for cross-file reference.

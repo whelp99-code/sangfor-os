@@ -186,6 +186,15 @@ fi
 
 nvm use "$WS_MAJOR" >/dev/null || die69 "nvm use ${WS_MAJOR} failed"
 
+# nvm use does not outrank a pre-existing shim path on every shell startup.
+# Make the selected runtime authoritative before validating or exec'ing the
+# requested workspace command.
+if [[ -z "${NVM_BIN:-}" ]] || [[ ! -x "${NVM_BIN}/node" ]]; then
+  die69 "NVM selected runtime has no executable node binary"
+fi
+export PATH="${NVM_BIN}:${PATH}"
+hash -r
+
 _actual_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
 if [[ "$_actual_major" != "$WS_MAJOR" ]]; then
   die69 "node major mismatch after nvm use: expected ${WS_MAJOR}, got ${_actual_major}"

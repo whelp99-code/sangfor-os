@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Isolated UX-test stack for real-usage QA loops (dev-tree R20 variant).
-# Runs the release-candidate build on :3110/:3230 against the throwaway
-# sangfor_os_uxtest_r20 DB + Redis DB 15 so QA never touches real-usage data.
-# Usage: scripts/uxtest-stack.sh {start|stop|restart|status|logs}
+# Isolated UX-test stack for real-usage QA loops. The selected profile must be
+# explicit and local to this worktree; this script never borrows another tree's secrets.
+# Usage: UXTEST_ENV_FILE=/absolute/path/inside/this/worktree/.env.uxtest scripts/uxtest-stack.sh {preflight|start|stop|restart|status|logs}
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,13 +14,43 @@ API_PORT="$API_PORT_FORCE"
 UXTEST_DB="${UXTEST_DB:-sangfor_os_uxtest_r20}"
 
 load_env() {
+  local env_profile="${UXTEST_ENV_FILE:-}"
+  if [ -z "$env_profile" ]; then
+    echo "UXTEST_CONFIG_MISSING: set UXTEST_ENV_FILE to an explicit profile under this worktree" >&2
+    return 64
+  fi
+  case "$env_profile" in
+    "$ROOT"/*) ;;
+    *) echo "UXTEST_CONFIG_MISSING: UXTEST_ENV_FILE must be under the current worktree" >&2; return 64 ;;
+  esac
+  if [ ! -f "$env_profile" ]; then
+    echo "UXTEST_CONFIG_MISSING: selected UXTEST_ENV_FILE does not exist" >&2
+    return 64
+  fi
+
   set -a
-  # shellcheck disable=SC1091
-  [ -f "$ROOT/.env" ] && source "$ROOT/.env"
+  # shellcheck disable=SC1090
+  source "$env_profile"
   set +a
-  # Isolation overrides — forced AFTER .env so its prod values (API_PORT,
-  # real DATABASE_URL, shared Redis DB) cannot leak into the uxtest stack.
-  local pw; pw="$(grep '^DATABASE_URL' "$ROOT/.env" | sed -E 's/.*:\/\/sangfor:([^@]+)@.*/\1/')"
+
+  local key missing=""
+  for key in DATABASE_URL JWT_SECRET AUTH_DEMO_PASSWORD FINANCE_API_KEY; do
+    if [ -z "${!key:-}" ]; then
+      missing="${missing}${missing:+,}${key}"
+    fi
+  done
+  if [ -n "$missing" ]; then
+    echo "UXTEST_CONFIG_MISSING: ${missing}" >&2
+    return 64
+  fi
+
+  local pw
+  pw="$(printf '%s' "$DATABASE_URL" | sed -E 's/.*:\/\/sangfor:([^@]+)@.*/\1/')"
+  if [ -z "$pw" ] || [ "$pw" = "$DATABASE_URL" ]; then
+    echo "UXTEST_CONFIG_MISSING: DATABASE_URL must contain the local sangfor credential" >&2
+    return 64
+  fi
+
   export DATABASE_URL="postgresql://sangfor:$pw@localhost:5434/$UXTEST_DB?schema=public"
   export REDIS_URL="redis://localhost:6380/15"
   export API_PORT="$API_PORT_FORCE"
@@ -29,17 +58,11 @@ load_env() {
   export SENTRY_ENVIRONMENT="uxtest"
   export NEXT_DIST_DIR=".next-uxtest-r20"
   unset AUTH_BYPASS_ENABLED
-  # Dev-tree .env ships an empty JWT_SECRET (mock-login dev mode). The QA
-  # stack must exercise real HMAC auth, so borrow the runtime secret that
-  # R15 validated on main-fork.
-  local mf="/Users/jmpark/orca/workspaces/sangfor-os/main-fork/.env"
-  local key val
-  for key in JWT_SECRET AUTH_DEMO_PASSWORD FINANCE_API_KEY; do
-    val="$(eval "printf '%s' \"\${$key:-}\"")"
-    if [ -z "$val" ] || [ "$val" = '""' ]; then
-      export "$key=$(grep "^$key=" "$mf" | cut -d= -f2- | tr -d '"')"
-    fi
-  done
+}
+
+preflight() {
+  load_env || return $?
+  echo "[uxtest] preflight passed for ${UXTEST_ENV_FILE:-} (no processes started)"
 }
 
 pid_alive() { [ -f "$1" ] && kill -0 "$(cat "$1")" 2>/dev/null; }
@@ -77,10 +100,11 @@ status() {
 }
 
 case "${1:-}" in
-  start) start_api; start_web; sleep 3; status; echo; echo "UXTEST 포털: http://localhost:$WEB_PORT (DB: $UXTEST_DB)" ;;
+  preflight) preflight ;;
+  start) preflight || exit $?; start_api || exit $?; start_web || exit $?; sleep 3; status; echo; echo "UXTEST 포털: http://localhost:$WEB_PORT (DB: $UXTEST_DB)" ;;
   stop) stop_one web; stop_one api ;;
-  restart) stop_one web; stop_one api; start_api; start_web; sleep 3; status ;;
+  restart) preflight || exit $?; stop_one web || exit $?; stop_one api || exit $?; start_api || exit $?; start_web || exit $?; sleep 3; status ;;
   status) status ;;
   logs) tail -n 40 -f "$STATE/web.log" "$STATE/api.log" ;;
-  *) echo "usage: $0 {start|stop|restart|status|logs}"; exit 1 ;;
+  *) echo "usage: $0 {preflight|start|stop|restart|status|logs}"; exit 1 ;;
 esac

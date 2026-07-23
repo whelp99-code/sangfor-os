@@ -11,15 +11,31 @@
  */
 
 import { spawn } from 'node:child_process';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { config as loadEnv } from 'dotenv';
 
-loadEnv();
+const WORKFLOW_CWD = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const REPO_ROOT = resolve(WORKFLOW_CWD, '..', '..');
+loadEnv({ path: join(WORKFLOW_CWD, '.env') });
 
-const MCP_CWD = join(process.env.HOME || '/Users/jmpark', 'Documents/Playground/whelp99-code-sangfor-engineer-mcp');
-const MCP_SCRIPT = 'node_modules/.pnpm/tsx@4.22.4/node_modules/tsx/dist/cli.mjs';
-const WORKFLOW_CWD = process.cwd();
+function resolveEngineerMcpDir() {
+  const requested = process.env.SANGFOR_ENGINEER_MCP_DIR
+    ?? join(REPO_ROOT, 'services', 'sangfor-engineer-mcp');
+  const candidate = resolve(requested);
+  const manifestPath = join(candidate, 'package.json');
+  if (!existsSync(manifestPath)) {
+    throw new Error(`SANGFOR_ENGINEER_MCP_DIR_INVALID: missing package manifest at ${candidate}`);
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  if (manifest.name !== 'sangfor-engineer-mcp') {
+    throw new Error(`SANGFOR_ENGINEER_MCP_DIR_INVALID: unexpected package at ${candidate}`);
+  }
+  return candidate;
+}
+
+const MCP_CWD = resolveEngineerMcpDir();
 const OUTPUT_DIR = join(WORKFLOW_CWD, 'outputs', 'mcp-device-learn');
 mkdirSync(OUTPUT_DIR, { recursive: true });
 
@@ -69,7 +85,7 @@ function parseProducts() {
 class McpClient {
   constructor(timeoutMs = 600_000) {
     this.timeoutMs = timeoutMs;
-    this.proc = spawn('node', [MCP_SCRIPT, 'apps/mcp-server/src/index.ts'], {
+    this.proc = spawn('corepack', ['pnpm', 'exec', 'tsx', 'apps/mcp-server/src/index.ts'], {
       cwd: MCP_CWD,
       env: {
         ...process.env,

@@ -40,9 +40,9 @@
 # Start infrastructure
 docker compose up -d postgres redis
 
-# Install and sync database
+# Install and apply formal database migrations
 pnpm install
-pnpm db:push
+pnpm db:migrate:deploy
 
 # Start all development servers
 pnpm dev
@@ -165,7 +165,7 @@ The entire codebase is a single pnpm workspace managed by Turborepo. This means:
 - `pnpm -r <command>` runs across all packages
 - `pnpm --filter <package>` targets a specific package
 - Dependencies are hoisted to the root `node_modules/`
-- **Key scripts**: `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm db:push`
+- **Key scripts**: `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm db:migrate:deploy`, `pnpm verify:operational-entrypoints`
 
 ### Model Context Protocol (MCP)
 
