@@ -102,8 +102,14 @@ const NEW_MIGRATION_NAME_U037 = '20260716003700_u037_delivery_lifecycle_expand';
 const NEW_MIGRATION_NAME_U038 = '20260716003800_u038_people_eligibility_expand';
 const NEW_MIGRATION_NAME_U039 = '20260716003900_u039_support_sla_rca_expand';
 const NEW_MIGRATION_NAME_U040 = '20260716004000_u040_domain_backfill_validate_tighten';
+const NEW_MIGRATION_NAME_U041 = '20260716004100_u041_ai_quality_artifact_expand';
 
-const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema', 'governance-bridge', 'audit-chain', 'role-change']);
+// U041 / AIQ-01: this suite owns only its allowlisted isolated-postgres upgrade proof. Historical
+// suite prefix filters remain owned by their respective units (see the U041 dispatch boundary).
+const OWNER_UNIT_U041 = 'U041';
+const PURPOSE_U041 = 'ai-quality-schema';
+
+const ALLOWED_SUITES = new Set(['scope-backfill', 'scope-closure', 'principal-session', 'business-role', 'rls-pilot', 'artifact-schema', 'approval-schema', 'workflow-schema', 'governance-bridge', 'audit-chain', 'role-change', 'ai-quality-schema']);
 
 const EXIT = Object.freeze({
   SUCCESS: 0,
@@ -296,6 +302,10 @@ function makeTempPrismaCopy(label: string, includeNewMigration: boolean): string
     // exist and fails 42703 (undefined_column), same family as the artifact_versions hazard above.
     const targetU040 = join(dir, 'migrations', NEW_MIGRATION_NAME_U040);
     if (existsSync(targetU040)) rmSync(targetU040, { recursive: true, force: true });
+    // U041's immutable AI history depends on ArtifactVersion (U017), absent from this pre-U011
+    // historical prefix just like the U040 domain-backfill dependencies above.
+    const targetU041 = join(dir, 'migrations', NEW_MIGRATION_NAME_U041);
+    if (existsSync(targetU041)) rmSync(targetU041, { recursive: true, force: true });
   }
   return dir;
 }
@@ -371,6 +381,9 @@ function makeThroughU011PrismaCopy(label: string): string {
   // so keep U040's migration out of it too.
   const targetU040 = join(dir, 'migrations', NEW_MIGRATION_NAME_U040);
   if (existsSync(targetU040)) rmSync(targetU040, { recursive: true, force: true });
+  // U041 references U017 ArtifactVersion, which this through-U011 view deliberately omits.
+  const targetU041 = join(dir, 'migrations', NEW_MIGRATION_NAME_U041);
+  if (existsSync(targetU041)) rmSync(targetU041, { recursive: true, force: true });
   return dir;
 }
 
@@ -801,7 +814,8 @@ function listMigrationsThroughU010(): string[] {
         name !== NEW_MIGRATION_NAME_U037 &&
         name !== NEW_MIGRATION_NAME_U038 &&
         name !== NEW_MIGRATION_NAME_U039 &&
-        name !== NEW_MIGRATION_NAME_U040,
+        name !== NEW_MIGRATION_NAME_U040 &&
+        name !== NEW_MIGRATION_NAME_U041,
     )
     .sort();
 }
@@ -814,7 +828,7 @@ function listMigrationsThroughU020(): string[] {
   return readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
-    .filter((name) => name !== NEW_MIGRATION_NAME_U021 && name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037 && name !== NEW_MIGRATION_NAME_U038 && name !== NEW_MIGRATION_NAME_U039 && name !== NEW_MIGRATION_NAME_U040)
+    .filter((name) => name !== NEW_MIGRATION_NAME_U021 && name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037 && name !== NEW_MIGRATION_NAME_U038 && name !== NEW_MIGRATION_NAME_U039 && name !== NEW_MIGRATION_NAME_U040 && name !== NEW_MIGRATION_NAME_U041)
     .sort();
 }
 
@@ -1007,11 +1021,13 @@ async function runLegacyLifecycleScenario(evidenceDir: string, runId: string) {
         // point-in-time snapshot at U012. GLOBAL_SHARED was 13 through U039, but U040 is the first unit
         // to reduce it: its mandatory catalog reclassification moves ProductFamily GLOBAL_SHARED ->
         // COMPANY_ROOT and LicenseMetric GLOBAL_SHARED -> CHILD_VIA_FK, so GLOBAL_SHARED 13 -> 11.
-        // CHILD_VIA_FK (76 as of U040 — RoleChangeRequest's U012 reclassification plus every later
-        // CHILD_VIA_FK registration, most recently U039's SupportCaseSlaSnapshot [74 -> 75] and U040's
-        // LicenseMetric reclassification [75 -> 76]) must be updated by any future unit that adds/
+        // CHILD_VIA_FK (82 as of U041 — RoleChangeRequest's U012 reclassification plus every later
+        // CHILD_VIA_FK registration, most recently U039's SupportCaseSlaSnapshot [74 -> 75], U040's
+        // LicenseMetric reclassification [75 -> 76], and U041's six immutable AI quality children
+        // [76 -> 82]: AiQualityAssessment/Evidence/Review/ReleaseEvaluation/PromptSnapshot/ModelSnapshot)
+        // must be updated by any future unit that adds/
         // reclassifies a CHILD_VIA_FK or GLOBAL_SHARED model, exactly as U017/U018/U019 updated it here.
-        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 76 || scopeCheckJson.tallies.GLOBAL_SHARED !== 11) {
+        if (scopeCheckJson.tallies.CHILD_VIA_FK !== 82 || scopeCheckJson.tallies.GLOBAL_SHARED !== 11) {
           throw new ContractFailure(EXIT.CONTRACT, `scope:check tallies do not reflect the U012 RoleChangeRequest reclassification: ${JSON.stringify(scopeCheckJson.tallies)}`);
         }
         writeFileSync(join(evidenceDir, 'inventory.json'), `${JSON.stringify(scopeCheckJson, null, 2)}\n`);
@@ -4610,7 +4626,8 @@ async function runAuditChainLegacyScenario(evidenceDir: string, runId: string) {
         addMigrationToView(view, NEW_MIGRATION_NAME_U038);
         addMigrationToView(view, NEW_MIGRATION_NAME_U039);
         addMigrationToView(view, NEW_MIGRATION_NAME_U040);
-        verifyViewIntegrity(view, [...throughU020, NEW_MIGRATION_NAME_U021, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037, NEW_MIGRATION_NAME_U038, NEW_MIGRATION_NAME_U039, NEW_MIGRATION_NAME_U040]);
+        addMigrationToView(view, NEW_MIGRATION_NAME_U041);
+        verifyViewIntegrity(view, [...throughU020, NEW_MIGRATION_NAME_U021, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037, NEW_MIGRATION_NAME_U038, NEW_MIGRATION_NAME_U039, NEW_MIGRATION_NAME_U040, NEW_MIGRATION_NAME_U041]);
         const deployU024ForCurrentSchema = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
         if (deployU024ForCurrentSchema.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (+U024 after U021 verification) failed: ${deployU024ForCurrentSchema.stderr || deployU024ForCurrentSchema.stdout}`);
         evidence.deployU024ForCurrentSchema = true;
@@ -4741,7 +4758,7 @@ async function runRoleChangeSuite(evidenceDir: string): Promise<number> {
       { runId, ownerUnit: OWNER_UNIT_U024, purpose: `${PURPOSE_U024}-legacy`, evidenceDir: join(evidenceDir, 'legacy'), imageDigest: IMAGE_DIGEST, migrate: false },
       async (ctx: any) => {
         const conn = parseConn(ctx.databaseUrl);
-        const before = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).filter((name) => name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037 && name !== NEW_MIGRATION_NAME_U038 && name !== NEW_MIGRATION_NAME_U039 && name !== NEW_MIGRATION_NAME_U040).sort();
+        const before = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).filter((name) => name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037 && name !== NEW_MIGRATION_NAME_U038 && name !== NEW_MIGRATION_NAME_U039 && name !== NEW_MIGRATION_NAME_U040 && name !== NEW_MIGRATION_NAME_U041).sort();
         const view = buildReadOnlyMigrationView('u024-legacy', before);
         try {
           verifyViewIntegrity(view, before);
@@ -4761,7 +4778,8 @@ async function runRoleChangeSuite(evidenceDir: string): Promise<number> {
           addMigrationToView(view, NEW_MIGRATION_NAME_U038);
           addMigrationToView(view, NEW_MIGRATION_NAME_U039);
           addMigrationToView(view, NEW_MIGRATION_NAME_U040);
-          verifyViewIntegrity(view, [...before, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037, NEW_MIGRATION_NAME_U038, NEW_MIGRATION_NAME_U039, NEW_MIGRATION_NAME_U040]);
+          addMigrationToView(view, NEW_MIGRATION_NAME_U041);
+          verifyViewIntegrity(view, [...before, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037, NEW_MIGRATION_NAME_U038, NEW_MIGRATION_NAME_U039, NEW_MIGRATION_NAME_U040, NEW_MIGRATION_NAME_U041]);
           const deploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
           if (deploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U024 deploy failed: ${deploy.stderr || deploy.stdout}`);
           const frozen = await execSql(ctx.containerName, conn, `SELECT status || '|' || legacy_status || '|' || legacy_unbound::text || '|' || revision::text FROM role_change_requests WHERE id='u024-legacy-role-change';`);
@@ -4796,6 +4814,119 @@ async function runRoleChangeSuite(evidenceDir: string): Promise<number> {
   return EXIT.SUCCESS;
 }
 
+// U041 / AIQ-01. This is a migration-order proof, not a product runtime: it deploys the exact
+// U040 prefix, loads the tracked pre-U041 fixture, snapshots it, adds only U041, then verifies
+// immutable-history authorities and representative valid/invalid writes on a U009-owned scratch DB.
+async function runAiQualitySchemaSuite(evidenceDir: string): Promise<number> {
+  const startedAt = new Date().toISOString();
+  const runId = `u041-${Date.now().toString(36)}`;
+  const evidence: Record<string, unknown> = {};
+  let caught: unknown = null;
+  let view: MigrationView | null = null;
+  const triggerSpecs = [
+    ['ai_quality_assessments_immutable_update_trg', 'ai_quality_assessments', 'UPDATE'], ['ai_quality_assessments_immutable_delete_trg', 'ai_quality_assessments', 'DELETE'],
+    ['ai_quality_evidence_immutable_update_trg', 'ai_quality_evidence', 'UPDATE'], ['ai_quality_evidence_immutable_delete_trg', 'ai_quality_evidence', 'DELETE'],
+    ['ai_quality_reviews_immutable_update_trg', 'ai_quality_reviews', 'UPDATE'], ['ai_quality_reviews_immutable_delete_trg', 'ai_quality_reviews', 'DELETE'],
+    ['ai_release_evaluations_immutable_update_trg', 'ai_release_evaluations', 'UPDATE'], ['ai_release_evaluations_immutable_delete_trg', 'ai_release_evaluations', 'DELETE'],
+    ['ai_prompt_snapshots_immutable_update_trg', 'ai_prompt_snapshots', 'UPDATE'], ['ai_prompt_snapshots_immutable_delete_trg', 'ai_prompt_snapshots', 'DELETE'],
+    ['ai_model_snapshots_immutable_update_trg', 'ai_model_snapshots', 'UPDATE'], ['ai_model_snapshots_immutable_delete_trg', 'ai_model_snapshots', 'DELETE'],
+  ] as const;
+  const hash = 'a'.repeat(64);
+
+  try {
+    await withIsolatedPostgres(
+      { runId, ownerUnit: OWNER_UNIT_U041, purpose: PURPOSE_U041, evidenceDir: join(evidenceDir, 'scratch'), imageDigest: IMAGE_DIGEST, migrate: false },
+      async (ctx: any) => {
+        const conn = parseConn(ctx.databaseUrl);
+        const prefix = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
+          .filter((entry) => entry.isDirectory())
+          .map((entry) => entry.name)
+          .filter((name) => name <= NEW_MIGRATION_NAME_U040)
+          .sort();
+        if (prefix.at(-1) !== NEW_MIGRATION_NAME_U040) throw new ContractFailure(EXIT.CONTRACT, `U041 exact prefix must end at ${NEW_MIGRATION_NAME_U040}`);
+
+        view = buildReadOnlyMigrationView('u041-prefix', prefix);
+        verifyViewIntegrity(view, prefix);
+        const deployPrefix = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (deployPrefix.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U041 prefix deploy failed: ${deployPrefix.stderr || deployPrefix.stdout}`);
+        evidence.prefix = { endingMigration: NEW_MIGRATION_NAME_U040, membership: { ...view.membership } };
+        writeFileSync(join(evidenceDir, 'upgrade-prefix.json'), `${JSON.stringify(evidence.prefix, null, 2)}\n`);
+
+        const fixture = readFileSync(join(DB_PKG_ROOT, 'src/fixtures/u041-ai-quality-pre-migration.sql'), 'utf8');
+        const loaded = await spawnCapture(['docker', 'exec', '-i', '-e', `PGPASSWORD=${conn.password}`, ctx.containerName, 'psql', '-h', '127.0.0.1', '-U', conn.user, '-d', conn.database, '-v', 'ON_ERROR_STOP=1'], sanitizedEnv({}), { input: fixture });
+        if (loaded.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U041 pre-migration fixture load failed: ${loaded.stderr || loaded.stdout}`);
+        const legacyBefore = await execSql(ctx.containerName, conn, `SELECT jsonb_build_object('tenant', (SELECT to_jsonb(t) FROM tenants t WHERE id='u041-fixture-tenant'), 'company', (SELECT to_jsonb(c) FROM companies c WHERE id='u041-fixture-company'), 'artifact', (SELECT to_jsonb(a) FROM artifacts a WHERE id='u041-fixture-artifact'), 'artifactVersion', (SELECT to_jsonb(v) FROM artifact_versions v WHERE id='u041-fixture-artifact-version'))::text;`);
+        writeFileSync(join(evidenceDir, 'legacy-fixture-before.json'), `${legacyBefore}\n`);
+
+        addMigrationToView(view, NEW_MIGRATION_NAME_U041);
+        verifyViewIntegrity(view, [...prefix, NEW_MIGRATION_NAME_U041]);
+        const deployU041 = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
+        if (deployU041.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U041 deploy failed: ${deployU041.stderr || deployU041.stdout}`);
+        const legacyAfter = await execSql(ctx.containerName, conn, `SELECT jsonb_build_object('tenant', (SELECT to_jsonb(t) FROM tenants t WHERE id='u041-fixture-tenant'), 'company', (SELECT to_jsonb(c) FROM companies c WHERE id='u041-fixture-company'), 'artifact', (SELECT to_jsonb(a) FROM artifacts a WHERE id='u041-fixture-artifact'), 'artifactVersion', (SELECT to_jsonb(v) FROM artifact_versions v WHERE id='u041-fixture-artifact-version'))::text;`);
+        if (legacyAfter !== legacyBefore) throw new ContractFailure(EXIT.CONTRACT, 'U041 changed a pre-migration fixture row or predecessor relation');
+        writeFileSync(join(evidenceDir, 'legacy-fixture-after.json'), `${legacyAfter}\n`);
+
+        interface TriggerRow { triggerName: string; table: string; event: string; timing: string; enabled: boolean; functionName: string; functionDefinitionHash: string }
+        const observed = await execSqlJsonRows<TriggerRow>(ctx.containerName, conn, `
+          SELECT t.tgname AS "triggerName", c.relname AS "table",
+            CASE WHEN (t.tgtype & 16) <> 0 THEN 'UPDATE' ELSE 'DELETE' END AS event,
+            'BEFORE' AS timing, (t.tgenabled = 'O') AS enabled,
+            'public.' || p.proname || '()' AS "functionName",
+            public.sangfor_sha256_utf8(pg_get_functiondef(p.oid)) AS "functionDefinitionHash"
+          FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_proc p ON p.oid=t.tgfoid
+          WHERE NOT t.tgisinternal AND c.relname IN ('ai_quality_assessments','ai_quality_evidence','ai_quality_reviews','ai_release_evaluations','ai_prompt_snapshots','ai_model_snapshots')
+          ORDER BY t.tgname`);
+        const expected = triggerSpecs.map(([triggerName, table, event]) => ({ triggerName, table, event, timing: 'BEFORE', enabled: true }));
+        const observedKeys = observed.map((row) => `${row.triggerName}|${row.table}|${row.event}|${row.timing}`);
+        const expectedKeys = expected.map((row) => `${row.triggerName}|${row.table}|${row.event}|${row.timing}`);
+        const missing = expectedKeys.filter((key) => !observedKeys.includes(key));
+        const extra = observedKeys.filter((key) => !expectedKeys.includes(key));
+        const duplicateAuthorities = observedKeys.filter((key, index) => observedKeys.indexOf(key) !== index);
+        if (observed.length !== 12 || missing.length || extra.length || duplicateAuthorities.length || observed.some((row) => !row.enabled || !['public.ai_quality_history_immutable_update_reject_fn()', 'public.ai_quality_history_immutable_delete_reject_fn()'].includes(row.functionName))) {
+          throw new ContractFailure(EXIT.CONTRACT, `U041 immutable authority inventory mismatch: observed=${JSON.stringify(observed)}`);
+        }
+        const authorityInventory = { expectedFunctions: ['public.ai_quality_history_immutable_update_reject_fn()', 'public.ai_quality_history_immutable_delete_reject_fn()'], expectedTriggers: expected, expectedCount: 12, observedCount: observed.length, missing, extra, duplicateAuthorities, observed };
+        writeFileSync(join(evidenceDir, 'ai-history-authority-inventory.json'), `${JSON.stringify(authorityInventory, null, 2)}\n`);
+
+        const qa: string[] = [];
+        qa.push(await attemptQaInsert(ctx.containerName, conn, { label: 'valid assessment', expect: 'ok', sql: `INSERT INTO ai_quality_assessments (id,artifact_version_id,artifact_content_hash,result_hash,policy_key,policy_version,evaluator_key,evaluator_version,status,score,source_coverage,confidence_basis,missing_info,known_gaps,risk_flags,injection_detected,leakage_detected,quality_passed,assessed_by_assignment_id,idempotency_key,assessment_input_hash,assessed_at) VALUES ('u041-assessment','u041-fixture-artifact-version','${hash}','${hash}','quality','v1','evaluator','v1','completed',0.8,0.7,'{}'::jsonb,'[]'::jsonb,'[]'::jsonb,'[]'::jsonb,false,false,false,'u041-fixture-assignment','assessment-1','${hash}',now());` }));
+        qa.push(await attemptQaInsert(ctx.containerName, conn, { label: 'valid artifact evidence', expect: 'ok', sql: `INSERT INTO ai_quality_evidence (id,assessment_id,source_kind,source_reference,source_hash,source_artifact_version_id,citation,coverage) VALUES ('u041-evidence','u041-assessment','artifact','u041-fixture-artifact-version','${hash}','u041-fixture-artifact-version','{}'::jsonb,'{}'::jsonb);` }));
+        qa.push(await attemptQaInsert(ctx.containerName, conn, { label: 'valid review', expect: 'ok', sql: `INSERT INTO ai_quality_reviews (id,assessment_id,artifact_version_id,artifact_content_hash,assessment_result_hash,review_slot_key,reviewer_assignment_id,reviewer_role_snapshot,decision,comment,idempotency_key,review_input_hash) VALUES ('u041-review','u041-assessment','u041-fixture-artifact-version','${hash}','${hash}','security','u041-fixture-assignment','account_manager','approved','reviewed','review-1','${hash}');` }));
+        qa.push(await attemptQaInsert(ctx.containerName, conn, { label: 'valid evaluation', expect: 'ok', sql: `INSERT INTO ai_release_evaluations (id,evaluation_key,evaluation_input_hash,review_set_hash,artifact_version_id,artifact_content_hash,assessment_id,action,policy_key,policy_version,policy_hash,eligible,blockers,evaluated_at) VALUES ('u041-evaluation','${hash}','${hash}','${hash}','u041-fixture-artifact-version','${hash}','u041-assessment','ai.review','quality','v1','${hash}',false,'["human_review_required"]'::jsonb,now());` }));
+        qa.push(await attemptQaInsert(ctx.containerName, conn, { label: 'valid prompt snapshot', expect: 'ok', sql: `INSERT INTO ai_prompt_snapshots (id,assessment_id,prompt_key,prompt_version,prompt_hash,tool_key,tool_version,tool_hash,classification) VALUES ('u041-prompt','u041-assessment','prompt','v1','${hash}','tool','v1','${hash}','internal');` }));
+        qa.push(await attemptQaInsert(ctx.containerName, conn, { label: 'valid model snapshot', expect: 'ok', sql: `INSERT INTO ai_model_snapshots (id,assessment_id,model_key,model_version,model_hash,tool_key,tool_version,tool_hash,classification) VALUES ('u041-model','u041-assessment','model','v1','${hash}','tool','v1','${hash}','internal');` }));
+        qa.push(await attemptQaInsert(ctx.containerName, conn, { label: 'artifact evidence needs source version', expect: 'reject', sql: `INSERT INTO ai_quality_evidence (id,assessment_id,source_kind,source_reference,source_hash,citation,coverage) VALUES ('u041-bad-evidence','u041-assessment','artifact','missing','${hash}','{}'::jsonb,'{}'::jsonb);` }));
+        qa.push(await attemptQaInsert(ctx.containerName, conn, { label: 'review decision allowlist', expect: 'reject', sql: `INSERT INTO ai_quality_reviews (id,assessment_id,artifact_version_id,artifact_content_hash,assessment_result_hash,review_slot_key,reviewer_assignment_id,reviewer_role_snapshot,decision,idempotency_key,review_input_hash) VALUES ('u041-bad-review','u041-assessment','u041-fixture-artifact-version','${hash}','${hash}','legal','u041-fixture-assignment','account_manager','pending','review-bad','${hash}');` }));
+        qa.push(await attemptQaInsert(ctx.containerName, conn, { label: 'action allowlist', expect: 'reject', sql: `INSERT INTO ai_release_evaluations (id,evaluation_key,evaluation_input_hash,review_set_hash,artifact_version_id,artifact_content_hash,assessment_id,action,policy_key,policy_version,policy_hash,eligible,blockers,evaluated_at) VALUES ('u041-bad-action','${'b'.repeat(64)}','${hash}','${hash}','u041-fixture-artifact-version','${hash}','u041-assessment','external.send','quality','v1','${hash}',false,'[]'::jsonb,now());` }));
+        for (const [table, id] of [['ai_quality_assessments', 'u041-assessment'], ['ai_quality_evidence', 'u041-evidence'], ['ai_quality_reviews', 'u041-review'], ['ai_release_evaluations', 'u041-evaluation'], ['ai_prompt_snapshots', 'u041-prompt'], ['ai_model_snapshots', 'u041-model']] as const) {
+          qa.push(await attemptQaInsert(ctx.containerName, conn, { label: `${table} no-op update immutable`, expect: 'reject', sql: `UPDATE ${table} SET id=id WHERE id='${id}';` }));
+          qa.push(await attemptQaInsert(ctx.containerName, conn, { label: `${table} delete immutable`, expect: 'reject', sql: `DELETE FROM ${table} WHERE id='${id}';` }));
+        }
+        qa.push(await attemptQaInsert(ctx.containerName, conn, { label: 'parent artifact version restrict delete', expect: 'reject', sql: `DELETE FROM artifact_versions WHERE id='u041-fixture-artifact-version';` }));
+        writeFileSync(join(evidenceDir, 'ai-history-negative-matrix.json'), `${JSON.stringify(qa, null, 2)}\n`);
+
+        const diff = await runMigrateDiff(ctx.databaseUrl);
+        if (diff.code !== 0 || !['', '-- This is an empty migration.'].includes(diff.stdout.trim())) throw new ContractFailure(EXIT.CONTRACT, `U041 scratch schema diff is non-empty: ${diff.stdout}\n${diff.stderr}`);
+        evidence.authorityInventory = { expectedCount: 12, observedCount: observed.length };
+        evidence.negativeMatrix = qa;
+        evidence.emptySchemaDiff = true;
+      },
+    );
+  } catch (error) {
+    caught = error;
+  } finally {
+    if (view) rmSync(view.dir, { recursive: true, force: true });
+  }
+  const receipt = { schemaVersion: 1, unit: OWNER_UNIT_U041, suite: PURPOSE_U041, runId, startedAt, finishedAt: new Date().toISOString(), result: caught ? 'FAIL' : 'PASS', evidence };
+  writeFileSync(join(evidenceDir, 'db-contract-receipt.json'), `${JSON.stringify(receipt, null, 2)}\n`);
+  writeFileSync(join(evidenceDir, 'cleanup.json'), `${JSON.stringify({ runId, viewRemoved: true, isolatedLifecycle: 'completed' }, null, 2)}\n`);
+  if (caught) {
+    process.stderr.write(`${caught instanceof Error ? (caught.stack ?? caught.message) : String(caught)}\n`);
+    return caught instanceof ContractFailure ? caught.exitCode : EXIT.CONTRACT;
+  }
+  return EXIT.SUCCESS;
+}
+
 async function main(): Promise<number> {
   let args;
   try {
@@ -4816,6 +4947,7 @@ async function main(): Promise<number> {
   if (args.suite === 'governance-bridge') return runGovernanceBridgeSuite(args.evidence);
   if (args.suite === 'audit-chain') return runAuditChainSuite(args.evidence);
   if (args.suite === 'role-change') return runRoleChangeSuite(args.evidence);
+  if (args.suite === 'ai-quality-schema') return runAiQualitySchemaSuite(args.evidence);
   return runWorkflowSchemaSuite(args.evidence);
 }
 

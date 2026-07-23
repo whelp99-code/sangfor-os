@@ -412,6 +412,7 @@ model ApprovalRequest {
   currentValidity ApprovalCurrentValidity?
   roleChangeRequest RoleChangeRequest?
   discountRequests DiscountRequest[]
+  aiReleaseEvaluations AiReleaseEvaluation[]
 
   @@index([status])
   @@map("approval_requests")
@@ -1478,6 +1479,10 @@ model ArtifactVersion {
   deliveryAcceptances      DeliveryAcceptance[]  @relation("DeliveryAcceptanceArtifactVersion")
   certificationEvidence    CertificationEvidence[] @relation("CertificationEvidenceArtifactVersion")
   engineerSkills           EngineerSkill[] @relation("EngineerSkillSourceArtifactVersion")
+  aiQualityAssessments     AiQualityAssessment[]   @relation("AiQualityAssessmentArtifactVersion")
+  aiQualityEvidenceSources AiQualityEvidence[]     @relation("AiQualityEvidenceSourceArtifactVersion")
+  aiQualityReviews         AiQualityReview[]       @relation("AiQualityReviewArtifactVersion")
+  aiReleaseEvaluations     AiReleaseEvaluation[]   @relation("AiReleaseEvaluationArtifactVersion")
 
   @@unique([artifactId, version], map: "artifact_versions_artifact_id_version_key")
   @@unique([artifactId, contentHashVersion, contentHash], map: "artifact_versions_content_hash_key")
@@ -2788,6 +2793,163 @@ model AiQualityResult {
   @@map("ai_quality_results")
 }
 
+// U041/AIQ-01: completed, immutable evaluator receipts. `qualityPassed` is only readiness for
+// human review, never approval or release authority. The formal migration makes all six tables
+// INSERT-only history and rejects every UPDATE/DELETE, including no-op rewrites.
+model AiQualityAssessment {
+  id                     String   @id @default(cuid())
+  artifactVersionId      String   @map("artifact_version_id")
+  artifactContentHash    String   @map("artifact_content_hash")
+  resultHash             String   @map("result_hash")
+  policyKey              String   @map("policy_key")
+  policyVersion          String   @map("policy_version")
+  evaluatorKey           String   @map("evaluator_key")
+  evaluatorVersion       String   @map("evaluator_version")
+  status                 String   @default("completed")
+  score                  Float
+  sourceCoverage         Float    @map("source_coverage")
+  confidenceBasis        Json     @map("confidence_basis")
+  missingInfo            Json     @map("missing_info")
+  knownGaps              Json     @map("known_gaps")
+  riskFlags              Json     @map("risk_flags")
+  injectionDetected      Boolean  @map("injection_detected")
+  leakageDetected        Boolean  @map("leakage_detected")
+  qualityPassed          Boolean  @map("quality_passed")
+  assessedByAssignmentId String   @map("assessed_by_assignment_id")
+  idempotencyKey         String   @map("idempotency_key")
+  assessmentInputHash    String   @map("assessment_input_hash")
+  assessedAt             DateTime @map("assessed_at")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  artifactVersion      ArtifactVersion @relation("AiQualityAssessmentArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "ai_quality_assessments_artifact_version_id_fkey")
+  assessedByAssignment UserCompanyRole @relation("AiQualityAssessmentAssessedByAssignment", fields: [assessedByAssignmentId], references: [id], onDelete: Restrict, map: "ai_quality_assessments_assessed_by_assignment_id_fkey")
+  evidence             AiQualityEvidence[]
+  reviews              AiQualityReview[]
+  releaseEvaluations   AiReleaseEvaluation[]
+  promptSnapshots      AiPromptSnapshot[]
+  modelSnapshots       AiModelSnapshot[]
+
+  @@unique([artifactVersionId, assessedByAssignmentId, idempotencyKey], map: "ai_quality_assessments_artifact_assignment_idempotency_key")
+  @@index([artifactVersionId, artifactContentHash])
+  @@map("ai_quality_assessments")
+}
+
+model AiQualityEvidence {
+  id                      String   @id @default(cuid())
+  assessmentId            String   @map("assessment_id")
+  sourceKind              String   @map("source_kind")
+  sourceReference         String   @map("source_reference")
+  sourceHash              String   @map("source_hash")
+  sourceArtifactVersionId String?  @map("source_artifact_version_id")
+  citation                Json
+  coverage                Json
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  assessment            AiQualityAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict, map: "ai_quality_evidence_assessment_id_fkey")
+  sourceArtifactVersion ArtifactVersion?    @relation("AiQualityEvidenceSourceArtifactVersion", fields: [sourceArtifactVersionId], references: [id], onDelete: Restrict, map: "ai_quality_evidence_source_artifact_version_id_fkey")
+
+  @@index([assessmentId])
+  @@index([sourceArtifactVersionId])
+  @@map("ai_quality_evidence")
+}
+
+model AiQualityReview {
+  id                   String   @id @default(cuid())
+  assessmentId         String   @map("assessment_id")
+  artifactVersionId    String   @map("artifact_version_id")
+  artifactContentHash  String   @map("artifact_content_hash")
+  assessmentResultHash String   @map("assessment_result_hash")
+  reviewSlotKey        String   @map("review_slot_key")
+  reviewerAssignmentId String   @map("reviewer_assignment_id")
+  reviewerRoleSnapshot String   @map("reviewer_role_snapshot")
+  decision             String
+  comment              String?
+  idempotencyKey       String   @map("idempotency_key")
+  reviewInputHash      String   @map("review_input_hash")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  assessment         AiQualityAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict, map: "ai_quality_reviews_assessment_id_fkey")
+  artifactVersion    ArtifactVersion     @relation("AiQualityReviewArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "ai_quality_reviews_artifact_version_id_fkey")
+  reviewerAssignment UserCompanyRole     @relation("AiQualityReviewReviewerAssignment", fields: [reviewerAssignmentId], references: [id], onDelete: Restrict, map: "ai_quality_reviews_reviewer_assignment_id_fkey")
+
+  @@unique([assessmentId, reviewSlotKey], map: "ai_quality_reviews_assessment_slot_key")
+  @@unique([assessmentId, reviewerAssignmentId, idempotencyKey], map: "ai_quality_reviews_assessment_reviewer_idempotency_key")
+  @@index([artifactVersionId, artifactContentHash])
+  @@map("ai_quality_reviews")
+}
+
+// This row records an eligibility decision only. A later current-authority lookup must revalidate
+// every exact receipt component and active ownership; a stale eligible row remains evidence.
+model AiReleaseEvaluation {
+  id                           String   @id @default(cuid())
+  evaluationKey                String   @unique @map("evaluation_key")
+  evaluationInputHash          String   @map("evaluation_input_hash")
+  reviewSetHash                String   @map("review_set_hash")
+  artifactVersionId            String   @map("artifact_version_id")
+  artifactContentHash          String   @map("artifact_content_hash")
+  assessmentId                 String   @map("assessment_id")
+  action                       String
+  policyKey                    String   @map("policy_key")
+  policyVersion                String   @map("policy_version")
+  policyHash                   String   @map("policy_hash")
+  approvalRequestId            String?  @map("approval_request_id")
+  approvalRequestRevision      Int?     @map("approval_request_revision")
+  approvalArtifactHashSnapshot String?  @map("approval_artifact_hash_snapshot")
+  approvalPolicyHashSnapshot   String?  @map("approval_policy_hash_snapshot")
+  eligible                     Boolean
+  blockers                     Json
+  evaluatedAt                  DateTime @map("evaluated_at")
+  createdAt                    DateTime @default(now()) @map("created_at")
+
+  assessment      AiQualityAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict, map: "ai_release_evaluations_assessment_id_fkey")
+  artifactVersion ArtifactVersion     @relation("AiReleaseEvaluationArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "ai_release_evaluations_artifact_version_id_fkey")
+  approvalRequest ApprovalRequest?    @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "ai_release_evaluations_approval_request_id_fkey")
+
+  @@unique([action, assessmentId, artifactVersionId, artifactContentHash, evaluationInputHash], map: "ai_release_evaluations_action_assessment_artifact_input_key")
+  @@index([action, artifactVersionId, artifactContentHash, evaluatedAt])
+  @@map("ai_release_evaluations")
+}
+
+model AiPromptSnapshot {
+  id                String   @id @default(cuid())
+  assessmentId      String   @map("assessment_id")
+  promptKey         String   @map("prompt_key")
+  promptVersion     String   @map("prompt_version")
+  promptHash        String   @map("prompt_hash")
+  toolKey           String   @map("tool_key")
+  toolVersion       String   @map("tool_version")
+  toolHash          String   @map("tool_hash")
+  classification    String
+  approvalReference String?  @map("approval_reference")
+  releaseReference  String?  @map("release_reference")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  assessment AiQualityAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict, map: "ai_prompt_snapshots_assessment_id_fkey")
+
+  @@index([assessmentId])
+  @@map("ai_prompt_snapshots")
+}
+
+model AiModelSnapshot {
+  id                String   @id @default(cuid())
+  assessmentId      String   @map("assessment_id")
+  modelKey          String   @map("model_key")
+  modelVersion      String   @map("model_version")
+  modelHash         String   @map("model_hash")
+  toolKey           String   @map("tool_key")
+  toolVersion       String   @map("tool_version")
+  toolHash          String   @map("tool_hash")
+  classification    String
+  approvalReference String?  @map("approval_reference")
+  releaseReference  String?  @map("release_reference")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  assessment AiQualityAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict, map: "ai_model_snapshots_assessment_id_fkey")
+
+  @@index([assessmentId])
+  @@map("ai_model_snapshots")
+}
+
 // --- Tenant / Multi-tenancy ---
 
 model Tenant {
@@ -2928,6 +3090,8 @@ model UserCompanyRole {
   verifiedEngineerSkills      EngineerSkill[] @relation("EngineerSkillVerifiedByAssignment")
   engineerAssignments         EngineerAssignment[] @relation("EngineerAssignmentMembership")
   assignedEngineerAssignments EngineerAssignment[] @relation("EngineerAssignmentAssignedByAssignment")
+  assessedAiQualityAssessments AiQualityAssessment[] @relation("AiQualityAssessmentAssessedByAssignment")
+  reviewedAiQualityReviews     AiQualityReview[]     @relation("AiQualityReviewReviewerAssignment")
 
   @@unique([userId, companyId, role])
   @@unique([id, companyId], map: "user_company_roles_id_company_id_key")

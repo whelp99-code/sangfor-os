@@ -181,6 +181,14 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   // transition. SupportCaseSlaSnapshot inherits only through its mandatory case relation.
   { model: 'SupportSlaPolicyVersion', unit: 'U039', category: 'COMPANY_ROOT' },
   { model: 'SupportCaseSlaSnapshot', unit: 'U039', category: 'CHILD_VIA_FK' },
+  // U041/AIQ-01: exact immutable AI quality history. The assessment's scope is pinned through
+  // its required ArtifactVersion; all other receipts inherit only through their assessment.
+  { model: 'AiQualityAssessment', unit: 'U041', category: 'CHILD_VIA_FK' },
+  { model: 'AiQualityEvidence', unit: 'U041', category: 'CHILD_VIA_FK' },
+  { model: 'AiQualityReview', unit: 'U041', category: 'CHILD_VIA_FK' },
+  { model: 'AiReleaseEvaluation', unit: 'U041', category: 'CHILD_VIA_FK' },
+  { model: 'AiPromptSnapshot', unit: 'U041', category: 'CHILD_VIA_FK' },
+  { model: 'AiModelSnapshot', unit: 'U041', category: 'CHILD_VIA_FK' },
 ];
 
 export interface ReclassifiedModel {
@@ -251,9 +259,15 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   AiEvaluationDataset: { model: 'AiEvaluationDataset', category: 'COMPANY_ROOT' },
   AiGoldenAnswer: { model: 'AiGoldenAnswer', category: 'GLOBAL_SHARED' },
   AiModel: { model: 'AiModel', category: 'COMPANY_ROOT' },
+  AiModelSnapshot: { model: 'AiModelSnapshot', category: 'CHILD_VIA_FK', parentModel: 'AiQualityAssessment', relationField: 'assessment', scalarFkField: 'assessmentId', nullable: false },
   AiPromptRun: { model: 'AiPromptRun', category: 'PROJECT_ROOT' },
+  AiPromptSnapshot: { model: 'AiPromptSnapshot', category: 'CHILD_VIA_FK', parentModel: 'AiQualityAssessment', relationField: 'assessment', scalarFkField: 'assessmentId', nullable: false },
   AiPromptTemplate: { model: 'AiPromptTemplate', category: 'GLOBAL_SHARED' },
+  AiQualityAssessment: { model: 'AiQualityAssessment', category: 'CHILD_VIA_FK', parentModel: 'ArtifactVersion', relationField: 'artifactVersion', scalarFkField: 'artifactVersionId', additionalRequiredRelationFields: ['assessedByAssignment'], nullable: false },
+  AiQualityEvidence: { model: 'AiQualityEvidence', category: 'CHILD_VIA_FK', parentModel: 'AiQualityAssessment', relationField: 'assessment', scalarFkField: 'assessmentId', nullable: false },
   AiQualityResult: { model: 'AiQualityResult', category: 'PROJECT_ROOT' },
+  AiQualityReview: { model: 'AiQualityReview', category: 'CHILD_VIA_FK', parentModel: 'AiQualityAssessment', relationField: 'assessment', scalarFkField: 'assessmentId', additionalRequiredRelationFields: ['artifactVersion', 'reviewerAssignment'], nullable: false },
+  AiReleaseEvaluation: { model: 'AiReleaseEvaluation', category: 'CHILD_VIA_FK', parentModel: 'AiQualityAssessment', relationField: 'assessment', scalarFkField: 'assessmentId', additionalRequiredRelationFields: ['artifactVersion'], nullable: false },
   ApprovalCurrentValidity: { model: 'ApprovalCurrentValidity', category: 'CHILD_VIA_FK', parentModel: 'ApprovalRequest', relationField: 'approvalRequest', scalarFkField: 'approvalRequestId', nullable: false },
   ApprovalDecision: { model: 'ApprovalDecision', category: 'CHILD_VIA_FK', parentModel: 'ApprovalRequest', relationField: 'approvalRequest', scalarFkField: 'approvalRequestId', nullable: false },
   ApprovalRequest: { model: 'ApprovalRequest', category: 'PROJECT_ROOT' },

@@ -62,10 +62,12 @@ describe('classifyModel', () => {
 });
 
 describe('buildScopeInventoryReport — real inventory', () => {
-  it('reports ok with the dynamically-derived U038 current count and category tallies against its own model list', () => {
+  it('reports ok with the U041 exact 179-model count and category tallies against its own model list', () => {
     const report = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
+    expect(Prisma.dmmf.datamodel.models).toHaveLength(179);
+    expect(report.currentModelCount).toBe(179);
     expect(report.currentModelCount).toBe(expectedCurrentModelCount());
     expect(report.tallies).toEqual(expectedCategoryCounts());
   });
@@ -97,6 +99,12 @@ describe('REGISTERED_ADDITIONS — U011 model registration', () => {
       { model: 'EngineerAssignment', unit: 'U038', category: 'CHILD_VIA_FK' },
       { model: 'SupportSlaPolicyVersion', unit: 'U039', category: 'COMPANY_ROOT' },
       { model: 'SupportCaseSlaSnapshot', unit: 'U039', category: 'CHILD_VIA_FK' },
+      { model: 'AiQualityAssessment', unit: 'U041', category: 'CHILD_VIA_FK' },
+      { model: 'AiQualityEvidence', unit: 'U041', category: 'CHILD_VIA_FK' },
+      { model: 'AiQualityReview', unit: 'U041', category: 'CHILD_VIA_FK' },
+      { model: 'AiReleaseEvaluation', unit: 'U041', category: 'CHILD_VIA_FK' },
+      { model: 'AiPromptSnapshot', unit: 'U041', category: 'CHILD_VIA_FK' },
+      { model: 'AiModelSnapshot', unit: 'U041', category: 'CHILD_VIA_FK' },
     ]);
   });
 
@@ -333,7 +341,7 @@ describe('REGISTERED_ADDITIONS — U019 model registration', () => {
 });
 
 describe('RECLASSIFIED_MODELS — sealed scope reclassifications', () => {
-  it('records the U040 catalog delta without changing the 173-name set', () => {
+  it('records the U040 catalog delta while U041 only appends its six names', () => {
     expect(RECLASSIFIED_MODELS).toEqual([
       { model: 'RoleChangeRequest', unit: 'U012', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
       { model: 'AuditLog', unit: 'U021', fromCategory: 'COMPANY_ROOT', toCategory: 'TENANT_ROOT' },
@@ -349,9 +357,9 @@ describe('RECLASSIFIED_MODELS — sealed scope reclassifications', () => {
     expect(SCOPE_INVENTORY_BASELINE.categoryCounts.COMPANY_ROOT).toBe(32);
   });
 
-  it('derives expected category counts as baseline plus registered additions minus one reclassified GLOBAL_SHARED->CHILD_VIA_FK and one reclassified COMPANY_ROOT->TENANT_ROOT', () => {
+  it('derives the exact U041 vector from baseline plus additions and reclassifications', () => {
     expect(expectedCategoryCounts()).toEqual(buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES).tallies);
-    expect(expectedCategoryCounts()).toEqual({ GLOBAL_SHARED: 11, TENANT_ROOT: 2, COMPANY_ROOT: 36, PROJECT_ROOT: 48, CHILD_VIA_FK: 76 });
+    expect(expectedCategoryCounts()).toEqual({ GLOBAL_SHARED: 11, TENANT_ROOT: 2, COMPANY_ROOT: 36, PROJECT_ROOT: 48, CHILD_VIA_FK: 82 });
   });
 
   it('classifies RoleChangeRequest as CHILD_VIA_FK of Company via mandatory companyId in the live inventory', () => {
@@ -373,6 +381,47 @@ describe('RECLASSIFIED_MODELS — sealed scope reclassifications', () => {
     const auditLogEntries = REAL_ENTRIES.filter((e) => e.model === 'AuditLog');
     expect(auditLogEntries).toHaveLength(1);
     expect(auditLogEntries[0]).toEqual({ model: 'AuditLog', category: 'TENANT_ROOT' });
+  });
+});
+
+describe('U041 AI quality immutable-history registration', () => {
+  const names = ['AiQualityAssessment', 'AiQualityEvidence', 'AiQualityReview', 'AiReleaseEvaluation', 'AiPromptSnapshot', 'AiModelSnapshot'];
+
+  it('requires the six new Prisma models, then permits only their single canonical child paths', () => {
+    const modelNames = Prisma.dmmf.datamodel.models.map((model) => model.name);
+    expect(modelNames).toHaveLength(179);
+    for (const name of names) expect(modelNames).toContain(name);
+
+    const withoutU041 = REAL_ENTRIES.filter((entry) => !names.includes(entry.model));
+    const rejected = buildScopeInventoryReport(modelNames, withoutU041);
+    expect(rejected.ok).toBe(false);
+    expect(rejected.missingModels).toEqual([...names].sort());
+
+    expect(MODEL_SCOPE_INVENTORY.AiQualityAssessment).toEqual({
+      model: 'AiQualityAssessment', category: 'CHILD_VIA_FK', parentModel: 'ArtifactVersion', relationField: 'artifactVersion', scalarFkField: 'artifactVersionId', additionalRequiredRelationFields: ['assessedByAssignment'], nullable: false,
+    });
+    for (const model of ['AiQualityEvidence', 'AiPromptSnapshot', 'AiModelSnapshot']) {
+      expect(MODEL_SCOPE_INVENTORY[model]).toEqual({
+        model, category: 'CHILD_VIA_FK', parentModel: 'AiQualityAssessment', relationField: 'assessment', scalarFkField: 'assessmentId', nullable: false,
+      });
+    }
+    expect(MODEL_SCOPE_INVENTORY.AiQualityReview).toEqual({
+      model: 'AiQualityReview', category: 'CHILD_VIA_FK', parentModel: 'AiQualityAssessment', relationField: 'assessment', scalarFkField: 'assessmentId', additionalRequiredRelationFields: ['artifactVersion', 'reviewerAssignment'], nullable: false,
+    });
+    expect(MODEL_SCOPE_INVENTORY.AiReleaseEvaluation).toEqual({
+      model: 'AiReleaseEvaluation', category: 'CHILD_VIA_FK', parentModel: 'AiQualityAssessment', relationField: 'assessment', scalarFkField: 'assessmentId', additionalRequiredRelationFields: ['artifactVersion'], nullable: false,
+    });
+  });
+
+  it('keeps the U040 denominator explicit and produces byte-identical U041 reports twice', () => {
+    expect(SCOPE_INVENTORY_BASELINE.modelCount + 23).toBe(173);
+    expect(SCOPE_INVENTORY_BASELINE.modelCount + 29).toBe(179);
+    const first = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
+    const second = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
+    expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+    expect(first.currentModelCount).toBe(179);
+    expect(first.inventoryModelCount).toBe(179);
+    expect(Object.values(first.tallies).reduce((sum, count) => sum + count, 0)).toBe(179);
   });
 });
 
