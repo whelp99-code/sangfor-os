@@ -59,6 +59,15 @@ export interface ChildViaFkEntry {
   relationField: string;
   /** Scalar FK column backing `relationField`. */
   scalarFkField: string;
+  /**
+   * Other mandatory relation fields on `model` that are references (which-config/which-catalog),
+   * NOT scope-determining parents. The structural checker excludes these edges from the scope-root
+   * derivation so `model` remains an unambiguous CHILD_VIA_FK through its single declared parent
+   * even when a reclassified target (e.g. ProductFamily -> COMPANY_ROOT) would otherwise add a
+   * second root. The referenced model's own company/scope agreement is enforced by its DB
+   * trigger/check, not by structural scope inheritance.
+   */
+  additionalRequiredRelationFields?: readonly string[];
   /** Always `false` — CHILD_VIA_FK requires a mandatory (non-null) FK. */
   nullable: false;
 }
@@ -66,18 +75,17 @@ export interface ChildViaFkEntry {
 export type ScopeInventoryEntry = RootScopeEntry | ChildViaFkEntry;
 
 /**
- * U033 records the catalog's canonical chain without changing the current inventory classifier.
- * ProductFamily and LicenseMetric remain GLOBAL_SHARED until U040 has the required zero-ambiguity
- * proof; the other catalog models keep their existing inventory tallies while this map makes the
- * exact future family/SKU chain explicit for that reclassification unit.
+ * U040 completed the catalog receipt: ProductFamily is now a company root and LicenseMetric
+ * inherits only through its required ProductFamily FK.  The remaining entries document the
+ * canonical child chains without creating a second classifier.
  */
 export const CATALOG_TRANSITIONAL_CANONICAL_SCOPE_PATHS = Object.freeze({
-  ProductFamily: Object.freeze({ relationField: 'company', scalarFkField: 'companyId', parentModel: 'Company', deferredTo: 'U040' }),
-  ProductEdition: Object.freeze({ relationField: 'family', scalarFkField: 'familyId', parentModel: 'ProductFamily', deferredTo: 'U040' }),
-  ProductSku: Object.freeze({ relationField: 'edition', scalarFkField: 'editionId', parentModel: 'ProductEdition', deferredTo: 'U040' }),
-  LicenseMetric: Object.freeze({ relationField: 'productFamily', scalarFkField: 'productFamilyId', parentModel: 'ProductFamily', deferredTo: 'U040' }),
-  SizingTemplate: Object.freeze({ relationField: 'family', scalarFkField: 'productFamilyId', parentModel: 'ProductFamily', deferredTo: 'U040' }),
-  CompatibilityRule: Object.freeze({ relationField: 'sourceSku', scalarFkField: 'sourceSkuId', parentModel: 'ProductSku', additionalRequiredRelationFields: ['targetSku'], deferredTo: 'U040' }),
+  ProductFamily: Object.freeze({ relationField: 'company', scalarFkField: 'companyId', parentModel: 'Company' }),
+  ProductEdition: Object.freeze({ relationField: 'family', scalarFkField: 'familyId', parentModel: 'ProductFamily' }),
+  ProductSku: Object.freeze({ relationField: 'edition', scalarFkField: 'editionId', parentModel: 'ProductEdition' }),
+  LicenseMetric: Object.freeze({ relationField: 'productFamily', scalarFkField: 'productFamilyId', parentModel: 'ProductFamily' }),
+  SizingTemplate: Object.freeze({ relationField: 'family', scalarFkField: 'productFamilyId', parentModel: 'ProductFamily' }),
+  CompatibilityRule: Object.freeze({ relationField: 'sourceSku', scalarFkField: 'sourceSkuId', parentModel: 'ProductSku', additionalRequiredRelationFields: ['targetSku'] }),
 });
 
 export interface ScopeInventoryBaseline {
@@ -201,6 +209,9 @@ export const RECLASSIFIED_MODELS: ReclassifiedModel[] = [
   // tenant identity is a root, not a child. Reclassified exactly once from its U010-baseline
   // COMPANY_ROOT; no Prisma model is added or removed by this unit.
   { model: 'AuditLog', unit: 'U021', fromCategory: 'COMPANY_ROOT', toCategory: 'TENANT_ROOT' },
+  // U040 validates the non-null catalog anchors after its conservative, zero-ambiguity backfill.
+  { model: 'ProductFamily', unit: 'U040', fromCategory: 'GLOBAL_SHARED', toCategory: 'COMPANY_ROOT' },
+  { model: 'LicenseMetric', unit: 'U040', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
 ];
 
 export function expectedCurrentModelCount(
@@ -300,7 +311,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   DomainDecisionLog: { model: 'DomainDecisionLog', category: 'CHILD_VIA_FK', parentModel: 'Project', relationField: 'project', scalarFkField: 'projectId', nullable: false },
   DomainMemory: { model: 'DomainMemory', category: 'CHILD_VIA_FK', parentModel: 'Project', relationField: 'project', scalarFkField: 'projectId', nullable: false },
   Engagement: { model: 'Engagement', category: 'CHILD_VIA_FK', parentModel: 'Opportunity', relationField: 'opportunity', scalarFkField: 'opportunityId', nullable: false },
-  EngagementCapabilityRequirement: { model: 'EngagementCapabilityRequirement', category: 'CHILD_VIA_FK', parentModel: 'Engagement', relationField: 'engagement', scalarFkField: 'engagementId', nullable: false },
+  EngagementCapabilityRequirement: { model: 'EngagementCapabilityRequirement', category: 'CHILD_VIA_FK', parentModel: 'Engagement', relationField: 'engagement', scalarFkField: 'engagementId', additionalRequiredRelationFields: ['productFamily'], nullable: false },
   EngineerAssignment: { model: 'EngineerAssignment', category: 'CHILD_VIA_FK', parentModel: 'EngagementCapabilityRequirement', relationField: 'requirement', scalarFkField: 'requirementId', nullable: false },
   EngineerCertification: { model: 'EngineerCertification', category: 'COMPANY_ROOT' },
   EngineerEligibilityPolicy: { model: 'EngineerEligibilityPolicy', category: 'COMPANY_ROOT' },
@@ -322,7 +333,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   KnowledgeDocument: { model: 'KnowledgeDocument', category: 'PROJECT_ROOT' },
   LayoutSlot: { model: 'LayoutSlot', category: 'PROJECT_ROOT' },
   LedgerEntry: { model: 'LedgerEntry', category: 'COMPANY_ROOT' },
-  LicenseMetric: { model: 'LicenseMetric', category: 'GLOBAL_SHARED' },
+  LicenseMetric: { model: 'LicenseMetric', category: 'CHILD_VIA_FK', parentModel: 'ProductFamily', relationField: 'productFamily', scalarFkField: 'productFamilyId', nullable: false },
   LlmCall: { model: 'LlmCall', category: 'PROJECT_ROOT' },
   MailAccount: { model: 'MailAccount', category: 'PROJECT_ROOT' },
   MailDerivedCandidate: { model: 'MailDerivedCandidate', category: 'PROJECT_ROOT' },
@@ -352,7 +363,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   PolicyMemory: { model: 'PolicyMemory', category: 'CHILD_VIA_FK', parentModel: 'Project', relationField: 'project', scalarFkField: 'projectId', nullable: false },
   PortalTask: { model: 'PortalTask', category: 'PROJECT_ROOT' },
   ProductEdition: { model: 'ProductEdition', category: 'GLOBAL_SHARED' },
-  ProductFamily: { model: 'ProductFamily', category: 'GLOBAL_SHARED' },
+  ProductFamily: { model: 'ProductFamily', category: 'COMPANY_ROOT' },
   ProductSku: { model: 'ProductSku', category: 'GLOBAL_SHARED' },
   Project: { model: 'Project', category: 'PROJECT_ROOT' },
   ProjectColorAgent: { model: 'ProjectColorAgent', category: 'PROJECT_ROOT' },
@@ -718,12 +729,21 @@ export function deriveStructuralMismatches(
     }
     resolving.add(model);
     const mandatoryEdges = (relationsByModel.get(model) ?? []).filter((r) => r.mandatory);
+    const declaredEntry = declared.get(model);
+    const nonScopeRefFields = new Set<string>(
+      declaredEntry && declaredEntry.category === 'CHILD_VIA_FK'
+        ? declaredEntry.additionalRequiredRelationFields ?? []
+        : [],
+    );
     const roots = new Set<RootCategory>();
     let sawGlobalOnly = mandatoryEdges.length === 0;
     for (const edge of mandatoryEdges) {
       // Skip FKs whose target is not a scope parent (authority/actor or legacy credential) — see
       // NON_SCOPE_PARENT_MODELS above.
       if (NON_SCOPE_PARENT_MODELS.has(edge.targetModel)) continue;
+      // Skip this model's declared non-scope reference edges (additionalRequiredRelationFields):
+      // required FKs that point at a which-config/which-catalog reference, not the scope parent.
+      if (nonScopeRefFields.has(edge.relationField)) continue;
       const targetResolved = resolve(edge.targetModel);
       if (targetResolved === 'GLOBAL_SHARED') {
         sawGlobalOnly = true;

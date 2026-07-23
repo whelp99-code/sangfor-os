@@ -32,6 +32,9 @@
     "scope:validate": "tsx scripts/validate-scope-closure.ts",
     "governance:backfill": "tsx scripts/backfill-governance-core.ts",
     "governance:validate": "tsx scripts/validate-governance-core.ts",
+    "backfill:domain-foundation": "tsx scripts/backfill-domain-foundation.ts",
+    "check:domain-integrity": "tsx scripts/check-domain-integrity.ts",
+    "verify:domain-migrations": "node scripts/verify-domain-migrations.mjs",
     "db:contract": "tsx scripts/run-db-contract.ts"
   },
   "dependencies": {

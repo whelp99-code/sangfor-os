@@ -36,18 +36,18 @@ describe('SCOPE_INVENTORY_BASELINE', () => {
   });
 });
 
-describe('U033 catalog transitional-to-canonical scope paths', () => {
-  it('records the required family/SKU chains without changing their classifier before U040', () => {
+describe('U040 catalog canonical scope paths', () => {
+  it('records the required family/SKU chains after the zero-ambiguity receipt', () => {
     expect(CATALOG_TRANSITIONAL_CANONICAL_SCOPE_PATHS).toEqual({
-      ProductFamily: { relationField: 'company', scalarFkField: 'companyId', parentModel: 'Company', deferredTo: 'U040' },
-      ProductEdition: { relationField: 'family', scalarFkField: 'familyId', parentModel: 'ProductFamily', deferredTo: 'U040' },
-      ProductSku: { relationField: 'edition', scalarFkField: 'editionId', parentModel: 'ProductEdition', deferredTo: 'U040' },
-      LicenseMetric: { relationField: 'productFamily', scalarFkField: 'productFamilyId', parentModel: 'ProductFamily', deferredTo: 'U040' },
-      SizingTemplate: { relationField: 'family', scalarFkField: 'productFamilyId', parentModel: 'ProductFamily', deferredTo: 'U040' },
-      CompatibilityRule: { relationField: 'sourceSku', scalarFkField: 'sourceSkuId', parentModel: 'ProductSku', additionalRequiredRelationFields: ['targetSku'], deferredTo: 'U040' },
+      ProductFamily: { relationField: 'company', scalarFkField: 'companyId', parentModel: 'Company' },
+      ProductEdition: { relationField: 'family', scalarFkField: 'familyId', parentModel: 'ProductFamily' },
+      ProductSku: { relationField: 'edition', scalarFkField: 'editionId', parentModel: 'ProductEdition' },
+      LicenseMetric: { relationField: 'productFamily', scalarFkField: 'productFamilyId', parentModel: 'ProductFamily' },
+      SizingTemplate: { relationField: 'family', scalarFkField: 'productFamilyId', parentModel: 'ProductFamily' },
+      CompatibilityRule: { relationField: 'sourceSku', scalarFkField: 'sourceSkuId', parentModel: 'ProductSku', additionalRequiredRelationFields: ['targetSku'] },
     });
-    expect(classifyModel('ProductFamily')).toEqual({ model: 'ProductFamily', category: 'GLOBAL_SHARED' });
-    expect(classifyModel('LicenseMetric')).toEqual({ model: 'LicenseMetric', category: 'GLOBAL_SHARED' });
+    expect(classifyModel('ProductFamily')).toEqual({ model: 'ProductFamily', category: 'COMPANY_ROOT' });
+    expect(classifyModel('LicenseMetric')).toEqual({ model: 'LicenseMetric', category: 'CHILD_VIA_FK', parentModel: 'ProductFamily', relationField: 'productFamily', scalarFkField: 'productFamilyId', nullable: false });
   });
 });
 
@@ -223,6 +223,7 @@ describe('REGISTERED_ADDITIONS — U038 people eligibility model registration', 
   it('classifies requirements and assignments through their single mandatory Engagement chain', () => {
     expect(classifyModel('EngagementCapabilityRequirement')).toEqual({
       model: 'EngagementCapabilityRequirement', category: 'CHILD_VIA_FK', parentModel: 'Engagement', relationField: 'engagement', scalarFkField: 'engagementId', nullable: false,
+      additionalRequiredRelationFields: ['productFamily'],
     });
     expect(classifyModel('EngineerAssignment')).toEqual({
       model: 'EngineerAssignment', category: 'CHILD_VIA_FK', parentModel: 'EngagementCapabilityRequirement', relationField: 'requirement', scalarFkField: 'requirementId', nullable: false,
@@ -331,11 +332,13 @@ describe('REGISTERED_ADDITIONS — U019 model registration', () => {
   });
 });
 
-describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest + U021 AuditLog reclassifications', () => {
-  it('reclassifies exactly RoleChangeRequest (GLOBAL_SHARED -> CHILD_VIA_FK, U012) and AuditLog (COMPANY_ROOT -> TENANT_ROOT, U021), each exactly once', () => {
+describe('RECLASSIFIED_MODELS — sealed scope reclassifications', () => {
+  it('records the U040 catalog delta without changing the 173-name set', () => {
     expect(RECLASSIFIED_MODELS).toEqual([
       { model: 'RoleChangeRequest', unit: 'U012', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
       { model: 'AuditLog', unit: 'U021', fromCategory: 'COMPANY_ROOT', toCategory: 'TENANT_ROOT' },
+      { model: 'ProductFamily', unit: 'U040', fromCategory: 'GLOBAL_SHARED', toCategory: 'COMPANY_ROOT' },
+      { model: 'LicenseMetric', unit: 'U040', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
     ]);
   });
 
@@ -348,6 +351,7 @@ describe('RECLASSIFIED_MODELS — U012 RoleChangeRequest + U021 AuditLog reclass
 
   it('derives expected category counts as baseline plus registered additions minus one reclassified GLOBAL_SHARED->CHILD_VIA_FK and one reclassified COMPANY_ROOT->TENANT_ROOT', () => {
     expect(expectedCategoryCounts()).toEqual(buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES).tallies);
+    expect(expectedCategoryCounts()).toEqual({ GLOBAL_SHARED: 11, TENANT_ROOT: 2, COMPANY_ROOT: 36, PROJECT_ROOT: 48, CHILD_VIA_FK: 76 });
   });
 
   it('classifies RoleChangeRequest as CHILD_VIA_FK of Company via mandatory companyId in the live inventory', () => {
