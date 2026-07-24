@@ -1,7 +1,51 @@
-import { prisma } from "@sangfor/db";
-import { deriveEntityFromCandidate, canonicalCompanyKey } from "./mail-entity-quality";
-import { resolveDefaultProjectId } from "../infrastructure/default-project";
+import { createHash } from "node:crypto";
+
+import {
+  hasCapability,
+  isActiveProjectAssignment,
+  resolveActiveCompanyRole,
+  type AuthContext,
+} from "@sangfor/auth";
+import { canonicalizeRfc8785, withRlsTransaction, type Prisma } from "@sangfor/db";
+import { z } from "zod";
+
+import {
+  CrmServiceError,
+  mergeMailDerivedCustomerInScopedTransaction,
+  mergeMailDerivedPartnerInScopedTransaction,
+} from "../crm/customer-partner";
 import { normalizeDealTitle, withTag } from "../crm/deal-title";
+import { mergeMailDerivedOpportunityInScopedTransaction } from "../crm/opportunity-center";
+import { appendAuditEvent } from "../governance/audit-db";
+import { deriveChainScopeKey } from "../governance/audit-chain";
+import { asRecord, toInputJson } from "./classify-rules";
+import { deriveEntityFromCandidate } from "./mail-entity-quality";
+
+const candidateRefSchema = z.object({
+  id: z.string().trim().min(1).max(200),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
+}).strict();
+
+export const convertApprovedMailCandidatesSchema = z.object({
+  candidates: z.array(candidateRefSchema).min(1).max(100).superRefine((items, ctx) => {
+    const seen = new Set<string>();
+    for (const [index, item] of items.entries()) {
+      if (seen.has(item.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "duplicate_candidate_id",
+          path: [index, "id"],
+        });
+      }
+      seen.add(item.id);
+    }
+  }),
+  idempotencyKey: z.string().trim().min(1).max(128),
+}).strict();
+
+export type ConvertApprovedMailCandidatesCommand = z.input<
+  typeof convertApprovedMailCandidatesSchema
+>;
 
 export interface ConvertResult {
   customersCreated: number;
@@ -12,196 +56,358 @@ export interface ConvertResult {
   partnersMerged: number;
   opportunitiesCreated: number;
   tasksCreated: number;
+  items: Array<{
+    candidateId: string;
+    entityType: string;
+    entityId: string;
+    created: boolean;
+  }>;
 }
 
-async function resolveProjectId(): Promise<string> {
-  return resolveDefaultProjectId(prisma);
+type ScopedCandidate = Prisma.MailDerivedCandidateGetPayload<{
+  include: { mailInsightThread: { select: { projectId: true } } };
+}>;
+
+async function resolveConversionActor(tx: Prisma.TransactionClient, ctx: AuthContext) {
+  const now = new Date();
+  const [assignments, projectAssignment] = await Promise.all([
+    tx.userCompanyRole.findMany({
+      where: { userId: ctx.userId, companyId: ctx.companyId },
+      select: {
+        id: true,
+        userId: true,
+        companyId: true,
+        role: true,
+        status: true,
+        validFrom: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    }),
+    tx.projectMember.findFirst({
+      where: { userId: ctx.userId, projectId: ctx.projectId },
+      select: {
+        id: true,
+        userId: true,
+        projectId: true,
+        status: true,
+        validFrom: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    }),
+  ]);
+  const resolved = resolveActiveCompanyRole(assignments, now);
+  if (
+    !resolved.ok ||
+    !isActiveProjectAssignment(projectAssignment, now) ||
+    !hasCapability(resolved.role, "customer.write") ||
+    !hasCapability(resolved.role, "opportunity.write")
+  ) {
+    throw new CrmServiceError("FORBIDDEN", 403, "mail_candidate_conversion_denied");
+  }
+  return resolved.assignment;
 }
 
-// 업종 추론
+function inputHash(
+  ctx: AuthContext,
+  actorAssignmentId: string,
+  candidates: Array<{ id: string; expectedUpdatedAt: string }>,
+): string {
+  return createHash("sha256")
+    .update(canonicalizeRfc8785({
+      contract: "sangfor.mail_candidate.convert/v1",
+      scope: {
+        tenantId: ctx.tenantId,
+        companyId: ctx.companyId,
+        projectId: ctx.projectId,
+      },
+      actorAssignmentId,
+      candidates,
+    }))
+    .digest("hex");
+}
+
+function resultFromAudit(value: unknown): ConvertResult | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const details = value as Record<string, unknown>;
+  const result = details.result;
+  return result && typeof result === "object" && !Array.isArray(result)
+    ? result as unknown as ConvertResult
+    : null;
+}
+
+function entityId(entity: unknown): string {
+  if (
+    !entity ||
+    typeof entity !== "object" ||
+    !("id" in entity) ||
+    typeof entity.id !== "string"
+  ) {
+    throw new CrmServiceError("CONFLICT", 409, "mail_candidate_entity_receipt_invalid");
+  }
+  return entity.id;
+}
+
+async function assertCandidateProvenance(
+  tx: Prisma.TransactionClient,
+  ctx: AuthContext,
+  candidates: ScopedCandidate[],
+) {
+  const project = await tx.project.findFirst({
+    where: { id: ctx.projectId, companyId: ctx.companyId },
+    select: { id: true, company: { select: { tenantId: true } } },
+  });
+  if (!project || !project.company || project.company.tenantId !== ctx.tenantId) {
+    throw new CrmServiceError("FORBIDDEN", 403, "mail_candidate_project_scope_invalid");
+  }
+
+  const documentIds = candidates
+    .map((candidate) => candidate.knowledgeDocumentId)
+    .filter((id): id is string => Boolean(id));
+  const documents = documentIds.length > 0
+    ? await tx.knowledgeDocument.findMany({
+        where: { id: { in: documentIds } },
+        select: { id: true, projectId: true },
+      })
+    : [];
+  const documentProjects = new Map(documents.map((document) => [document.id, document.projectId]));
+
+  for (const candidate of candidates) {
+    const projectIds: string[] = [];
+    if (candidate.mailInsightThreadId) {
+      const threadProjectId = candidate.mailInsightThread?.projectId;
+      if (!threadProjectId) {
+        throw new CrmServiceError("FORBIDDEN", 403, "mail_candidate_provenance_unverified");
+      }
+      projectIds.push(threadProjectId);
+    }
+    if (candidate.knowledgeDocumentId) {
+      const documentProjectId = documentProjects.get(candidate.knowledgeDocumentId);
+      if (!documentProjectId) {
+        throw new CrmServiceError("FORBIDDEN", 403, "mail_candidate_provenance_unverified");
+      }
+      projectIds.push(documentProjectId);
+    }
+    if (
+      projectIds.length === 0 ||
+      new Set(projectIds).size !== 1 ||
+      projectIds.some((projectId) => projectId !== ctx.projectId)
+    ) {
+      throw new CrmServiceError("FORBIDDEN", 403, "mail_candidate_provenance_unverified");
+    }
+  }
+}
+
 function inferIndustry(summary?: string | null): string {
   if (!summary) return "IT";
   const text = summary.toLowerCase();
-  if (text.includes("보안") || text.includes("security") || text.includes("네트워크")) return "보안/네트워크";
-  if (text.includes("소프트웨어") || text.includes("software") || text.includes("개발")) return "IT/소프트웨어";
+  if (text.includes("보안") || text.includes("security") || text.includes("네트워크")) {
+    return "보안/네트워크";
+  }
+  if (text.includes("소프트웨어") || text.includes("software") || text.includes("개발")) {
+    return "IT/소프트웨어";
+  }
   if (text.includes("서비스") || text.includes("service")) return "IT/서비스";
   if (text.includes("유통") || text.includes("distribution")) return "IT/유통";
   if (text.includes("제조") || text.includes("manufacturing")) return "제조";
   return "IT";
 }
 
-/**
- * Convert approved mail-derived candidates (customer/partner/opportunity/task)
- * into their real entity tables.
- * Extracted from apps/web route to decouple presentation from persistence.
- */
-export async function convertApprovedMailCandidates(): Promise<ConvertResult> {
-  const DEFAULT_PROJECT_ID = await resolveProjectId();
-
-  // 1. Approved 고객 후보를 customers 테이블로 변환
-  const approvedCustomers = await prisma.mailDerivedCandidate.findMany({
-    where: { candidateType: "customer", status: "approved" },
-  });
-
-  // Pre-load existing customer canonical keys to prevent cross-domain duplicates
-  const existingCustomerRows = await prisma.customer.findMany({ where: { projectId: DEFAULT_PROJECT_ID }, select: { name: true } });
-  const seenCustomerKeys = new Set(existingCustomerRows.map((r) => canonicalCompanyKey(r.name)));
-
-  let customersCreated = 0;
-  let customersSkipped = 0;
-  let customersMerged = 0;
-  for (const candidate of approvedCustomers) {
-    const e = deriveEntityFromCandidate(candidate);
-    if (e.skip) {
-      await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: "rejected" } });
-      customersSkipped++;
-      continue;
-    }
-    const key = canonicalCompanyKey(e.name);
-    if (seenCustomerKeys.has(key)) {
-      // Maps to an existing entity by canonical name — mark converted, don't duplicate
-      await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: "converted" } });
-      customersMerged++;
-      continue;
-    }
-    const existing = await prisma.customer.findFirst({ where: { domain: e.domain, projectId: DEFAULT_PROJECT_ID } });
-    if (!existing) {
-      await prisma.customer.create({
-        data: {
-          projectId: DEFAULT_PROJECT_ID,
-          name: e.name,
-          domain: e.domain,
-          industry: inferIndustry(candidate.summary),
-          status: "active",
-          notes: `원본: ${candidate.sourceTitle || ""}`,
-        },
-      });
-      customersCreated++;
-    }
-    seenCustomerKeys.add(key);
-    await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: "converted" } });
-  }
-
-  // 2. Approved 파트너 후보를 partners 테이블로 변환
-  const approvedPartners = await prisma.mailDerivedCandidate.findMany({
-    where: { candidateType: "partner", status: "approved" },
-  });
-
-  // Pre-load existing partner canonical keys to prevent cross-domain duplicates
-  const existingPartnerRows = await prisma.partner.findMany({ where: { projectId: DEFAULT_PROJECT_ID }, select: { name: true } });
-  const seenPartnerKeys = new Set(existingPartnerRows.map((r) => canonicalCompanyKey(r.name)));
-
-  let partnersCreated = 0;
-  let partnersSkipped = 0;
-  let partnersMerged = 0;
-  for (const candidate of approvedPartners) {
-    const e = deriveEntityFromCandidate(candidate);
-    if (e.skip) {
-      await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: "rejected" } });
-      partnersSkipped++;
-      continue;
-    }
-    const key = canonicalCompanyKey(e.name);
-    if (seenPartnerKeys.has(key)) {
-      // Maps to an existing entity by canonical name — mark converted, don't duplicate
-      await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: "converted" } });
-      partnersMerged++;
-      continue;
-    }
-    const existing = await prisma.partner.findFirst({ where: { name: e.name, projectId: DEFAULT_PROJECT_ID } });
-    if (!existing) {
-      await prisma.partner.create({
-        data: {
-          projectId: DEFAULT_PROJECT_ID,
-          name: e.name,
-          partnerType: (candidate.metadata as any)?.partnerType || null,
-          status: "active",
-        },
-      });
-      partnersCreated++;
-    }
-    seenPartnerKeys.add(key);
-    await prisma.mailDerivedCandidate.update({ where: { id: candidate.id }, data: { status: "converted" } });
-  }
-
-  // 3. Approved opportunity 후보를 opportunities 테이블로 변환
-  const approvedOpportunities = await prisma.mailDerivedCandidate.findMany({
-    where: { candidateType: "opportunity", status: "approved" },
-  });
-
-  let opportunitiesCreated = 0;
-  for (const candidate of approvedOpportunities) {
-    // Strip "Opportunity: " prefix (parity with per-record approve path)
-    const title = withTag(normalizeDealTitle(candidate.title.replace(/^Opportunity:\s*/i, "")));
-
-    const existing = await prisma.opportunity.findFirst({
-      where: { title, projectId: DEFAULT_PROJECT_ID },
-    });
-
-    if (!existing) {
-      const created = await prisma.opportunity.create({
-        data: {
-          projectId: DEFAULT_PROJECT_ID,
-          title,
-          stage: "LEAD",
-          probability: 20,
-          nextAction: candidate.summary || null,
-        },
-      });
-      opportunitiesCreated++;
-
-      await prisma.mailDerivedCandidate.update({
-        where: { id: candidate.id },
-        data: { status: "converted", createdEntityType: "opportunity", createdEntityId: created.id },
-      });
-    } else {
-      await prisma.mailDerivedCandidate.update({
-        where: { id: candidate.id },
-        data: { status: "converted", createdEntityType: "opportunity", createdEntityId: existing.id },
-      });
-    }
-  }
-
-  // 4. Approved task 후보를 work_tasks 테이블로 변환
-  const approvedTasks = await prisma.mailDerivedCandidate.findMany({
-    where: { candidateType: "task", status: "approved" },
-  });
-
-  let tasksCreated = 0;
-  for (const candidate of approvedTasks) {
-    const existing = await prisma.workTask.findFirst({
-      where: { title: candidate.title, projectId: DEFAULT_PROJECT_ID },
-    });
-
-    let taskId = existing?.id;
-    if (!existing) {
-      const created = await prisma.workTask.create({
-        data: {
-          projectId: DEFAULT_PROJECT_ID,
-          title: candidate.title,
-          status: "todo",
-          priority: "normal",
-          source: "mail-intelligence",
-        },
-      });
-      taskId = created.id;
-      tasksCreated++;
-    }
-
-    await prisma.mailDerivedCandidate.update({
-      where: { id: candidate.id },
-      data: { status: "converted", createdEntityType: "task", createdEntityId: taskId },
-    });
-  }
-
-  return {
-    customersCreated,
-    partnersCreated,
-    customersSkipped,
-    partnersSkipped,
-    customersMerged,
-    partnersMerged,
-    opportunitiesCreated,
-    tasksCreated,
+export async function convertApprovedMailCandidates(
+  ctx: AuthContext,
+  rawCommand: ConvertApprovedMailCandidatesCommand,
+): Promise<ConvertResult> {
+  const command = convertApprovedMailCandidatesSchema.parse(rawCommand);
+  const ordered = [...command.candidates].sort((left, right) => left.id.localeCompare(right.id));
+  const scope = {
+    tenantId: ctx.tenantId,
+    companyId: ctx.companyId,
+    projectId: ctx.projectId,
+    level: "PROJECT" as const,
   };
+  const auditKey = `mail_candidate.convert:${command.idempotencyKey}`;
+
+  return withRlsTransaction(ctx, async (tx) => {
+    const actor = await resolveConversionActor(tx, ctx);
+    const hash = inputHash(ctx, actor.id, ordered);
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${deriveChainScopeKey(scope)}, 0))`;
+    const prior = await tx.auditLog.findFirst({
+      where: { chainScopeKey: deriveChainScopeKey(scope), idempotencyKey: auditKey },
+    });
+    if (prior) {
+      const details = prior.details && typeof prior.details === "object" && !Array.isArray(prior.details)
+        ? prior.details as Record<string, unknown>
+        : {};
+      if (
+        details.contract !== "sangfor.mail_candidate.convert/v1" ||
+        details.inputHash !== hash
+      ) {
+        throw new CrmServiceError("CONFLICT", 409, "mail_candidate_idempotency_conflict");
+      }
+      const replay = resultFromAudit(details);
+      if (!replay) {
+        throw new CrmServiceError("CONFLICT", 409, "mail_candidate_replay_invalid");
+      }
+      return replay;
+    }
+
+    const rows = await tx.mailDerivedCandidate.findMany({
+      where: { id: { in: ordered.map((candidate) => candidate.id) } },
+      include: { mailInsightThread: { select: { projectId: true } } },
+    });
+    const byId = new Map(rows.map((candidate) => [candidate.id, candidate]));
+    const candidates = ordered.map((expected) => {
+      const candidate = byId.get(expected.id);
+      if (!candidate) {
+        throw new CrmServiceError("NOT_FOUND", 404, "mail_candidate_not_found");
+      }
+      if (
+        candidate.status !== "approved" ||
+        candidate.updatedAt.getTime() !== new Date(expected.expectedUpdatedAt).getTime() ||
+        candidate.createdEntityId !== null
+      ) {
+        throw new CrmServiceError("CONFLICT", 409, "mail_candidate_version_conflict");
+      }
+      return candidate;
+    });
+    await assertCandidateProvenance(tx, ctx, candidates);
+
+    const result: ConvertResult = {
+      customersCreated: 0,
+      partnersCreated: 0,
+      customersSkipped: 0,
+      partnersSkipped: 0,
+      customersMerged: 0,
+      partnersMerged: 0,
+      opportunitiesCreated: 0,
+      tasksCreated: 0,
+      items: [],
+    };
+
+    for (const candidate of candidates) {
+      const derived = deriveEntityFromCandidate(candidate);
+      if (derived.skip) {
+        throw new CrmServiceError("CONFLICT", 409, "mail_candidate_entity_unverified");
+      }
+      const entityKey = `${command.idempotencyKey}:${candidate.id}`;
+      let converted: { entityType: string; entityId: string; created: boolean };
+
+      if (candidate.candidateType === "customer") {
+        const merged = await mergeMailDerivedCustomerInScopedTransaction(tx, ctx, {
+          name: derived.name,
+          domain: derived.domain,
+          industry: inferIndustry(candidate.summary),
+          notes: `원본: ${candidate.sourceTitle ?? ""}`,
+          idempotencyKey: entityKey,
+        });
+        converted = {
+          entityType: "customer",
+          entityId: entityId(merged.entity),
+          created: merged.created,
+        };
+        if (merged.created) result.customersCreated += 1;
+        else result.customersMerged += 1;
+      } else if (candidate.candidateType === "partner") {
+        const metadata = asRecord(candidate.metadata);
+        const merged = await mergeMailDerivedPartnerInScopedTransaction(tx, ctx, {
+          name: derived.name,
+          partnerType: typeof metadata.partnerType === "string" ? metadata.partnerType : null,
+        });
+        converted = {
+          entityType: "partner",
+          entityId: entityId(merged.entity),
+          created: merged.created,
+        };
+        if (merged.created) result.partnersCreated += 1;
+        else result.partnersMerged += 1;
+      } else if (candidate.candidateType === "opportunity") {
+        const merged = await mergeMailDerivedOpportunityInScopedTransaction(tx, ctx, {
+          title: withTag(normalizeDealTitle(candidate.title.replace(/^Opportunity:\s*/i, ""))),
+          probability: candidate.confidence >= 80 ? 35 : 20,
+          nextAction: candidate.summary || null,
+          idempotencyKey: entityKey,
+        });
+        converted = {
+          entityType: "opportunity",
+          entityId: entityId(merged.entity),
+          created: merged.created,
+        };
+        if (merged.created) result.opportunitiesCreated += 1;
+      } else if (candidate.candidateType === "task") {
+        const title = candidate.title.replace(/^Follow up:\s*/i, "");
+        const existing = await tx.workTask.findFirst({
+          where: { projectId: ctx.projectId, archivedAt: null, title },
+        });
+        const task = existing ?? await tx.workTask.create({
+          data: {
+            projectId: ctx.projectId,
+            title,
+            status: "todo",
+            priority: candidate.confidence >= 80 ? "high" : "normal",
+            source: "mail_candidate",
+          },
+        });
+        if (!existing) result.tasksCreated += 1;
+        converted = { entityType: "task", entityId: task.id, created: !existing };
+      } else {
+        throw new CrmServiceError("VALIDATION_ERROR", 422, "unsupported_candidate_type");
+      }
+
+      const changed = await tx.mailDerivedCandidate.updateMany({
+        where: {
+          id: candidate.id,
+          status: "approved",
+          updatedAt: candidate.updatedAt,
+          createdEntityId: null,
+        },
+        data: {
+          status: "converted",
+          createdEntityType: converted.entityType,
+          createdEntityId: converted.entityId,
+          metadata: toInputJson({
+            ...asRecord(candidate.metadata),
+            conversion: {
+              actorAssignmentId: actor.id,
+              convertedAt: new Date().toISOString(),
+            },
+          }),
+        },
+      });
+      if (changed.count !== 1) {
+        throw new CrmServiceError("CONFLICT", 409, "mail_candidate_version_conflict");
+      }
+      const item = { candidateId: candidate.id, ...converted };
+      result.items.push(item);
+      await appendAuditEvent(tx, {
+        scope,
+        eventType: "mail_candidate.converted",
+        actorId: actor.id,
+        resourceType: "mail_candidate",
+        resourceId: candidate.id,
+        idempotencyKey: `${auditKey}:${candidate.id}`,
+        details: {
+          contract: "sangfor.mail_candidate.convert_item/v1",
+          actorAssignmentId: actor.id,
+          result: item,
+        },
+      });
+    }
+
+    await appendAuditEvent(tx, {
+      scope,
+      eventType: "mail_candidates.converted",
+      actorId: actor.id,
+      resourceType: "mail_candidate_batch",
+      resourceId: null,
+      idempotencyKey: auditKey,
+      details: {
+        contract: "sangfor.mail_candidate.convert/v1",
+        inputHash: hash,
+        actorAssignmentId: actor.id,
+        result,
+      },
+    });
+    return result;
+  });
 }

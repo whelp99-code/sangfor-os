@@ -32,7 +32,21 @@ describe.skipIf(!integrationEnabled)("promoteDomainProposalToDocument", () => {
     });
     opportunityId = opp.id;
     // force bypasses stage+POC gates; we only need an engagement with the project chain.
-    const conv = await convertOpportunityToProject({ opportunityId, force: true });
+    const mockCtx: import("@sangfor/auth").AuthContext = {
+      userId: "user-sales",
+      sessionId: "session-sales",
+      tenantId: "tenant-a",
+      companyId: "company-a",
+      projectId,
+      businessRole: "sales_manager",
+      permissions: ["customer.read", "customer.write", "opportunity.read", "opportunity.write"],
+      product: "portal",
+    };
+    const conv = await convertOpportunityToProject(mockCtx, {
+      opportunityId,
+      expectedUpdatedAt: opp.updatedAt.toISOString(),
+      idempotencyKey: `ik-promote-${Date.now()}`,
+    });
     engagementId = conv.engagement.id;
   });
 

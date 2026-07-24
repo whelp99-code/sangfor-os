@@ -1,12 +1,8 @@
 import { Prisma, prisma } from "@sangfor/db";
 
-import { approveMailDerivedCandidate } from "../mail/candidates-update";
-import { recordDecision } from "../governance/ai-decision";
 import { getDomainAutonomy, type DomainKey } from "../domain-ai/project-decision";
 import { resolveAutonomyMode, autonomyFromComputed } from "./autonomy-policy";
-import { caseRefFor } from "../infrastructure/case-ref";
 import { gtmDomainForCandidate } from "../mail/classify-rules";
-import { resolveDefaultProjectId } from "../infrastructure/default-project";
 
 export type AutopilotAction = "auto" | "suggest" | "observe" | "skipped";
 
@@ -33,7 +29,9 @@ export interface RunAutopilotOpts {
 
 export interface AutopilotDeps {
   prisma?: typeof import("@sangfor/db").prisma;
+  /** Legacy test seam retained as inert input; U043 never invokes it without AuthContext. */
   approve?: (id: string) => Promise<unknown>;
+  /** Legacy test seam retained as inert input; review drafts replace autonomous decisions. */
   recordDecision?: typeof import("../governance/ai-decision").recordDecision;
   getAutonomy?: (
     domain: string,
@@ -207,41 +205,30 @@ export async function runAutopilotPass(
       );
 
       if (mode === "auto") {
-        entry.action = "auto";
+        // This scheduler has no verified session-derived AuthContext. Persist a review draft
+        // instead of invoking any Customer/Opportunity conversion authority.
+        entry.action = "suggest";
         if (!opts?.dryRun) {
-          try {
-            await (deps?.approve ?? approveMailDerivedCandidate)(candidate.id);
-
-            // Record the autopilot decision in the spine
-            const projectId = await (
-              deps?.getProjectId ??
-              (() => resolveDefaultProjectId(client))
-            )();
-            await (deps?.recordDecision ?? recordDecision)({
-              projectId,
-              domain,
-              actor: "ai",
-              actionType: "autopilot_approve",
-              caseRef: caseRefFor("mailCandidate", candidate.id),
-              outcome: "approved",
-              output: {
-                autopilot: true,
-                policyId: policyRow?.id ?? null,
-                mode,
-              },
-            });
-            entry.reason = "auto_approved";
-            autoApproved++;
-          } catch (err: unknown) {
-            // One candidate failure must not abort the whole pass.
-            entry.action = "skipped";
-            entry.reason = err instanceof Error ? err.message : String(err);
-            skipped++;
-          }
+          const existingMeta = (candidate.metadata as Record<string, unknown>) ?? {};
+          await client.mailDerivedCandidate.update({
+            where: { id: candidate.id },
+            data: {
+              metadata: {
+                ...existingMeta,
+                autopilotReviewDraft: {
+                  reviewRequired: true,
+                  reason: "authenticated_crm_context_required",
+                  policyId: policyRow?.id ?? null,
+                  requestedAt: new Date().toISOString(),
+                },
+              } as Prisma.InputJsonValue,
+            },
+          });
+          entry.reason = "authenticated_crm_context_required";
+          suggestedCount++;
         } else {
-          // dryRun: no writes, just report what WOULD happen.
-          entry.reason = "would_auto_approve (dryRun)";
-          autoApproved++;
+          entry.reason = "would_persist_review_draft (dryRun)";
+          suggestedCount++;
         }
       } else if (mode === "suggest") {
         entry.action = "suggest";

@@ -15,9 +15,22 @@ const TAG = "__t43a_deal_reg__";
 const integration = process.env.CI_INTEGRATION === "1";
 let opportunityId: string;
 
+import type { AuthContext } from "@sangfor/auth";
+
+const mockCtx: AuthContext = {
+  userId: "user-sales",
+  sessionId: "session-sales",
+  tenantId: "tenant-a",
+  companyId: "company-a",
+  projectId: "project-a",
+  businessRole: "sales_manager",
+  permissions: ["customer.read", "customer.write", "opportunity.read", "opportunity.write"],
+  product: "portal",
+};
+
 describe.skipIf(!integration)("deal-registration service", () => {
   beforeAll(async () => {
-    const opp = await createOpportunity({ title: TAG, projectSlug: "demo-project" });
+    const opp = (await createOpportunity(mockCtx, { title: TAG, idempotencyKey: "ik-deal-reg-1" })) as { id: string };
     opportunityId = opp.id;
   });
 
@@ -52,7 +65,7 @@ describe.skipIf(!integration)("deal-registration service", () => {
   });
 
   it("getOpportunityDetail returns opp.dealRegistration non-null after upsert", async () => {
-    const opp = await getOpportunityDetail(opportunityId);
+    const opp = (await getOpportunityDetail(mockCtx, opportunityId)) as { dealRegistration?: { regStatus: string } | null } | null;
     expect(opp).not.toBeNull();
     expect(opp!.dealRegistration).not.toBeNull();
     expect(opp!.dealRegistration!.regStatus).toBe("EXPIRED");

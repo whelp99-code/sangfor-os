@@ -1,19 +1,43 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { listCustomers, listGeneratedDocuments, listPocProjects } from "@sangfor/business";
+import {
+  listCustomers,
+  listGeneratedDocuments,
+  listPocProjects,
+  resolveCrmAuthContext,
+} from "@sangfor/business";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { GenerateProposalForm } from "@/components/proposals/generate-proposal-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { proposalTemplateLabel } from "@/lib/proposal-template-labels";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 export default async function ProposalsPage() {
-  const [documents, customers, pocProjects] = await Promise.all([
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(new Request(
+    "http://sangfor.local/proposals",
+    { headers: { cookie: `session=${encodeURIComponent(token)}` } },
+  ));
+  if (!session.ok) redirect("/login");
+  const ctx = await resolveCrmAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  });
+  const [documents, customerPage, pocProjects] = await Promise.all([
     listGeneratedDocuments(),
-    listCustomers(),
+    listCustomers(ctx, { first: 100 }),
     listPocProjects(),
   ]);
+  const customers = customerPage.items;
 
   return (
     <div className="space-y-6">

@@ -1,6 +1,7 @@
 import { prisma } from "@sangfor/db";
-import type { OpportunityStage } from "@prisma/client";
-import { ACTIVE_OPPORTUNITY_STAGES } from "../crm/opportunity-stage";
+import type { AuthContext } from "@sangfor/auth";
+import { listCustomers } from "../crm/customer-partner";
+import { listOpportunities } from "../crm/opportunity-center";
 import { resolveDefaultProjectId } from "../infrastructure/default-project";
 import {
   getOpenAiApiKey,
@@ -36,8 +37,9 @@ export interface DailyReportData {
  * entity counts are scoped to that project.  Mail-derived-candidate queries
  * are left unscoped (the model does not carry a projectId FK).
  */
-export async function generateDailyReport(projectId?: string): Promise<DailyReportData> {
-  const resolvedId = projectId ?? (await resolveDefaultProjectId());
+export async function generateDailyReport(scope?: AuthContext | string): Promise<DailyReportData> {
+  const ctx = scope && typeof scope === "object" ? scope : null;
+  const resolvedId = ctx?.projectId ?? null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -69,15 +71,11 @@ export async function generateDailyReport(projectId?: string): Promise<DailyRepo
   });
 
   const [customers, partners, tasks, opportunities] = await Promise.all([
-    prisma.customer.count({ where: { projectId: resolvedId } }),
-    prisma.partner.count({ where: { projectId: resolvedId } }),
-    prisma.workTask.count({ where: { projectId: resolvedId } }),
-    prisma.opportunity.count({
-      where: {
-        projectId: resolvedId,
-        stage: { in: [...ACTIVE_OPPORTUNITY_STAGES] as OpportunityStage[] },
-      },
-    }),
+    ctx ? listCustomers(ctx, { first: 100 }).then((page) => page.items.length) : 0,
+    resolvedId ? prisma.partner.count({ where: { projectId: resolvedId } }) : 0,
+    resolvedId ? prisma.workTask.count({ where: { projectId: resolvedId } }) : 0,
+    ctx ? listOpportunities(ctx, { first: 100 }).then((page) =>
+      page.items.filter((opportunity) => opportunity.stage !== "WON" && opportunity.stage !== "LOST").length) : 0,
   ]);
 
   return {

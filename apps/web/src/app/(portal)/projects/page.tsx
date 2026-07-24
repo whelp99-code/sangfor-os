@@ -1,14 +1,32 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { listEngagements } from "@sangfor/business";
+import { listEngagements, resolveOpportunityAuthContext } from "@sangfor/business";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { projectStatusLabel } from "@/lib/ux-labels";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 export default async function ProjectsPage() {
-  const engagements = await listEngagements();
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(new Request(
+    "http://sangfor.local/projects",
+    { headers: { cookie: `session=${encodeURIComponent(token)}` } },
+  ));
+  if (!session.ok) redirect("/login");
+  const ctx = await resolveOpportunityAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  });
+  const engagements = await listEngagements(ctx);
 
   return (
     <div className="space-y-6">

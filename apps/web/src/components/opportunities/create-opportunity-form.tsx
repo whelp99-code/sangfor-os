@@ -3,9 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { useDefaultProject } from "@/hooks/use-default-project";
 import { actionErrorMessage } from "@/lib/action-error-labels";
-import { OPPORTUNITY_STAGES } from "@/lib/poc-constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -23,12 +21,10 @@ export function CreateOpportunityForm({
   customers: Option[];
   partners: Option[];
 }) {
-  const { project } = useDefaultProject();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [partnerId, setPartnerId] = useState("");
-  const [stage, setStage] = useState<string>("lead");
   const [amount, setAmount] = useState("");
   const [probability, setProbability] = useState("20");
   const [closeDate, setCloseDate] = useState("");
@@ -43,11 +39,12 @@ export function CreateOpportunityForm({
     try {
       const res = await fetch("/api/opportunities", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
         body: JSON.stringify({
           title,
-          projectSlug: project!.slug,
-          stage,
           customerId: customerId || undefined,
           partnerId: partnerId || undefined,
           amount: amount ? Number(amount) : undefined,
@@ -95,21 +92,12 @@ export function CreateOpportunityForm({
           <option key={p.id} value={p.id}>{p.label}</option>
         ))}
       </select>
-      <select
-        aria-label="단계"
-        className="h-9 rounded-md border bg-background px-2 text-sm"
-        value={stage}
-        onChange={(e) => setStage(e.target.value)}
-      >
-        {OPPORTUNITY_STAGES.map((s) => (
-          <option key={s} value={s}>{s}</option>
-        ))}
-      </select>
+      <Input aria-label="초기 단계" value="LEAD" readOnly />
       <Input aria-label="금액" type="number" placeholder="금액" value={amount} onChange={(e) => setAmount(e.target.value)} />
       <Input aria-label="확률 %" type="number" min={0} max={100} placeholder="확률 %" value={probability} onChange={(e) => setProbability(e.target.value)} />
       <Input aria-label="마감일" type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
       <Input aria-label="다음 조치" placeholder="다음 조치" value={nextAction} onChange={(e) => setNextAction(e.target.value)} />
-      <Button type="submit" disabled={loading || !project} className="sm:col-span-2 lg:col-span-1">
+      <Button type="submit" disabled={loading} className="sm:col-span-2 lg:col-span-1">
         {loading ? "생성 중..." : "새 기회"}
       </Button>
       {error && (

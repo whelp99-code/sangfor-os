@@ -2,10 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { Shield } from "lucide-react";
 
-import { listOpportunities } from "@sangfor/business";
+import { listOpportunities, resolveOpportunityAuthContext } from "@sangfor/business";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
 import { RegistrationBoard } from "@/components/deals/registration-board";
 import type { RegBoardItem } from "@/components/deals/registration-board";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -33,8 +36,23 @@ function countExpiringSoon(items: RegBoardItem[]): number {
 // ---------------------------------------------------------------------------
 
 export default async function DealRegistrationsPage() {
-  const raw = await listOpportunities();
-  const safe = serializeDecimalAtBoundary(raw);
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(new Request(
+    "http://sangfor.local/deals/registrations",
+    { headers: { cookie: `session=${encodeURIComponent(token)}` } },
+  ));
+  if (!session.ok) redirect("/login");
+  const ctx = await resolveOpportunityAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  });
+  const page = await listOpportunities(ctx, { first: 100 });
+  const safe = serializeDecimalAtBoundary(page.items);
 
   // Map to the serializable shape the board component expects.
   const items: RegBoardItem[] = safe.map((opp) => ({

@@ -6,11 +6,13 @@ import {
   getPocDetail,
   listCustomers,
   listGeneratedDocuments,
+  listEligibleOpportunityOwners,
   listMailEvidenceForEntity,
   listPartners,
   listPocProjects,
   listQuotesByOpportunity,
   normalizeOpportunityStage,
+  resolveOpportunityAuthContext,
 } from "@sangfor/business";
 import { buildOpportunityOrchestratorSummary } from "@sangfor/business/skills";
 import Link from "next/link";
@@ -40,7 +42,7 @@ import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestr
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { verifySessionToken } from "@/lib/auth/session";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -55,8 +57,23 @@ function daysSince(from: Date | null | undefined): number | null {
 export default async function DealDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const { tab: tabParam } = await searchParams;
-  const session = verifySessionToken((await cookies()).get("session")?.value);
-  const readOnly = session?.role === "viewer";
+  const token = (await cookies()).get("session")?.value;
+  if (!token) notFound();
+  const session = await evaluatePersistedSessionFromRequest(
+    new Request(`http://sangfor.local/deals/${encodeURIComponent(id)}`, {
+      headers: { cookie: `session=${encodeURIComponent(token)}` },
+    }),
+  );
+  if (!session.ok) notFound();
+  const ctx = await resolveOpportunityAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  });
+  const readOnly = !ctx.permissions.includes("opportunity.write");
   const activeTab: DealDetailTab = DEAL_DETAIL_TABS.includes(tabParam as DealDetailTab)
     ? (tabParam as DealDetailTab)
     : "작업";
@@ -64,22 +81,24 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
   // parallel batch instead of running as a sequential await afterwards (−1 round-trip).
   const [
     opportunity,
-    customers,
+    customerPage,
     partners,
     pocProjects,
     proposals,
     mailEvidence,
     rawQuotes,
     existingEngagement,
+    eligibleOwners,
   ] = await Promise.all([
-    getOpportunityDetail(id),
-    listCustomers(),
+    getOpportunityDetail(ctx, id),
+    listCustomers(ctx, { first: 100 }),
     listPartners(),
     listPocProjects(),
     listGeneratedDocuments(),
     listMailEvidenceForEntity("opportunity", id),
-    listQuotesByOpportunity(id),
-    getEngagementByOpportunity(id),
+    listQuotesByOpportunity(ctx, id),
+    getEngagementByOpportunity(ctx, id),
+    listEligibleOpportunityOwners(ctx),
   ]);
   if (!opportunity) notFound();
 
@@ -137,8 +156,8 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
     overdueDays,
     hasNextAction: Boolean(opportunity.nextAction && opportunity.nextAction.trim()),
   });
-  const enrichedLinks = await enrichOpportunityLinks(opportunity.links);
-  const customerOptions = customers.map((c) => ({ id: c.id, label: c.name }));
+  const enrichedLinks = await enrichOpportunityLinks(ctx, opportunity.links);
+  const customerOptions = customerPage.items.map((c) => ({ id: c.id, label: c.name }));
   const partnerOptions = partners.map((p) => ({ id: p.id, label: p.name }));
 
   // Filter PoC projects linked to this opportunity, then fetch full detail for
@@ -246,7 +265,11 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                   stage={opportunity.stage}
                   expectedUpdatedAt={opportunity.updatedAt.toISOString()}
                 />
-                <ConvertToProjectButton id={opportunity.id} engagementId={existingEngagement?.id} />
+                <ConvertToProjectButton
+                  id={opportunity.id}
+                  expectedUpdatedAt={opportunity.updatedAt.toISOString()}
+                  engagementId={existingEngagement?.id}
+                />
               </>
             ) : null}
           </>
@@ -324,6 +347,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         <TabsContent value="상세" className="pt-4">
           <DealDetail
             readOnly={readOnly}
+            eligibleOwners={eligibleOwners}
             opportunity={{
               ...opportunity,
               closeDate: opportunity.closeDate
@@ -372,6 +396,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
               {!readOnly ? (
                 <AddOpportunityLinkForm
                   opportunityId={opportunity.id}
+                  expectedUpdatedAt={opportunity.updatedAt.toISOString()}
                   linkOptions={{
                     poc: pocProjects.map((p) => ({ id: p.id, label: p.title })),
                     proposal: proposals.map((d) => ({ id: d.id, label: d.title })),
@@ -398,7 +423,11 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                       <div className="flex items-center gap-1">
                         <Badge variant="secondary">{link.linkType}</Badge>
                         {!readOnly ? (
-                          <RemoveOpportunityLinkButton opportunityId={opportunity.id} linkId={link.id} />
+                          <RemoveOpportunityLinkButton
+                            opportunityId={opportunity.id}
+                            linkId={link.id}
+                            expectedUpdatedAt={opportunity.updatedAt.toISOString()}
+                          />
                         ) : null}
                       </div>
                     </div>

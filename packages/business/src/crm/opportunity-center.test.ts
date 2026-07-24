@@ -1,326 +1,272 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { AuthContext } from "@sangfor/auth";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Sibling side-effect modules must never touch the real database in these
-// characterization tests — mock them the way domain-persistence.test.ts
-// mocks its fake prisma, but at module level since these are separate files.
-vi.mock("../governance/audit", () => ({ logStateTransition: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("../governance/ai-decision", () => ({ recordDecision: vi.fn().mockResolvedValue(undefined) }));
+const harness = vi.hoisted(() => ({
+  tx: null as Record<string, unknown> | null,
+  appendAuditEvent: vi.fn(),
+}));
+
+vi.mock("@sangfor/db", () => ({
+  canonicalizeRfc8785: (value: unknown) => JSON.stringify(value),
+  prisma: {},
+  withRlsTransaction: vi.fn(async (_scope, callback: (tx: unknown) => Promise<unknown>) => {
+    if (!harness.tx) throw new Error("test transaction is not configured");
+    return callback(harness.tx);
+  }),
+}));
+
+vi.mock("../governance/audit-db", () => ({
+  appendAuditEvent: harness.appendAuditEvent,
+}));
 
 import {
-  archiveOpportunity,
+  assignOpportunityOwner,
   createOpportunity,
+  createOpportunitySchema,
+  getOpportunityDetail,
   listOpportunities,
+  opportunityOwnerAssignmentSchema,
   updateOpportunity,
-  type OpportunityCenterPrisma,
 } from "./opportunity-center";
-import { logStateTransition } from "../governance/audit";
-import { recordDecision } from "../governance/ai-decision";
 
-const defaultFindUniqueResult: Record<string, unknown> = {
-  id: "opp-1",
-  stage: "LEAD",
-  projectId: "proj-1",
-  dealType: null,
-  dealRegistration: null,
-  updatedAt: new Date("2026-07-13T00:00:00.000Z"),
+const SALES: AuthContext = {
+  userId: "user-sales",
+  sessionId: "session-sales",
+  tenantId: "tenant-a",
+  companyId: "company-a",
+  projectId: "project-a",
+  businessRole: "sales_manager",
+  permissions: ["customer.read", "customer.write", "opportunity.read", "opportunity.write", "quote.read", "quote.write", "quote.approve_discount"],
+  product: "portal",
 };
 
-/** Call-recording fake, following domain-persistence.test.ts's fakePrisma() style. */
-function fakePrisma() {
-  const calls: Record<string, unknown[]> = {};
-  const record = (name: string, args: unknown) => (calls[name] ??= []).push(args);
+function assignment(id: string, userId: string, companyId = SALES.companyId) {
+  return {
+    id,
+    userId,
+    companyId,
+    role: "sales_manager",
+    status: "active",
+    validFrom: null,
+    expiresAt: null,
+    revokedAt: null,
+  };
+}
 
-  let findUniqueOrThrowResult: Record<string, unknown> = { ...defaultFindUniqueResult };
+function projectMember(userId: string) {
+  return {
+    id: `member-${userId}`,
+    userId,
+    projectId: SALES.projectId,
+    status: "active",
+    validFrom: null,
+    expiresAt: null,
+    revokedAt: null,
+  };
+}
 
-  // eslint-disable-next-line prefer-const
-  let db: OpportunityCenterPrisma;
-  db = {
-    project: {
-      findUniqueOrThrow: vi.fn(async (args) => {
-        record("project.findUniqueOrThrow", args);
-        return { id: "proj-1" };
-      }),
+function fakeTx() {
+  let opportunity = {
+    id: "opp-a",
+    projectId: SALES.projectId,
+    archivedAt: null as Date | null,
+    customerId: "customer-a",
+    partnerId: null,
+    title: "Opportunity A",
+    stage: "LEAD",
+    dealType: "NEW_BUILD",
+    dealRegistration: null,
+    ownerId: "legacy-user",
+    ownerAssignmentId: "assignment-old",
+    ownershipRevision: 2,
+    updatedAt: new Date("2026-07-24T00:00:00.000Z"),
+  };
+  const tx = {
+    $executeRaw: vi.fn(async () => 1),
+    userCompanyRole: {
+      findMany: vi.fn(async () => [assignment("assignment-actor", SALES.userId)]),
+      findFirst: vi.fn(async ({ where }: { where: { id: string; companyId: string } }) =>
+        where.id === "assignment-new" && where.companyId === SALES.companyId
+          ? assignment("assignment-new", "user-new")
+          : null),
+    },
+    projectMember: {
+      findFirst: vi.fn(async ({ where }: { where: { userId: string } }) => projectMember(where.userId)),
+    },
+    auditLog: {
+      findFirst: vi.fn(async () => null),
+    },
+    customer: {
+      findFirst: vi.fn(async () => ({ id: "customer-a" })),
+    },
+    partner: {
+      findFirst: vi.fn(async () => ({ id: "partner-a" })),
     },
     opportunity: {
-      findMany: vi.fn(async (args) => {
-        record("opportunity.findMany", args);
-        return [];
+      findMany: vi.fn(async () => [opportunity]),
+      findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+        if (where.id && where.id !== opportunity.id) return null;
+        if (where.projectId && where.projectId !== opportunity.projectId) return null;
+        return opportunity;
       }),
-      findUniqueOrThrow: vi.fn(async (args) => {
-        record("opportunity.findUniqueOrThrow", args);
-        return findUniqueOrThrowResult;
+      create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        opportunity = { ...opportunity, ...data, ownershipRevision: 0 };
+        return opportunity;
       }),
-      create: vi.fn(async (args: { data: Record<string, unknown> }) => {
-        record("opportunity.create", args);
-        return { id: "opp-1", ...args.data };
-      }),
-      update: vi.fn(async (args: { where: { id: string }; data: Record<string, unknown> }) => {
-        record("opportunity.update", args);
-        return { id: args.where.id, ...args.data };
-      }),
-      updateMany: vi.fn(async (args: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
-        record("opportunity.updateMany", args);
-        findUniqueOrThrowResult = { ...findUniqueOrThrowResult, ...args.data };
+      updateMany: vi.fn(async ({ data }: {
+        where: Record<string, unknown>;
+        data: Record<string, unknown>;
+      }) => {
+        const ownerIncrement = data.ownershipRevision as { increment?: number } | undefined;
+        opportunity = {
+          ...opportunity,
+          ...data,
+          ...(ownerIncrement ? {
+            ownershipRevision: opportunity.ownershipRevision + (ownerIncrement.increment ?? 0),
+          } : {}),
+          updatedAt: new Date("2026-07-24T00:00:01.000Z"),
+        };
         return { count: 1 };
       }),
     },
     opportunityStageEvent: {
-      create: vi.fn(async (args: { data: Record<string, unknown> }) => {
-        record("opportunityStageEvent.create", args);
-        return { id: "evt-1", ...args.data };
-      }),
+      create: vi.fn(async () => ({ id: "event-a" })),
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    $queryRaw: vi.fn(async () => [{ nextval: 1n }]) as any,
-    // $transaction just invokes the callback with the same fake db, mirroring
-    // how a Prisma interactive-transaction client shares its model shape.
-    $transaction: vi.fn(async (fn) => fn(db)),
   };
-
   return {
-    db,
-    calls,
-    setFindUniqueOrThrowResult(row: Record<string, unknown>) {
-      findUniqueOrThrowResult = row;
+    tx,
+    get opportunity() {
+      return opportunity;
     },
   };
 }
 
-describe("opportunity-center characterization", () => {
+describe("U043 canonical opportunity service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("CRM_CURSOR_SECRET", "u043-test-cursor-secret-that-is-at-least-thirty-two-bytes");
+    harness.tx = fakeTx().tx;
+    harness.appendAuditEvent.mockResolvedValue({ id: "audit-a", idempotent: false });
   });
 
-  describe("listOpportunities", () => {
-    it("resolves the project by slug and lists opportunities scoped to it", async () => {
-      const { db, calls } = fakePrisma();
-
-      const result = await listOpportunities("demo-project", { prisma: db });
-
-      expect(calls["project.findUniqueOrThrow"]?.[0]).toEqual({ where: { slug: "demo-project" } });
-      const findManyArgs = calls["opportunity.findMany"]?.[0] as {
-        where: { projectId: string };
-        orderBy: { updatedAt: string };
-        include: Record<string, unknown>;
-      };
-      expect(findManyArgs.where.projectId).toBe("proj-1");
-      expect(findManyArgs.orderBy).toEqual({ updatedAt: "desc" });
-      expect(Object.keys(findManyArgs.include)).toEqual(
-        expect.arrayContaining(["customer", "partner", "links", "dealRegistration"]),
-      );
-      // characterization: the function returns whatever findMany resolves (the fake's default: []).
-      expect(result).toEqual([]);
-    });
+  it("rejects caller scope, a caller-selected stage, and legacy owner authority at create", () => {
+    expect(createOpportunitySchema.safeParse({ title: "Valid deal", projectSlug: "foreign" }).success).toBe(false);
+    expect(createOpportunitySchema.safeParse({ title: "Valid deal", stage: "WON" }).success).toBe(false);
+    expect(createOpportunitySchema.safeParse({ title: "Valid deal", ownerId: "legacy" }).success).toBe(false);
   });
 
-  describe("createOpportunity", () => {
-    it("creates the opportunity row, a creation stage event, and audits it", async () => {
-      const { db, calls } = fakePrisma();
-
-      const opp = await createOpportunity({ title: "Test Deal", projectSlug: "demo-project" }, { prisma: db });
-
-      expect(calls["project.findUniqueOrThrow"]?.[0]).toEqual({ where: { slug: "demo-project" } });
-      expect(calls["opportunity.create"]).toHaveLength(1);
-      const createArgs = calls["opportunity.create"][0] as { data: Record<string, unknown> };
-      expect(createArgs.data.title).toBe("Test Deal");
-      expect(createArgs.data.stage).toBe("LEAD");
-      expect(createArgs.data.code).toMatch(new RegExp(`^PRJ-${new Date().getFullYear()}-0001$`));
-
-      const stageEventArgs = calls["opportunityStageEvent.create"][0] as { data: Record<string, unknown> };
-      expect(stageEventArgs.data.toStage).toBe("LEAD");
-      expect(stageEventArgs.data.note).toBe("Opportunity created");
-
-      expect(logStateTransition).toHaveBeenCalledTimes(1);
-      expect(logStateTransition).toHaveBeenCalledWith(
-        expect.objectContaining({ entityType: "opportunity", fromStatus: null, toStatus: "LEAD" }),
-      );
-
-      expect(opp.id).toBe("opp-1");
-    });
+  it("lists only active scoped rows with updatedAt/id keyset ordering and a bounded page", async () => {
+    const page = await listOpportunities(SALES, { first: 25 });
+    const tx = harness.tx as ReturnType<typeof fakeTx>["tx"];
+    expect(page.items).toHaveLength(1);
+    expect(tx.opportunity.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ projectId: SALES.projectId, archivedAt: null }),
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      take: 26,
+    }));
   });
 
-  describe("updateOpportunity", () => {
-    it("advances a legal stage transition via a transaction and records both audits", async () => {
-      const { db, calls } = fakePrisma();
-
-      const updated = await updateOpportunity("opp-1", { stage: "QUALIFIED" }, { prisma: db });
-
-      expect(calls["opportunity.update"]).toHaveLength(1);
-      const updateArgs = calls["opportunity.update"][0] as { data: Record<string, unknown> };
-      expect(updateArgs.data.stage).toBe("QUALIFIED");
-
-      const stageEventArgs = calls["opportunityStageEvent.create"][0] as { data: Record<string, unknown> };
-      expect(stageEventArgs.data.fromStage).toBe("LEAD");
-      expect(stageEventArgs.data.toStage).toBe("QUALIFIED");
-
-      expect(logStateTransition).toHaveBeenCalledTimes(1);
-      expect(recordDecision).toHaveBeenCalledTimes(1);
-      expect(recordDecision).toHaveBeenCalledWith(
-        expect.objectContaining({ actionType: "stage_transition", outcome: "approved" }),
-      );
-      expect(updated.stage).toBe("QUALIFIED");
-    });
-
-    it("rejects an illegal stage transition and performs no writes", async () => {
-      const { db, calls } = fakePrisma();
-      db.opportunity.findUniqueOrThrow = vi.fn(async () => ({
-        id: "opp-1",
-        stage: "WON",
-        projectId: "proj-1",
-        dealType: null,
-        dealRegistration: null,
-      }));
-
-      await expect(updateOpportunity("opp-1", { stage: "LEAD" }, { prisma: db })).rejects.toThrow(
-        /^illegal_stage_transition:/,
-      );
-
-      expect(calls["opportunity.update"]).toBeUndefined();
-      expect(calls["opportunityStageEvent.create"]).toBeUndefined();
-      expect(logStateTransition).not.toHaveBeenCalled();
-      expect(recordDecision).not.toHaveBeenCalled();
-    });
-
-    it("applies a plain field update with no stage change directly (no transaction)", async () => {
-      const { db, calls } = fakePrisma();
-
-      const updated = await updateOpportunity("opp-1", { title: "New Title" }, { prisma: db });
-
-      expect(calls["opportunity.update"]).toHaveLength(1);
-      const updateArgs = calls["opportunity.update"][0] as { data: Record<string, unknown> };
-      expect(updateArgs.data.title).toBe("New Title");
-      expect(calls["opportunityStageEvent.create"]).toBeUndefined();
-
-      expect(logStateTransition).not.toHaveBeenCalled();
-      expect(recordDecision).toHaveBeenCalledTimes(1);
-      expect(recordDecision).toHaveBeenCalledWith(
-        expect.objectContaining({ actionType: "entity_edit", outcome: "corrected" }),
-      );
-      expect(updated.title).toBe("New Title");
-    });
-
-    it("rejects a stale expectedUpdatedAt without writing", async () => {
-      const { db, calls } = fakePrisma();
-
-      await expect(
-        updateOpportunity(
-          "opp-1",
-          { title: "Stale title", expectedUpdatedAt: "2026-07-12T00:00:00.000Z" },
-          { prisma: db },
-        ),
-      ).rejects.toThrow("opportunity_conflict");
-
-      expect(calls["opportunity.update"]).toBeUndefined();
-      expect(calls["opportunity.updateMany"]).toBeUndefined();
-      expect(recordDecision).not.toHaveBeenCalled();
-    });
-
-    it("uses a compare-and-swap update for a matching expectedUpdatedAt", async () => {
-      const { db, calls } = fakePrisma();
-
-      const updated = await updateOpportunity(
-        "opp-1",
-        {
-          title: "CAS title",
-          expectedUpdatedAt: "2026-07-13T00:00:00.000Z",
-        },
-        { prisma: db },
-      );
-
-      expect(calls["opportunity.update"]).toBeUndefined();
-      expect(calls["opportunity.updateMany"]).toHaveLength(1);
-      expect(calls["opportunity.updateMany"]?.[0]).toEqual({
-        where: { id: "opp-1", updatedAt: new Date("2026-07-13T00:00:00.000Z") },
-        data: { title: "CAS title" },
-      });
-      expect(updated.title).toBe("CAS title");
-    });
-
-    it("captures both stage_transition and entity_edit when stage AND other fields change", async () => {
-      const { db, calls, setFindUniqueOrThrowResult } = fakePrisma();
-      // Ensure the existing stage is QUALIFIED so PROPOSAL is a legal advance.
-      setFindUniqueOrThrowResult({ ...defaultFindUniqueResult, stage: "QUALIFIED" });
-
-      const updated = await updateOpportunity(
-        "opp-1",
-        { stage: "PROPOSAL", amount: 999 },
-        { prisma: db },
-      );
-
-      expect(calls["opportunity.update"]).toHaveLength(1);
-      const updateArgs = calls["opportunity.update"][0] as { data: Record<string, unknown> };
-      expect(updateArgs.data.stage).toBe("PROPOSAL");
-      expect(updateArgs.data.amount).toBe(999);
-
-      // Two decisions: stage_transition + entity_edit for the non-stage fields.
-      expect(recordDecision).toHaveBeenCalledTimes(2);
-      expect(recordDecision).toHaveBeenCalledWith(
-        expect.objectContaining({ actionType: "stage_transition" }),
-      );
-      expect(recordDecision).toHaveBeenCalledWith(
-        expect.objectContaining({
-          actionType: "entity_edit",
-          humanEdit: expect.not.objectContaining({ stage: expect.anything() }),
-        }),
-      );
-      expect(updated.stage).toBe("PROPOSAL");
-      expect(updated.amount).toBe(999);
-    });
-
-    it("does NOT emit an entity_edit for a pure stage-only change", async () => {
-      const { db, setFindUniqueOrThrowResult } = fakePrisma();
-      setFindUniqueOrThrowResult({ ...defaultFindUniqueResult, stage: "QUALIFIED" });
-
-      await updateOpportunity("opp-1", { stage: "PROPOSAL" }, { prisma: db });
-
-      expect(recordDecision).toHaveBeenCalledTimes(1);
-      expect(recordDecision).toHaveBeenCalledWith(
-        expect.objectContaining({ actionType: "stage_transition" }),
-      );
-    });
+  it("uses one local {id,projectId,archivedAt} predicate for opaque detail reads", async () => {
+    const result = await getOpportunityDetail(SALES, "opp-a");
+    const tx = harness.tx as ReturnType<typeof fakeTx>["tx"];
+    expect(result?.id).toBe("opp-a");
+    expect(tx.opportunity.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "opp-a", projectId: SALES.projectId, archivedAt: null },
+    }));
+    await expect(getOpportunityDetail(SALES, "foreign")).resolves.toBeNull();
   });
 
-  describe("archiveOpportunity", () => {
-    it("updates archivedAt to a Date, does NOT call .delete(), and records entity_archive decision", async () => {
-      const { db, calls } = fakePrisma();
-
-      const result = await archiveOpportunity("opp-1", { prisma: db });
-
-      // Must call update, never delete.
-      expect(calls["opportunity.delete"]).toBeUndefined();
-      expect(calls["opportunity.update"]).toHaveLength(1);
-      const updateArgs = calls["opportunity.update"][0] as {
-        where: { id: string };
-        data: { archivedAt: Date };
-      };
-      expect(updateArgs.where.id).toBe("opp-1");
-      expect(updateArgs.data.archivedAt).toBeInstanceOf(Date);
-
-      // Exactly one recordDecision call with actionType entity_archive.
-      expect(recordDecision).toHaveBeenCalledTimes(1);
-      expect(recordDecision).toHaveBeenCalledWith(
-        expect.objectContaining({
-          actionType: "entity_archive",
-          projectId: "proj-1",
-          caseRef: "opp:opp-1",
-          outcome: "approved",
-        }),
-      );
-
-      expect(result.archivedAt).toBeInstanceOf(Date);
+  it("creates at LEAD under the actor assignment and appends U021 atomically", async () => {
+    const created = await createOpportunity(SALES, {
+      title: "New Opportunity",
+      customerId: "customer-a",
+      idempotencyKey: "opp-create-a",
     });
+    const tx = harness.tx as ReturnType<typeof fakeTx>["tx"];
+    expect(created.stage).toBe("LEAD");
+    expect(tx.opportunity.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        projectId: SALES.projectId,
+        stage: "LEAD",
+        ownerAssignmentId: "assignment-actor",
+      }),
+    });
+    expect(harness.appendAuditEvent).toHaveBeenCalledWith(tx, expect.objectContaining({
+      eventType: "opportunity.created",
+      actorId: "assignment-actor",
+      idempotencyKey: "opportunity.create:opp-create-a",
+    }));
   });
 
-  describe("listOpportunities — archived filtering", () => {
-    it("includes archivedAt: null in the findMany where clause", async () => {
-      const { db, calls } = fakePrisma();
-
-      await listOpportunities("demo-project", { prisma: db });
-
-      const findManyArgs = calls["opportunity.findMany"]?.[0] as {
-        where: { projectId: string; archivedAt: null };
-      };
-      expect(findManyArgs.where.archivedAt).toBeNull();
+  it("changes only canonical ownerAssignmentId and increments ownershipRevision once", async () => {
+    const result = await assignOpportunityOwner(SALES, "opp-a", {
+      ownerAssignmentId: "assignment-new",
+      expectedOwnershipRevision: 2,
+      idempotencyKey: "owner-a",
     });
+    const tx = harness.tx as ReturnType<typeof fakeTx>["tx"];
+    expect(result.ownerAssignmentId).toBe("assignment-new");
+    expect(result.ownershipRevision).toBe(3);
+    expect(tx.opportunity.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "opp-a",
+        projectId: SALES.projectId,
+        archivedAt: null,
+        ownerAssignmentId: "assignment-old",
+        ownershipRevision: 2,
+      },
+      data: {
+        ownerAssignmentId: "assignment-new",
+        ownershipRevision: { increment: 1 },
+      },
+    });
+    expect(tx.opportunity.updateMany.mock.calls[0]?.[0].data).not.toHaveProperty("ownerId");
+    expect(tx.opportunity.updateMany.mock.calls[0]?.[0].data).not.toHaveProperty("stage");
+  });
+
+  it("rejects a missing/negative revision and any combined owner/domain mutation", () => {
+    expect(opportunityOwnerAssignmentSchema.safeParse({
+      ownerAssignmentId: "assignment-new",
+      idempotencyKey: "owner-a",
+    }).success).toBe(false);
+    expect(opportunityOwnerAssignmentSchema.safeParse({
+      ownerAssignmentId: "assignment-new",
+      expectedOwnershipRevision: -1,
+      idempotencyKey: "owner-a",
+    }).success).toBe(false);
+    expect(opportunityOwnerAssignmentSchema.safeParse({
+      ownerAssignmentId: "assignment-new",
+      expectedOwnershipRevision: 2,
+      idempotencyKey: "owner-a",
+      stage: "WON",
+    }).success).toBe(false);
+  });
+
+  it("maps an ownership CAS loser to 409 with no audit", async () => {
+    const tx = harness.tx as ReturnType<typeof fakeTx>["tx"];
+    tx.opportunity.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(assignOpportunityOwner(SALES, "opp-a", {
+      ownerAssignmentId: "assignment-new",
+      expectedOwnershipRevision: 2,
+      idempotencyKey: "owner-stale",
+    })).rejects.toMatchObject({ code: "CONFLICT", httpStatus: 409 });
+    expect(harness.appendAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it("keeps expectedUpdatedAt CAS separate from ownership revision for domain updates", async () => {
+    const updated = await updateOpportunity(SALES, "opp-a", {
+      expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+      changes: { title: "Updated Opportunity" },
+      idempotencyKey: "opp-update-a",
+    });
+    const tx = harness.tx as ReturnType<typeof fakeTx>["tx"];
+    expect(updated.title).toBe("Updated Opportunity");
+    expect(tx.opportunity.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        updatedAt: new Date("2026-07-24T00:00:00.000Z"),
+      }),
+      data: { title: "Updated Opportunity" },
+    }));
+    expect(tx.opportunity.updateMany.mock.calls[0]?.[0].where).not.toHaveProperty("ownershipRevision");
   });
 });

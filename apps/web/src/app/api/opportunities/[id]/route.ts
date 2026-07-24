@@ -1,162 +1,227 @@
 import {
   addOpportunityLink,
+  addOpportunityLinkSchema,
   advanceOpportunityStage,
   archiveOpportunity,
+  assignOpportunityOwner,
   convertOpportunityToProject,
   getOpportunityDetail,
-  promoteMeetingThreads,
+  opportunityAdvanceSchema,
+  opportunityArchiveSchema,
+  opportunityConversionCommandSchema,
+  opportunityOwnerAssignmentSchema,
   removeOpportunityLink,
+  removeOpportunityLinkSchema,
+  resolveOpportunityAuthContext,
   updateOpportunity,
+  updateOpportunitySchema,
 } from "@sangfor/business";
 import { NextResponse } from "next/server";
-import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
-import { syncCalendarMeetings } from "@/lib/outlook";
+import { z } from "zod";
+
 import { apiError, assertApiAccess } from "@/lib/api-auth";
-import { assertBusinessCapability } from "@/lib/auth/authorization";
-import {
-  isResourceInProject,
-  relatedResourcesBelongToProject,
-  resolveProjectScope,
-} from "@/lib/project-scope";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
+import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
 
 type RouteContext = { params: Promise<{ id: string }> };
+const SCOPE_FIELDS = new Set(["tenantId", "companyId", "projectId", "projectSlug"]);
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
+const updateBodySchema = updateOpportunitySchema.omit({ idempotencyKey: true });
+const archiveBodySchema = opportunityArchiveSchema.omit({ idempotencyKey: true });
+const ownerBodySchema = opportunityOwnerAssignmentSchema.omit({ idempotencyKey: true }).extend({
+  action: z.literal("assign_owner"),
+}).strict();
+const advanceBodySchema = opportunityAdvanceSchema.omit({ idempotencyKey: true }).extend({
+  action: z.literal("advance"),
+}).strict();
+const conversionBodySchema = opportunityConversionCommandSchema
+  .omit({ opportunityId: true, idempotencyKey: true })
+  .extend({ action: z.literal("convert_to_project") })
+  .strict();
+const addLinkBodySchema = addOpportunityLinkSchema.omit({ idempotencyKey: true }).extend({
+  action: z.literal("add_link"),
+}).strict();
+const removeLinkBodySchema = removeOpportunityLinkSchema.omit({ idempotencyKey: true }).extend({
+  action: z.literal("remove_link"),
+}).strict();
 
-export async function GET(request: Request, context: RouteContext) {
-  const project = await resolveProjectScope(request);
-  if (!project.ok) return project.response;
-  const { id } = await context.params;
+function idempotencyKey(request: Request): string | null {
+  const key = request.headers.get("idempotency-key")?.trim() ?? "";
+  return key.length > 0 && key.length <= 128 && !CONTROL_CHARACTERS.test(key) ? key : null;
+}
+
+function hasScopeField(input: unknown): boolean {
+  return !!input && typeof input === "object" && !Array.isArray(input)
+    && Object.keys(input).some((key) => SCOPE_FIELDS.has(key));
+}
+
+async function readJson(request: Request): Promise<
+  { ok: true; input: unknown } | { ok: false; response: NextResponse }
+> {
   try {
-    const opportunity = await getOpportunityDetail(id);
-    if (!isResourceInProject(opportunity, project.scope)) {
-      return NextResponse.json({ error: "not_found" }, { status: 404 });
-    }
-    return NextResponse.json({ opportunity: serializeDecimalAtBoundary(opportunity) });
-  } catch (error) {
-    return apiError("fetch_failed", error, { status: 500 });
+    return { ok: true, input: await request.json() };
+  } catch {
+    return { ok: false, response: NextResponse.json({ error: "invalid_json" }, { status: 400 }) };
   }
 }
 
-export async function PATCH(request: Request, context: RouteContext) {
+async function resolveContext(request: Request) {
   const denied = assertApiAccess(request);
-  if (denied) return denied;
-  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/opportunities/[id]/route.ts");
-  if (capabilityDenied) return capabilityDenied;
-  const project = await resolveProjectScope(request);
-  if (!project.ok) return project.response;
-
-  const { id } = await context.params;
+  if (denied) return { ok: false as const, response: denied };
+  const session = await evaluatePersistedSessionFromRequest(request);
+  if (!session.ok) {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ error: "unauthorized" }, { status: 401 }),
+    };
+  }
   try {
-    const existing = await getOpportunityDetail(id);
-    if (!isResourceInProject(existing, project.scope)) {
-      return NextResponse.json({ error: "not_found" }, { status: 404 });
-    }
-    const body = await request.json();
-
-    const relatedAllowed = await relatedResourcesBelongToProject(project.scope, [
-      { entityType: "customer", entityId: body.customerId },
-      { entityType: "partner", entityId: body.partnerId },
-    ]);
-    if (!relatedAllowed) {
-      return NextResponse.json({ error: "not_found" }, { status: 404 });
-    }
-
-    if (body.action === "advance") {
-      const opportunity = await advanceOpportunityStage(id, body.expectedUpdatedAt);
-      return NextResponse.json({ opportunity: serializeDecimalAtBoundary(opportunity) });
-    }
-
-    if (body.action === "add_link") {
-      const linkAllowed = await relatedResourcesBelongToProject(project.scope, [
-        { entityType: body.entityType, entityId: body.entityId },
-      ]);
-      if (!linkAllowed) {
-        return NextResponse.json({ error: "not_found" }, { status: 404 });
-      }
-      const link = await addOpportunityLink(id, {
-        entityType: body.entityType,
-        entityId: body.entityId,
-        linkType: body.linkType,
-      });
-      return NextResponse.json({ link }, { status: 201 });
-    }
-
-    if (body.action === "remove_link") {
-      if (!existing?.links.some((link) => link.id === body.linkId)) {
-        return NextResponse.json({ error: "not_found" }, { status: 404 });
-      }
-      await removeOpportunityLink(body.linkId);
-      return NextResponse.json({ ok: true });
-    }
-
-    if (body.action === "convert_to_project") {
-      // Surface mail-derived meeting threads first so the conversion absorbs them.
-      await promoteMeetingThreads({ opportunityId: id });
-      // Best-effort: pull Outlook calendar meetings for this deal too (skip if not connected).
-      try {
-        await syncCalendarMeetings({ opportunityId: id });
-      } catch {
-        /* calendar optional — proceed with conversion regardless */
-      }
-      const result = await convertOpportunityToProject({
-        opportunityId: id,
-        name: body.name,
-        force: body.force,
-        // Forward absorb selection when provided; the service applies its own
-        // per-field defaults (proposals/poc/quotes/meetings) for anything omitted.
-        ...(body.absorb !== undefined ? { absorb: body.absorb } : {}),
-      });
-      return NextResponse.json(serializeDecimalAtBoundary(result), { status: result.created ? 201 : 200 });
-    }
-
-    const opportunity = await updateOpportunity(id, body);
-    return NextResponse.json({ opportunity: serializeDecimalAtBoundary(opportunity) });
+    return {
+      ok: true as const,
+      ctx: await resolveOpportunityAuthContext({
+        userId: session.userId,
+        sessionId: null,
+        tenantId: session.tenantId,
+        companyId: session.companyId,
+        projectId: session.projectId,
+        product: "portal",
+      }),
+    };
   } catch (error) {
-    const raw = error instanceof Error ? error.message : "";
-    if (raw.startsWith("registration_gate:")) {
-      return apiError(raw.slice("registration_gate:".length), error, { status: 409 });
-    }
-    if (raw === "cannot_advance_stage") {
-      return apiError("cannot_advance_stage", error, { status: 409 });
-    }
-    if (raw === "opportunity_conflict") {
-      return apiError("opportunity_conflict", error, { status: 409 });
-    }
-    if (raw.startsWith("illegal_stage_transition:")) {
-      return apiError(raw.slice("illegal_stage_transition:".length), error, { status: 409 });
-    }
-    if (raw.startsWith("No confirmed POC")) {
-      return apiError("conversion_requires_poc", error, {
-        status: 409,
-        message: "확정된 POC를 연결하거나 승인 후 강제 전환해 주세요.",
-      });
-    }
-    if (raw.startsWith("Opportunity stage") && raw.includes("is not convertible")) {
-      return apiError("conversion_stage_not_ready", error, {
-        status: 409,
-        message: "제안 이후 단계에서 프로젝트로 전환할 수 있습니다.",
-      });
-    }
-    return apiError("update_failed", error, { status: 400 });
+    return {
+      ok: false as const,
+      response: crmError(error, "authorization_failed", 403),
+    };
   }
 }
 
-export async function DELETE(request: Request, context: RouteContext) {
-  const denied = assertApiAccess(request);
-  if (denied) return denied;
-  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/opportunities/[id]/route.ts");
-  if (capabilityDenied) return capabilityDenied;
-  const project = await resolveProjectScope(request);
-  if (!project.ok) return project.response;
+function crmError(error: unknown, fallback: string, status: number) {
+  if (
+    error instanceof Error
+    && "httpStatus" in error
+    && typeof error.httpStatus === "number"
+    && "code" in error
+    && typeof error.code === "string"
+  ) {
+    return NextResponse.json({ error: error.code }, { status: error.httpStatus });
+  }
+  return apiError(fallback, error, { status });
+}
 
-  const { id } = await context.params;
+export async function GET(request: Request, route: RouteContext) {
+  const auth = await resolveContext(request);
+  if (!auth.ok) return auth.response;
+  const { id } = await route.params;
   try {
-    const existing = await getOpportunityDetail(id);
-    if (!isResourceInProject(existing, project.scope)) {
-      return NextResponse.json({ error: "not_found" }, { status: 404 });
-    }
-    const opportunity = await archiveOpportunity(id);
-    return NextResponse.json({ opportunity });
+    const opportunity = await getOpportunityDetail(auth.ctx, id);
+    if (!opportunity) return NextResponse.json({ error: "not_found" }, { status: 404 });
+    return NextResponse.json({ opportunity: serializeDecimalAtBoundary(opportunity) });
   } catch (error) {
-    return apiError("archive_failed", error, { status: 400 });
+    return crmError(error, "fetch_failed", 500);
+  }
+}
+
+export async function PATCH(request: Request, route: RouteContext) {
+  const auth = await resolveContext(request);
+  if (!auth.ok) return auth.response;
+  const key = idempotencyKey(request);
+  if (!key) return NextResponse.json({ error: "validation_error" }, { status: 422 });
+  const json = await readJson(request);
+  if (!json.ok) return json.response;
+  if (hasScopeField(json.input)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  const { id } = await route.params;
+  try {
+    if (json.input && typeof json.input === "object" && "action" in json.input) {
+      const action = (json.input as { action?: unknown }).action;
+      if (action === "assign_owner") {
+        const parsed = ownerBodySchema.safeParse(json.input);
+        if (!parsed.success) return NextResponse.json({ error: "validation_error" }, { status: 422 });
+        const { action: _action, ...command } = parsed.data;
+        const opportunity = await assignOpportunityOwner(auth.ctx, id, {
+          ...command,
+          idempotencyKey: key,
+        });
+        return NextResponse.json({ opportunity: serializeDecimalAtBoundary(opportunity) });
+      }
+      if (action === "advance") {
+        const parsed = advanceBodySchema.safeParse(json.input);
+        if (!parsed.success) return NextResponse.json({ error: "validation_error" }, { status: 422 });
+        const opportunity = await advanceOpportunityStage(auth.ctx, id, {
+          expectedUpdatedAt: parsed.data.expectedUpdatedAt,
+          idempotencyKey: key,
+        });
+        return NextResponse.json({ opportunity: serializeDecimalAtBoundary(opportunity) });
+      }
+      if (action === "convert_to_project") {
+        const parsed = conversionBodySchema.safeParse(json.input);
+        if (!parsed.success) return NextResponse.json({ error: "validation_error" }, { status: 422 });
+        const result = await convertOpportunityToProject(auth.ctx, {
+          opportunityId: id,
+          expectedUpdatedAt: parsed.data.expectedUpdatedAt,
+          idempotencyKey: key,
+        });
+        return NextResponse.json(
+          serializeDecimalAtBoundary(result),
+          { status: result.created ? 201 : 200 },
+        );
+      }
+      if (action === "add_link") {
+        const parsed = addLinkBodySchema.safeParse(json.input);
+        if (!parsed.success) return NextResponse.json({ error: "validation_error" }, { status: 422 });
+        const { action: _action, ...command } = parsed.data;
+        const link = await addOpportunityLink(auth.ctx, id, {
+          ...command,
+          idempotencyKey: key,
+        });
+        return NextResponse.json({ link }, { status: 201 });
+      }
+      if (action === "remove_link") {
+        const parsed = removeLinkBodySchema.safeParse(json.input);
+        if (!parsed.success) return NextResponse.json({ error: "validation_error" }, { status: 422 });
+        const { action: _action, ...command } = parsed.data;
+        await removeOpportunityLink(auth.ctx, id, {
+          ...command,
+          idempotencyKey: key,
+        });
+        return NextResponse.json({ ok: true });
+      }
+      return NextResponse.json({ error: "validation_error" }, { status: 422 });
+    }
+
+    const parsed = updateBodySchema.safeParse(json.input);
+    if (!parsed.success) return NextResponse.json({ error: "validation_error" }, { status: 422 });
+    const opportunity = await updateOpportunity(auth.ctx, id, {
+      ...parsed.data,
+      idempotencyKey: key,
+    });
+    return NextResponse.json({ opportunity: serializeDecimalAtBoundary(opportunity) });
+  } catch (error) {
+    return crmError(error, "update_failed", 422);
+  }
+}
+
+export async function DELETE(request: Request, route: RouteContext) {
+  const auth = await resolveContext(request);
+  if (!auth.ok) return auth.response;
+  const key = idempotencyKey(request);
+  if (!key) return NextResponse.json({ error: "validation_error" }, { status: 422 });
+  const json = await readJson(request);
+  if (!json.ok) return json.response;
+  if (hasScopeField(json.input)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  const parsed = archiveBodySchema.safeParse(json.input);
+  if (!parsed.success) return NextResponse.json({ error: "validation_error" }, { status: 422 });
+  const { id } = await route.params;
+  try {
+    const opportunity = await archiveOpportunity(auth.ctx, id, {
+      ...parsed.data,
+      idempotencyKey: key,
+    });
+    return NextResponse.json({ opportunity: serializeDecimalAtBoundary(opportunity) });
+  } catch (error) {
+    return crmError(error, "archive_failed", 422);
   }
 }

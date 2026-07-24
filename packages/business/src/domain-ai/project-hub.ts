@@ -1,4 +1,5 @@
 import { prisma } from '@sangfor/db';
+import type { AuthContext } from '@sangfor/auth';
 import { getEngagementDetail } from '../crm/engagement-center';
 import { computePnl, type Pnl } from './domain-pnl';
 import { buildLanes, type DomainLane, type LaneArtifact } from './artifact-domain-map';
@@ -11,8 +12,12 @@ export interface ProjectHub {
   pnl: Pnl;
 }
 
-export async function getProjectHub(engagementId: string): Promise<ProjectHub | null> {
-  const engagement = await getEngagementDetail(engagementId);
+export async function getProjectHub(
+  engagementId: string,
+  ctx?: AuthContext,
+): Promise<ProjectHub | null> {
+  if (!ctx) return null;
+  const engagement = await getEngagementDetail(ctx, engagementId);
   if (!engagement) return null;
 
   const [invoices, expenses, taxInvoices] = await Promise.all([

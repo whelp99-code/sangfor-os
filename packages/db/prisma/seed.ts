@@ -154,51 +154,6 @@ async function main() {
     });
   }
 
-  const existingCustomer = await prisma.customer.findFirst({
-    where: { projectId: project.id, domain: "demo-customer.example.com" },
-  });
-  const customer = existingCustomer
-    ? await prisma.customer.update({
-        where: { id: existingCustomer.id },
-        data: {
-          name: "Demo Customer",
-          status: "active",
-          notes: "Synthetic W1-W2 demo customer. No private data.",
-          segment: "SMB",
-          riskScore: 0.3,
-        },
-      })
-    : await prisma.customer.create({
-        data: {
-          projectId: project.id,
-          name: "Demo Customer",
-          domain: "demo-customer.example.com",
-          status: "active",
-          notes: "Synthetic W1-W2 demo customer. No private data.",
-          segment: "SMB",
-          riskScore: 0.3,
-        },
-      });
-
-  const existingContact = await prisma.contact.findFirst({
-    where: { customerId: customer.id, email: "buyer@demo-customer.example.com" },
-  });
-  if (existingContact) {
-    await prisma.contact.update({
-      where: { id: existingContact.id },
-      data: { name: "Demo Buyer", role: "Business buyer" },
-    });
-  } else {
-    await prisma.contact.create({
-      data: {
-        customerId: customer.id,
-        name: "Demo Buyer",
-        email: "buyer@demo-customer.example.com",
-        role: "Business buyer",
-      },
-    });
-  }
-
   console.log(`Seeded ${project.slug} (${project.id})`);
 }
 

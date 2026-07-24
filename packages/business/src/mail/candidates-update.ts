@@ -1,15 +1,12 @@
-import { prisma } from "@sangfor/db";
+import type { AuthContext } from "@sangfor/auth";
+import { prisma, withRlsTransaction } from "@sangfor/db";
 import { z } from "zod";
 
-import { createCustomer, createPartner } from "../crm/customer-partner";
-import { mailCandidateNextAction, normalizeDealTitle, withTag } from "../crm/deal-title";
 import { createImprovementCandidateFromError } from "../orchestration/improvement-loop";
 import { resolveDefaultProjectId } from "../infrastructure/default-project";
 import { upsertPolicyMemory } from "./mail-policy-memory";
 import { upsertDomainMemory } from "../domain-ai/domain-memory";
-import { createOpportunity } from "../crm/opportunity-center";
-import { createPocProject } from "../crm/poc-center";
-import { createWorkTask, linkTaskToEntity } from "../orchestration/task-center";
+import { convertApprovedMailCandidates } from "./mail-candidates-convert";
 
 import { mailCandidateStatusSchema, mailCandidateTypeSchema } from "./constants";
 import {
@@ -47,6 +44,37 @@ export async function listMailDerivedCandidates(
 
 export async function getMailDerivedCandidate(id: string) {
   return prisma.mailDerivedCandidate.findUniqueOrThrow({ where: { id } });
+}
+
+export async function getScopedMailDerivedCandidate(ctx: AuthContext, id: string) {
+  return withRlsTransaction(ctx, async (tx) => {
+    const candidate = await tx.mailDerivedCandidate.findFirst({
+      where: { id },
+      include: { mailInsightThread: { select: { projectId: true } } },
+    });
+    if (!candidate) return null;
+    const projectIds: string[] = [];
+    if (candidate.mailInsightThreadId) {
+      if (!candidate.mailInsightThread?.projectId) return null;
+      projectIds.push(candidate.mailInsightThread.projectId);
+    }
+    if (candidate.knowledgeDocumentId) {
+      const document = await tx.knowledgeDocument.findFirst({
+        where: { id: candidate.knowledgeDocumentId },
+        select: { projectId: true },
+      });
+      if (!document) return null;
+      projectIds.push(document.projectId);
+    }
+    if (
+      projectIds.length === 0 ||
+      new Set(projectIds).size !== 1 ||
+      projectIds.some((projectId) => projectId !== ctx.projectId)
+    ) {
+      return null;
+    }
+    return candidate;
+  });
 }
 
 const rejectMailCandidateSchema = z.object({
@@ -197,67 +225,6 @@ async function maybeProposePolicyMemoryFromRejection(
   }
 }
 
-async function convertCustomer(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
-  const projectId = await resolveDefaultProjectId(prisma);
-  const existing = await prisma.customer.findFirst({
-    where: { projectId, name: candidate.title.replace(/^(Customer|Partner):\s*/i, "") },
-  });
-  if (existing) return existing;
-  return createCustomer({
-    name: candidate.title.replace(/^(Customer|Partner):\s*/i, ""),
-    notes: `Created from approved mail candidate.\n\n${candidate.summary}`,
-  });
-}
-
-async function convertPartner(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
-  const projectId = await resolveDefaultProjectId(prisma);
-  const name = candidate.title.replace(/^(Customer|Partner):\s*/i, "");
-  const existing = await prisma.partner.findFirst({
-    where: { projectId, name },
-  });
-  if (existing) return existing;
-  return createPartner({
-    name,
-    partnerType: "mail-derived",
-  });
-}
-
-async function convertTask(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
-  const task = await createWorkTask({
-    title: candidate.title.replace(/^Follow up:\s*/i, ""),
-    status: "todo",
-    priority: candidate.confidence >= 80 ? "high" : "normal",
-    source: "mail_candidate",
-  });
-  if (candidate.knowledgeDocumentId) {
-    await linkTaskToEntity(task.id, {
-      entityType: "mail_message",
-      entityId: candidate.knowledgeDocumentId,
-      linkType: "derived_from",
-    });
-  }
-  return task;
-}
-
-async function convertOpportunity(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
-  return createOpportunity({
-    title: withTag(normalizeDealTitle(candidate.title.replace(/^Opportunity:\s*/i, ""))),
-    stage: "lead",
-    probability: candidate.confidence >= 80 ? 35 : 20,
-    nextAction: mailCandidateNextAction(candidate.summary),
-  });
-}
-
-async function convertPoc(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
-  const poc = await createPocProject({
-    title: candidate.title.replace(/^PoC:\s*/i, ""),
-    productName: "Sangfor",
-    requirements: candidate.summary,
-  });
-  if (!poc) throw new Error("poc_create_failed");
-  return poc;
-}
-
 export class CandidateConversionInProgressError extends Error {
   readonly candidateId: string;
 
@@ -268,103 +235,15 @@ export class CandidateConversionInProgressError extends Error {
   }
 }
 
-async function conversionAlreadyClaimed(id: string) {
-  const latest = await getMailDerivedCandidate(id);
-  if (latest.status === "converted" && latest.createdEntityId) {
-    return { candidate: latest, created: null };
-  }
-  throw new CandidateConversionInProgressError(id);
-}
-
-export async function approveMailDerivedCandidate(id: string) {
-  const candidate = await getMailDerivedCandidate(id);
-  if (candidate.status === "converted" && candidate.createdEntityId) {
-    return { candidate, created: null };
-  }
-  if (candidate.status === "rejected") {
-    throw new Error("candidate_rejected");
-  }
-  if (candidate.status === "needs_revalidation") {
-    throw new Error("project_candidate_requires_ai_revalidation");
-  }
-  if (candidate.status === "knowledge_only") {
-    throw new Error("candidate_marked_knowledge_only");
-  }
-  if (candidate.status === "converting") {
-    throw new CandidateConversionInProgressError(id);
-  }
-  if (isProjectCandidateType(candidate.candidateType)) {
-    const metadata = asRecord(candidate.metadata);
-    const revalidation = asRecord(metadata.aiRevalidation);
-    if (
-      revalidation.decision !== "approve_candidate" &&
-      revalidation.decision !== "needs_human_review"
-    ) {
-      throw new Error("project_candidate_requires_ai_revalidation");
-    }
-  }
-
-  const claim = await prisma.mailDerivedCandidate.updateMany({
-    where: { id, status: candidate.status },
-    data: { status: "converting" },
+export async function approveMailDerivedCandidate(
+  ctx: AuthContext,
+  id: string,
+  command: { expectedUpdatedAt: string; idempotencyKey: string },
+) {
+  return convertApprovedMailCandidates(ctx, {
+    candidates: [{ id, expectedUpdatedAt: command.expectedUpdatedAt }],
+    idempotencyKey: command.idempotencyKey,
   });
-  if (claim.count === 0) return conversionAlreadyClaimed(id);
-
-  let created: { id: string };
-  let updated;
-  try {
-    if (candidate.candidateType === "customer") {
-      created = await convertCustomer(candidate);
-    } else if (candidate.candidateType === "partner") {
-      created = await convertPartner(candidate);
-    } else if (candidate.candidateType === "task") {
-      created = await convertTask(candidate);
-    } else if (candidate.candidateType === "opportunity") {
-      created = await convertOpportunity(candidate);
-    } else if (candidate.candidateType === "poc") {
-      created = await convertPoc(candidate);
-    } else {
-      throw new Error("unsupported_candidate_type");
-    }
-
-    const converted = await prisma.mailDerivedCandidate.updateMany({
-      where: { id, status: "converting" },
-      data: {
-        status: "converted",
-        createdEntityType: candidate.candidateType,
-        createdEntityId: created.id,
-      },
-    });
-    if (converted.count === 0) throw new CandidateConversionInProgressError(id);
-    updated = await getMailDerivedCandidate(id);
-  } catch (error) {
-    await prisma.mailDerivedCandidate.updateMany({
-      where: { id, status: "converting" },
-      data: { status: candidate.status },
-    });
-    throw error;
-  }
-  const projectId = await resolveDefaultProjectId(prisma);
-  const domain = gtmDomainForCandidate(candidate.candidateType);
-  await recordDecision({
-    projectId,
-    domain,
-    actor: domain === "presales" ? "presales" : "sales",
-    actionType: "candidate_approved_converted",
-    caseRef: caseRefFor("mailCandidate", id),
-    outcome: "approved",
-    input: toInputJson({
-      candidateType: candidate.candidateType,
-      title: candidate.title,
-      metadata: candidate.metadata,
-    }),
-    output: toInputJson({
-      createdEntityType: candidate.candidateType,
-      createdEntityId: created.id,
-    }),
-  });
-  await reinforcePolicyMemoryFromApproval(updated);
-  return { candidate: updated, created };
 }
 
 const setCandidateTypeSchema = z.object({

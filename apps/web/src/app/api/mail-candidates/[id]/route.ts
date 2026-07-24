@@ -1,55 +1,138 @@
 import {
   approveMailDerivedCandidate,
-  CandidateConversionInProgressError,
-  getMailDerivedCandidate,
+  getScopedMailDerivedCandidate,
   revalidateMailDerivedCandidate,
-  rejectMailDerivedCandidate,
-  setCandidateType,
 } from "@sangfor/business/mail-candidates";
+import { resolveCrmAuthContext } from "@sangfor/business";
 import { NextResponse } from "next/server";
+import { z } from "zod";
+
 import { apiError, assertApiAccess } from "@/lib/api-auth";
-import { assertBusinessCapability } from "@/lib/auth/authorization";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 type Params = { params: Promise<{ id: string }> };
+const actionSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("approve"),
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+  }).strict(),
+  z.object({
+    action: z.literal("revalidate"),
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+  }).strict(),
+]);
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
+const SCOPE_FIELDS = new Set([
+  "tenantId",
+  "companyId",
+  "projectId",
+  "projectSlug",
+  "actor",
+  "assignmentId",
+  "role",
+]);
 
-export async function GET(_request: Request, { params }: Params) {
+function requestKey(request: Request): string | null {
+  const value = request.headers.get("idempotency-key")?.trim() ?? "";
+  return value.length > 0 && value.length <= 128 && !CONTROL_CHARACTERS.test(value)
+    ? value
+    : null;
+}
+
+async function resolveContext(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return { ok: false as const, response: denied };
+  const session = await evaluatePersistedSessionFromRequest(request);
+  if (!session.ok) {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ error: "unauthorized" }, { status: 401 }),
+    };
+  }
+  try {
+    return {
+      ok: true as const,
+      ctx: await resolveCrmAuthContext({
+        userId: session.userId,
+        sessionId: null,
+        tenantId: session.tenantId,
+        companyId: session.companyId,
+        projectId: session.projectId,
+        product: "portal",
+      }),
+    };
+  } catch {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ error: "forbidden" }, { status: 403 }),
+    };
+  }
+}
+
+function commandError(error: unknown) {
+  if (
+    error instanceof Error &&
+    "httpStatus" in error &&
+    typeof error.httpStatus === "number" &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
+    return NextResponse.json({ error: error.code }, { status: error.httpStatus });
+  }
+  return apiError("mail_candidate_command_failed", error, { status: 400 });
+}
+
+export async function GET(request: Request, { params }: Params) {
+  const auth = await resolveContext(request);
+  if (!auth.ok) return auth.response;
   const { id } = await params;
-  const candidate = await getMailDerivedCandidate(id);
+  const candidate = await getScopedMailDerivedCandidate(auth.ctx, id);
+  if (!candidate) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
   return NextResponse.json({ candidate });
 }
 
 export async function PATCH(request: Request, { params }: Params) {
-  const denied = assertApiAccess(request);
-  if (denied) return denied;
-  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/mail-candidates/[id]/route.ts");
-  if (capabilityDenied) return capabilityDenied;
+  const auth = await resolveContext(request);
+  if (!auth.ok) return auth.response;
+  const idempotencyKey = requestKey(request);
+  if (!idempotencyKey) {
+    return NextResponse.json({ error: "validation_error" }, { status: 422 });
+  }
+  let input: unknown;
+  try {
+    input = await request.json();
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+  if (
+    input &&
+    typeof input === "object" &&
+    !Array.isArray(input) &&
+    Object.keys(input).some((field) => SCOPE_FIELDS.has(field))
+  ) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  const parsed = actionSchema.safeParse(input);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "validation_error" }, { status: 422 });
+  }
   const { id } = await params;
   try {
-    const body = await request.json();
-    if (body.status === "approved" || body.action === "approve") {
-      const result = await approveMailDerivedCandidate(id);
-      return NextResponse.json(result);
-    }
-    if (body.action === "revalidate") {
-      const result = await revalidateMailDerivedCandidate(id);
-      return NextResponse.json(result);
-    }
-    if (body.status === "rejected" || body.action === "reject") {
-      const candidate = await rejectMailDerivedCandidate(id, {
-        reasonCode: body.reasonCode ?? "manual_reject",
-        note: body.note,
+    if (parsed.data.action === "approve") {
+      const result = await approveMailDerivedCandidate(auth.ctx, id, {
+        expectedUpdatedAt: parsed.data.expectedUpdatedAt,
+        idempotencyKey,
       });
-      return NextResponse.json({ candidate });
+      return NextResponse.json(result);
     }
-    if (body.action === "set_candidate_type") {
-      const candidate = await setCandidateType(id, { candidateType: body.candidateType });
-      return NextResponse.json({ candidate });
-    }
-    return NextResponse.json({ error: "unsupported_action" }, { status: 400 });
+    const result = await revalidateMailDerivedCandidate(auth.ctx, id, {
+      expectedUpdatedAt: parsed.data.expectedUpdatedAt,
+      idempotencyKey,
+    });
+    return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof CandidateConversionInProgressError) {
-      return apiError("candidate_conversion_in_progress", error, { status: 409 });
-    }
-    return apiError("patch_failed", error, { status: 400 });
+    return commandError(error);
   }
 }

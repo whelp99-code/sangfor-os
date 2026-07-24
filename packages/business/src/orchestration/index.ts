@@ -11,7 +11,6 @@ export * from "./codex-task-flow";
 export * from "./command-center";
 export * from "./context-pack-builder";
 export * from "./context-pack-types";
-export * from "./core-loop";
 export * from "./cursor-session-flow";
 export * from "./improvement-loop";
 export * from "./opencode-client";

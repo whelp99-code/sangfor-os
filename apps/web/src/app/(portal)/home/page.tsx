@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
-import { listOpportunities } from "@sangfor/business";
+import { listOpportunities, resolveOpportunityAuthContext } from "@sangfor/business";
 import {
   isActiveOpportunity,
   isRecognizedStage,
@@ -16,6 +16,9 @@ import { formatKRWCompact, stageDisplay } from "@/components/deals/stage-meta";
 import { regStatusMeta } from "@/components/deals/reg-status";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
 import { cn } from "@/lib/utils";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 // ---------------------------------------------------------------------------
 // Stage funnel buckets — ③결과 / ⑤수주 / ⑥딜리버리 had no enum mapping and
@@ -77,8 +80,23 @@ function StagePips({ idx, isLost }: StagePipsProps) {
 // Page
 // ---------------------------------------------------------------------------
 export default async function HomePage() {
-  const opportunitiesRaw = await listOpportunities();
-  const opportunities = serializeDecimalAtBoundary(opportunitiesRaw);
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(new Request(
+    "http://sangfor.local/home",
+    { headers: { cookie: `session=${encodeURIComponent(token)}` } },
+  ));
+  if (!session.ok) redirect("/login");
+  const ctx = await resolveOpportunityAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  });
+  const opportunityPage = await listOpportunities(ctx, { first: 100 });
+  const opportunities = serializeDecimalAtBoundary(opportunityPage.items);
 
   // -- KPI derivations -------------------------------------------------------
   const openDeals = opportunities.filter((opp) => isActiveOpportunity(opp.stage));

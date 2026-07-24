@@ -153,7 +153,10 @@ export function RegistrationPanel({
       try {
         const res = await fetch(`/api/opportunities/${opportunityId}/registration`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": crypto.randomUUID(),
+          },
           body: JSON.stringify(body),
         });
         if (!res.ok) {

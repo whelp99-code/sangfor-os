@@ -1,13 +1,21 @@
 export const dynamic = "force-dynamic"
 
 import { Gauge } from "lucide-react"
-import { prisma } from "@sangfor/db"
-import { computeDealRisk, resolveDefaultProjectId, type DealRiskFactor } from "@sangfor/business"
+import {
+  computeDealRisk,
+  listOpportunities,
+  resolveOpportunityAuthContext,
+  type DealRiskFactor,
+} from "@sangfor/business"
+import type { AuthContext } from "@sangfor/auth"
 import { formatKRWCompact } from "@sangfor/shared"
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 
 import { DashboardAiShell } from "@/components/dashboard/dashboard-ai-shell"
 import { ExecutiveDashboard } from "@/components/dashboard/executive-dashboard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session"
 
 const ACTIVITIES: { id: string; time: string; icon?: React.ReactNode; text: string; type: 'success' | 'info' | 'warning' | 'error' }[] = []
 
@@ -26,12 +34,11 @@ type AtRiskDeal = {
   topFactors: DealRiskFactor[]
 }
 
-async function loadAtRiskDeals(): Promise<AtRiskDeal[]> {
-  const projectId = await resolveDefaultProjectId()
-  const deals = await prisma.opportunity.findMany({
-    where: { projectId, archivedAt: null, dealStatus: "OPEN", stage: { notIn: ["WON", "LOST"] } },
-    include: { customer: true },
-  })
+async function loadAtRiskDeals(ctx: AuthContext): Promise<AtRiskDeal[]> {
+  const page = await listOpportunities(ctx, { first: 100 })
+  const deals = page.items.filter(
+    (deal) => deal.dealStatus === "OPEN" && deal.stage !== "WON" && deal.stage !== "LOST",
+  )
 
   const now = Date.now()
   const scored: AtRiskDeal[] = deals.map((deal) => {
@@ -120,7 +127,22 @@ function AtRiskDealsCard({ deals }: { deals: AtRiskDeal[] }) {
 }
 
 export default async function DashboardPage() {
-  const atRiskDeals = await loadAtRiskDeals()
+  const token = (await cookies()).get("session")?.value
+  if (!token) redirect("/login")
+  const session = await evaluatePersistedSessionFromRequest(new Request(
+    "http://sangfor.local/dashboard",
+    { headers: { cookie: `session=${encodeURIComponent(token)}` } },
+  ))
+  if (!session.ok) redirect("/login")
+  const ctx = await resolveOpportunityAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  })
+  const atRiskDeals = await loadAtRiskDeals(ctx)
 
   return (
     <DashboardAiShell

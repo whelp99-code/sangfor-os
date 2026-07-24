@@ -1,11 +1,23 @@
-import { prisma as realPrisma } from "@sangfor/db";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+
+import {
+  hasCapability,
+  isActiveProjectAssignment,
+  resolveActiveCompanyRole,
+  resolveCapabilities,
+  type AuthContext,
+  type BusinessPermission,
+} from "@sangfor/auth";
+import {
+  canonicalizeRfc8785,
+  withRlsTransaction,
+  type Prisma,
+} from "@sangfor/db";
 import { z } from "zod";
 
-import { logStateTransition } from "../governance/audit";
-import { recordDecision } from "../governance/ai-decision";
-import { caseRefFor } from "../infrastructure/case-ref";
-import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
-import { formatDealCode } from "./deal-code";
+import { appendAuditEvent } from "../governance/audit-db";
+import { deriveChainScopeKey, type AuditChainScope } from "../governance/audit-chain";
+import { CrmServiceError } from "./customer-partner";
 import {
   CANONICAL_STAGES,
   normalizeOpportunityStage,
@@ -14,458 +26,1086 @@ import {
   validateRegistrationGate,
 } from "./opportunity-stage";
 
-/**
- * Structural prisma type covering only the methods used by the list/create/
- * stage-transition paths below (mirrors domain-persistence.ts:38's
- * `PersistencePrisma` DI seam — real PrismaClient and test fakes both satisfy
- * this shape). Test-only injection point; production callers always default
- * to the real client.
- */
-export interface OpportunityCenterPrisma {
-  project: { findUniqueOrThrow: (args: { where: { slug: string } }) => Promise<{ id: string }> };
-  opportunity: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    findMany: (args: any) => Promise<any[]>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    findUniqueOrThrow: (args: any) => Promise<any>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    create: (args: any) => Promise<any>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    update: (args: any) => Promise<any>;
-    updateMany: (args: {
-      where: { id: string; updatedAt: Date };
-      data: Record<string, unknown>;
-    }) => Promise<{ count: number }>;
-  };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  opportunityStageEvent: { create: (args: any) => Promise<any> };
-  $queryRaw: <T = unknown>(strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>;
-  $transaction: <T>(fn: (tx: OpportunityCenterPrisma) => Promise<T>) => Promise<T>;
-}
-
-export interface OpportunityCenterDeps {
-  prisma?: OpportunityCenterPrisma;
-}
-
-const stageInput = z
-  .enum([
-    "LEAD",
-    "QUALIFIED",
-    "PROPOSAL",
-    "POC",
-    "NEGOTIATION",
-    "WON",
-    "LOST",
-    "lead",
-    "qualified",
-    "proposal",
-    "poc",
-    "negotiation",
-    "won",
-    "lost",
-    "discovery",
-    "qualification",
-  ])
-  .transform(normalizeOpportunityStage);
+type ScopedTransaction = Prisma.TransactionClient;
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
+const boundedText = (minimum: number, maximum: number) =>
+  z.string().trim().min(minimum).max(maximum).refine((value) => !CONTROL_CHARACTERS.test(value), {
+    message: "control_characters_not_allowed",
+  });
+const nullableText = (maximum: number) =>
+  z.preprocess(
+    (value) => value === "" ? null : value,
+    z.string().trim().max(maximum).nullable().optional(),
+  );
+const idempotencyKeySchema = boundedText(1, 128);
+const expectedUpdatedAtSchema = z.string().datetime({ offset: true });
+const canonicalStageSchema = z.enum([
+  "LEAD",
+  "QUALIFIED",
+  "PROPOSAL",
+  "POC",
+  "NEGOTIATION",
+  "WON",
+  "LOST",
+]);
 
 export const createOpportunitySchema = z.object({
-  projectSlug: z.string().optional(),
-  title: z.string().min(2),
-  customerId: z.string().optional(),
-  partnerId: z.string().optional(),
-  stage: stageInput.default("LEAD"),
-  amount: z.number().optional(),
-  probability: z.number().min(0).max(100).default(20),
-  closeDate: z.string().datetime().optional(),
-  nextAction: z.string().optional(),
+  title: boundedText(2, 300),
+  customerId: boundedText(1, 200).optional(),
+  partnerId: boundedText(1, 200).optional(),
+  amount: z.number().finite().nonnegative().optional(),
+  probability: z.number().int().min(0).max(100).default(20),
+  closeDate: z.string().datetime({ offset: true }).optional(),
+  nextAction: nullableText(2_000),
+  dealType: boundedText(1, 100).optional(),
+}).strict();
+
+export const createOpportunityCommandSchema = createOpportunitySchema.extend({
+  idempotencyKey: idempotencyKeySchema,
+}).strict();
+
+export const updateOpportunityChangesSchema = z.object({
+  title: boundedText(2, 300).optional(),
+  stage: canonicalStageSchema.optional(),
+  amount: z.number().finite().nonnegative().nullable().optional(),
+  probability: z.number().int().min(0).max(100).optional(),
+  closeDate: z.string().datetime({ offset: true }).nullable().optional(),
+  nextAction: nullableText(2_000),
+  partnerId: boundedText(1, 200).nullable().optional(),
+  customerId: boundedText(1, 200).nullable().optional(),
+  dealStatus: z.enum(["OPEN", "WON", "LOST", "ON_HOLD", "DISQUALIFIED"]).optional(),
+  dealType: boundedText(1, 100).optional(),
+  lostReason: nullableText(2_000),
+}).strict().refine((changes) => Object.keys(changes).length > 0, {
+  message: "opportunity_changes_required",
 });
 
 export const updateOpportunitySchema = z.object({
-  expectedUpdatedAt: z.string().datetime().optional(),
-  title: z.string().min(2).optional(),
-  stage: stageInput.optional(),
-  amount: z.number().optional(),
-  // probability: manual forecast field — intentionally writable by the user (not auto-computed).
-  probability: z.number().min(0).max(100).optional(),
-  closeDate: z.string().datetime().nullable().optional(),
-  nextAction: z.string().nullable().optional(),
-  partnerId: z.string().nullable().optional(),
-  customerId: z.string().nullable().optional(),
-  dealStatus: z.enum(["OPEN", "WON", "LOST", "ON_HOLD", "DISQUALIFIED"]).optional(),
-  dealType: z.string().optional(),
-  lostReason: z.string().nullable().optional(),
-  ownerId: z.string().nullable().optional(),
-});
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+  changes: updateOpportunityChangesSchema,
+  idempotencyKey: idempotencyKeySchema,
+}).strict();
 
-async function updateOpportunityRevision(
-  db: OpportunityCenterPrisma,
-  id: string,
-  data: Record<string, unknown>,
-  expectedUpdatedAt?: string,
-) {
-  if (!expectedUpdatedAt) {
-    return db.opportunity.update({ where: { id }, data });
-  }
+export const opportunityOwnerAssignmentSchema = z.object({
+  ownerAssignmentId: boundedText(1, 200),
+  expectedOwnershipRevision: z.number().int().nonnegative(),
+  idempotencyKey: idempotencyKeySchema,
+}).strict();
 
-  const result = await db.opportunity.updateMany({
-    where: { id, updatedAt: new Date(expectedUpdatedAt) },
-    data,
-  });
-  if (result.count !== 1) {
-    throw new Error("opportunity_conflict");
-  }
-  return db.opportunity.findUniqueOrThrow({ where: { id } });
-}
+export const opportunityArchiveSchema = z.object({
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+  idempotencyKey: idempotencyKeySchema,
+}).strict();
+
+export const opportunityAdvanceSchema = z.object({
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+  idempotencyKey: idempotencyKeySchema,
+}).strict();
+
+export const opportunityConversionCommandSchema = z.object({
+  opportunityId: boundedText(1, 200),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+  idempotencyKey: idempotencyKeySchema,
+}).strict();
 
 export const addOpportunityLinkSchema = z.object({
   entityType: z.enum(["poc", "proposal", "partner", "customer"]),
-  entityId: z.string().min(1),
-  linkType: z.string().default("related"),
-});
+  entityId: boundedText(1, 200),
+  linkType: boundedText(1, 100).default("related"),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+  idempotencyKey: idempotencyKeySchema,
+}).strict();
 
-async function resolveProjectId(slug: string, db: OpportunityCenterPrisma) {
-  const project = await db.project.findUniqueOrThrow({ where: { slug } });
-  return project.id;
+export const removeOpportunityLinkSchema = z.object({
+  linkId: boundedText(1, 200),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+  idempotencyKey: idempotencyKeySchema,
+}).strict();
+
+export const opportunityListQuerySchema = z.object({
+  first: z.coerce.number().int().min(1).max(100).default(50),
+  cursor: boundedText(1, 4096).optional(),
+  ownerAssignmentId: boundedText(1, 200).optional(),
+  stage: canonicalStageSchema.optional(),
+  search: boundedText(1, 200).optional(),
+}).strict();
+
+export type OpportunityListQuery = z.input<typeof opportunityListQuerySchema>;
+export type CreateOpportunityCommand = z.input<typeof createOpportunityCommandSchema>;
+export type UpdateOpportunityCommand = z.input<typeof updateOpportunitySchema>;
+export type OpportunityOwnerAssignmentCommand = z.input<typeof opportunityOwnerAssignmentSchema>;
+export type OpportunityArchiveCommand = z.input<typeof opportunityArchiveSchema>;
+export type OpportunityAdvanceCommand = z.input<typeof opportunityAdvanceSchema>;
+export type OpportunityConversionCommand = z.input<typeof opportunityConversionCommandSchema>;
+
+export interface ScopedOpportunityForConversion {
+  id: string;
+  projectId: string;
+  customerId: string | null;
+  title: string;
+  stage: string;
+  updatedAt: Date;
 }
 
-export async function createOpportunity(
-  input: z.input<typeof createOpportunitySchema>,
-  deps: OpportunityCenterDeps = {},
-) {
-  const db = deps.prisma ?? (realPrisma as unknown as OpportunityCenterPrisma);
-  const parsed = createOpportunitySchema.parse(input);
-  const projectId = await resolveProjectId(parsed.projectSlug ?? (await resolveDefaultProjectSlug()), db);
+export type OpportunityConversionMaterializer<T extends Record<string, unknown>> = (
+  tx: ScopedTransaction,
+  opportunity: ScopedOpportunityForConversion,
+) => Promise<T>;
 
-  const opp = await db.$transaction(async (tx) => {
-    const rows = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('opp_code_seq')`;
-    const seq = Number(rows[0].nextval);
-    const code = formatDealCode(new Date().getFullYear(), seq);
-
-    const created = await tx.opportunity.create({
-      data: {
-        projectId,
-        title: parsed.title,
-        customerId: parsed.customerId,
-        partnerId: parsed.partnerId,
-        stage: parsed.stage,
-        amount: parsed.amount,
-        probability: parsed.probability,
-        closeDate: parsed.closeDate ? new Date(parsed.closeDate) : undefined,
-        nextAction: parsed.nextAction,
-        code,
-      },
-    });
-
-    await tx.opportunityStageEvent.create({
-      data: {
-        opportunityId: created.id,
-        toStage: parsed.stage,
-        note: "Opportunity created",
-      },
-    });
-
-    return created;
-  });
-
-  // Best-effort audit log — intentionally outside the transaction.
-  await logStateTransition({
-    entityType: "opportunity",
-    entityId: opp.id,
-    fromStatus: null,
-    toStatus: parsed.stage,
-    actorType: "user",
-  });
-
-  return opp;
+function parseCommand<T>(schema: z.ZodType<T>, input: unknown): T {
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) {
+    throw new CrmServiceError("VALIDATION_ERROR", 422, "invalid_opportunity_command");
+  }
+  return parsed.data;
 }
 
-export async function listOpportunities(
-  projectSlug?: string,
-  deps: OpportunityCenterDeps = {},
-) {
-  const db = deps.prisma ?? (realPrisma as unknown as OpportunityCenterPrisma);
-  const projectId = await resolveProjectId(projectSlug ?? (await resolveDefaultProjectSlug()), db);
-  return db.opportunity.findMany({
-    where: { projectId, archivedAt: null },
-    orderBy: { updatedAt: "desc" },
-    include: {
-      customer: true,
-      partner: true,
-      links: true,
-      dealRegistration: true,
+interface PersistedActorAssignment {
+  id: string;
+  userId: string;
+  companyId: string;
+  role: string;
+  status: string | null;
+  validFrom: Date | null;
+  expiresAt: Date | null;
+  revokedAt: Date | null;
+}
+
+export interface VerifiedOpportunityIdentity {
+  userId: string;
+  sessionId: string | null;
+  tenantId: string;
+  companyId: string;
+  projectId: string;
+  product?: string;
+}
+
+async function resolveActor(
+  tx: ScopedTransaction,
+  ctx: AuthContext | VerifiedOpportunityIdentity,
+  permission: BusinessPermission,
+): Promise<PersistedActorAssignment> {
+  const now = new Date();
+  const [assignments, projectAssignment] = await Promise.all([
+    tx.userCompanyRole.findMany({
+      where: { userId: ctx.userId, companyId: ctx.companyId },
+      select: {
+        id: true,
+        userId: true,
+        companyId: true,
+        role: true,
+        status: true,
+        validFrom: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    }),
+    tx.projectMember.findFirst({
+      where: { userId: ctx.userId, projectId: ctx.projectId },
+      select: {
+        id: true,
+        userId: true,
+        projectId: true,
+        status: true,
+        validFrom: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    }),
+  ]);
+  const resolved = resolveActiveCompanyRole(assignments, now);
+  if (!resolved.ok || !isActiveProjectAssignment(projectAssignment, now)) {
+    throw new CrmServiceError("FORBIDDEN", 403, "opportunity_assignment_denied");
+  }
+  if (!hasCapability(resolved.role, permission)) {
+    throw new CrmServiceError("FORBIDDEN", 403, `crm_capability_denied:${permission}`);
+  }
+  return resolved.assignment as PersistedActorAssignment;
+}
+
+export async function resolveOpportunityAuthContext(
+  identity: VerifiedOpportunityIdentity,
+): Promise<AuthContext> {
+  return withRlsTransaction(identity, async (tx) => {
+    const actor = await resolveActor(tx, identity, "opportunity.read");
+    const resolved = resolveActiveCompanyRole([actor], new Date());
+    if (!resolved.ok) {
+      throw new CrmServiceError("FORBIDDEN", 403, "opportunity_assignment_denied");
+    }
+    return {
+      ...identity,
+      businessRole: resolved.role,
+      permissions: resolveCapabilities(resolved.role),
+    };
+  });
+}
+
+async function validateTargetOwner(
+  tx: ScopedTransaction,
+  ctx: AuthContext,
+  ownerAssignmentId: string,
+): Promise<PersistedActorAssignment> {
+  const target = await tx.userCompanyRole.findFirst({
+    where: { id: ownerAssignmentId, companyId: ctx.companyId },
+    select: {
+      id: true,
+      userId: true,
+      companyId: true,
+      role: true,
+      status: true,
+      validFrom: true,
+      expiresAt: true,
+      revokedAt: true,
     },
   });
-}
-
-export async function getOpportunityDetail(id: string) {
-  return realPrisma.opportunity.findUnique({
-    where: { id },
-    include: {
-      customer: true,
-      partner: true,
-      distributor: true,
-      links: { orderBy: { createdAt: "desc" } },
-      stageEvents: { orderBy: { createdAt: "desc" } },
-      qualification: { include: { economicBuyer: true, champion: true } },
-      dealRegistration: { include: { distributor: true } },
+  if (!target) throw new CrmServiceError("FORBIDDEN", 403, "opportunity_owner_denied");
+  const resolved = resolveActiveCompanyRole([target], new Date());
+  if (!resolved.ok || !hasCapability(resolved.role, "opportunity.write")) {
+    throw new CrmServiceError("FORBIDDEN", 403, "opportunity_owner_denied");
+  }
+  const membership = await tx.projectMember.findFirst({
+    where: { userId: target.userId, projectId: ctx.projectId },
+    select: {
+      id: true,
+      userId: true,
+      projectId: true,
+      status: true,
+      validFrom: true,
+      expiresAt: true,
+      revokedAt: true,
     },
   });
+  if (!isActiveProjectAssignment(membership, new Date())) {
+    throw new CrmServiceError("FORBIDDEN", 403, "opportunity_owner_project_denied");
+  }
+  return target as PersistedActorAssignment;
+}
+
+function auditScope(ctx: AuthContext): AuditChainScope {
+  return {
+    tenantId: ctx.tenantId,
+    companyId: ctx.companyId,
+    projectId: ctx.projectId,
+    level: "PROJECT",
+  };
+}
+
+function inputHash(
+  contract: string,
+  ctx: AuthContext,
+  actorAssignmentId: string,
+  command: unknown,
+): string {
+  return createHash("sha256").update(canonicalizeRfc8785({
+    actorAssignmentId,
+    command,
+    contract,
+    scope: {
+      tenantId: ctx.tenantId,
+      companyId: ctx.companyId,
+      projectId: ctx.projectId,
+    },
+  })).digest("hex");
+}
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+async function lockAuditChain(tx: ScopedTransaction, scope: AuditChainScope): Promise<void> {
+  const scopeKey = deriveChainScopeKey(scope);
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${scopeKey}, 0))`;
+}
+
+async function replay<T>(
+  tx: ScopedTransaction,
+  scope: AuditChainScope,
+  idempotencyKey: string,
+  contract: string,
+  hash: string,
+): Promise<T | null> {
+  const row = await tx.auditLog.findFirst({
+    where: { chainScopeKey: deriveChainScopeKey(scope), idempotencyKey },
+    select: { details: true },
+  });
+  if (!row) return null;
+  const details = asObject(row.details);
+  if (details?.contract !== contract || details.inputHash !== hash || !details.result) {
+    throw new CrmServiceError("CONFLICT", 409, "idempotency_key_reused");
+  }
+  return details.result as T;
+}
+
+function receiptResult<T>(value: T): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+}
+
+interface OpportunityCursorFilter {
+  ownerAssignmentId: string | null;
+  archived: false;
+  stage?: string | null;
+  search?: string | null;
+}
+
+interface OpportunityCursorPayload {
+  version: 1;
+  kind: "opportunity";
+  projectId: string;
+  filterHash: string;
+  updatedAt: string;
+  id: string;
+}
+
+function cursorSecret(): Buffer {
+  const explicit = process.env.CRM_CURSOR_SECRET;
+  if (explicit && Buffer.byteLength(explicit) >= 32) return Buffer.from(explicit);
+  try {
+    const activeKid = process.env.USER_JWT_ACTIVE_KID;
+    const parsed = JSON.parse(process.env.USER_JWT_KEYRING_JSON ?? "") as {
+      keys?: Array<{ kid?: string; secretBase64Url?: string }>;
+    };
+    const entry = parsed.keys?.find((candidate) => candidate.kid === activeKid);
+    const secret = entry?.secretBase64Url ? Buffer.from(entry.secretBase64Url, "base64url") : null;
+    if (secret && secret.length >= 32) {
+      return createHmac("sha256", secret).update("sangfor.crm.opportunity-cursor/v1").digest();
+    }
+  } catch {
+    // Return the stable, non-secret configuration error below.
+  }
+  throw new CrmServiceError("CONFIGURATION_ERROR", 503, "crm_cursor_signing_key_unavailable");
+}
+
+function filterHash(filter: OpportunityCursorFilter): string {
+  return createHash("sha256").update(canonicalizeRfc8785(filter)).digest("hex");
+}
+
+function encodeCursor(
+  boundary: { updatedAt: Date; id: string },
+  projectId: string,
+  filter: OpportunityCursorFilter,
+): string {
+  const body = Buffer.from(canonicalizeRfc8785({
+    version: 1,
+    kind: "opportunity",
+    projectId,
+    filterHash: filterHash(filter),
+    updatedAt: boundary.updatedAt.toISOString(),
+    id: boundary.id,
+  } satisfies OpportunityCursorPayload), "utf8").toString("base64url");
+  const signature = createHmac("sha256", cursorSecret()).update(body).digest("base64url");
+  return `${body}.${signature}`;
+}
+
+function decodeCursor(
+  cursor: string,
+  projectId: string,
+  filter: OpportunityCursorFilter,
+): { updatedAt: Date; id: string } {
+  const [body, signature, extra] = cursor.split(".");
+  if (!body || !signature || extra) {
+    throw new CrmServiceError("VALIDATION_ERROR", 422, "invalid_opportunity_cursor");
+  }
+  if (
+    Buffer.from(body, "base64url").toString("base64url") !== body
+    || Buffer.from(signature, "base64url").toString("base64url") !== signature
+  ) {
+    throw new CrmServiceError("VALIDATION_ERROR", 422, "invalid_opportunity_cursor");
+  }
+  const expected = createHmac("sha256", cursorSecret()).update(body).digest();
+  const supplied = Buffer.from(signature, "base64url");
+  if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) {
+    throw new CrmServiceError("VALIDATION_ERROR", 422, "invalid_opportunity_cursor");
+  }
+  try {
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as OpportunityCursorPayload;
+    const updatedAt = new Date(payload.updatedAt);
+    if (
+      payload.version !== 1
+      || payload.kind !== "opportunity"
+      || payload.projectId !== projectId
+      || payload.filterHash !== filterHash(filter)
+      || typeof payload.id !== "string"
+      || Number.isNaN(updatedAt.getTime())
+    ) {
+      throw new Error("cursor_contract_mismatch");
+    }
+    return { updatedAt, id: payload.id };
+  } catch {
+    throw new CrmServiceError("VALIDATION_ERROR", 422, "invalid_opportunity_cursor");
+  }
+}
+
+function whereAfter(boundary: { updatedAt: Date; id: string }) {
+  return {
+    OR: [
+      { updatedAt: { lt: boundary.updatedAt } },
+      { updatedAt: boundary.updatedAt, id: { lt: boundary.id } },
+    ],
+  };
+}
+
+function pageSize(value: number | undefined): number {
+  if (value === undefined) return 50;
+  if (!Number.isInteger(value) || value <= 0) throw new Error("page size must be positive");
+  if (value > 100) throw new Error("page size must not exceed 100");
+  return value;
+}
+
+export const __opportunityCursor = {
+  encode: encodeCursor,
+  decode: decodeCursor,
+  whereAfter,
+  pageSize,
+};
+
+export async function withScopedOpportunityRead<T>(
+  ctx: AuthContext,
+  callback: (tx: ScopedTransaction) => Promise<T>,
+): Promise<T> {
+  return withRlsTransaction(ctx, async (tx) => {
+    await resolveActor(tx, ctx, "opportunity.read");
+    return callback(tx);
+  });
+}
+
+export async function listOpportunities(ctx: AuthContext, rawQuery: OpportunityListQuery = {}) {
+  const query = opportunityListQuerySchema.parse(rawQuery);
+  const filter: OpportunityCursorFilter = {
+    ownerAssignmentId: query.ownerAssignmentId ?? null,
+    archived: false,
+    stage: query.stage ?? null,
+    search: query.search ?? null,
+  };
+  const boundary = query.cursor ? decodeCursor(query.cursor, ctx.projectId, filter) : null;
+  return withRlsTransaction(ctx, async (tx) => {
+    await resolveActor(tx, ctx, "opportunity.read");
+    const rows = await tx.opportunity.findMany({
+      where: {
+        projectId: ctx.projectId,
+        archivedAt: null,
+        ...(query.ownerAssignmentId ? { ownerAssignmentId: query.ownerAssignmentId } : {}),
+        ...(query.stage ? { stage: query.stage } : {}),
+        ...(query.search ? { title: { contains: query.search, mode: "insensitive" } } : {}),
+        ...(boundary ? { AND: [whereAfter(boundary)] } : {}),
+      },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      take: query.first + 1,
+      include: {
+        customer: true,
+        partner: true,
+        ownerAssignment: {
+          select: { id: true, userId: true, role: true, status: true },
+        },
+        links: true,
+        dealRegistration: true,
+      },
+    });
+    const items = rows.slice(0, query.first);
+    const last = rows.length > query.first ? items.at(-1) : null;
+    return {
+      items,
+      nextCursor: last ? encodeCursor(last, ctx.projectId, filter) : null,
+    };
+  });
+}
+
+export async function getOpportunityDetail(ctx: AuthContext, id: string) {
+  return withRlsTransaction(ctx, async (tx) => {
+    await resolveActor(tx, ctx, "opportunity.read");
+    return tx.opportunity.findFirst({
+      where: { id, projectId: ctx.projectId, archivedAt: null },
+      include: {
+        customer: true,
+        partner: true,
+        distributor: true,
+        ownerAssignment: {
+          select: { id: true, userId: true, role: true, status: true },
+        },
+        links: { orderBy: { createdAt: "desc" } },
+        stageEvents: { orderBy: { createdAt: "desc" } },
+        qualification: { include: { economicBuyer: true, champion: true } },
+        dealRegistration: { include: { distributor: true } },
+      },
+    });
+  });
+}
+
+export async function listEligibleOpportunityOwners(ctx: AuthContext) {
+  return withRlsTransaction(ctx, async (tx) => {
+    await resolveActor(tx, ctx, "opportunity.read");
+    const assignments = await tx.userCompanyRole.findMany({
+      where: { companyId: ctx.companyId },
+      select: {
+        id: true,
+        userId: true,
+        companyId: true,
+        role: true,
+        status: true,
+        validFrom: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+      orderBy: [{ role: "asc" }, { id: "asc" }],
+    });
+    const now = new Date();
+    const eligible: Array<{ id: string; userId: string; role: string }> = [];
+    for (const assignment of assignments) {
+      const resolved = resolveActiveCompanyRole([assignment], now);
+      if (!resolved.ok || !hasCapability(resolved.role, "opportunity.write")) continue;
+      const membership = await tx.projectMember.findFirst({
+        where: { userId: assignment.userId, projectId: ctx.projectId },
+        select: {
+          id: true,
+          userId: true,
+          projectId: true,
+          status: true,
+          validFrom: true,
+          expiresAt: true,
+          revokedAt: true,
+        },
+      });
+      if (!isActiveProjectAssignment(membership, now)) continue;
+      eligible.push({ id: assignment.id, userId: assignment.userId, role: assignment.role });
+    }
+    return eligible;
+  });
+}
+
+async function validateRelatedScope(
+  tx: ScopedTransaction,
+  ctx: AuthContext,
+  input: { customerId?: string | null; partnerId?: string | null },
+): Promise<void> {
+  if (input.customerId) {
+    const customer = await tx.customer.findFirst({
+      where: { id: input.customerId, projectId: ctx.projectId, archivedAt: null },
+      select: { id: true },
+    });
+    if (!customer) throw new CrmServiceError("NOT_FOUND", 404, "customer_not_found");
+  }
+  if (input.partnerId) {
+    const partner = await tx.partner.findFirst({
+      where: { id: input.partnerId, projectId: ctx.projectId, status: { not: "archived" } },
+      select: { id: true },
+    });
+    if (!partner) throw new CrmServiceError("NOT_FOUND", 404, "partner_not_found");
+  }
+}
+
+export async function createOpportunity(ctx: AuthContext, rawCommand: CreateOpportunityCommand) {
+  return withRlsTransaction(ctx, (tx) =>
+    createOpportunityInScopedTransaction(tx, ctx, rawCommand));
+}
+
+/** @internal Transaction-aware entrypoint for the U043 mail conversion coordinator. */
+export async function createOpportunityInScopedTransaction(
+  tx: ScopedTransaction,
+  ctx: AuthContext,
+  rawCommand: CreateOpportunityCommand,
+) {
+  const command = createOpportunityCommandSchema.parse(rawCommand);
+  const actor = await resolveActor(tx, ctx, "opportunity.write");
+  const scope = auditScope(ctx);
+  const contract = "sangfor.crm.opportunity.create/v1";
+  const key = `opportunity.create:${command.idempotencyKey}`;
+  const normalized = {
+    title: command.title,
+    customerId: command.customerId ?? null,
+    partnerId: command.partnerId ?? null,
+    amount: command.amount ?? null,
+    probability: command.probability,
+    closeDate: command.closeDate ?? null,
+    nextAction: command.nextAction ?? null,
+    dealType: command.dealType ?? null,
+  };
+  const hash = inputHash(contract, ctx, actor.id, normalized);
+  await lockAuditChain(tx, scope);
+  const prior = await replay<Record<string, unknown>>(tx, scope, key, contract, hash);
+  if (prior) return prior;
+  await validateRelatedScope(tx, ctx, command);
+  const opportunity = await tx.opportunity.create({
+    data: {
+      projectId: ctx.projectId,
+      title: command.title,
+      customerId: command.customerId,
+      partnerId: command.partnerId,
+      stage: "LEAD",
+      amount: command.amount,
+      probability: command.probability,
+      closeDate: command.closeDate ? new Date(command.closeDate) : undefined,
+      nextAction: command.nextAction,
+      dealType: command.dealType,
+      ownerAssignmentId: actor.id,
+    },
+  });
+  await tx.opportunityStageEvent.create({
+    data: { opportunityId: opportunity.id, toStage: "LEAD", note: "Opportunity created" },
+  });
+  const result = receiptResult(opportunity);
+  await appendAuditEvent(tx, {
+    scope,
+    eventType: "opportunity.created",
+    actorId: actor.id,
+    resourceType: "opportunity",
+    resourceId: opportunity.id,
+    idempotencyKey: key,
+    details: { contract, inputHash: hash, actorAssignmentId: actor.id, result },
+  });
+  return opportunity;
+}
+
+function canonicalMailOpportunityKey(value: string): string {
+  return value.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** @internal Project-local canonical merge used only by the U043 mail conversion coordinator. */
+export async function mergeMailDerivedOpportunityInScopedTransaction(
+  tx: ScopedTransaction,
+  ctx: AuthContext,
+  input: {
+    title: string;
+    probability: number;
+    nextAction?: string | null;
+    idempotencyKey: string;
+  },
+) {
+  await resolveActor(tx, ctx, "opportunity.write");
+  const key = canonicalMailOpportunityKey(input.title);
+  const scoped = await tx.opportunity.findMany({
+    where: { projectId: ctx.projectId, archivedAt: null },
+    select: {
+      id: true,
+      projectId: true,
+      title: true,
+      stage: true,
+      customerId: true,
+      partnerId: true,
+      amount: true,
+      probability: true,
+      closeDate: true,
+      nextAction: true,
+      ownerAssignmentId: true,
+      ownershipRevision: true,
+      updatedAt: true,
+      createdAt: true,
+      archivedAt: true,
+    },
+  });
+  const existing = scoped.find(
+    (opportunity) => canonicalMailOpportunityKey(opportunity.title) === key,
+  );
+  if (existing) return { entity: existing, created: false };
+  const entity = await createOpportunityInScopedTransaction(tx, ctx, {
+    title: input.title,
+    probability: input.probability,
+    nextAction: input.nextAction ?? null,
+    idempotencyKey: input.idempotencyKey,
+  });
+  return { entity, created: true };
 }
 
 export async function updateOpportunity(
+  ctx: AuthContext,
   id: string,
-  input: z.input<typeof updateOpportunitySchema>,
-  deps: OpportunityCenterDeps = {},
+  rawCommand: UpdateOpportunityCommand,
 ) {
-  const db = deps.prisma ?? (realPrisma as unknown as OpportunityCenterPrisma);
-  const parsed = updateOpportunitySchema.parse(input);
-  const existing = await db.opportunity.findUniqueOrThrow({
-    where: { id },
-    include: { dealRegistration: { select: { regStatus: true } } },
-  });
-  if (
-    parsed.expectedUpdatedAt &&
-    new Date(parsed.expectedUpdatedAt).getTime() !== new Date(existing.updatedAt).getTime()
-  ) {
-    throw new Error("opportunity_conflict");
-  }
-
-  const data: Record<string, unknown> = {};
-  if (parsed.title !== undefined) data.title = parsed.title;
-  if (parsed.amount !== undefined) data.amount = parsed.amount;
-  if (parsed.probability !== undefined) data.probability = parsed.probability;
-  if (parsed.closeDate !== undefined) {
-    data.closeDate = parsed.closeDate ? new Date(parsed.closeDate) : null;
-  }
-  if (parsed.nextAction !== undefined) data.nextAction = parsed.nextAction;
-  if (parsed.partnerId !== undefined) data.partnerId = parsed.partnerId;
-  if (parsed.customerId !== undefined) data.customerId = parsed.customerId;
-  if (parsed.dealStatus !== undefined) data.dealStatus = parsed.dealStatus;
-  if (parsed.dealType !== undefined) data.dealType = parsed.dealType;
-  if (parsed.lostReason !== undefined) data.lostReason = parsed.lostReason;
-  if (parsed.ownerId !== undefined) data.ownerId = parsed.ownerId;
-
-  if (parsed.stage !== undefined && parsed.stage !== existing.stage) {
-    const newStage = parsed.stage;
-
-    // Enforce canonical stage ordering: reject illegal skips/regressions
-    // (e.g. WON → LEAD) before persisting. The route surfaces this as a 400.
-    const order = validateOpportunityStageOrder(existing.stage, newStage);
-    if (!order.allowed) {
-      throw new Error(`illegal_stage_transition:${order.reason}`);
-    }
-
-    // Deal-registration advance gate: for registration-required deal types,
-    // block forward entry into the late stages (NEGOTIATION/WON) while the
-    // registration is NOT_SUBMITTED or REJECTED. The dealType being set in
-    // this same PATCH takes precedence over the stored value.
-    const effectiveDealType = parsed.dealType ?? existing.dealType;
-    const gate = validateRegistrationGate({
-      from: existing.stage,
-      to: newStage,
-      dealType: effectiveDealType,
-      regStatus: existing.dealRegistration?.regStatus ?? null,
+  const command = updateOpportunitySchema.parse(rawCommand);
+  return withRlsTransaction(ctx, async (tx) => {
+    const actor = await resolveActor(tx, ctx, "opportunity.write");
+    const scope = auditScope(ctx);
+    const contract = "sangfor.crm.opportunity.update/v1";
+    const key = `opportunity.update:${command.idempotencyKey}`;
+    const normalized = { opportunityId: id, ...command };
+    const hash = inputHash(contract, ctx, actor.id, normalized);
+    await lockAuditChain(tx, scope);
+    const prior = await replay<Record<string, unknown>>(tx, scope, key, contract, hash);
+    if (prior) return prior;
+    const existing = await tx.opportunity.findFirst({
+      where: { id, projectId: ctx.projectId, archivedAt: null },
+      include: { dealRegistration: { select: { regStatus: true } } },
     });
-    if (!gate.allowed) {
-      throw new Error(`registration_gate:${gate.reason}`);
-    }
+    if (!existing) throw new CrmServiceError("NOT_FOUND", 404, "opportunity_not_found");
+    await validateRelatedScope(tx, ctx, command.changes);
 
-    data.stage = newStage;
-    const updated = await db.$transaction(async (tx) => {
-      const result = await updateOpportunityRevision(
-        tx,
+    const changes = { ...command.changes } as Record<string, unknown>;
+    if (command.changes.closeDate !== undefined) {
+      changes.closeDate = command.changes.closeDate ? new Date(command.changes.closeDate) : null;
+    }
+    if (command.changes.stage && command.changes.stage !== existing.stage) {
+      const order = validateOpportunityStageOrder(existing.stage, command.changes.stage);
+      if (!order.allowed) {
+        throw new CrmServiceError("CONFLICT", 409, `illegal_stage_transition:${order.reason}`);
+      }
+      const gate = validateRegistrationGate({
+        from: existing.stage,
+        to: command.changes.stage,
+        dealType: command.changes.dealType ?? existing.dealType,
+        regStatus: existing.dealRegistration?.regStatus ?? null,
+      });
+      if (!gate.allowed) {
+        throw new CrmServiceError("CONFLICT", 409, `registration_gate:${gate.reason}`);
+      }
+    }
+    const changed = await tx.opportunity.updateMany({
+      where: {
         id,
-        data,
-        parsed.expectedUpdatedAt,
-      );
+        projectId: ctx.projectId,
+        archivedAt: null,
+        updatedAt: new Date(command.expectedUpdatedAt),
+      },
+      data: changes,
+    });
+    if (changed.count !== 1) {
+      throw new CrmServiceError("CONFLICT", 409, "opportunity_version_conflict");
+    }
+    if (command.changes.stage && command.changes.stage !== existing.stage) {
       await tx.opportunityStageEvent.create({
         data: {
           opportunityId: id,
           fromStage: normalizeOpportunityStage(existing.stage),
-          toStage: newStage,
+          toStage: command.changes.stage,
           note: "Stage updated",
         },
       });
-      return result;
-    });
-
-    // Best-effort audit log — intentionally outside the transaction.
-    await logStateTransition({
-      entityType: "opportunity",
-      entityId: id,
-      fromStatus: existing.stage,
-      toStatus: newStage,
-      actorType: "user",
-    });
-
-    // S1: unified decision instrumentation (best-effort, outside txn, never throws).
-    await recordDecision({
-      projectId: existing.projectId,
-      domain: "sales",
-      actor: "sales",
-      actionType: "stage_transition",
-      caseRef: "opp:" + id,
-      outcome: "approved",
-    });
-
-    // If non-stage fields were also edited in this same call, capture them
-    // separately so they don't vanish from the decision spine.
-    const nonStageFields = Object.fromEntries(
-      Object.entries(data).filter(([k]) => k !== "stage"),
-    );
-    if (Object.keys(nonStageFields).length > 0) {
-      await recordDecision({
-        projectId: existing.projectId,
-        domain: "sales",
-        actor: "human",
-        actionType: "entity_edit",
-        caseRef: caseRefFor("opportunity", id),
-        outcome: "corrected",
-        humanEdit: nonStageFields,
-      });
     }
-
-    return updated;
-  }
-
-  const updated = await updateOpportunityRevision(
-    db,
-    id,
-    data,
-    parsed.expectedUpdatedAt,
-  );
-
-  // S1: capture the human field-edit onto the decision spine (best-effort,
-  // outside txn, never throws). Pairs with a stage_transition on the same
-  // caseRef so { caseRef } returns the full AI-decision + human-edit history.
-  await recordDecision({
-    projectId: existing.projectId,
-    domain: "sales",
-    actor: "sales",
-    actionType: "entity_edit",
-    caseRef: caseRefFor("opportunity", id),
-    outcome: "corrected",
-    humanEdit: data,
+    const opportunity = await tx.opportunity.findFirst({
+      where: { id, projectId: ctx.projectId, archivedAt: null },
+    });
+    if (!opportunity) throw new CrmServiceError("CONFLICT", 409, "opportunity_version_conflict");
+    const result = receiptResult(opportunity);
+    await appendAuditEvent(tx, {
+      scope,
+      eventType: "opportunity.updated",
+      actorId: actor.id,
+      resourceType: "opportunity",
+      resourceId: id,
+      idempotencyKey: key,
+      details: {
+        contract,
+        inputHash: hash,
+        actorAssignmentId: actor.id,
+        previousStage: existing.stage,
+        result,
+      },
+    });
+    return opportunity;
   });
-
-  return updated;
 }
 
-export async function advanceOpportunityStage(id: string, expectedUpdatedAt?: string) {
-  const parsedExpectedUpdatedAt = expectedUpdatedAt
-    ? z.string().datetime().parse(expectedUpdatedAt)
-    : undefined;
-  const opp = await realPrisma.opportunity.findUniqueOrThrow({
-    where: { id },
-    include: { dealRegistration: { select: { regStatus: true } } },
+export async function assignOpportunityOwner(
+  ctx: AuthContext,
+  id: string,
+  rawCommand: OpportunityOwnerAssignmentCommand,
+) {
+  const command = opportunityOwnerAssignmentSchema.parse(rawCommand);
+  return withRlsTransaction(ctx, async (tx) => {
+    const actor = await resolveActor(tx, ctx, "opportunity.write");
+    const scope = auditScope(ctx);
+    const contract = "sangfor.crm.opportunity.owner-assignment/v1";
+    const key = `opportunity.owner:${command.idempotencyKey}`;
+    const normalized = { opportunityId: id, ...command };
+    const hash = inputHash(contract, ctx, actor.id, normalized);
+    await lockAuditChain(tx, scope);
+    const prior = await replay<Record<string, unknown>>(tx, scope, key, contract, hash);
+    if (prior) return prior;
+    await validateTargetOwner(tx, ctx, command.ownerAssignmentId);
+    const existing = await tx.opportunity.findFirst({
+      where: { id, projectId: ctx.projectId, archivedAt: null },
+      select: { id: true, ownerAssignmentId: true, ownershipRevision: true, ownerId: true },
+    });
+    if (!existing) throw new CrmServiceError("NOT_FOUND", 404, "opportunity_not_found");
+    if (existing.ownershipRevision !== command.expectedOwnershipRevision) {
+      throw new CrmServiceError("CONFLICT", 409, "opportunity_owner_conflict");
+    }
+    if (existing.ownerAssignmentId === command.ownerAssignmentId) {
+      throw new CrmServiceError("CONFLICT", 409, "opportunity_owner_unchanged");
+    }
+    const changed = await tx.opportunity.updateMany({
+      where: {
+        id,
+        projectId: ctx.projectId,
+        archivedAt: null,
+        ownerAssignmentId: existing.ownerAssignmentId,
+        ownershipRevision: command.expectedOwnershipRevision,
+      },
+      data: {
+        ownerAssignmentId: command.ownerAssignmentId,
+        ownershipRevision: { increment: 1 },
+      },
+    });
+    if (changed.count !== 1) {
+      throw new CrmServiceError("CONFLICT", 409, "opportunity_owner_conflict");
+    }
+    const opportunity = await tx.opportunity.findFirst({
+      where: { id, projectId: ctx.projectId, archivedAt: null },
+    });
+    if (!opportunity) throw new CrmServiceError("CONFLICT", 409, "opportunity_owner_conflict");
+    const result = receiptResult(opportunity);
+    await appendAuditEvent(tx, {
+      scope,
+      eventType: "opportunity.owner_assigned",
+      actorId: actor.id,
+      resourceType: "opportunity",
+      resourceId: id,
+      idempotencyKey: key,
+      details: {
+        contract,
+        inputHash: hash,
+        actorAssignmentId: actor.id,
+        previousOwnerAssignmentId: existing.ownerAssignmentId,
+        legacyOwnerId: existing.ownerId,
+        result,
+      },
+    });
+    return opportunity;
   });
-  if (
-    parsedExpectedUpdatedAt &&
-    new Date(parsedExpectedUpdatedAt).getTime() !== opp.updatedAt.getTime()
-  ) {
-    throw new Error("opportunity_conflict");
-  }
-  const fromStage = normalizeOpportunityStage(opp.stage);
-  const next = nextOpportunityStage(opp.stage);
-  if (!next) throw new Error("cannot_advance_stage");
+}
 
-  // Same registration advance gate as updateOpportunity.
-  const gate = validateRegistrationGate({
-    from: opp.stage,
-    to: next,
-    dealType: opp.dealType,
-    regStatus: opp.dealRegistration?.regStatus ?? null,
+export async function advanceOpportunityStage(
+  ctx: AuthContext,
+  id: string,
+  rawCommand: OpportunityAdvanceCommand,
+) {
+  const command = opportunityAdvanceSchema.parse(rawCommand);
+  const detail = await getOpportunityDetail(ctx, id);
+  if (!detail) throw new CrmServiceError("NOT_FOUND", 404, "opportunity_not_found");
+  const next = nextOpportunityStage(detail.stage);
+  if (!next) throw new CrmServiceError("CONFLICT", 409, "cannot_advance_stage");
+  return updateOpportunity(ctx, id, {
+    expectedUpdatedAt: command.expectedUpdatedAt,
+    changes: { stage: next },
+    idempotencyKey: command.idempotencyKey,
   });
-  if (!gate.allowed) {
-    throw new Error(`registration_gate:${gate.reason}`);
-  }
+}
 
-  const updated = await realPrisma.$transaction(async (tx) => {
-    const result = await updateOpportunityRevision(
-      tx as unknown as OpportunityCenterPrisma,
-      id,
-      { stage: next },
-      parsedExpectedUpdatedAt,
-    );
+export async function archiveOpportunity(
+  ctx: AuthContext,
+  id: string,
+  rawCommand: OpportunityArchiveCommand,
+) {
+  const command = opportunityArchiveSchema.parse(rawCommand);
+  return withRlsTransaction(ctx, async (tx) => {
+    const actor = await resolveActor(tx, ctx, "opportunity.write");
+    const scope = auditScope(ctx);
+    const contract = "sangfor.crm.opportunity.archive/v1";
+    const key = `opportunity.archive:${command.idempotencyKey}`;
+    const hash = inputHash(contract, ctx, actor.id, { opportunityId: id, ...command });
+    await lockAuditChain(tx, scope);
+    const prior = await replay<Record<string, unknown>>(tx, scope, key, contract, hash);
+    if (prior) return prior;
+    const archivedAt = new Date();
+    const changed = await tx.opportunity.updateMany({
+      where: {
+        id,
+        projectId: ctx.projectId,
+        archivedAt: null,
+        updatedAt: new Date(command.expectedUpdatedAt),
+      },
+      data: { archivedAt },
+    });
+    if (changed.count !== 1) {
+      throw new CrmServiceError("CONFLICT", 409, "opportunity_version_conflict");
+    }
+    const opportunity = await tx.opportunity.findFirst({
+      where: { id, projectId: ctx.projectId, archivedAt },
+    });
+    if (!opportunity) throw new CrmServiceError("CONFLICT", 409, "opportunity_version_conflict");
+    const result = receiptResult(opportunity);
+    await appendAuditEvent(tx, {
+      scope,
+      eventType: "opportunity.archived",
+      actorId: actor.id,
+      resourceType: "opportunity",
+      resourceId: id,
+      idempotencyKey: key,
+      details: { contract, inputHash: hash, actorAssignmentId: actor.id, result },
+    });
+    return opportunity;
+  });
+}
+
+export async function executeOpportunityConversion<T extends Record<string, unknown>>(
+  ctx: AuthContext,
+  rawCommand: OpportunityConversionCommand,
+  materialize: OpportunityConversionMaterializer<T>,
+): Promise<T> {
+  const command = opportunityConversionCommandSchema.parse(rawCommand);
+  return withRlsTransaction(ctx, async (tx) => {
+    const actor = await resolveActor(tx, ctx, "opportunity.write");
+    const scope = auditScope(ctx);
+    const contract = "sangfor.crm.opportunity.convert-to-engagement/v1";
+    const key = `opportunity.convert:${command.idempotencyKey}`;
+    const hash = inputHash(contract, ctx, actor.id, command);
+    await lockAuditChain(tx, scope);
+    const prior = await replay<T>(tx, scope, key, contract, hash);
+    if (prior) return prior;
+
+    const opportunity = await tx.opportunity.findFirst({
+      where: {
+        id: command.opportunityId,
+        projectId: ctx.projectId,
+        archivedAt: null,
+      },
+      select: {
+        id: true,
+        projectId: true,
+        customerId: true,
+        title: true,
+        stage: true,
+        updatedAt: true,
+      },
+    });
+    if (!opportunity) {
+      throw new CrmServiceError("NOT_FOUND", 404, "opportunity_not_found");
+    }
+    if (opportunity.updatedAt.getTime() !== new Date(command.expectedUpdatedAt).getTime()) {
+      throw new CrmServiceError("CONFLICT", 409, "opportunity_version_conflict");
+    }
+    if (!new Set(["PROPOSAL", "POC", "NEGOTIATION", "WON"]).has(opportunity.stage)) {
+      throw new CrmServiceError("CONFLICT", 409, "conversion_stage_not_ready");
+    }
+    const [pocLink, poc] = await Promise.all([
+      tx.opportunityLink.findFirst({
+        where: { opportunityId: opportunity.id, entityType: "poc" },
+        select: { id: true },
+      }),
+      tx.pocProject.findFirst({
+        where: { opportunityId: opportunity.id, projectId: ctx.projectId },
+        select: { id: true },
+      }),
+    ]);
+    if (!pocLink && !poc) {
+      throw new CrmServiceError("CONFLICT", 409, "conversion_requires_poc");
+    }
+
+    const convertedAt = new Date();
+    const claimed = await tx.opportunity.updateMany({
+      where: {
+        id: opportunity.id,
+        projectId: ctx.projectId,
+        archivedAt: null,
+        updatedAt: new Date(command.expectedUpdatedAt),
+      },
+      data: { updatedAt: convertedAt },
+    });
+    if (claimed.count !== 1) {
+      throw new CrmServiceError("CONFLICT", 409, "opportunity_version_conflict");
+    }
+
+    const result = await materialize(tx, opportunity);
     await tx.opportunityStageEvent.create({
       data: {
-        opportunityId: id,
-        fromStage,
-        toStage: next,
-        note: "단계 진행",
+        opportunityId: opportunity.id,
+        fromStage: normalizeOpportunityStage(opportunity.stage),
+        toStage: normalizeOpportunityStage(opportunity.stage),
+        note: "converted_to_project",
+      },
+    });
+    await appendAuditEvent(tx, {
+      scope,
+      eventType: "opportunity.converted",
+      actorId: actor.id,
+      resourceType: "opportunity",
+      resourceId: opportunity.id,
+      idempotencyKey: key,
+      details: {
+        contract,
+        inputHash: hash,
+        actorAssignmentId: actor.id,
+        result: receiptResult(result),
       },
     });
     return result;
   });
-
-  await logStateTransition({
-    entityType: "opportunity",
-    entityId: id,
-    fromStatus: fromStage,
-    toStatus: next,
-    actorType: "user",
-  });
-
-  // S1: unified decision instrumentation (best-effort, outside txn, never throws).
-  await recordDecision({
-    projectId: opp.projectId,
-    domain: "sales",
-    actor: "sales",
-    actionType: "stage_transition",
-    caseRef: "opp:" + id,
-    outcome: "approved",
-  });
-
-  return updated;
 }
 
 export async function addOpportunityLink(
+  ctx: AuthContext,
   opportunityId: string,
-  input: z.input<typeof addOpportunityLinkSchema>,
+  rawCommand: z.input<typeof addOpportunityLinkSchema>,
 ) {
-  const parsed = addOpportunityLinkSchema.parse(input);
-  return realPrisma.opportunityLink.upsert({
-    where: {
-      opportunityId_entityType_entityId: {
-        opportunityId,
-        entityType: parsed.entityType,
-        entityId: parsed.entityId,
+  const command = addOpportunityLinkSchema.parse(rawCommand);
+  return withRlsTransaction(ctx, async (tx) => {
+    const actor = await resolveActor(tx, ctx, "opportunity.write");
+    const opportunity = await tx.opportunity.findFirst({
+      where: {
+        id: opportunityId,
+        projectId: ctx.projectId,
+        archivedAt: null,
+        updatedAt: new Date(command.expectedUpdatedAt),
       },
-    },
-    update: { linkType: parsed.linkType },
-    create: {
-      opportunityId,
-      entityType: parsed.entityType,
-      entityId: parsed.entityId,
-      linkType: parsed.linkType,
-    },
+      select: { id: true },
+    });
+    if (!opportunity) throw new CrmServiceError("CONFLICT", 409, "opportunity_version_conflict");
+    if (command.entityType === "customer") {
+      await validateRelatedScope(tx, ctx, { customerId: command.entityId });
+    } else if (command.entityType === "partner") {
+      await validateRelatedScope(tx, ctx, { partnerId: command.entityId });
+    }
+    const link = await tx.opportunityLink.upsert({
+      where: {
+        opportunityId_entityType_entityId: {
+          opportunityId,
+          entityType: command.entityType,
+          entityId: command.entityId,
+        },
+      },
+      update: { linkType: command.linkType },
+      create: {
+        opportunityId,
+        entityType: command.entityType,
+        entityId: command.entityId,
+        linkType: command.linkType,
+      },
+    });
+    await appendAuditEvent(tx, {
+      scope: auditScope(ctx),
+      eventType: "opportunity.link_added",
+      actorId: actor.id,
+      resourceType: "opportunity",
+      resourceId: opportunityId,
+      idempotencyKey: `opportunity.link.add:${command.idempotencyKey}`,
+      details: { linkId: link.id, entityType: command.entityType, entityId: command.entityId },
+    });
+    return link;
   });
 }
 
-export async function removeOpportunityLink(linkId: string) {
-  return realPrisma.opportunityLink.delete({ where: { id: linkId } });
-}
-
-export async function archiveOpportunity(
-  id: string,
-  deps: OpportunityCenterDeps = {},
+export async function removeOpportunityLink(
+  ctx: AuthContext,
+  opportunityId: string,
+  rawCommand: z.input<typeof removeOpportunityLinkSchema>,
 ) {
-  const db = deps.prisma ?? (realPrisma as unknown as OpportunityCenterPrisma);
-  const existing = await db.opportunity.findUniqueOrThrow({ where: { id } });
-  const updated = await db.opportunity.update({
-    where: { id },
-    data: { archivedAt: new Date() },
+  const command = removeOpportunityLinkSchema.parse(rawCommand);
+  return withRlsTransaction(ctx, async (tx) => {
+    const actor = await resolveActor(tx, ctx, "opportunity.write");
+    const opportunity = await tx.opportunity.findFirst({
+      where: {
+        id: opportunityId,
+        projectId: ctx.projectId,
+        archivedAt: null,
+        updatedAt: new Date(command.expectedUpdatedAt),
+      },
+      select: { id: true },
+    });
+    if (!opportunity) throw new CrmServiceError("CONFLICT", 409, "opportunity_version_conflict");
+    const deleted = await tx.opportunityLink.deleteMany({
+      where: { id: command.linkId, opportunityId },
+    });
+    if (deleted.count !== 1) throw new CrmServiceError("NOT_FOUND", 404, "opportunity_link_not_found");
+    await appendAuditEvent(tx, {
+      scope: auditScope(ctx),
+      eventType: "opportunity.link_removed",
+      actorId: actor.id,
+      resourceType: "opportunity",
+      resourceId: opportunityId,
+      idempotencyKey: `opportunity.link.remove:${command.idempotencyKey}`,
+      details: { linkId: command.linkId },
+    });
+    return { ok: true as const };
   });
-  // Best-effort decision spine capture — outside txn, never throws.
-  await recordDecision({
-    projectId: existing.projectId,
-    domain: "sales",
-    actor: "human",
-    actionType: "entity_archive",
-    caseRef: caseRefFor("opportunity", id),
-    outcome: "approved",
-  });
-  return updated;
 }
 
 export type EnrichedOpportunityLink = {
@@ -478,16 +1118,35 @@ export type EnrichedOpportunityLink = {
 };
 
 export async function enrichOpportunityLinks(
+  ctx: AuthContext,
   links: Array<{ id: string; entityType: string; entityId: string; linkType: string }>,
 ): Promise<EnrichedOpportunityLink[]> {
-  return Promise.all(
-    links.map(async (link) => {
+  return withRlsTransaction(ctx, async (tx) => {
+    await resolveActor(tx, ctx, "opportunity.read");
+    return Promise.all(links.map(async (link) => {
       let label = link.entityId;
       let href: string | null = null;
-
-      if (link.entityType === "poc") {
-        const row = await realPrisma.pocProject.findUnique({
-          where: { id: link.entityId },
+      if (link.entityType === "customer") {
+        const row = await tx.customer.findFirst({
+          where: { id: link.entityId, projectId: ctx.projectId, archivedAt: null },
+          select: { name: true },
+        });
+        if (row) {
+          label = row.name;
+          href = `/customers/${link.entityId}`;
+        }
+      } else if (link.entityType === "partner") {
+        const row = await tx.partner.findFirst({
+          where: { id: link.entityId, projectId: ctx.projectId },
+          select: { name: true },
+        });
+        if (row) {
+          label = row.name;
+          href = `/partners/${link.entityId}`;
+        }
+      } else if (link.entityType === "poc") {
+        const row = await tx.pocProject.findFirst({
+          where: { id: link.entityId, projectId: ctx.projectId },
           select: { title: true },
         });
         if (row) {
@@ -495,57 +1154,48 @@ export async function enrichOpportunityLinks(
           href = `/poc/${link.entityId}`;
         }
       } else if (link.entityType === "proposal") {
-        const row = await realPrisma.generatedDocument.findUnique({
-          where: { id: link.entityId },
+        const row = await tx.generatedDocument.findFirst({
+          where: { id: link.entityId, customer: { projectId: ctx.projectId } },
           select: { title: true },
         });
         if (row) {
           label = row.title;
           href = `/proposals/${link.entityId}`;
         }
-      } else if (link.entityType === "partner") {
-        const row = await realPrisma.partner.findUnique({
-          where: { id: link.entityId },
-          select: { name: true },
-        });
-        if (row) {
-          label = row.name;
-          href = `/partners/${link.entityId}`;
-        }
-      } else if (link.entityType === "customer") {
-        const row = await realPrisma.customer.findUnique({
-          where: { id: link.entityId },
-          select: { name: true },
-        });
-        if (row) {
-          label = row.name;
-          href = `/customers/${link.entityId}`;
-        }
       }
-
       return { ...link, label, href };
-    }),
-  );
+    }));
+  });
 }
 
-export async function getOpportunityPipelineSummary(projectSlug?: string) {
-  const rows = await listOpportunities(projectSlug);
-  const byStage: Record<string, number> = {};
-  for (const stage of CANONICAL_STAGES) byStage[stage] = 0;
-  for (const row of rows) {
-    const canonical = normalizeOpportunityStage(row.stage);
-    byStage[canonical] = (byStage[canonical] ?? 0) + 1;
-  }
-  return { total: rows.length, byStage };
+export async function getOpportunityPipelineSummary(ctx: AuthContext) {
+  return withRlsTransaction(ctx, async (tx) => {
+    await resolveActor(tx, ctx, "opportunity.read");
+    const rows = await tx.opportunity.findMany({
+      where: { projectId: ctx.projectId, archivedAt: null },
+      select: { stage: true },
+    });
+    const byStage: Record<string, number> = {};
+    for (const stage of CANONICAL_STAGES) byStage[stage] = 0;
+    for (const row of rows) {
+      const stage = normalizeOpportunityStage(row.stage);
+      byStage[stage] = (byStage[stage] ?? 0) + 1;
+    }
+    return { total: rows.length, byStage };
+  });
 }
 
-/**
- * List quotes for one opportunity (newest first). Used by the deal workspace
- * ④ 선정·입찰 work panel.
- */
-export async function listQuotesByOpportunity(opportunityId: string) {
-  return realPrisma.quote.findMany({
-    where: { opportunityId },
-    orderBy: { createdAt: "desc" },
+export async function listQuotesByOpportunity(ctx: AuthContext, opportunityId: string) {
+  return withRlsTransaction(ctx, async (tx) => {
+    await resolveActor(tx, ctx, "opportunity.read");
+    const opportunity = await tx.opportunity.findFirst({
+      where: { id: opportunityId, projectId: ctx.projectId, archivedAt: null },
+      select: { id: true },
+    });
+    if (!opportunity) throw new CrmServiceError("NOT_FOUND", 404, "opportunity_not_found");
+    return tx.quote.findMany({
+      where: { opportunityId },
+      orderBy: { createdAt: "desc" },
+    });
   });
 }

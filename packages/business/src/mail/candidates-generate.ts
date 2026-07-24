@@ -29,7 +29,7 @@ import {
   gtmDomainForCandidate,
   toInputJson,
 } from "./classify-rules";
-import { classifyMailInsightThreadHybrid, revalidateMailDerivedCandidate } from "./classify-ai";
+import { classifyMailInsightThreadHybrid } from "./classify-ai";
 import { listMailDerivedCandidates } from "./candidates-update";
 import { recordDecision } from "../governance/ai-decision";
 import { caseRefFor } from "../infrastructure/case-ref";
@@ -497,15 +497,6 @@ export async function generateMailDerivedCandidates(
     skipped += legacy.skipped;
   }
 
-  const projectCandidates = await prisma.mailDerivedCandidate.findMany({
-    where: { status: "needs_revalidation" },
-    orderBy: { createdAt: "desc" },
-    take: parsed.limit,
-  });
-  for (const candidate of projectCandidates) {
-    await revalidateMailDerivedCandidate(candidate.id);
-  }
-
   const candidates = await listMailDerivedCandidates({
     limit: Math.min(Math.max(created, 20), 2_000),
   });
@@ -661,15 +652,6 @@ export async function generateMailDerivedCandidatesHybrid(
     const legacy = await generateLegacyKnowledgeCandidates(projectId, parsed.limit, policy);
     created += legacy.created;
     skipped += legacy.skipped;
-  }
-
-  const projectCandidates = await prisma.mailDerivedCandidate.findMany({
-    where: { status: "needs_revalidation" },
-    orderBy: { createdAt: "desc" },
-    take: parsed.limit,
-  });
-  for (const candidate of projectCandidates) {
-    await revalidateMailDerivedCandidate(candidate.id);
   }
 
   const candidates = await listMailDerivedCandidates({

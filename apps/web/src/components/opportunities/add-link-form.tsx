@@ -15,9 +15,11 @@ type LinkOptions = {
 
 export function AddOpportunityLinkForm({
   opportunityId,
+  expectedUpdatedAt,
   linkOptions,
 }: {
   opportunityId: string;
+  expectedUpdatedAt: string;
   linkOptions: LinkOptions;
 }) {
   const router = useRouter();
@@ -36,8 +38,11 @@ export function AddOpportunityLinkForm({
     try {
       const res = await fetch(`/api/opportunities/${opportunityId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "add_link", entityType, entityId }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({ action: "add_link", entityType, entityId, expectedUpdatedAt }),
       });
       if (!res.ok) {
         setError("연결하지 못했습니다. 다시 시도해 주세요.");
@@ -97,9 +102,11 @@ export function AddOpportunityLinkForm({
 export function RemoveOpportunityLinkButton({
   opportunityId,
   linkId,
+  expectedUpdatedAt,
 }: {
   opportunityId: string;
   linkId: string;
+  expectedUpdatedAt: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -111,8 +118,11 @@ export function RemoveOpportunityLinkButton({
     try {
       const res = await fetch(`/api/opportunities/${opportunityId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "remove_link", linkId }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({ action: "remove_link", linkId, expectedUpdatedAt }),
       });
       if (!res.ok) {
         setError("제거하지 못했습니다.");

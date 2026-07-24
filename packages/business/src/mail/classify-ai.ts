@@ -1,7 +1,18 @@
-import { prisma } from "@sangfor/db";
+import {
+  hasCapability,
+  isActiveProjectAssignment,
+  resolveActiveCompanyRole,
+  type AuthContext,
+} from "@sangfor/auth";
+import { canonicalizeRfc8785, withRlsTransaction, type Prisma } from "@sangfor/db";
+import { createHash } from "node:crypto";
+import { z } from "zod";
 
 import { GROUND_TRUTH_CALIBRATION } from "./ai-classify-batch";
-import { recordDecision } from "../governance/ai-decision";
+import { CrmServiceError, listCustomers } from "../crm/customer-partner";
+import { listOpportunities } from "../crm/opportunity-center";
+import { appendAuditEvent } from "../governance/audit-db";
+import { deriveChainScopeKey } from "../governance/audit-chain";
 import {
   buildChatCompletionRequestBody,
   extractChatCompletionText,
@@ -10,8 +21,7 @@ import {
   getOpenAiChatCompletionsUrl,
   getOpenAiModel,
 } from "../platform/openai-config";
-import { MailPolicyLookup, resolveProjectId } from "./mail-policy-memory";
-import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
+import { MailPolicyLookup } from "./mail-policy-memory";
 
 import { INTERNAL_COMPANY_NAMES, STATIC_POLICY_LOOKUP } from "./constants";
 import { SELF_DOMAINS, SYSTEM_SENDER_DOMAINS } from "./mail-domain-registry";
@@ -28,7 +38,7 @@ import {
   isProjectCandidateType,
   toInputJson,
 } from "./classify-rules";
-import { getMailDerivedCandidate } from "./candidates-update";
+type MailDerivedCandidate = Prisma.MailDerivedCandidateGetPayload<Record<string, never>>;
 
 export type AiRevalidationDecision =
   | "approve_candidate"
@@ -193,7 +203,7 @@ export async function classifyMailInsightThreadHybrid(
   return combineHybridClassification(policyResult, aiResult);
 }
 
-function buildRevalidationCacheKey(candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>) {
+function buildRevalidationCacheKey(candidate: MailDerivedCandidate) {
   const metadata = asRecord(candidate.metadata);
   const messageId = String(
     metadata.threadKey ?? metadata.messageId ?? candidate.mailInsightThreadId ?? candidate.knowledgeDocumentId ?? candidate.id,
@@ -212,27 +222,30 @@ function buildRevalidationCacheKey(candidate: Awaited<ReturnType<typeof getMailD
 }
 
 async function checkCustomerPartnerDedup(
-  candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>,
+  ctx: AuthContext,
+  candidate: MailDerivedCandidate,
 ): Promise<AiRevalidationResult["duplicateCheck"]> {
   const normalizedName = candidate.title
     .replace(/^(Customer|Partner):\s*/i, "")
     .slice(0, 80);
 
   if (candidate.candidateType === "customer") {
-    const match = await prisma.customer.findFirst({
-      where: { name: { contains: normalizedName, mode: "insensitive" } },
-      select: { id: true, name: true },
-    });
+    const page = await listCustomers(ctx, { search: normalizedName, first: 1 });
+    const match = page.items[0];
     return match
       ? { possibleDuplicate: true, matchedObjectType: "customer", matchedObjectId: match.id, reason: match.name }
       : { possibleDuplicate: false };
   }
 
   if (candidate.candidateType === "partner") {
-    const match = await prisma.partner.findFirst({
-      where: { name: { contains: normalizedName, mode: "insensitive" } },
+    const match = await withRlsTransaction(ctx, (tx) => tx.partner.findFirst({
+      where: {
+        projectId: ctx.projectId,
+        status: { not: "archived" },
+        name: { contains: normalizedName, mode: "insensitive" },
+      },
       select: { id: true, name: true },
-    });
+    }));
     return match
       ? { possibleDuplicate: true, matchedObjectType: "partner", matchedObjectId: match.id, reason: match.name }
       : { possibleDuplicate: false };
@@ -242,36 +255,42 @@ async function checkCustomerPartnerDedup(
 }
 
 async function findPossibleDuplicate(
-  candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>,
+  ctx: AuthContext,
+  candidate: MailDerivedCandidate,
 ) {
   const normalizedTitle = candidate.title
     .replace(/^(Opportunity|PoC|Follow up):\s*/i, "")
     .slice(0, 80);
 
   if (candidate.candidateType === "opportunity") {
-    const match = await prisma.opportunity.findFirst({
-      where: { title: { contains: normalizedTitle, mode: "insensitive" } },
-      select: { id: true, title: true },
-    });
+    const page = await listOpportunities(ctx, { search: normalizedTitle, first: 1 });
+    const match = page.items[0];
     return match
       ? { possibleDuplicate: true, matchedObjectType: "opportunity", matchedObjectId: match.id, reason: match.title }
       : { possibleDuplicate: false };
   }
 
   if (candidate.candidateType === "poc") {
-    const match = await prisma.pocProject.findFirst({
-      where: { title: { contains: normalizedTitle, mode: "insensitive" } },
+    const match = await withRlsTransaction(ctx, (tx) => tx.pocProject.findFirst({
+      where: {
+        projectId: ctx.projectId,
+        title: { contains: normalizedTitle, mode: "insensitive" },
+      },
       select: { id: true, title: true },
-    });
+    }));
     return match
       ? { possibleDuplicate: true, matchedObjectType: "poc", matchedObjectId: match.id, reason: match.title }
       : { possibleDuplicate: false };
   }
 
-  const match = await prisma.workTask.findFirst({
-    where: { title: { contains: normalizedTitle, mode: "insensitive" } },
+  const match = await withRlsTransaction(ctx, (tx) => tx.workTask.findFirst({
+    where: {
+      projectId: ctx.projectId,
+      archivedAt: null,
+      title: { contains: normalizedTitle, mode: "insensitive" },
+    },
     select: { id: true, title: true },
-  });
+  }));
   return match
     ? { possibleDuplicate: true, matchedObjectType: "task", matchedObjectId: match.id, reason: match.title }
     : { possibleDuplicate: false };
@@ -283,7 +302,7 @@ function stripJsonCodeFence(text: string): string {
 }
 
 function buildTemplateRevalidation(input: {
-  candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>;
+  candidate: MailDerivedCandidate;
   duplicateCheck: AiRevalidationResult["duplicateCheck"];
   cacheKey: string;
   fallbackReason?: string;
@@ -378,7 +397,7 @@ function describeRevalidationFallback(error: unknown): string {
 }
 
 async function callLlmRevalidation(
-  candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>,
+  candidate: MailDerivedCandidate,
   duplicateCheck: AiRevalidationResult["duplicateCheck"],
   cacheKey: string,
   deps?: {
@@ -520,15 +539,178 @@ function shouldKeepRevalidationAsKnowledgeOnly(revalidation: AiRevalidationResul
   return /external_marketing|marketing content|newsletter|promo|no actual customer|마케팅|홍보/.test(text);
 }
 
-export async function revalidateMailDerivedCandidate(
+const revalidateMailDerivedCandidateSchema = z.object({
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
+  idempotencyKey: z.string().trim().min(1).max(128),
+  force: z.boolean().optional(),
+}).strict();
+
+export type RevalidateMailDerivedCandidateCommand = z.input<
+  typeof revalidateMailDerivedCandidateSchema
+>;
+
+type ScopedCandidate = Prisma.MailDerivedCandidateGetPayload<{
+  include: { mailInsightThread: { select: { projectId: true } } };
+}>;
+
+async function resolveRevalidationActor(tx: Prisma.TransactionClient, ctx: AuthContext) {
+  const now = new Date();
+  const [assignments, projectAssignment] = await Promise.all([
+    tx.userCompanyRole.findMany({
+      where: { userId: ctx.userId, companyId: ctx.companyId },
+      select: {
+        id: true,
+        userId: true,
+        companyId: true,
+        role: true,
+        status: true,
+        validFrom: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    }),
+    tx.projectMember.findFirst({
+      where: { userId: ctx.userId, projectId: ctx.projectId },
+      select: {
+        id: true,
+        userId: true,
+        projectId: true,
+        status: true,
+        validFrom: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    }),
+  ]);
+  const resolved = resolveActiveCompanyRole(assignments, now);
+  if (
+    !resolved.ok ||
+    !isActiveProjectAssignment(projectAssignment, now) ||
+    (!hasCapability(resolved.role, "customer.write") &&
+      !hasCapability(resolved.role, "opportunity.write"))
+  ) {
+    throw new CrmServiceError("FORBIDDEN", 403, "mail_candidate_revalidation_denied");
+  }
+  return resolved.assignment;
+}
+
+async function loadScopedCandidate(
+  tx: Prisma.TransactionClient,
+  ctx: AuthContext,
   id: string,
+): Promise<ScopedCandidate> {
+  const candidate = await tx.mailDerivedCandidate.findFirst({
+    where: { id },
+    include: { mailInsightThread: { select: { projectId: true } } },
+  });
+  if (!candidate) {
+    throw new CrmServiceError("NOT_FOUND", 404, "mail_candidate_not_found");
+  }
+
+  const projectIds: string[] = [];
+  if (candidate.mailInsightThreadId) {
+    const threadProjectId = candidate.mailInsightThread?.projectId;
+    if (!threadProjectId) {
+      throw new CrmServiceError("FORBIDDEN", 403, "mail_candidate_scope_unverified");
+    }
+    projectIds.push(threadProjectId);
+  }
+  if (candidate.knowledgeDocumentId) {
+    const document = await tx.knowledgeDocument.findFirst({
+      where: { id: candidate.knowledgeDocumentId },
+      select: { projectId: true },
+    });
+    if (!document) {
+      throw new CrmServiceError("FORBIDDEN", 403, "mail_candidate_scope_unverified");
+    }
+    projectIds.push(document.projectId);
+  }
+  if (
+    projectIds.length === 0 ||
+    projectIds.some((projectId) => projectId !== ctx.projectId) ||
+    new Set(projectIds).size !== 1
+  ) {
+    throw new CrmServiceError("FORBIDDEN", 403, "mail_candidate_scope_unverified");
+  }
+  return candidate;
+}
+
+function revalidationInputHash(
+  ctx: AuthContext,
+  actorAssignmentId: string,
+  candidateId: string,
+  command: z.output<typeof revalidateMailDerivedCandidateSchema>,
+): string {
+  return createHash("sha256")
+    .update(canonicalizeRfc8785({
+      contract: "sangfor.mail_candidate.revalidate/v1",
+      scope: {
+        tenantId: ctx.tenantId,
+        companyId: ctx.companyId,
+        projectId: ctx.projectId,
+      },
+      actorAssignmentId,
+      candidateId,
+      command,
+    }))
+    .digest("hex");
+}
+
+function auditDetails(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+export async function revalidateMailDerivedCandidate(
+  ctx: AuthContext,
+  id: string,
+  rawCommand: RevalidateMailDerivedCandidateCommand,
   deps?: {
     /** Injectable LLM caller for tests; forwarded to callLlmRevalidation. */
     callLLM?: (system: string, user: string) => Promise<string>;
   },
-  options?: { force?: boolean },
 ) {
-  const candidate = await getMailDerivedCandidate(id);
+  const command = revalidateMailDerivedCandidateSchema.parse(rawCommand);
+  const scope = {
+    tenantId: ctx.tenantId,
+    companyId: ctx.companyId,
+    projectId: ctx.projectId,
+    level: "PROJECT" as const,
+  };
+  const auditKey = `mail_candidate.revalidate:${command.idempotencyKey}`;
+  const initial = await withRlsTransaction(ctx, async (tx) => {
+    const actor = await resolveRevalidationActor(tx, ctx);
+    const candidate = await loadScopedCandidate(tx, ctx, id);
+    const inputHash = revalidationInputHash(ctx, actor.id, id, command);
+    const prior = await tx.auditLog.findFirst({
+      where: { chainScopeKey: deriveChainScopeKey(scope), idempotencyKey: auditKey },
+    });
+    if (prior) {
+      const details = auditDetails(prior.details);
+      if (
+        details.contract !== "sangfor.mail_candidate.revalidate/v1" ||
+        details.inputHash !== inputHash
+      ) {
+        throw new CrmServiceError("CONFLICT", 409, "mail_candidate_idempotency_conflict");
+      }
+      return {
+        actorAssignmentId: actor.id,
+        candidate,
+        inputHash,
+        replay: details.result,
+      };
+    }
+    return { actorAssignmentId: actor.id, candidate, inputHash, replay: null };
+  });
+
+  if (initial.replay) {
+    return {
+      candidate: initial.candidate,
+      revalidation: auditDetails(initial.replay).revalidation ?? initial.replay,
+    };
+  }
+  const candidate = initial.candidate;
 
   const cacheKey = buildRevalidationCacheKey(candidate);
   const metadata = asRecord(candidate.metadata);
@@ -539,7 +721,7 @@ export async function revalidateMailDerivedCandidate(
   // - cached result was an LLM-outage fallback (mode=template + fallbackReason)
   //   that should not pin stale data permanently.
   const isCacheStale =
-    options?.force === true ||
+    command.force === true ||
     (existing.mode === "template" && typeof existing.fallbackReason === "string");
 
   if (!isCacheStale && existing.cacheKey === cacheKey && typeof existing.decision === "string") {
@@ -547,8 +729,8 @@ export async function revalidateMailDerivedCandidate(
   }
 
   const duplicateCheck = isProjectCandidateType(candidate.candidateType)
-    ? await findPossibleDuplicate(candidate)
-    : await checkCustomerPartnerDedup(candidate);
+    ? await findPossibleDuplicate(ctx, candidate)
+    : await checkCustomerPartnerDedup(ctx, candidate);
 
   let revalidation: AiRevalidationResult;
   try {
@@ -596,45 +778,66 @@ export async function revalidateMailDerivedCandidate(
         ? "knowledge_only"
         : "proposed";
 
-  const updated = await prisma.mailDerivedCandidate.update({
-    where: { id },
-    data: {
-      status,
-      confidence: revalidation.confidence,
-      metadata: toInputJson({
-        ...metadata,
-        aiRevalidation: revalidation,
-      }),
-    },
-  });
-
-  // S1: unified decision instrumentation (best-effort, outside txn, never throws).
-  // revalidation.confidence is a 0..100 percentage; normalize to 0..1 for the log.
-  // Wrapped defensively: projectId resolution must not break the mail flow.
-  try {
-    const outcome: "approved" | "rejected" | "corrected" =
-      revalidation.decision === "approve_candidate"
-        ? "approved"
-        : revalidation.decision === "reject"
-          ? "rejected"
-          : "corrected";
-    const projectId = await resolveProjectId(await resolveDefaultProjectSlug());
-    const domain = gtmDomainForCandidate(candidate.candidateType);
-    await recordDecision({
-      projectId,
-      domain,
-      actor: domain === "presales" ? "presales" : "sales",
-      actionType: "mail_revalidation",
-      caseRef: "mail_candidate:" + id,
-      outcome,
-      predictedConfidence:
-        typeof revalidation.confidence === "number"
-          ? revalidation.confidence / 100
-          : null,
+  return withRlsTransaction(ctx, async (tx) => {
+    const actor = await resolveRevalidationActor(tx, ctx);
+    if (actor.id !== initial.actorAssignmentId) {
+      throw new CrmServiceError("CONFLICT", 409, "mail_candidate_actor_changed");
+    }
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${deriveChainScopeKey(scope)}, 0))`;
+    const prior = await tx.auditLog.findFirst({
+      where: { chainScopeKey: deriveChainScopeKey(scope), idempotencyKey: auditKey },
     });
-  } catch (error) {
-    console.error("[revalidateMailDerivedCandidate] recordDecision failed (swallowed):", error);
-  }
+    if (prior) {
+      const details = auditDetails(prior.details);
+      if (
+        details.contract !== "sangfor.mail_candidate.revalidate/v1" ||
+        details.inputHash !== initial.inputHash
+      ) {
+        throw new CrmServiceError("CONFLICT", 409, "mail_candidate_idempotency_conflict");
+      }
+      const current = await loadScopedCandidate(tx, ctx, id);
+      return {
+        candidate: current,
+        revalidation: auditDetails(details.result).revalidation ?? details.result,
+      };
+    }
 
-  return { candidate: updated, revalidation };
+    await loadScopedCandidate(tx, ctx, id);
+    const changed = await tx.mailDerivedCandidate.updateMany({
+      where: { id, updatedAt: new Date(command.expectedUpdatedAt) },
+      data: {
+        status,
+        confidence: revalidation.confidence,
+        metadata: toInputJson({
+          ...metadata,
+          aiRevalidation: revalidation,
+        }),
+      },
+    });
+    if (changed.count !== 1) {
+      throw new CrmServiceError("CONFLICT", 409, "mail_candidate_version_conflict");
+    }
+    const updated = await loadScopedCandidate(tx, ctx, id);
+    const result = {
+      candidateId: updated.id,
+      status: updated.status,
+      updatedAt: updated.updatedAt.toISOString(),
+      revalidation,
+    };
+    await appendAuditEvent(tx, {
+      scope,
+      eventType: "mail_candidate.revalidated",
+      actorId: actor.id,
+      resourceType: "mail_candidate",
+      resourceId: id,
+      idempotencyKey: auditKey,
+      details: {
+        contract: "sangfor.mail_candidate.revalidate/v1",
+        inputHash: initial.inputHash,
+        actorAssignmentId: actor.id,
+        result,
+      },
+    });
+    return { candidate: updated, revalidation };
+  });
 }

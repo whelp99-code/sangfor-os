@@ -1,4 +1,10 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { stageLabel } from "@/components/deals/stage-meta";
 import { winProbabilityLabel } from "@/components/deals/win-probability";
@@ -19,6 +25,9 @@ export type OpportunityForDetail = {
   lostReason: string | null;
   dealType: string | null;
   ownerId: string | null;
+  ownerAssignmentId: string | null;
+  ownershipRevision: number;
+  ownerAssignment?: { id: string; userId: string; role: string; status: string | null } | null;
   amount: { toString(): string } | number | null;
   probability: number;
   closeDate: Date | string | null;
@@ -112,9 +121,91 @@ function formatDealType(value: string | null | undefined): string {
 type DealDetailProps = {
   opportunity: OpportunityForDetail;
   readOnly?: boolean;
+  eligibleOwners: Array<{ id: string; userId: string; role: string }>;
 };
 
-export function DealDetail({ opportunity, readOnly = false }: DealDetailProps) {
+function OwnerAssignmentControl({
+  opportunity,
+  eligibleOwners,
+  readOnly,
+}: {
+  opportunity: OpportunityForDetail;
+  eligibleOwners: Array<{ id: string; userId: string; role: string }>;
+  readOnly: boolean;
+}) {
+  const router = useRouter();
+  const [selection, setSelection] = useState(opportunity.ownerAssignmentId ?? "");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const current = opportunity.ownerAssignment
+    ? `${opportunity.ownerAssignment.userId} · ${opportunity.ownerAssignment.role}`
+    : opportunity.ownerId
+      ? `레거시 담당 ${opportunity.ownerId}`
+      : "미지정";
+
+  if (readOnly) return <span className="text-sm font-semibold">{current}</span>;
+
+  async function saveOwner() {
+    if (!selection || selection === opportunity.ownerAssignmentId) return;
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/opportunities/${opportunity.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          action: "assign_owner",
+          ownerAssignmentId: selection,
+          expectedOwnershipRevision: opportunity.ownershipRevision,
+        }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) {
+        setError(payload.error === "CONFLICT" ? "담당자가 이미 변경되었습니다. 새로고침 후 다시 시도하세요." : "담당자를 변경하지 못했습니다.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("담당자를 변경하지 못했습니다.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-semibold">{current}</p>
+      <div className="flex flex-wrap gap-2">
+        <select
+          aria-label="담당자 선택"
+          className="h-9 min-w-56 rounded-md border bg-background px-3 text-sm"
+          value={selection}
+          onChange={(event) => setSelection(event.target.value)}
+        >
+          <option value="">담당자 선택</option>
+          {eligibleOwners.map((owner) => (
+            <option key={owner.id} value={owner.id}>
+              {owner.userId} · {owner.role}
+            </option>
+          ))}
+        </select>
+        <Button type="button" size="sm" disabled={pending || !selection || selection === opportunity.ownerAssignmentId} onClick={saveOwner}>
+          {pending ? "변경 중..." : "담당 변경"}
+        </Button>
+      </div>
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+    </div>
+  );
+}
+
+export function DealDetail({
+  opportunity,
+  readOnly = false,
+  eligibleOwners,
+}: DealDetailProps) {
   const opp = opportunity;
   const id = opp.id;
 
@@ -270,6 +361,14 @@ export function DealDetail({ opportunity, readOnly = false }: DealDetailProps) {
 
         {/* ③ 고객·의사결정 --------------------------------------------- */}
         <DealDetailSection title="고객·의사결정" columns={2}>
+          <div className="border-b border-border/40 px-1.5 py-2.5">
+            <p className="mb-1 text-xs text-muted-foreground">담당자</p>
+            <OwnerAssignmentControl
+              opportunity={opp}
+              eligibleOwners={eligibleOwners}
+              readOnly={readOnly}
+            />
+          </div>
           <InlineField
             label="고객사"
             value={opp.customer?.name ?? "—"}

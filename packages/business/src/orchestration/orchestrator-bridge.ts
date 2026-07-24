@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { AuthContext } from "@sangfor/auth";
 
 import { buildOrchestratorContextPack } from "./context-pack-builder";
 import { traceWorkflowEvent } from "../platform/langfuse-observability";
@@ -24,6 +25,7 @@ export type Phase14EnrichedRunInput = {
 
 export async function enrichPhase13RunWithContextPack(
   input: z.infer<typeof phase14RunOptionsSchema>,
+  ctx?: AuthContext,
 ): Promise<Phase14EnrichedRunInput> {
   const parsed = phase14RunOptionsSchema.parse(input);
 
@@ -32,7 +34,7 @@ export async function enrichPhase13RunWithContextPack(
     parsed.sourceEntityType != null &&
     parsed.sourceEntityId != null;
 
-  if (!shouldBuild) {
+  if (!shouldBuild || !ctx) {
     return {
       inputSummary: parsed.inputSummary,
       contextPack: null,
@@ -41,8 +43,7 @@ export async function enrichPhase13RunWithContextPack(
     };
   }
 
-  const contextPack = await buildOrchestratorContextPack({
-    projectSlug: parsed.projectSlug,
+  const contextPack = await buildOrchestratorContextPack(ctx, {
     sourceEntityType: parsed.sourceEntityType,
     sourceEntityId: parsed.sourceEntityId,
     templateKey: parsed.templateKey,
@@ -66,7 +67,7 @@ export async function enrichPhase13RunWithContextPack(
     metadata: {
       sourceEntityType: parsed.sourceEntityType,
       sourceEntityId: parsed.sourceEntityId,
-      projectSlug: parsed.projectSlug,
+      projectId: ctx.projectId,
     },
   });
 

@@ -1,13 +1,15 @@
 export const dynamic = "force-dynamic";
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import Link from "next/link";
-import { getCustomerDetail } from "@sangfor/business";
-import { prisma } from "@sangfor/db";
+import { getCustomerDetail, resolveCrmAuthContext } from "@sangfor/business";
 import { daysUntil, won } from "@/lib/cockpit";
 import { EntityEditSheet } from "@/components/common/entity-edit-sheet";
 import { CreateContactForm } from "@/components/customers/create-contact-form";
 import { DeleteEntityButton } from "@/components/common/delete-entity-button";
+import { CustomerDetailActions } from "@/components/customers/customer-detail-actions";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 const STAGE_KO: Record<string, string> = {
   LEAD: "리드", QUALIFIED: "검증", PROPOSAL: "제안", NEGOTIATION: "협상",
@@ -38,20 +40,29 @@ export default async function CustomerHubPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const customer = await getCustomerDetail(id).catch(() => null);
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(
+    new Request(`http://sangfor.local/customers/${encodeURIComponent(id)}`, {
+      headers: { cookie: `session=${encodeURIComponent(token)}` },
+    }),
+  );
+  if (!session.ok) redirect("/login");
+  const ctx = await resolveCrmAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  });
+  const canWrite = ctx.permissions.includes("customer.write");
+  const customer = await getCustomerDetail(ctx, id).catch(() => null);
   if (!customer) notFound();
 
-  const [assets, renewals, supportCases] = await Promise.all([
-    prisma.customerAsset.findMany({
-      where: { customerId: id },
-      orderBy: { warrantyEnd: "asc" },
-    }),
-    prisma.renewalOpportunity.findMany({
-      where: { customerId: id },
-      orderBy: { expiresAt: "asc" },
-    }),
-    prisma.supportCase.findMany({ where: { customerId: id } }),
-  ]);
+  const assets = customer.customerAssets ?? [];
+  const renewals = customer.renewalOpportunities ?? [];
+  const supportCases = customer.supportCases ?? [];
 
   const opps = customer.opportunities ?? [];
   const activeOpps = opps.filter((o) => o.stage !== "WON" && o.stage !== "LOST");
@@ -103,26 +114,16 @@ export default async function CustomerHubPage({
             {customer.industry ?? "업종 미지정"} · 세그먼트 {customer.segment ?? "—"} · 담당 영업 AI
           </div>
           <div className="flex items-center gap-2" style={{ marginTop: 8 }}>
-            <EntityEditSheet
-              title="고객사 수정"
-              endpoint={`/api/customers/${customer.id}`}
-              fields={[
-                { name: "name", label: "이름" },
-                { name: "domain", label: "도메인" },
-                { name: "industry", label: "업종" },
-                { name: "status", label: "상태", type: "select", options: [
-                  { value: "active", label: "활성" },
-                  { value: "inactive", label: "비활성" },
-                  { value: "archived", label: "보관" },
-                ]},
-                { name: "notes", label: "메모" },
-              ]}
-              initial={{
+            <CustomerDetailActions
+              canWrite={canWrite}
+              expectedUpdatedAt={customer.updatedAt.toISOString()}
+              customer={{
+                id: customer.id,
                 name: customer.name,
-                domain: customer.domain ?? "",
-                industry: customer.industry ?? "",
+                domain: customer.domain ?? null,
+                industry: customer.industry ?? null,
                 status: customer.status ?? "active",
-                notes: customer.notes ?? "",
+                notes: customer.notes ?? null,
               }}
             />
           </div>
@@ -225,25 +226,31 @@ export default async function CustomerHubPage({
                   <span className="k">{c.name}</span>
                   <span className="v flex items-center gap-2">
                     {c.role ?? c.email ?? ""}
-                    <EntityEditSheet
-                      title="연락처 수정"
-                      endpoint={`/api/contacts/${c.id}`}
-                      fields={[
-                        { name: "name", label: "이름" },
-                        { name: "email", label: "이메일" },
-                        { name: "phone", label: "전화" },
-                        { name: "role", label: "직책" },
-                      ]}
-                      initial={{ name: c.name, email: c.email ?? "", phone: c.phone ?? "", role: c.role ?? "" }}
-                    />
-                    <DeleteEntityButton endpoint={`/api/contacts/${c.id}`} label="보관" />
+                    {canWrite ? (
+                      <>
+                        <EntityEditSheet
+                          title="연락처 수정"
+                          endpoint={`/api/contacts/${c.id}`}
+                          fields={[
+                            { name: "name", label: "이름" },
+                            { name: "email", label: "이메일" },
+                            { name: "phone", label: "전화" },
+                            { name: "role", label: "직책" },
+                          ]}
+                          initial={{ name: c.name, email: c.email ?? "", phone: c.phone ?? "", role: c.role ?? "" }}
+                        />
+                        <DeleteEntityButton endpoint={`/api/contacts/${c.id}`} label="보관" />
+                      </>
+                    ) : null}
                   </span>
                 </div>
               ))
             )}
-            <div style={{ marginTop: 8 }}>
-              <CreateContactForm customerId={customer.id} />
-            </div>
+            {canWrite ? (
+              <div style={{ marginTop: 8 }}>
+                <CreateContactForm customerId={customer.id} />
+              </div>
+            ) : null}
           </div>
 
           <div className="pnl">

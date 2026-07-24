@@ -119,7 +119,7 @@ function DealsMiniTable({ deals }: { deals: CompanyDeal[] }) {
 // Right detail panel
 // ---------------------------------------------------------------------------
 
-function CompanyDetailPanel({ company }: { company: Company }) {
+function CompanyDetailPanel({ company, canWrite }: { company: Company; canWrite: boolean }) {
   return (
     <div className="flex flex-col gap-0 rounded-xl border bg-card ring-1 ring-foreground/10">
       {/* Header */}
@@ -135,20 +135,22 @@ function CompanyDetailPanel({ company }: { company: Company }) {
             {company.name}
           </h2>
         </div>
-        <div className="flex shrink-0 gap-2">
-          <Link
-            href={`/customers/${company.id}#contacts`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7 text-xs")}
-          >
-            연락처 추가
-          </Link>
-          <Link
-            href={`/customers/${company.id}`}
-            className={cn(buttonVariants({ size: "sm" }), "h-7 text-xs")}
-          >
-            전체 편집
-          </Link>
-        </div>
+        {canWrite ? (
+          <div className="flex shrink-0 gap-2">
+            <Link
+              href={`/customers/${company.id}#contacts`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7 text-xs")}
+            >
+              연락처 추가
+            </Link>
+            <Link
+              href={`/customers/${company.id}`}
+              className={cn(buttonVariants({ size: "sm" }), "h-7 text-xs")}
+            >
+              전체 편집
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       {/* Basic info section */}
@@ -273,7 +275,13 @@ function CompanyListTable({
 // Main workspace (master-detail layout)
 // ---------------------------------------------------------------------------
 
-export function CompaniesWorkspace({ companies }: { companies: Company[] }) {
+export function CompaniesWorkspace({
+  companies,
+  canWrite,
+}: {
+  companies: Company[];
+  canWrite: boolean;
+}) {
   const [selectedId, setSelectedId] = useState<string | null>(
     companies[0]?.id ?? null
   );
@@ -295,7 +303,7 @@ export function CompaniesWorkspace({ companies }: { companies: Company[] }) {
           <h1 className="text-lg font-bold tracking-tight">회사</h1>
           <span className="text-sm text-muted-foreground">· {companies.length}곳</span>
         </div>
-        <div className="ml-auto flex gap-2">
+        {canWrite ? <div className="ml-auto flex gap-2">
           <Button
             size="sm"
             className="gap-1"
@@ -309,11 +317,11 @@ export function CompaniesWorkspace({ companies }: { companies: Company[] }) {
             )}
             {showCreate ? "닫기" : "새 회사"}
           </Button>
-        </div>
+        </div> : null}
       </div>
 
       {/* Inline create-company form (POST /api/customers) */}
-      {showCreate ? (
+      {canWrite && showCreate ? (
         <div className="mb-3 rounded-xl border bg-card p-3 ring-1 ring-foreground/10">
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
             새 회사 추가
@@ -334,7 +342,7 @@ export function CompaniesWorkspace({ companies }: { companies: Company[] }) {
         {/* Right: company detail */}
         <div>
           {selectedCompany ? (
-            <CompanyDetailPanel company={selectedCompany} />
+            <CompanyDetailPanel company={selectedCompany} canWrite={canWrite} />
           ) : (
             <div className="flex h-40 items-center justify-center rounded-xl border bg-card text-sm text-muted-foreground ring-1 ring-foreground/10">
               회사를 선택하면 상세 정보가 표시됩니다.

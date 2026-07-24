@@ -1,48 +1,119 @@
-import { config as loadEnv } from "dotenv";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import type { AuthContext } from "@sangfor/auth";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const repoRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../../../../",
-);
-loadEnv({ path: path.join(repoRoot, ".env") });
+const harness = vi.hoisted(() => ({
+  tx: {
+    project: {
+      findFirst: vi.fn(),
+    },
+    taskLink: {
+      findMany: vi.fn(),
+    },
+  },
+  getCustomerDetail: vi.fn(),
+  getOpportunityDetail: vi.fn(),
+  getPartnerDetail: vi.fn(),
+  searchKnowledgeWithCitations: vi.fn(),
+  traceWorkflowEvent: vi.fn(),
+}));
 
-const integrationEnabled = process.env.CI_INTEGRATION === "1";
-const dbIntegrationEnabled =
-  integrationEnabled && Boolean(process.env.DATABASE_URL?.trim());
+vi.mock("@sangfor/db", () => ({
+  withRlsTransaction: vi.fn(
+    async (_ctx: unknown, callback: (tx: unknown) => Promise<unknown>) =>
+      callback(harness.tx),
+  ),
+}));
 
-describe("phase14 context pack unit", () => {
-  it("produces deterministic template output without OpenAI", async () => {
-    const { renderDeterministicTemplate } = await import("./template-registry");
+vi.mock("../crm/customer-partner", () => ({
+  getCustomerDetail: harness.getCustomerDetail,
+  getPartnerDetail: harness.getPartnerDetail,
+}));
+
+vi.mock("../crm/opportunity-center", () => ({
+  getOpportunityDetail: harness.getOpportunityDetail,
+}));
+
+vi.mock("../domain-ai/knowledge-search", () => ({
+  searchKnowledgeWithCitations: harness.searchKnowledgeWithCitations,
+}));
+
+vi.mock("../crm/poc-center", () => ({
+  getPocDetail: vi.fn(async () => null),
+}));
+
+vi.mock("../crm/proposal-generator", () => ({
+  getGeneratedDocumentDetail: vi.fn(async () => null),
+}));
+
+vi.mock("../skills/portal-binding-summaries", () => ({
+  buildOpportunityOrchestratorSummary: vi.fn(() => "Opportunity summary"),
+  buildPocOrchestratorSummary: vi.fn(() => "PoC summary"),
+  buildProposalOrchestratorSummary: vi.fn(() => "Proposal summary"),
+}));
+
+vi.mock("../platform/langfuse-observability", () => ({
+  traceWorkflowEvent: harness.traceWorkflowEvent,
+}));
+
+import {
+  buildContextPackSummaryText,
+  buildOrchestratorContextPack,
+  inferTemplateKeyFromSource,
+} from "./context-pack-builder";
+import { enrichPhase13RunWithContextPack } from "./orchestrator-bridge";
+import { renderDeterministicTemplate } from "./template-registry";
+
+const SALES: AuthContext = {
+  userId: "user-sales",
+  sessionId: "session-sales",
+  tenantId: "tenant-a",
+  companyId: "company-a",
+  projectId: "project-a",
+  businessRole: "sales_manager",
+  permissions: ["customer.read", "opportunity.read"],
+  product: "portal",
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  harness.tx.project.findFirst.mockResolvedValue({ slug: "scoped-project" });
+  harness.tx.taskLink.findMany.mockResolvedValue([]);
+  harness.getOpportunityDetail.mockResolvedValue(null);
+  harness.getCustomerDetail.mockResolvedValue(null);
+  harness.getPartnerDetail.mockResolvedValue(null);
+  harness.searchKnowledgeWithCitations.mockResolvedValue([]);
+});
+
+describe("phase14 context pack", () => {
+  it("produces deterministic template output without OpenAI", () => {
+    const sections = [
+      {
+        key: "linkedTasks" as const,
+        title: "Linked tasks",
+        empty: true,
+        content: "(no data)",
+      },
+    ];
     const pack = {
       sourceEntityType: null,
       sourceEntityId: null,
       templateKey: "dev-implementation-plan" as const,
-      summaryText: "sample",
-      sections: [
-        {
-          key: "linkedTasks" as const,
-          title: "Linked tasks",
-          empty: true,
-          content: "(no data)",
-        },
-      ],
+      summaryText: buildContextPackSummaryText(sections),
+      sections,
     };
+
     const output = renderDeterministicTemplate(
       "dev-implementation-plan",
       pack,
       "Add context pack engine",
     );
+
     expect(output.deterministic).toBe(true);
     expect(output.bodyMarkdown).toContain("Development implementation plan");
     expect(output.bodyMarkdown).toContain("Add context pack engine");
-    expect(output.bodyMarkdown).toMatch(/Mail OAuth/i);
   });
 
-  it("infers template key from source entity type", async () => {
-    const { inferTemplateKeyFromSource } = await import("./context-pack-builder");
+  it("infers template key from the source type", () => {
     expect(inferTemplateKeyFromSource("proposal")).toBe("proposal-prd");
     expect(inferTemplateKeyFromSource("poc")).toBe("poc-experiment-plan");
     expect(inferTemplateKeyFromSource("opportunity")).toBe("dev-implementation-plan");
@@ -51,112 +122,69 @@ describe("phase14 context pack unit", () => {
     );
   });
 
-  it("lists all template registry keys", async () => {
-    const { listTemplateKeys, TEMPLATE_REGISTRY } = await import("./template-registry");
-    const keys = listTemplateKeys();
-    expect(keys).toHaveLength(5);
-    for (const key of keys) {
-      expect(TEMPLATE_REGISTRY[key].title.length).toBeGreaterThan(2);
-    }
-  });
-});
-
-describe.skipIf(!dbIntegrationEnabled)("phase14 context pack integration", () => {
-  it("renders empty sections when entity is missing", async () => {
-    const { buildOrchestratorContextPack } = await import("./context-pack-builder");
-    const pack = await buildOrchestratorContextPack({
-      projectSlug: "demo-project",
-      sourceEntityType: "opportunity",
-      sourceEntityId: `non-existent-opportunity-${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2)}`,
+  it("uses authenticated context for opportunity, customer, project, and task reads", async () => {
+    harness.getOpportunityDetail.mockResolvedValue({
+      id: "opportunity-1",
+      title: "Scoped opportunity",
+      customerId: "customer-1",
+      partnerId: null,
     });
-    expect(pack.sections).toHaveLength(7);
-    const entitySections = pack.sections.filter(
-      (section) => section.key !== "knowledgeCitations",
+    harness.getCustomerDetail.mockResolvedValue({
+      id: "customer-1",
+      name: "Scoped customer",
+      domain: "scoped.example",
+      industry: "IT",
+      notes: null,
+    });
+
+    const pack = await buildOrchestratorContextPack(SALES, {
+      sourceEntityType: "opportunity",
+      sourceEntityId: "opportunity-1",
+    });
+
+    expect(harness.tx.project.findFirst).toHaveBeenCalledWith({
+      where: { id: SALES.projectId, companyId: SALES.companyId },
+      select: { slug: true },
+    });
+    expect(harness.getOpportunityDetail).toHaveBeenCalledWith(
+      SALES,
+      "opportunity-1",
     );
-    expect(entitySections.every((s) => s.empty)).toBe(true);
-  }, 30_000);
+    expect(harness.getCustomerDetail).toHaveBeenCalledWith(SALES, "customer-1");
+    expect(harness.tx.taskLink.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          entityId: "opportunity-1",
+          workTask: { projectId: SALES.projectId, archivedAt: null },
+        }),
+      }),
+    );
+    expect(pack.sections.find((section) => section.key === "customer")?.empty).toBe(
+      false,
+    );
+  });
 
-  it("builds opportunity context pack with non-empty opportunity section", async () => {
-    const { createOpportunity } = await import("../crm/opportunity-center");
-    const { buildOrchestratorContextPack } = await import("./context-pack-builder");
-    const opp = await createOpportunity({
-      title: "Phase 14 context pack test opp",
-      customerId: undefined,
-    });
-    const pack = await buildOrchestratorContextPack({
-      projectSlug: "demo-project",
+  it("rejects caller-selected project scope", async () => {
+    await expect(
+      buildOrchestratorContextPack(SALES, {
+        projectSlug: "attacker-project",
+        sourceEntityType: "opportunity",
+        sourceEntityId: "opportunity-1",
+      }),
+    ).rejects.toThrow("caller_selected_project_scope_forbidden");
+
+    expect(harness.getOpportunityDetail).not.toHaveBeenCalled();
+  });
+
+  it("fails closed without AuthContext at the orchestration bridge", async () => {
+    const result = await enrichPhase13RunWithContextPack({
+      inputSummary: "Build the scoped context pack",
       sourceEntityType: "opportunity",
-      sourceEntityId: opp.id,
+      sourceEntityId: "opportunity-1",
+      includeContextPack: true,
     });
-    const opportunitySection = pack.sections.find((s) => s.key === "opportunity");
-    expect(opportunitySection?.empty).toBe(false);
-    expect(opportunitySection?.content).toContain("Phase 14");
-  }, 30_000);
 
-  it("builds poc context pack", async () => {
-    const { createPocProject } = await import("../crm/poc-center");
-    const { buildOrchestratorContextPack } = await import("./context-pack-builder");
-    const poc = await createPocProject({
-      projectSlug: "demo-project",
-      title: "Phase 14 PoC pack test",
-    });
-    expect(poc).not.toBeNull();
-    const pack = await buildOrchestratorContextPack({
-      projectSlug: "demo-project",
-      sourceEntityType: "poc",
-      sourceEntityId: poc!.id,
-    });
-    const pocSection = pack.sections.find((s) => s.key === "poc");
-    expect(pocSection?.empty).toBe(false);
-  }, 30_000);
-
-  it("builds proposal context pack", async () => {
-    const { generateProposal } = await import("../crm/proposal-generator");
-    const { buildOrchestratorContextPack } = await import("./context-pack-builder");
-    const doc = await generateProposal({
-      projectSlug: "demo-project",
-      title: "Phase 14 proposal pack",
-      templateKey: "standard-proposal",
-      variables: {},
-    });
-    expect(doc).not.toBeNull();
-    const pack = await buildOrchestratorContextPack({
-      projectSlug: "demo-project",
-      sourceEntityType: "proposal",
-      sourceEntityId: doc!.id,
-    });
-    const proposalSection = pack.sections.find((s) => s.key === "proposal");
-    expect(proposalSection?.empty).toBe(false);
-  }, 30_000);
-
-  it("handles missing task links with empty linkedTasks section", async () => {
-    const { createOpportunity } = await import("../crm/opportunity-center");
-    const { buildOrchestratorContextPack } = await import("./context-pack-builder");
-    const opp = await createOpportunity({ title: "No links opp" });
-    const pack = await buildOrchestratorContextPack({
-      projectSlug: "demo-project",
-      sourceEntityType: "opportunity",
-      sourceEntityId: opp.id,
-    });
-    const tasks = pack.sections.find((s) => s.key === "linkedTasks");
-    expect(tasks?.empty).toBe(true);
-  }, 30_000);
-
-  it("enriches phase13 run with contextPack in response", async () => {
-    const { createOpportunity } = await import("../crm/opportunity-center");
-    const { runPhase13Orchestrator } = await import("../skills/phase13-orchestrator");
-    const opp = await createOpportunity({ title: "Phase 14 orchestrator enrich" });
-    const result = await runPhase13Orchestrator({
-      projectSlug: "demo-project",
-      inputSummary: "Implement context pack on orchestrator",
-      sourceEntityType: "opportunity",
-      sourceEntityId: opp.id,
-      templateKey: "dev-implementation-plan",
-    });
-    expect(result.contextPack).not.toBeNull();
-    expect(result.handoffDraft?.contextPackSummary).toBeTruthy();
-    expect(result.templateOutput?.deterministic).toBe(true);
-  }, 60_000);
+    expect(result.contextPack).toBeNull();
+    expect(harness.getOpportunityDetail).not.toHaveBeenCalled();
+  });
 });

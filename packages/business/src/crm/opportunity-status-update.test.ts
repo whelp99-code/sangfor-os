@@ -16,6 +16,19 @@ import {
 const TAG = "__t25_status_update__";
 const integration = process.env.CI_INTEGRATION === "1";
 
+import type { AuthContext } from "@sangfor/auth";
+
+const mockCtx: AuthContext = {
+  userId: "user-sales",
+  sessionId: "session-sales",
+  tenantId: "tenant-a",
+  companyId: "company-a",
+  projectId: "project-a",
+  businessRole: "sales_manager",
+  permissions: ["customer.read", "customer.write", "opportunity.read", "opportunity.write"],
+  product: "portal",
+};
+
 describe.skipIf(!integration)("opportunity status-axis update + detail qualification", () => {
   let oppId: string;
   let qualId: string | undefined;
@@ -31,15 +44,20 @@ describe.skipIf(!integration)("opportunity status-axis update + detail qualifica
   });
 
   it("setup: creates a base opportunity", async () => {
-    const opp = await createOpportunity({ title: TAG, projectSlug: "demo-project" });
+    const opp = (await createOpportunity(mockCtx, { title: TAG, idempotencyKey: "ik-opp-status-1" })) as { id: string };
     oppId = opp.id;
     expect(opp.id).toBeTruthy();
   });
 
   it("persists dealStatus=LOST and lostReason=price", async () => {
-    const updated = await updateOpportunity(oppId, {
-      dealStatus: "LOST",
-      lostReason: "price",
+    const fetchedBefore = await prisma.opportunity.findUniqueOrThrow({ where: { id: oppId } });
+    await updateOpportunity(mockCtx, oppId, {
+      expectedUpdatedAt: fetchedBefore.updatedAt.toISOString(),
+      idempotencyKey: "ik-opp-status-2",
+      changes: {
+        dealStatus: "LOST",
+        lostReason: "price",
+      },
     });
     const fetched = await prisma.opportunity.findUniqueOrThrow({ where: { id: oppId } });
     expect(fetched.dealStatus).toBe("LOST");
@@ -47,14 +65,24 @@ describe.skipIf(!integration)("opportunity status-axis update + detail qualifica
   });
 
   it("persists dealType=RENEWAL", async () => {
-    const updated = await updateOpportunity(oppId, { dealType: "RENEWAL" });
+    const fetchedBefore = await prisma.opportunity.findUniqueOrThrow({ where: { id: oppId } });
+    await updateOpportunity(mockCtx, oppId, {
+      expectedUpdatedAt: fetchedBefore.updatedAt.toISOString(),
+      idempotencyKey: "ik-opp-status-3",
+      changes: { dealType: "RENEWAL" },
+    });
     const fetched = await prisma.opportunity.findUniqueOrThrow({ where: { id: oppId } });
     expect(fetched.dealType).toBe("RENEWAL");
   });
 
   it("silently ignores unknown key marginPct (stripped by Zod)", async () => {
+    const fetchedBefore = await prisma.opportunity.findUniqueOrThrow({ where: { id: oppId } });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await expect(updateOpportunity(oppId, { marginPct: 99 } as any)).resolves.not.toThrow();
+    await expect(updateOpportunity(mockCtx, oppId, {
+      expectedUpdatedAt: fetchedBefore.updatedAt.toISOString(),
+      idempotencyKey: "ik-opp-status-4",
+      changes: { marginPct: 99 } as any,
+    })).resolves.not.toThrow();
     const fetched = await prisma.opportunity.findUniqueOrThrow({ where: { id: oppId } });
     // marginPct is not a column; confirm the record is otherwise unchanged (no DB error)
     expect(fetched.id).toBe(oppId);
@@ -74,7 +102,7 @@ describe.skipIf(!integration)("opportunity status-axis update + detail qualifica
     });
     qualId = qual.id;
 
-    const detail = await getOpportunityDetail(oppId);
+    const detail = (await getOpportunityDetail(mockCtx, oppId)) as { qualification?: Record<string, unknown> | null } | null;
     expect(detail).not.toBeNull();
     expect(detail!.qualification).not.toBeNull();
     // economicBuyer and champion are null when no contact is linked — that's fine;

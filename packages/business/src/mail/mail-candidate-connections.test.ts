@@ -89,8 +89,13 @@ describe("mail candidate connection defaults", () => {
 });
 
 describe("approve and connect request validation", () => {
-  it("requires an opportunity when proposal draft creation is requested", () => {
-    const result = approveAndConnectMailCandidateSchema.safeParse({
+  it("accepts only the exact versioned canonical conversion reference", () => {
+    const valid = approveAndConnectMailCandidateSchema.safeParse({
+      candidateId: "candidate-1",
+      expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+      idempotencyKey: "connect-candidate-1",
+    });
+    const legacy = approveAndConnectMailCandidateSchema.safeParse({
       candidateId: "candidate-1",
       customer: { mode: "create", name: "Acme", domain: "acme.example.com" },
       contact: { mode: "skip" },
@@ -98,12 +103,8 @@ describe("approve and connect request validation", () => {
       proposal: { mode: "create", title: "Proposal — Acme", templateKey: "standard-proposal" },
     });
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.map((issue) => issue.message)).toContain(
-        "proposal_requires_opportunity",
-      );
-    }
+    expect(valid.success).toBe(true);
+    expect(legacy.success).toBe(false);
   });
 });
 

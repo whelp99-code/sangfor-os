@@ -1,19 +1,43 @@
 export const dynamic = "force-dynamic";
 
-import { listCustomers, listPartners, listPocProjects } from "@sangfor/business";
+import {
+  listCustomers,
+  listPartners,
+  listPocProjects,
+  resolveCrmAuthContext,
+} from "@sangfor/business";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { CreatePocForm } from "@/components/poc/create-poc-form";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 export default async function PocPage() {
-  const [projects, customers, partners] = await Promise.all([
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(new Request(
+    "http://sangfor.local/poc",
+    { headers: { cookie: `session=${encodeURIComponent(token)}` } },
+  ));
+  if (!session.ok) redirect("/login");
+  const ctx = await resolveCrmAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  });
+  const [projects, customerPage, partners] = await Promise.all([
     listPocProjects(),
-    listCustomers(),
+    listCustomers(ctx, { first: 100 }),
     listPartners(),
   ]);
+  const customers = customerPage.items;
 
   return (
     <div className="space-y-6">

@@ -53,19 +53,28 @@ export function InlineField({
     setSaving(true);
     setError(null);
     try {
-      const body: Record<string, unknown> = {};
-      if (expectedUpdatedAt) body.expectedUpdatedAt = expectedUpdatedAt;
+      if (!expectedUpdatedAt) {
+        setError("새로고침 후 다시 시도해 주세요.");
+        return;
+      }
+      let nextValue: unknown;
       if (inputType === "number") {
-        body[field] = draft === "" ? null : Number(draft);
+        nextValue = draft === "" ? null : Number(draft);
       } else if (inputType === "date") {
-        body[field] = draft === "" ? null : new Date(draft).toISOString();
+        nextValue = draft === "" ? null : new Date(draft).toISOString();
       } else {
-        body[field] = draft === "" ? null : draft;
+        nextValue = draft === "" ? null : draft;
       }
       const res = await fetch(`/api/opportunities/${opportunityId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          expectedUpdatedAt,
+          changes: { [field]: nextValue },
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

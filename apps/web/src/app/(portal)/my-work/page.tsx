@@ -3,11 +3,15 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import {
   listOpportunities,
+  resolveOpportunityAuthContext,
   evaluateCandidateColorGate,
   type CandidateColorGate,
 } from "@sangfor/business";
 import { prisma } from "@sangfor/db";
 import { SlipActions } from "@/components/cockpit/slip-actions";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 // ── 계기판 매핑 헬퍼 ────────────────────────────────────────────────
 // 메일 파생 후보의 유형 → 담당 역할 AI (도메인 에이전트)
@@ -101,12 +105,27 @@ function Console({ gate }: { gate: CandidateColorGate }) {
 }
 
 export default async function MyWorkPage() {
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(new Request(
+    "http://sangfor.local/my-work",
+    { headers: { cookie: `session=${encodeURIComponent(token)}` } },
+  ));
+  if (!session.ok) redirect("/login");
+  const ctx = await resolveOpportunityAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  });
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
   const [oppResult, approvals, inbox, pendingTotal, todayCount] =
     await Promise.all([
-      listOpportunities().catch(() => null),
+      listOpportunities(ctx, { first: 100 }).then((page) => page.items).catch(() => null),
       prisma.mailDerivedCandidate.findMany({
         where: { status: "proposed" },
         orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
