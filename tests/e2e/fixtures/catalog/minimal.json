@@ -1,0 +1,35 @@
+{
+  "familyKey": "fam-sangfor-e2e-hci",
+  "vendorKey": "sangfor",
+  "vendor": "Sangfor Technologies",
+  "name": "Sangfor HCI E2E Suite",
+  "description": "Hyper-Converged Infrastructure E2E test fixture",
+  "category": "Infrastructure",
+  "editions": [
+    {
+      "editionKey": "enterprise-e2e",
+      "name": "Enterprise Edition",
+      "version": "6.9.0",
+      "skus": [
+        {
+          "skuCode": "SKU-HCI-ENT-E2E-01",
+          "name": "HCI Enterprise Node License",
+          "unitPrice": 8000,
+          "unitCost": 4500,
+          "currency": "USD",
+          "termMonths": 12,
+          "deploymentType": "appliance",
+          "supportLevel": "24x7"
+        }
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "key": "metric-e2e-cpu",
+      "name": "E2E CPU Core",
+      "unit": "core",
+      "description": "Per CPU core licensing metric"
+    }
+  ]
+}

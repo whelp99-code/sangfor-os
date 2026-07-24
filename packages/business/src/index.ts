@@ -12,3 +12,4 @@ export * from "./mail/index";
 export * from "./support/index";
 export * from "./infrastructure/index";
 export * from "./skills/index";
+export * from "./catalog/index";
