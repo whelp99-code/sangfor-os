@@ -79,4 +79,4 @@ export function autoTransition(currentState: ApprovalState, validation: { passed
 // `decideApproval`, …) lives in `./approval-kernel` and is exported separately through
 // `./index` — it does not extend or reuse this file's `ApprovalState` vocabulary, which is
 // unrelated to (and older than) U018's canonical `ApprovalRequest.status` vocabulary.
-export { ensureApprovalForRun, createApprovalIfNeeded, approveRequest, submitCommercialApproval } from "./approval-db";
+export { ensureApprovalForRun, createApprovalIfNeeded, approveRequest } from "./approval-db";

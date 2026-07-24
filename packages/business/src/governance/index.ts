@@ -12,6 +12,7 @@ export * from "./ai-decision-commercial-resolution";
 export * from "./ai-decision-deal-registration";
 export * from "./ai-quality-gate";
 export * from "./commercial-approval";
+export * from "./commercial-quote-approval";
 export * from "./daily-report";
 export * from "./role-dashboard";
 export * from "./role-dashboard-data";

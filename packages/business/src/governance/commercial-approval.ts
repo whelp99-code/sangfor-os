@@ -24,6 +24,31 @@ export type CommercialApprovalDecision = CommercialMarginResult & {
   reasons: CommercialApprovalReason[];
 };
 
+export type CommercialPolicySnapshot = {
+  policyKey: string;
+  policyVersion: string;
+  lowMarginThresholdPercent: number;
+  highDiscountThresholdPercent: number;
+  requiredQuorum: number;
+  requiredRoles: string[];
+};
+
+export const DEFAULT_COMMERCIAL_POLICY: CommercialPolicySnapshot = {
+  policyKey: "quote.internal_release",
+  policyVersion: "v1",
+  lowMarginThresholdPercent: 15,
+  highDiscountThresholdPercent: 25,
+  requiredQuorum: 2,
+  requiredRoles: ["finance", "ceo"],
+};
+
+export type PolicyBoundApprovalDecision = CommercialApprovalDecision & {
+  policyKey: string;
+  policyVersion: string;
+  requiredQuorum: number;
+  requiredRoles: string[];
+};
+
 function roundPercent(value: number) {
   return Math.round(value * 100) / 100;
 }
@@ -68,5 +93,23 @@ export function evaluateCommercialApproval(input: CommercialApprovalInput): Comm
     decision: reasons.length > 0 ? "requires_approval" : "allowed",
     blocked: reasons.length > 0,
     reasons,
+  };
+}
+
+export function evaluateWithPolicySnapshot(
+  input: CommercialApprovalInput,
+  policy: CommercialPolicySnapshot,
+): PolicyBoundApprovalDecision {
+  const base = evaluateCommercialApproval({
+    ...input,
+    lowMarginThresholdPercent: policy.lowMarginThresholdPercent,
+    highDiscountThresholdPercent: policy.highDiscountThresholdPercent,
+  });
+  return {
+    ...base,
+    policyKey: policy.policyKey,
+    policyVersion: policy.policyVersion,
+    requiredQuorum: policy.requiredQuorum,
+    requiredRoles: policy.requiredRoles,
   };
 }

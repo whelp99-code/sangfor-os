@@ -2,19 +2,7 @@ import { createHash } from "node:crypto";
 
 import { Prisma, prisma } from "@sangfor/db";
 
-import { recordCommercialApprovalResolution } from "./ai-decision-commercial-resolution";
 import { logStateTransition } from "./audit";
-
-/**
- * Commercial approvals encode `commercial:<quoteId>:<reason>` in the reason
- * field (see submitCommercialApproval). Extract the quoteId so a resolution
- * can be instrumented as a commercial_approval_resolution decision.
- */
-function extractCommercialQuoteId(reason: string | null | undefined): string | null {
-  if (!reason) return null;
-  const match = /^commercial:([^:]+)/.exec(reason);
-  return match ? match[1]! : null;
-}
 
 const RISK_LEVELS_REQUIRING_APPROVAL = new Set(["medium", "high"]);
 
@@ -107,68 +95,18 @@ export async function approveRequest(approvalId: string, actorId?: string) {
     });
   }
 
-  // S1: instrument commercial-approval resolutions (best-effort, outside txn,
-  // never throws). Only commercial approvals carry a quoteId in their reason.
-  const quoteId = extractCommercialQuoteId(approval.reason);
-  if (quoteId) {
-    await recordCommercialApprovalResolution({
-      quoteId,
-      outcome: "approved",
-      actorId,
-    });
-  }
-
   return approval;
-}
-
-export interface CommercialApprovalInput {
-  quoteId: string;
-  opportunityId: string;
-  companyId: string;
-  reason: string;
-}
-
-export async function submitCommercialApproval(input: CommercialApprovalInput) {
-  const existing = await prisma.approvalRequest.findFirst({
-    where: { reason: { contains: `commercial:${input.quoteId}` }, status: "pending" },
-  });
-  if (existing) return { approval: existing, created: false as const };
-
-  const approval = await prisma.approvalRequest.create({
-    data: {
-      status: "pending",
-      reason: `commercial:${input.quoteId}:${input.reason}`,
-    },
-  });
-
-  await prisma.notificationEvent.create({
-    data: {
-      companyId: input.companyId,
-      channel: "internal",
-      eventType: "approval.required",
-      payloadJson: { quoteId: input.quoteId, opportunityId: input.opportunityId, reason: input.reason },
-    },
-  });
-
-  await logStateTransition({
-    entityType: "approval_request",
-    entityId: approval.id,
-    fromStatus: null,
-    toStatus: "pending",
-    actorType: "engine",
-    metadata: { reason: input.reason, quoteId: input.quoteId },
-  });
-
-  return { approval, created: true as const };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
 // U022/APR-01b: canonical, exact-version writer. Everything above this line is the pre-U022
 // reason-string/status-only legacy writer (untouched — `ensureApprovalForRun`/
-// `createApprovalIfNeeded`/`submitCommercialApproval` still insert `legacyUnbound=true` rows with
-// zero canonical authority, per the U018 dispatch's grandfather clause). This is the first and
-// only writer allowed to insert a full-shape `legacyUnbound=false` row — it never upgrades an
-// existing legacy row in place. `packages/business/src/governance/approval-kernel.ts` is the sole
+// `createApprovalIfNeeded` still insert `legacyUnbound=true` rows with zero canonical authority,
+// per the U018 dispatch's grandfather clause). U048 removed `submitCommercialApproval` and its
+// reason-string commercial path; commercial approval now uses the canonical exact-version kernel.
+// This is the first and only writer allowed to insert a full-shape `legacyUnbound=false` row —
+// it never upgrades an existing legacy row in place.
+// `packages/business/src/governance/approval-kernel.ts` is the sole
 // caller: it resolves/validates every field server-side before calling this, and always OMITS
 // `validationSnapshotHash` on insert so U018's `approval_request_validation_snapshot_guard`
 // trigger computes/fills it — this module never reimplements that PostgreSQL-authoritative digest.
