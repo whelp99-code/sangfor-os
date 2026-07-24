@@ -1,4 +1,8 @@
-import { evaluateCommercialApproval, type CommercialApprovalDecision } from "../governance/commercial-approval";
+import {
+  DEFAULT_COMMERCIAL_POLICY,
+  evaluateWithPolicySnapshot,
+  type PolicyBoundApprovalDecision,
+} from "../governance/commercial-approval";
 
 export interface QuoteLineItem {
   productName: string
@@ -21,11 +25,8 @@ export interface QuoteResult {
   overallMarginPct: number
   requiresCommercialApproval: boolean
   commercialGateReason?: string
-  approvalDecision: CommercialApprovalDecision
+  approvalDecision: PolicyBoundApprovalDecision
 }
-
-const MIN_MARGIN_PCT = 15
-const MAX_DISCOUNT_PCT = 25
 
 function assertPercentage(value: number, errorCode: string) {
   if (!Number.isFinite(value) || value < 0 || value > 100) throw new Error(errorCode)
@@ -56,15 +57,15 @@ export function calculateQuote(lineItems: QuoteLineItem[]): QuoteResult {
   const overallMarginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0
   const maxDiscount = Math.max(...lineItems.map(i => i.discountPct))
 
+  const policy = DEFAULT_COMMERCIAL_POLICY;
+
   const approvalDecision = totalRevenue > 0
-    ? evaluateCommercialApproval({
+    ? evaluateWithPolicySnapshot({
         revenue: totalRevenue,
         cost: totalCost,
         discountPercent: maxDiscount,
-        action: "view-dashboard",
-        lowMarginThresholdPercent: MIN_MARGIN_PCT,
-        highDiscountThresholdPercent: MAX_DISCOUNT_PCT,
-      })
+        action: policy.policyKey,
+      }, policy)
     : {
         revenue: totalRevenue,
         cost: totalCost,
@@ -73,8 +74,13 @@ export function calculateQuote(lineItems: QuoteLineItem[]): QuoteResult {
         decision: "requires_approval" as const,
         blocked: true,
         reasons: ["low_margin" as const],
+        policyKey: policy.policyKey,
+        policyVersion: policy.policyVersion,
+        requiredQuorum: policy.requiredQuorum,
+        requiredRoles: policy.requiredRoles,
       }
-  if (maxDiscount === MAX_DISCOUNT_PCT) {
+
+  if (maxDiscount === policy.highDiscountThresholdPercent) {
     approvalDecision.reasons = approvalDecision.reasons.filter(reason => reason !== "high_discount")
     approvalDecision.decision = approvalDecision.reasons.length > 0 ? "requires_approval" : "allowed"
     approvalDecision.blocked = approvalDecision.reasons.length > 0
@@ -83,13 +89,13 @@ export function calculateQuote(lineItems: QuoteLineItem[]): QuoteResult {
   let requiresCommercialApproval = approvalDecision.reasons.some(reason => reason === "low_margin" || reason === "high_discount")
   let commercialGateReason: string | undefined
 
-  if (overallMarginPct < MIN_MARGIN_PCT) {
-    commercialGateReason = `Overall margin ${overallMarginPct.toFixed(1)}% is below ${MIN_MARGIN_PCT}% threshold`
+  if (overallMarginPct < policy.lowMarginThresholdPercent) {
+    commercialGateReason = `Overall margin ${overallMarginPct.toFixed(1)}% is below ${policy.lowMarginThresholdPercent}% threshold`
   }
 
-  if (maxDiscount > MAX_DISCOUNT_PCT) {
+  if (maxDiscount > policy.highDiscountThresholdPercent) {
     requiresCommercialApproval = true
-    const reason = `Discount ${maxDiscount}% exceeds ${MAX_DISCOUNT_PCT}% maximum`
+    const reason = `Discount ${maxDiscount}% exceeds ${policy.highDiscountThresholdPercent}% maximum`
     commercialGateReason = commercialGateReason ? `${commercialGateReason}; ${reason}` : reason
   }
 

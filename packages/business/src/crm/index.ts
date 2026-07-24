@@ -43,6 +43,7 @@ export * from "./opportunity-stage";
 export * from "./deal-code";
 export * from "./deal-registration";
 export * from "./quote-engine";
+export * from "./quote-service";
 export * from "./proposal-generator";
 export * from "./engagement-backfill";
 export * from "./engagement-center";

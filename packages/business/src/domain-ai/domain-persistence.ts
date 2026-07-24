@@ -25,6 +25,7 @@ export interface DomainPersistResult {
   skipped?: string;
   reviewRequired?: true;
   authenticatedApiPath?: string;
+  quoteDraftPath?: string;
 }
 
 export type DomainPersister = (input: DomainPersistInput) => Promise<DomainPersistResult>;
@@ -52,6 +53,7 @@ export function createDomainPersister(_deps: DomainPersisterDeps = {}): DomainPe
     skipped: "authenticated_crm_context_required",
     reviewRequired: true,
     authenticatedApiPath: "/api/opportunities",
+    quoteDraftPath: "/api/opportunities/[id]/quotes",
   });
 }
 

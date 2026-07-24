@@ -58,6 +58,7 @@ describe("createDomainPersister fail-closed boundary", () => {
         skipped: "authenticated_crm_context_required",
         reviewRequired: true,
         authenticatedApiPath: "/api/opportunities",
+        quoteDraftPath: "/api/opportunities/[id]/quotes",
       });
       expect(resolveProjectId).not.toHaveBeenCalled();
     },
@@ -80,13 +81,14 @@ describe("createDomainPersister fail-closed boundary", () => {
     expect(second).toEqual(first);
   });
 
-  it("contains no direct Customer or Opportunity persistence authority", () => {
+  it("contains no direct Customer, Opportunity, or Quote persistence authority", () => {
     const source = readFileSync(
       fileURLToPath(new URL("./domain-persistence.ts", import.meta.url)),
       "utf8",
     );
 
-    expect(source).not.toMatch(/\.(?:customer|opportunity)\.(?:create|update|upsert)/);
+    expect(source).not.toMatch(/\.(?:customer|opportunity|quote)\.(?:create|update|upsert)/);
     expect(source).not.toMatch(/resolveDefaultProject|withRlsTransaction/);
+    expect(source).not.toMatch(/createQuoteVersion/);
   });
 });

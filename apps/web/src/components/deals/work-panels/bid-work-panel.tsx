@@ -35,6 +35,10 @@ export type BidWorkPanelProps = {
   distributorName: string | null;
   /** Competitor names pulled from deal detail (may be empty). */
   competitors: string[];
+  /** Commercial approval status for the latest quote (U048). */
+  commercialApprovalStatus?: string | null;
+  /** Whether the latest quote has auto_failed cost coverage (U048). */
+  costCoverageBlocked?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -92,9 +96,13 @@ function normaliseSprStatus(raw: string | null): string | null {
 function BidQuotesSection({
   opportunityId,
   quotes,
+  commercialApprovalStatus,
+  costCoverageBlocked,
 }: {
   opportunityId: string;
   quotes: QuoteSummary[];
+  commercialApprovalStatus?: string | null;
+  costCoverageBlocked?: boolean;
 }) {
   return (
     <section aria-labelledby="bid-quotes-heading">
@@ -190,6 +198,27 @@ function BidQuotesSection({
           </table>
         </div>
       )}
+
+      {costCoverageBlocked && (
+        <div
+          className="mt-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+          data-testid="cost-coverage-blocker"
+        >
+          <span>⛔</span>
+          <span>원가 미충족(auto_failed) — 상업 승인 진행 불가</span>
+        </div>
+      )}
+
+      {commercialApprovalStatus && (
+        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground" data-testid="commercial-approval-status">
+          <span>상업 승인:</span>
+          <Badge variant="outline" className="text-[10px]">{commercialApprovalStatus}</Badge>
+        </div>
+      )}
+
+      <p className="mt-3 text-[10px] text-muted-foreground" data-testid="release-status">
+        내부 릴리스: <span className="font-medium">pending U055</span> — governed release 대기 중
+      </p>
     </section>
   );
 }
@@ -329,10 +358,17 @@ export function BidWorkPanel({
   sprStatus,
   distributorName,
   competitors,
+  commercialApprovalStatus,
+  costCoverageBlocked,
 }: BidWorkPanelProps) {
   return (
     <div className="space-y-6" role="region" aria-label="④ 선정·입찰 작업 패널">
-      <BidQuotesSection opportunityId={opportunityId} quotes={quotes} />
+      <BidQuotesSection
+        opportunityId={opportunityId}
+        quotes={quotes}
+        commercialApprovalStatus={commercialApprovalStatus}
+        costCoverageBlocked={costCoverageBlocked}
+      />
       <SprSection sprStatus={sprStatus} distributorName={distributorName} />
       <CompetitorSection competitors={competitors} />
     </div>
