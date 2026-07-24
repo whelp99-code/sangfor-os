@@ -30,6 +30,22 @@ export default function RegistryPage() {
             Product Family, Edition, License Metric, SKU 생애주기 관리 및 JSON 가져오기/가역 보존 표면.
           </CardContent>
         </Card>
+        <Card className="rounded-md border border-border shadow-sm">
+          <CardHeader className="p-4 border-b border-border">
+            <CardTitle className="text-sm font-semibold flex items-center justify-between">
+              <span>사이징 템플릿 & 호환성 규칙 레지스트리</span>
+              <Link
+                href="/registry/rules"
+                className="text-xs font-mono text-primary hover:underline"
+              >
+                열기 &rarr;
+              </Link>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 text-xs text-muted-foreground">
+            Sizing Template & Compatibility Rule 선언적 엔진, 승인 결합 게시 및 CAS 활성 버전 관리.
+          </CardContent>
+        </Card>
       </div>
       <RegistryAdminPanel />
     </div>
