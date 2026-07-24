@@ -25,6 +25,7 @@ import {
   validateOpportunityStageOrder,
   validateRegistrationGate,
 } from "./opportunity-stage";
+import { isQualificationPassing } from "./deal-qualification";
 
 type ScopedTransaction = Prisma.TransactionClient;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
@@ -724,7 +725,10 @@ export async function updateOpportunity(
     if (prior) return prior;
     const existing = await tx.opportunity.findFirst({
       where: { id, projectId: ctx.projectId, archivedAt: null },
-      include: { dealRegistration: { select: { regStatus: true } } },
+      include: {
+        dealRegistration: { select: { regStatus: true } },
+        qualification: true,
+      },
     });
     if (!existing) throw new CrmServiceError("NOT_FOUND", 404, "opportunity_not_found");
     await validateRelatedScope(tx, ctx, command.changes);
@@ -738,6 +742,14 @@ export async function updateOpportunity(
       if (!order.allowed) {
         throw new CrmServiceError("CONFLICT", 409, `illegal_stage_transition:${order.reason}`);
       }
+      const targetStage = normalizeOpportunityStage(command.changes.stage);
+      const isAdvancingPastLead = normalizeOpportunityStage(existing.stage) === "LEAD" && targetStage !== "LEAD" && targetStage !== "LOST";
+      const requiresQualification = isAdvancingPastLead || targetStage === "QUALIFIED" || targetStage === "PROPOSAL" || targetStage === "POC" || targetStage === "NEGOTIATION";
+
+      if (requiresQualification && !isQualificationPassing(existing.qualification)) {
+        throw new CrmServiceError("CONFLICT", 409, "illegal_stage_transition:opportunity_must_be_qualified");
+      }
+
       const gate = validateRegistrationGate({
         from: existing.stage,
         to: command.changes.stage,

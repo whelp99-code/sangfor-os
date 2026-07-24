@@ -44,6 +44,20 @@ export type OpportunityForDetail = {
     partnerTierMargin: number | null;
     distributor?: { name: string } | null;
   } | null;
+  qualification?: {
+    id?: string;
+    budgetScore?: number | null;
+    authorityScore?: number | null;
+    needScore?: number | null;
+    timelineScore?: number | null;
+    technicalFitScore?: number | null;
+    scoreTotal?: number | null;
+    passed?: boolean | null;
+    scoringVersion?: string | null;
+    revision?: number | null;
+    assessedAt?: string | Date | null;
+    notes?: string | null;
+  } | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -201,6 +215,8 @@ function OwnerAssignmentControl({
   );
 }
 
+import { QualificationCard } from "@/components/deals/qualification-card";
+
 export function DealDetail({
   opportunity,
   readOnly = false,
@@ -209,11 +225,26 @@ export function DealDetail({
   const opp = opportunity;
   const id = opp.id;
 
+  const qualData = opp.qualification
+    ? {
+        ...opp.qualification,
+        assessedAt: opp.qualification.assessedAt
+          ? new Date(opp.qualification.assessedAt).toISOString()
+          : null,
+      }
+    : null;
+
   return (
-    <Card>
-      <CardHeader className="pb-1">
-        <CardTitle className="text-sm font-bold">딜 상세 정보</CardTitle>
-      </CardHeader>
+    <div className="space-y-4">
+      <QualificationCard
+        opportunityId={id}
+        qualification={qualData}
+        readOnly={readOnly}
+      />
+      <Card>
+        <CardHeader className="pb-1">
+          <CardTitle className="text-sm font-bold">딜 상세 정보</CardTitle>
+        </CardHeader>
       <CardContent className="divide-y divide-border/40 pb-4">
 
         {/* ① 딜 정보 ---------------------------------------------------- */}
@@ -407,47 +438,7 @@ export function DealDetail({
           />
         </DealDetailSection>
 
-        {/* ④ 자격검증 (BANT) ------------------------------------------- */}
-        {/* BANT scores come from DealQualification which is not yet included
-            in getOpportunityDetail. All rendered as — until included. */}
-        <DealDetailSection title="자격검증 (BANT)" columns={2}>
-          <InlineField
-            label="Budget (예산)"
-            value="—"
-            editable={false}
-            opportunityId={id}
-          />
-          <InlineField
-            label="Authority (권한)"
-            value="—"
-            editable={false}
-            opportunityId={id}
-          />
-          <InlineField
-            label="Need (필요성)"
-            value="—"
-            editable={false}
-            opportunityId={id}
-          />
-          <InlineField
-            label="Timeline (일정)"
-            value="—"
-            editable={false}
-            opportunityId={id}
-          />
-          <InlineField
-            label="실구매 결정자"
-            value="—"
-            editable={false}
-            opportunityId={id}
-          />
-          <InlineField
-            label="챔피언"
-            value="—"
-            editable={false}
-            opportunityId={id}
-          />
-        </DealDetailSection>
+
 
         {/* ⑤ 일정 ------------------------------------------------------ */}
         <DealDetailSection title="일정" columns={2}>
@@ -483,5 +474,6 @@ export function DealDetail({
 
       </CardContent>
     </Card>
+    </div>
   );
 }

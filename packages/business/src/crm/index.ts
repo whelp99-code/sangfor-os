@@ -48,3 +48,4 @@ export * from "./engagement-backfill";
 export * from "./engagement-center";
 export * from "./poc-center";
 export * from "./deal-risk";
+export * from "./deal-qualification";

@@ -12,16 +12,14 @@ import {
 } from "./opportunity-stage";
 
 describe("opportunity qualification completion", () => {
-  it("marks opportunity qualified when score and required discovery fields are present", () => {
+  it("marks opportunity qualified when passing bant-tf-v1 qualification object is present", () => {
     expect(
       evaluateOpportunityQualification({
-        bantScore: 82,
-        hasBudget: true,
-        hasAuthority: true,
-        hasNeed: true,
-        hasTimeline: true,
-        hasDiscoveryNote: true,
-        hasSolutionFit: true,
+        qualification: {
+          scoringVersion: "bant-tf-v1",
+          passed: true,
+          scoreTotal: 80,
+        },
       }),
     ).toEqual({
       status: "qualified",
@@ -30,39 +28,37 @@ describe("opportunity qualification completion", () => {
     });
   });
 
-  it("requires review when score is high but solution fit is missing", () => {
+  it("returns needs_discovery when qualification is non-passing or stale", () => {
     expect(
       evaluateOpportunityQualification({
-        bantScore: 82,
-        hasBudget: true,
-        hasAuthority: true,
-        hasNeed: true,
-        hasTimeline: true,
-        hasDiscoveryNote: true,
-        hasSolutionFit: false,
+        qualification: {
+          scoringVersion: "bant-v0",
+          passed: true,
+          scoreTotal: 80,
+        },
       }),
     ).toMatchObject({
-      status: "requires_review",
-      reasons: ["missing_solution_fit"],
+      status: "needs_discovery",
+      reasons: ["stale_or_non_passing_qualification"],
     });
   });
 
-  it("blocks quote stage transition before qualification", () => {
+  it("blocks stage transition past LEAD before passing qualification", () => {
     expect(
       canTransitionOpportunityStage({
-        from: "discovery",
-        to: "quote",
+        from: "LEAD",
+        to: "QUALIFIED",
         qualificationStatus: "needs_discovery",
       }),
     ).toEqual({ allowed: false, reason: "opportunity_must_be_qualified" });
   });
 
-  it("blocks canonical proposal stage transition before qualification", () => {
+  it("blocks canonical proposal stage transition before passing qualification", () => {
     expect(
       canTransitionOpportunityStage({
         from: "QUALIFIED",
         to: "PROPOSAL",
-        qualificationStatus: "needs_discovery",
+        qualification: { scoringVersion: "bant-v0", passed: true },
       }),
     ).toEqual({ allowed: false, reason: "opportunity_must_be_qualified" });
   });
