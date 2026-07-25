@@ -554,3 +554,28 @@
 - `/dashboard/roi`: ROI 대시보드 페이지 및 컴포넌트 추가 (`MetricState` 공통 재사용).
 
 ---
+
+## U071: OPS-01 / M18 Executable Synthetic Remediation Drills
+
+- **시작 시각**: 2026-07-25T22:13:00+09:00
+- **완료 시각**: 2026-07-25T22:15:09+09:00
+- **체크포인트 커밋**: `5634a40d`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U071/attempt-1/red.txt` 저장 |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Business Unit Tests | 0 | 1/1 passed |
+| Web Unit Tests | 0 | 1/1 passed |
+| Web Build | 0 | Success (93 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `operator-synthetic-drills.ts`: 3가지 시나리오 (`stuck-approval`, `missing-rls-context`, `ai-cost-spike`) 6단계 런타임 상태 머신 작성.
+- `/api/operator/drills`: 오퍼레이터 전용 합성 드릴 실행 API 라우트 신설.
+- `SyntheticDrillPanel`: 6단계 복구 단계별 시각화 UI 컴포넌트 추가 및 `/operator/workflows` 페이지 통합.
+- 계약 검증 런타임 스크립트 작성.
+
+---

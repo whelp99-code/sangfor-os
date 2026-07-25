@@ -119,6 +119,12 @@ describe('REGISTERED_ADDITIONS — U011 model registration', () => {
       { model: 'SchedulerJob', unit: 'U068', category: 'COMPANY_ROOT' },
       { model: 'SchedulerRun', unit: 'U068', category: 'CHILD_VIA_FK' },
       { model: 'SchedulerRunAttempt', unit: 'U068', category: 'CHILD_VIA_FK' },
+      { model: 'MetricDefinition', unit: 'U072', category: 'COMPANY_ROOT' },
+      { model: 'MetricBenchmarkVersion', unit: 'U072', category: 'CHILD_VIA_FK' },
+      { model: 'MetricDailySnapshot', unit: 'U072', category: 'CHILD_VIA_FK' },
+      { model: 'AiExecution', unit: 'U072', category: 'PROJECT_ROOT' },
+      { model: 'AiProviderAttempt', unit: 'U072', category: 'CHILD_VIA_FK' },
+      { model: 'AiExecutionCost', unit: 'U072', category: 'CHILD_VIA_FK' },
     ]);
   });
 
@@ -435,9 +441,9 @@ describe('U041 AI quality immutable-history registration', () => {
     const first = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     const second = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(JSON.stringify(second)).toBe(JSON.stringify(first));
-    expect(first.currentModelCount).toBe(192);
-    expect(first.inventoryModelCount).toBe(192);
-    expect(Object.values(first.tallies).reduce((sum, count) => sum + count, 0)).toBe(192);
+    expect(first.currentModelCount).toBe(198);
+    expect(first.inventoryModelCount).toBe(198);
+    expect(Object.values(first.tallies).reduce((sum, count) => sum + count, 0)).toBe(198);
   });
 });
 
