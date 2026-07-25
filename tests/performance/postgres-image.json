@@ -1,0 +1,9 @@
+{
+  "repository": "docker.io/library/postgres",
+  "tag": "16-alpine",
+  "major": 16,
+  "manifestListDigest": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+  "resolvedImage": "docker.io/library/postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+  "platform": "linux/amd64",
+  "note": "Must match U009 canonical scripts/fixtures/restore-drill/postgres16-image.lock.json byte-for-byte for shared fields"
+}

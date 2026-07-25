@@ -32,7 +32,9 @@
     "docker:down": "docker compose down",
     "docker:dev": "docker compose -f docker-compose.yml up -d postgres redis",
     "cfo:snapshot": "pnpm --filter @sangfor/db cfo:snapshot",
-    "restore:drill": "node scripts/restore-drill.mjs"
+    "restore:drill": "node scripts/restore-drill.mjs",
+    "perf:contracts": "tsx tests/performance/contracts.ts",
+    "perf:smoke": "node scripts/perf-smoke.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
