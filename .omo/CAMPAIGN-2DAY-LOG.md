@@ -379,3 +379,26 @@
 - `MetricState` UI 컴포넌트 추가 및 대시보드 연동.
 
 ---
+
+## U064: UX-05: Global Tokens/Fonts, Portal/CFO Landmarks, and Shell Scroll/Focus Ownership
+
+- **시작 시각**: 2026-07-25T21:49:55+09:00
+- **완료 시각**: 2026-07-25T21:52:16+09:00
+- **체크포인트 커밋**: `f6868e4f`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U064/attempt-1/red.txt` 저장 |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Web Unit Tests | 0 | 7/7 passed |
+| Web Build | 0 | Success (89 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- Cockpit 4개 디자인 컴포넌트 신설 (`VerificationConsole`, `DispatchSlip`, `RoleAIBadge`, `CommanderButton`).
+- 쉘 랜드마크 및 포커스 소유권 검증 테스트 작성 (`portal-shell.render.test.tsx`, `shell-contract.test.tsx`, `design-contract.test.ts`).
+- AI 검증 디자인 의미 속성(`data-design-semantic="ai-validation"`) 및 인간 결정 조종 속성(`data-design-semantic="human-decision"`) 준수.
+
+---
