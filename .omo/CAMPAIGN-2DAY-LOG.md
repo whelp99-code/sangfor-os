@@ -148,6 +148,35 @@
 
 ---
 
+## U053: PPL-02: Certification Evidence, Eligibility, and Engineer Assignment
+
+- **시작 시각**: 2026-07-25T16:06:09+09:00
+- **완료 시각**: 2026-07-25T16:09:29+09:00
+- **체크포인트 커밋**: `23de97c2` (`U053 implementation checkpoint — pending owner verification`)
+- **상태**: COMPLETED
+
+### VERIFY 검증 결과
+
+| 검증 항목 | 명령 | Exit Code | Result | 비고 |
+|---|---|---|---|---|
+| RED 증명 | `vitest run src/support/engineer-eligibility.test.ts` | 1 | Saved | `.omo/evidence/.../U053/attempt-1/red.txt` 선저장 |
+| Business Typecheck | `pnpm --filter @sangfor/business typecheck` | 0 | Clean | TypeScript 에러 0건 |
+| Web Typecheck | `pnpm --filter @sangfor/web typecheck` | 0 | Clean | TypeScript 에러 0건 |
+| Business Unit Tests | `vitest run src/support/engineer-eligibility.test.ts` | 0 | 2 / 2 Passed | 자격 평가 및 엔지니어 배치 단위 테스트 통과 |
+| Web Unit Tests | `vitest run 'src/app/api/delivery/people/route.test.ts' ...` | 0 | 5 / 5 Passed | 라우트 단위 테스트 통과 |
+| Web Production Build | `pnpm --filter @sangfor/web build` | 0 | Success | Next.js 16.2.6 production build 성공 |
+| Git Diff Check | `git diff --check` | 0 | Clean | 공백/줄바꿈 에러 없음 |
+| Playwright Spec Listing | `pnpm exec playwright test ... --list` | 0 | 1 test listed | 브라우저 실행 이연 |
+
+### 특이사항 & 이행 내역
+- 엔지니어 자격 요건(`EngineerSkill`, `EngineerCertification`, `CertificationEvidence`) 검증 및 자격 평가 코어 서비스 `evaluateEngineerEligibility` 구현.
+- 자격 요건 평가 통과 시에만 단일 직렬화 트랜잭션 내 `EngineerAssignment{status: "active"}` 및 U021 audit 생성 (`assignEngineerToEngagement`). 비자격 시 422 `ENGINEER_INELIGIBLE` 처리.
+- `/api/delivery/people`, `/api/delivery/people/[membershipId]/credentials`, `/api/engagements/[id]/engineer-assignments` Next.js 라우트 신설.
+- UI 페이지 `/delivery/people` 및 `EligibilityMatrix`, `EngineerAssignmentControl` 컴포넌트 신설.
+
+---
+
+
 
 
 

@@ -137,6 +137,11 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         <CardContent className="space-y-4">
           <CreateTaskForm engagementId={id} />
           <TaskBoard tasks={tasks} />
+          <div className="pt-2 border-t">
+            <a href="/delivery/people" className="text-xs text-cyan-400 hover:underline">
+              → 엔지니어 자격 증명 및 이행 배치 제어 (Delivery Roster)
+            </a>
+          </div>
         </CardContent>
       </Card>
     </div>
