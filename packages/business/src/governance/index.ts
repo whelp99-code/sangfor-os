@@ -27,3 +27,7 @@ export * from "./internal-principal-replay";
 export * from "./role-change";
 export * from "./external-action-release";
 export * from "./commercial-release";
+export * from "./artifact-access";
+export * from "./data-export";
+export * from "./retention-service";
+export * from "./retention-purge";
