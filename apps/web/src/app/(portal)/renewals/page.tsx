@@ -156,7 +156,11 @@ export default async function RenewalsPage() {
                   영업 AI · 현재 단계 {STAGES.find((stage) => stage.key === r.status)?.n ?? r.status}
                 </span>
               </div>
-              <RenewalStatusControl id={r.id} status={r.status} />
+              <RenewalStatusControl
+                renewalOpportunityId={r.id}
+                status={r.status}
+                updatedAt={r.updatedAt?.toISOString() ?? new Date().toISOString()}
+              />
               <div className="amt">{won(Number(r.amount ?? 0))}</div>
             </div>
           );

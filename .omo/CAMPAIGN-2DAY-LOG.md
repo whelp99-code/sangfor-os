@@ -118,5 +118,36 @@
 
 ---
 
+## U052: PPL-01: Renewal Pipeline, Lead Time Triggers & Owner Task Generation
+
+- **시작 시각**: 2026-07-25T16:01:03+09:00
+- **완료 시각**: 2026-07-25T16:06:05+09:00
+- **체크포인트 커밋**: `3df19913` (`U052 implementation checkpoint — pending owner verification`)
+- **상태**: COMPLETED
+
+### VERIFY 검증 결과
+
+| 검증 항목 | 명령 | Exit Code | Result | 비고 |
+|---|---|---|---|---|
+| RED 증명 | `vitest run src/support/renewal-projection.test.ts` | 1 | Saved | `.omo/evidence/.../U052/attempt-1/red.txt` 선저장 |
+| Business Typecheck | `pnpm --filter @sangfor/business typecheck` | 0 | Clean | TypeScript 에러 0건 |
+| Web Typecheck | `pnpm --filter @sangfor/web typecheck` | 0 | Clean | TypeScript 에러 0건 |
+| Business Unit Tests | `vitest run src/support/renewal-projection.test.ts ...` | 0 | 12 / 12 Passed | 코어 서비스 & 호환 어댑터 & 와치독 단위 테스트 통과 |
+| Web Unit Tests | `vitest run 'src/app/api/operator/renewals/run/route.test.ts' ...` | 0 | 4 / 4 Passed | 라우트 & UI 컴포넌트 단위 테스트 통과 |
+| Web Production Build | `pnpm --filter @sangfor/web build` | 0 | Success | Next.js 16.2.6 production build 성공 |
+| Git Diff Check | `git diff --check` | 0 | Clean | 공백/줄바꿈 에러 없음 |
+| Playwright Spec Listing | `pnpm exec playwright test ... --list` | 0 | 1 test listed | 브라우저 실행 이연 |
+
+### 특이사항 & 이행 내역
+- 구독(Subscription) 만료 기준 D-90, D-60, D-30 갱신 프로젝트 생성 `runRenewalProjectionBatch` 코어 서비스 구현.
+- D-90 도달 시 `RenewalOpportunity`, `WorkTask`, `NotificationEvent`, `RenewalReminderEvent` 단일 직렬화 트랜잭션 내 생성 및 멱등성 보장.
+- `updateRenewalLifecycle` 상태 전이 무결성 검증 (pending -> notified -> quote_requested -> vendor_quote -> delivered -> po -> renewed | lost) 및 CAS(expectedStatus, expectedUpdatedAt) 원자적 수치 제어.
+- `asset-renewal.ts` 및 `renewal-center.ts`를 주입 시각(now) 기반 순수 위임 호환 어댑터로 리팩토링 (`Date.now()` / un-injected `new Date()` 제거).
+- 와치독(`watchdog.ts`)의 리뉴얼 브랜치를 `runRenewalProjectionBatch` 코어 연동으로 교체.
+- `/api/operator/renewals/run` 및 `PATCH/GET /api/renewals/[id]` Next.js 라우트 및 `RenewalStatusControl` 컴포넌트 신설.
+
+---
+
+
 
 

@@ -1,27 +1,100 @@
-import { getRenewalDetail, updateRenewal } from "@sangfor/business";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import {
+  getScopedRenewalDetail,
+  updateRenewalLifecycle,
+  RenewalError,
+  resolveCrmAuthContext,
+} from "@sangfor/business";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
-import { apiError, assertApiAccess } from "@/lib/api-auth";
-import { assertBusinessCapability } from "@/lib/auth/authorization";
-import { isResourceInProject, resolveProjectScope } from "@/lib/project-scope";
-
-type RouteContext = { params: Promise<{ id: string }> };
-
-export async function PATCH(request: Request, context: RouteContext) {
-  const denied = assertApiAccess(request);
-  if (denied) return denied;
-  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/renewals/[id]/route.ts");
-  if (capabilityDenied) return capabilityDenied;
-  const project = await resolveProjectScope(request);
-  if (!project.ok) return project.response;
-  const { id } = await context.params;
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
-    const existing = await getRenewalDetail(id);
-    if (!isResourceInProject(existing, project.scope)) {
-      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    const { id: renewalOpportunityId } = await params;
+    const session = await evaluatePersistedSessionFromRequest(req);
+    if (!session.ok) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ renewal: await updateRenewal(id, await request.json()) });
-  } catch (error) {
-    return apiError("update_failed", error, { status: 400 });
+
+    const authContext = await resolveCrmAuthContext({
+      userId: session.userId,
+      sessionId: null,
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+      projectId: session.projectId,
+      product: "portal",
+    });
+
+    const result = await getScopedRenewalDetail({
+      authContext,
+      renewalOpportunityId,
+    });
+
+    return NextResponse.json(result, {
+      status: 200,
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (err: any) {
+    if (err instanceof RenewalError) {
+      return NextResponse.json({ code: err.code, error: err.message }, { status: err.httpStatus });
+    }
+    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id: renewalOpportunityId } = await params;
+    const idempotencyKey = req.headers.get("idempotency-key") || req.headers.get("Idempotency-Key");
+    if (!idempotencyKey) {
+      return NextResponse.json({ error: "Idempotency-Key header is required" }, { status: 400 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const { expectedStatus, expectedUpdatedAt, nextStatus, notes } = body;
+
+    if (!expectedStatus || !expectedUpdatedAt || !nextStatus) {
+      return NextResponse.json({ error: "expectedStatus, expectedUpdatedAt, and nextStatus required" }, { status: 400 });
+    }
+
+    const session = await evaluatePersistedSessionFromRequest(req);
+    if (!session.ok) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+
+    const authContext = await resolveCrmAuthContext({
+      userId: session.userId,
+      sessionId: null,
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+      projectId: session.projectId,
+      product: "portal",
+    });
+
+    const result = await updateRenewalLifecycle({
+      authContext,
+      renewalOpportunityId,
+      expectedStatus,
+      expectedUpdatedAt,
+      nextStatus,
+      notes,
+      idempotencyKey,
+      now: new Date(),
+    });
+
+    return NextResponse.json(result, {
+      status: 200,
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (err: any) {
+    if (err instanceof RenewalError) {
+      return NextResponse.json({ code: err.code, error: err.message }, { status: err.httpStatus });
+    }
+    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }
 }
