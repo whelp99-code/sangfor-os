@@ -650,3 +650,28 @@
 - **노트**: `.omo/U076-preparation-notes.md`
 
 ---
+
+## U066: UX-01 / 375/768/1280 Chrome + keyboard + axe visual checkpoint
+
+- **시작 시각**: 2026-07-26T02:00:00+09:00
+- **완료 시각**: 2026-07-26T02:10:00+09:00
+- **체크포인트 커밋**: (아래)
+- **상태**: COMPLETED (코드/스펙/매니페스트, 실행 이연)
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| Playwright --list | 0 | 138 tests parsed |
+| verify-ux-evidence tests | 0 | 6/6 passed |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `ux-route-manifest.ts`: 37 route × 3 viewport × 10 role authoritative 매니페스트
+- `axe.ts`: @axe-core/playwright 헬퍼 (critical=0, serious=0)
+- `ux-checkpoint.spec.ts`: 138 테스트 셀 스펙 (B/L/S/C/P/A/D/R/F/V/W/Q)
+- `verify-ux-evidence.mjs`: 195 셀 denominator 검증 + SHA-256 digest
+- `package.json`: @axe-core/playwright + test:ux 스크립트
+- **브라우저 실행 이연**: 패킷 지시 "가능한 부분만, 실행은 이연 기록"
+
+---

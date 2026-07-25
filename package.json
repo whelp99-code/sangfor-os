@@ -34,7 +34,8 @@
     "cfo:snapshot": "pnpm --filter @sangfor/db cfo:snapshot",
     "restore:drill": "node scripts/restore-drill.mjs",
     "perf:contracts": "tsx tests/performance/contracts.ts",
-    "perf:smoke": "node scripts/perf-smoke.mjs"
+    "perf:smoke": "node scripts/perf-smoke.mjs",
+    "test:ux": "node scripts/run-playwright-acceptance.mjs -- tests/e2e/playwright/ux-checkpoint.spec.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -46,6 +47,7 @@
     }
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.60.0",
     "@types/node": "^20.0.0",
