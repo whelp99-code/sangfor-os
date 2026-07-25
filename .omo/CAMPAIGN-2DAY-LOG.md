@@ -330,3 +330,27 @@
 - UI 컴포넌트 & 페이지: `/settings/archive`, `ArchiveCenter`, `RestoreArchiveButton`, `ArchiveDiscoveryLink`.
 
 ---
+
+## U062: UX-03: Bounded Server Queries, Keyset Pagination, and Single-DOM Responsive Collections
+
+- **시작 시각**: 2026-07-25T21:44:16+09:00
+- **완료 시각**: 2026-07-25T21:46:52+09:00
+- **체크포인트 커밋**: `81114b40`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U062/attempt-1/red.txt` 저장 |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Business Unit Tests | 0 | 4/4 passed |
+| Web Unit Tests | 0 | 4/4 passed |
+| Web Build | 0 | Success (89 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `keyset-pagination.ts`: Keyset cursor 인코딩/디코딩 (`encodeCursor`, `decodeCursor`), 무결성 검증, 파라미터 파싱 logic (`parseKeysetParams`).
+- `collection-query.ts` & `cursor-pagination.tsx`: 클라이언트/서버 커서 쿼리 헬퍼 및 커서 기반 페이지네이션 UI 컴포넌트 추가 (한국어 aria-label 지원).
+- single-DOM 반응형 컬렉션 및 bounded query 기본 구조 적용.
+
+---
