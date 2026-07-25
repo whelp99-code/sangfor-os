@@ -525,3 +525,32 @@
 - 로컬 루프백 스모크 스크립트 작성.
 
 ---
+
+## U072: ROI-01 / S10 Evidence-Backed ROI Registry, API, and Dashboard
+
+- **시작 시각**: 2026-07-25T22:06:19+09:00
+- **완료 시각**: 2026-07-25T22:12:59+09:00
+- **체크포인트 커밋**: `93b68350`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U072/attempt-1/red.txt` 저장 |
+| Prisma Scope Check | 0 | 198 models (192 + 6 models = 198) |
+| DB Typecheck | 0 | Clean |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| DB Unit Tests | 0 | 2/2 passed |
+| Business Unit Tests | 0 | 1/1 passed |
+| Web Unit Tests | 0 | 1/1 passed |
+| Web Build | 0 | Success (92 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `schema.prisma`: 6개 ROI 모델 (`MetricDefinition`, `MetricBenchmarkVersion`, `MetricDailySnapshot`, `AiExecution`, `AiProviderAttempt`, `AiExecutionCost`) 추가 및 Prisma 클라이언트 재생성.
+- `scope-inventory.ts`: 198개 모델 전체 인벤토리 업데이트.
+- `roi-dashboard.ts`: 정직한 `MEASURED` vs `UNKNOWN` 상태 기반 ROI 데이터 모델 및 비즈니스 쿼리 서비스 추가.
+- `/api/dashboard/roi`: ROI 메트릭 조회 API 라우트 작성.
+- `/dashboard/roi`: ROI 대시보드 페이지 및 컴포넌트 추가 (`MetricState` 공통 재사용).
+
+---

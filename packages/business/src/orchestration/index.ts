@@ -13,6 +13,8 @@ export * from "./context-pack-builder";
 export * from "./scheduler-handler-registry";
 export * from "./scheduler-catalog";
 export * from "./scheduler-runtime";
+export * from "./operator-synthetic-drills";
+
 export * from "./context-pack-types";
 export * from "./cursor-session-flow";
 export * from "./improvement-loop";
