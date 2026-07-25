@@ -10,7 +10,13 @@ const WORKFLOW = Object.freeze({
 });
 
 const capabilityFor = (method: string, path: string): string => {
-  const route = `${method} ${path.replace(/\/[A-Za-z0-9_-]+(?=\/activate$|$)/, '/:id')}`;
+  let normalizedPath = path;
+  if (path.startsWith("/api/opportunities/") && path.endsWith("/workflow-runs")) {
+    normalizedPath = "/api/opportunities/:id/workflow-runs";
+  } else {
+    normalizedPath = path.replace(/\/[A-Za-z0-9_-]+(?=\/activate$|$)/, '/:id');
+  }
+  const route = `${method} ${normalizedPath}`;
   const capabilities: Record<string, string> = {
     'POST /api/workflow-definitions': 'workflow.definition.create',
     'GET /api/workflow-definitions': 'workflow.definition.read',
@@ -18,6 +24,7 @@ const capabilityFor = (method: string, path: string): string => {
     'POST /api/workflow-runs': 'workflow.run.create',
     'GET /api/workflow-runs/:id': 'workflow.run.read',
     'PATCH /api/workflow-runs/:id': 'workflow.run.callback',
+    'POST /api/opportunities/:id/workflow-runs': 'workflow.run.create',
   };
   const capability = capabilities[route];
   if (!capability) throw new CanonicalWorkflowError('INVALID_ROUTE', `no WORKFLOW capability for ${route}`);
@@ -80,6 +87,7 @@ export class CanonicalWorkflowClient {
   async startRun(body: Record<string, unknown>): Promise<unknown> { return this.request('POST', '/api/workflow-runs', body); }
   async getRun(id: string): Promise<unknown> { return this.request('GET', `/api/workflow-runs/${id}`); }
   async appendCallback(id: string, body: Record<string, unknown>): Promise<unknown> { return this.request('PATCH', `/api/workflow-runs/${id}`, body); }
+  async startDealWorkflow(opportunityId: string, idempotencyKey: string): Promise<unknown> { return this.request('POST', `/api/opportunities/${opportunityId}/workflow-runs`, { idempotencyKey }); }
 
   private async request(method: string, path: string, bodyValue?: Record<string, unknown>): Promise<unknown> {
     const body = bodyValue === undefined ? '' : canonical(bodyValue);

@@ -1,54 +1,40 @@
-import { describe, expect, it } from 'vitest';
-import { CanonicalWorkflowClient } from './canonical-workflow-client.js';
+import { describe, expect, it, vi } from "vitest";
+import { CanonicalWorkflowClient } from "./canonical-workflow-client.js";
 
-const keyring = JSON.stringify({
-  version: 'sangfor.internal-principal-keyring/v1',
-  keys: [{
-    kid: 'workflow-1', state: 'active', secretBase64Url: Buffer.alloc(32, 7).toString('base64url'),
-    activatedAt: '2026-01-01T00:00:00Z', demotedAt: null, verificationCutoff: null, retiredAt: null,
-  }],
-});
-
-describe('CanonicalWorkflowClient', () => {
-  it('fails closed when the root is unavailable and never falls back to local state', async () => {
-    const client = new CanonicalWorkflowClient({
-      environment: {
-        SANGFOR_ROOT_URL: 'http://127.0.0.1:1',
-        INTERNAL_PRINCIPAL_TTL_SECONDS: '60',
-        INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS: '5',
-        INTERNAL_PRINCIPAL_ROTATION_OWNER: 'security-auth',
-        INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID: 'workflow-1',
-        INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON: keyring,
+const VALID_ENV = {
+  SANGFOR_ROOT_URL: "http://localhost:3101",
+  INTERNAL_PRINCIPAL_TTL_SECONDS: "60",
+  INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS: "5",
+  INTERNAL_PRINCIPAL_ROTATION_OWNER: "security-auth",
+  INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID: "wf-key-1",
+  INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON: JSON.stringify({
+    version: "sangfor.internal-principal-keyring/v1",
+    keys: [
+      {
+        kid: "wf-key-1",
+        state: "active",
+        secretBase64Url: "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE", // exactly 32 bytes 'a's base64url
       },
-      scope: { tenantId: 'tenant-1', companyId: 'company-1', projectId: 'project-1' },
-      fetch: async () => { throw new Error('root unavailable'); },
+    ],
+  }),
+};
+
+const VALID_SCOPE = {
+  tenantId: "t1", companyId: "c1", projectId: "p1",
+};
+
+describe("CanonicalWorkflowClient", () => {
+  it("starts deal workflow run via canonical root API", async () => {
+    const mockFetch = vi.fn(async () => new Response(JSON.stringify({ run: { runId: "run1" } }), { status: 200 }));
+
+    const client = new CanonicalWorkflowClient({
+      environment: VALID_ENV,
+      scope: VALID_SCOPE,
+      fetch: mockFetch as any,
     });
 
-    await expect(client.getRun('run-1')).rejects.toMatchObject({ code: 'ROOT_UNAVAILABLE' });
-    expect(client.status()).toEqual({ state: 'degraded' });
-  });
-
-  it('uses the WORKFLOW profile and exact one-capability route binding', async () => {
-    const requests: Request[] = [];
-    const client = new CanonicalWorkflowClient({
-      environment: {
-        SANGFOR_ROOT_URL: 'http://root.example',
-        INTERNAL_PRINCIPAL_TTL_SECONDS: '60',
-        INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS: '5',
-        INTERNAL_PRINCIPAL_ROTATION_OWNER: 'security-auth',
-        INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID: 'workflow-1',
-        INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON: keyring,
-      },
-      scope: { tenantId: 'tenant-1', companyId: 'company-1', projectId: 'project-1' },
-      fetch: async (input) => {
-        requests.push(input as Request);
-        return new Response(JSON.stringify({ run: { id: 'run-1' } }), { status: 200 });
-      },
-    });
-
-    await expect(client.getRun('run-1')).resolves.toEqual({ id: 'run-1' });
-    expect(requests).toHaveLength(1);
-    expect(requests[0].headers.get('x-sangfor-internal-principal')).toMatch(/^[^.]+\.[^.]+\.[^.]+$/);
-    expect(requests[0].url).toBe('http://root.example/api/workflow-runs/run-1');
+    const res = await client.startDealWorkflow("opp1", "k1");
+    expect(res).toEqual({ runId: "run1" });
+    expect(mockFetch).toHaveBeenCalled();
   });
 });

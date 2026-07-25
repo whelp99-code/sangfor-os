@@ -19,3 +19,4 @@ export * from "./orchestrator-bridge";
 export * from "./portal-mvp";
 export * from "./template-registry";
 export * from "./watchdog";
+export * from "./deal-workflow";

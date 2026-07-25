@@ -1,0 +1,31 @@
+.                                        |  WARN  Unsupported engine: wanted: {"node":">=20 <21"} (current: {"node":"v22.23.0","pnpm":"10.28.1"})
+packages/config                          |  WARN  Unsupported engine: wanted: {"node":">=20 <21"} (current: {"node":"v22.23.0","pnpm":"10.28.1"})
+
+ RUN  v3.2.6 /Users/jmpark/orca/workspaces/sangfor-os/sangfor-u055/packages/business
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/orchestration/deal-workflow.test.ts [ src/orchestration/deal-workflow.test.ts ]
+Error: Cannot find module './deal-workflow' imported from '/Users/jmpark/orca/workspaces/sangfor-os/sangfor-u055/packages/business/src/orchestration/deal-workflow.test.ts'
+ ❯ src/orchestration/deal-workflow.test.ts:2:1
+      1| import { describe, expect, it, vi, beforeEach } from "vitest";
+      2| import { startDealWorkflowRun, evaluateDealWorkflowGates } from "./dea…
+       | ^
+      3| import type { AuthContext } from "@sangfor/auth";
+      4| 
+
+Caused by: Error: Failed to load url ./deal-workflow (resolved id: ./deal-workflow) in /Users/jmpark/orca/workspaces/sangfor-os/sangfor-u055/packages/business/src/orchestration/deal-workflow.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@7.3.6_@types+node@20.19.43_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.22.4_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:22739:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  13:35:57
+   Duration  236ms (transform 19ms, setup 11ms, collect 0ms, tests 0ms, environment 0ms, prepare 30ms)
+
+undefined
+/Users/jmpark/orca/workspaces/sangfor-os/sangfor-u055/packages/business:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/orchestration/deal-workflow.test.ts
