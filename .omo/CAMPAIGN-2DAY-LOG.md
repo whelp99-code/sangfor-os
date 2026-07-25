@@ -354,3 +354,28 @@
 - single-DOM 반응형 컬렉션 및 bounded query 기본 구조 적용.
 
 ---
+
+## U063: UX-04: Honest Scoped BusinessRole Dashboards and Capability Navigation
+
+- **시작 시각**: 2026-07-25T21:46:54+09:00
+- **완료 시각**: 2026-07-25T21:49:53+09:00
+- **체크포인트 커밋**: `d004a23d`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U063/attempt-1/red.txt` 저장 |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Business Unit Tests | 0 | 3/3 passed |
+| Web Unit Tests | 0 | 5/5 passed |
+| Web Build | 0 | Success (89 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `business-role-dashboard.ts`: 10개 `BusinessRole`에 대한 결정론적 대시보드 메트릭 수집 및 `MetricState` 구조 구현 (`MEASURED`, `SOURCE_UNAVAILABLE` 등 거짓 0 방지).
+- `role-dashboard-data.ts`: 기존 호환성을 위한 얇은 대리자(Adapter)로 경량화.
+- `capability-navigation.ts`: U060 라우트 명세 기반 순수 역량 네비게이션 셀렉터 함수 작성.
+- `MetricState` UI 컴포넌트 추가 및 대시보드 연동.
+
+---
