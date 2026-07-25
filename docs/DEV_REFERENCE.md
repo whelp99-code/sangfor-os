@@ -222,6 +222,26 @@ POC 확정 시 영업기회를 **멱등·원자적**으로 Engagement(프로젝�
 - **안전/발견**: 기능 쓰기는 QA DB `sangfor_os_uxtest_r16r20`, Redis DB 14, web 3110/api 3230에서 수행했다. 다만 기존 비격리 business 테스트 4개가 루트 `.env` 운영 DB에 감사 로그 34행을 남기는 결함을 발견해 `CI_INTEGRATION=1` 게이트와 cleanup을 추가했다. 남은 운영 로그 삭제는 승인 대기다.
 - **상세 증거**: [`docs/plans/2026-07-13-r16-r20-real-usage-qa.md`](plans/2026-07-13-r16-r20-real-usage-qa.md).
 
+### 3.L AI 품질 커널 (U054)
+
+- **핵심**: AI 산출물의 수치/규칙 기반 자동 품질 평가(`aiQualityAssessment`), 다중 역량 인간 리뷰(`aiQualityReview`), 최종 릴리즈 승인 판단(`aiReleaseEvaluation`)을 다루는 가버넌스 커널.
+- **주요 규칙**: `qualityPassed`는 수치/규칙 기반 자동 평가 통과 여부일 뿐, 최종 릴리즈/발송 승인을 의미하지 않는다. 2-of-2 human review complete와 release evaluation(`eligible: true`)이 모두 충족되어야 최종 발송이 허가된다.
+- **Policy/Slot/Quorum 규격**:
+
+| policyKey | quorum | slot 1 (order 1) | slot 2 (order 2) |
+|---|---|---|---|
+| `proposal.human_review.v1` | 2 | `proposal.presales` (presales_engineer, `ai_quality.review`) | `proposal.account` (account_manager, `ai_quality.review`) |
+| `domain_proposal.human_review.v1` | 2 | `domain_proposal.architect` (solution_architect, `ai_quality.review`) | `domain_proposal.account` (account_manager, `ai_quality.review`) |
+| `quote.internal_release.human_review.v1` | 2 | `quote.internal_release.sales` (sales_manager, `ai_quality.review`) | `quote.internal_release.finance` (finance_manager, `ai_quality.review`) |
+| `support.rca.human_review.v1` | 2 | `support.rca.support_lead` (support_engineer, `support.rca.review.lead`) | `support.rca.solution_architect` (solution_architect, `support.rca.review.architect`) |
+
+- **커맨드 & 룩업**:
+  - `completeCurrentAiQualityAssessment`: 버전/해시 스냅샷 검증 후 품질 평가를 완료하고 불변 레코드 생성.
+  - `submitAiQualityReview`: human review 제출. Slot 순서, businessRole, capability, 동일 User ID(대체 멤버십 포함) 차단 검증.
+  - `completeCurrentAiReleaseEvaluation`: 2-of-2 review set 완성 및 quality eligibility 평가 후 release evaluation 결정을 생성.
+  - 룩업: `evaluateCurrentReviewSet` (slot 검증 및 reviewSetHash), `requireCurrentAiReleaseEvaluation` (최신 release evaluation 조회).
+- **에러 409 코드**: `AI_QUALITY_IDEMPOTENCY_CONFLICT`, `AI_QUALITY_SNAPSHOT_STALE`, `AI_RELEASE_EVALUATION_IDEMPOTENCY_CONFLICT`, `AI_RELEASE_EVALUATION_STALE`.
+
 ---
 
 ## 4. 핵심 워크플로우 (개발 순서)
@@ -481,6 +501,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ---
 
 ## 변경 이력
+- **2026-07-25**: AI 품질 커널 (U054) 안착 — policyKey/slot/quorum 규격, writer/lookup 커맨드, 409 에러 코드, user separation 규칙 및 qualityPassed ≠ 승인/발송 구분 명시.
 - **2026-07-17**: Canonical requirement/acceptance registry 동결 — 28 requirements, 71 acceptance, 99-row owner/closure manifest, evidence schema, 23-alias/63-step execution map, exact-set validator를 연결하고 C1–C5/W1–W5 제외 범위를 명시했다.
 - **2026-06-29**: 최초 작성. 2026-06-28 7개 워크스트림(A 도메인 / B CFO / C MCP / D Engagement / E 웹LLM / F 메일 / G DB마이그레이션) 일괄 정리.
 - **2026-06-29**: 워킹트리 thrashing 손상 치유 — `origin/main`(99c69e9) 동기화 → 작업 브랜치 `dev-clean`, 손상본 `backup/worktree-thrashing-2026-06-29` 백업. thrashing 근원(동시 워크트리) 규명·기록(§8).
