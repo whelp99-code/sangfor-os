@@ -230,3 +230,29 @@
 - `RcaReviewPanel`: 전체 체인 완료 시만 Close 버튼 노출.
 
 ---
+
+## U058: GOV-03: Governed Artifact Access, Export, and Retention Terminal
+
+- **시작 시각**: 2026-07-25T21:19:39+09:00
+- **완료 시각**: 2026-07-25T21:27:28+09:00
+- **체크포인트 커밋**: `268a679d`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 1 | `.omo/evidence/.../U058/attempt-1/red.txt` 저장 |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Business Unit Tests | 0 | 7/7 passed |
+| Web Unit Tests | 0 | 10/10 passed |
+| Web Build | 0 | Success (84 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `artifact-access.ts`: `createArtifactAccessEvent` (8종 exact 조합), `issueDataExport` (CSPRNG 32byte, exp1. 43char, SHA-256 raw bytes digest-only), `consumeDataExport` (timing-safe compare, canonicalStatus CAS).
+- `retention-service.ts`: `previewRetentionRun` (purge/knowledge_chunk only, immutable insert, previewHash RFC8785).
+- `retention-purge.ts`: `executeRetentionRun` (dryRun=true default, RETENTION_LOCAL_PURGE_ALLOWED=1 guard).
+- API 라우트: `/api/artifacts/[id]/access` (POST only, Cache-Control: no-store), `/api/artifacts/[id]/exports`, `/api/exports/[id]` (Authorization: Capability), `/api/security/retention/preview`, `/api/security/retention/runs/[id]/approval-requests`, `/api/security/retention/runs/[id]/execute`.
+- `RestrictedArtifactView` 컴포넌트: 워터마크 오버레이 + redaction notice.
+
+---

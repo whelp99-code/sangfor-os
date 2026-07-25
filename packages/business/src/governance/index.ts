@@ -31,3 +31,4 @@ export * from "./artifact-access";
 export * from "./data-export";
 export * from "./retention-service";
 export * from "./retention-purge";
+export * from "./ownership-transfer";

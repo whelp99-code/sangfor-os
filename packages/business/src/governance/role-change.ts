@@ -28,7 +28,8 @@ export type RoleChangeErrorCode =
   | "ROLE_CHANGE_TERMINAL"
   | "APPROVAL_REVISION_CONFLICT"
   | "ROLE_CHANGE_MEMBERSHIP_REVISION_CONFLICT"
-  | "ROLE_CHANGE_DUPLICATE_APPROVER";
+  | "ROLE_CHANGE_DUPLICATE_APPROVER"
+  | "OWNERSHIP_TRANSFER_FINALIZATION_REQUIRED";
 
 const STATUS: Record<RoleChangeErrorCode, number> = {
   ROLE_CHANGE_INVALID_REQUEST: 400,
@@ -42,6 +43,7 @@ const STATUS: Record<RoleChangeErrorCode, number> = {
   APPROVAL_REVISION_CONFLICT: 409,
   ROLE_CHANGE_MEMBERSHIP_REVISION_CONFLICT: 409,
   ROLE_CHANGE_DUPLICATE_APPROVER: 409,
+  OWNERSHIP_TRANSFER_FINALIZATION_REQUIRED: 409,
 };
 
 export class RoleChangeError extends Error {
@@ -256,6 +258,14 @@ async function decideWithClient(tx: TxClient, input: DecideRoleChangeInput, call
   const terminal = input.decision === "reject" ? "rejected" : "applied";
   let appliedMembershipRevision: number | null = null;
   if (terminal === "applied") {
+    // U059: Block final approve if a pending positive OwnershipTransfer exists
+    const pendingTransfer = await tx.ownershipTransfer?.findFirst({
+      where: { roleChangeRequestId: request.id, status: "requested" },
+      select: { id: true },
+    });
+    if (pendingTransfer) {
+      throw new RoleChangeError("OWNERSHIP_TRANSFER_FINALIZATION_REQUIRED");
+    }
     if (!request.artifactVersionId || !request.snapshotHash || !request.expectedMembershipRevision && request.expectedMembershipRevision !== 0) throw new RoleChangeError("ROLE_CHANGE_TERMINAL");
     const release = await evaluateArtifactRelease({ action: "role.change", artifactVersionId: request.artifactVersionId, approvalId: input.approvalId }, caller, tx);
     if (!release.releasable) throw new RoleChangeError("ROLE_CHANGE_TERMINAL");
