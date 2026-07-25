@@ -602,3 +602,51 @@
 - CHILD_VIA_FK 94개 EXISTS 기반 정책은 후속 봉인 시 보강 필요 (카드 명시)
 
 ---
+
+## U074: OPS-01 / S9b fixture-only tenant-selective restore drill
+
+- **시작 시각**: 2026-07-26T01:10:00+09:00
+- **완료 시각**: 2026-07-26T01:25:00+09:00
+- **체크포인트 커밋**: (tenant-restore drill)
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| DB Typecheck | 0 | Clean |
+| RED 증명 | 0 | red.txt 저장 |
+
+### 이행 내역
+- `tenant-restore/`: manifest, export, import, hash 모듈 신설
+- `tenant-restore.integration.test.ts`: export/import/idempotency/tamper 테스트
+- `tenant-selective-restore-drill.ts`: 안전 체크 드릴 스크립트
+- `drill:tenant-restore` 패키지 스크립트 추가
+- `tenant-selective-restore-drill.md` 문서 작성
+
+---
+
+## U075: PERF-01 / isolated performance contracts and smoke harness
+
+- **시작 시각**: 2026-07-26T01:25:00+09:00
+- **완료 시각**: 2026-07-26T01:40:00+09:00
+- **체크포인트 커밋**: (perf contracts + smoke)
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| Safety Tests | 0 | 19/19 passed |
+| RED 증명 | 0 | safety contract failures captured |
+
+### 이행 내역
+- `tests/performance/`: contracts, seed, measure, report, safety.test.ts, postgres-image.json
+- `scripts/perf-smoke.mjs`: validateEnvironment, assertPortFree, phase transition validators
+- `performance-smoke.spec.ts`: 3 viewport × 6 route + transition + DOM count
+- `perf:contracts`, `perf:smoke` 루트 스크립트 추가
+
+---
+
+## U076: Final Acceptance & Release Gate — 준비 노트만 작성
+
+- **상태**: PREPARED (착수 금지 — 오너 전용)
+- **노트**: `.omo/U076-preparation-notes.md`
+
+---
