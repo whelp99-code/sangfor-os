@@ -212,6 +212,12 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   { model: 'SchedulerJob', unit: 'U068', category: 'COMPANY_ROOT' },
   { model: 'SchedulerRun', unit: 'U068', category: 'CHILD_VIA_FK' },
   { model: 'SchedulerRunAttempt', unit: 'U068', category: 'CHILD_VIA_FK' },
+  { model: 'MetricDefinition', unit: 'U072', category: 'COMPANY_ROOT' },
+  { model: 'MetricBenchmarkVersion', unit: 'U072', category: 'CHILD_VIA_FK' },
+  { model: 'MetricDailySnapshot', unit: 'U072', category: 'CHILD_VIA_FK' },
+  { model: 'AiExecution', unit: 'U072', category: 'PROJECT_ROOT' },
+  { model: 'AiProviderAttempt', unit: 'U072', category: 'CHILD_VIA_FK' },
+  { model: 'AiExecutionCost', unit: 'U072', category: 'CHILD_VIA_FK' },
 ];
 
 export interface ReclassifiedModel {
@@ -480,6 +486,12 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   SchedulerJob: { model: 'SchedulerJob', category: 'COMPANY_ROOT' },
   SchedulerRun: { model: 'SchedulerRun', category: 'CHILD_VIA_FK', parentModel: 'SchedulerJob', relationField: 'job', scalarFkField: 'jobId', nullable: false },
   SchedulerRunAttempt: { model: 'SchedulerRunAttempt', category: 'CHILD_VIA_FK', parentModel: 'SchedulerRun', relationField: 'run', scalarFkField: 'runId', nullable: false },
+  MetricDefinition: { model: 'MetricDefinition', category: 'COMPANY_ROOT' },
+  MetricBenchmarkVersion: { model: 'MetricBenchmarkVersion', category: 'CHILD_VIA_FK', parentModel: 'MetricDefinition', relationField: 'definition', scalarFkField: 'metricDefinitionId', additionalRequiredRelationFields: ['artifactVersion', 'approvalRequest'], nullable: false },
+  MetricDailySnapshot: { model: 'MetricDailySnapshot', category: 'CHILD_VIA_FK', parentModel: 'MetricDefinition', relationField: 'definition', scalarFkField: 'metricDefinitionId', nullable: false },
+  AiExecution: { model: 'AiExecution', category: 'PROJECT_ROOT' },
+  AiProviderAttempt: { model: 'AiProviderAttempt', category: 'CHILD_VIA_FK', parentModel: 'AiExecution', relationField: 'execution', scalarFkField: 'aiExecutionId', nullable: false },
+  AiExecutionCost: { model: 'AiExecutionCost', category: 'CHILD_VIA_FK', parentModel: 'AiExecution', relationField: 'execution', scalarFkField: 'aiExecutionId', additionalRequiredRelationFields: ['providerAttempt'], nullable: false },
 };
 
 /** Look up a single model's classification. Returns `undefined` for an unknown model. */

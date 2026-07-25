@@ -67,8 +67,8 @@ describe('buildScopeInventoryReport — real inventory', () => {
     const report = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
-    expect(Prisma.dmmf.datamodel.models).toHaveLength(192);
-    expect(report.currentModelCount).toBe(192);
+    expect(Prisma.dmmf.datamodel.models).toHaveLength(198);
+    expect(report.currentModelCount).toBe(198);
     expect(report.currentModelCount).toBe(expectedCurrentModelCount());
     expect(report.tallies).toEqual(expectedCategoryCounts());
   });
@@ -375,7 +375,7 @@ describe('RECLASSIFIED_MODELS — sealed scope reclassifications', () => {
 
   it('derives the exact U041 vector from baseline plus additions and reclassifications', () => {
     expect(expectedCategoryCounts()).toEqual(buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES).tallies);
-    expect(expectedCategoryCounts()).toEqual({ GLOBAL_SHARED: 11, TENANT_ROOT: 2, COMPANY_ROOT: 37, PROJECT_ROOT: 48, CHILD_VIA_FK: 90, COMPANY_DIRECT: 4 });
+    expect(expectedCategoryCounts()).toEqual({ GLOBAL_SHARED: 11, TENANT_ROOT: 2, COMPANY_ROOT: 38, PROJECT_ROOT: 49, CHILD_VIA_FK: 94, COMPANY_DIRECT: 4 });
   });
 
   it('classifies RoleChangeRequest as CHILD_VIA_FK of Company via mandatory companyId in the live inventory', () => {
@@ -405,7 +405,7 @@ describe('U041 AI quality immutable-history registration', () => {
 
   it('requires the six new Prisma models, then permits only their single canonical child paths', () => {
     const modelNames = Prisma.dmmf.datamodel.models.map((model) => model.name);
-    expect(modelNames).toHaveLength(192);
+    expect(modelNames).toHaveLength(198);
     for (const name of names) expect(modelNames).toContain(name);
 
     const withoutU041 = REAL_ENTRIES.filter((entry) => !names.includes(entry.model));

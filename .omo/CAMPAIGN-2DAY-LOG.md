@@ -499,3 +499,29 @@
 - launchd plist.template: 9개 launchd 템플릿 작성 및 서명/실행 래퍼 스크립트 구현.
 
 ---
+
+## U070: OPS-01: Connector State Contract + Credential-Ready Live-Smoke Protocol
+
+- **시작 시각**: 2026-07-25T22:03:44+09:00
+- **완료 시각**: 2026-07-25T22:06:15+09:00
+- **체크포인트 커밋**: `a18640ee`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U070/attempt-1/red.txt` 저장 |
+| Infra Typecheck | 0 | Clean |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Infra Unit Tests | 0 | 3/3 passed |
+| Web Unit Tests | 0 | 1/1 passed |
+| Web Build | 0 | Success (90 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `connector-state.ts`: 5가지 상태(`unconfigured`, `disabled`, `configured`, `connected`, `degraded`) 판별 로직 추가.
+- `ConnectorStatePanel`: 커널 모드 및 에비던스 등급 표식 컴포넌트 신설.
+- `connector-external-smoke-protocol.md`: 외부 연결 스모크 테스트 프로토콜 명세 문서 및 `receipt.schema.json` 신설.
+- 로컬 루프백 스모크 스크립트 작성.
+
+---

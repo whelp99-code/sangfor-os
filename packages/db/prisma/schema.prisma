@@ -65,6 +65,8 @@ model Project {
   workflowRuns        WorkflowRun[]
   auditLogs           AuditLog[]
   retentionRunItems RetentionRunItem[]
+  aiExecutions AiExecution[]
+
 
   // U012: companyId stays optional here (full NOT NULL is deferred to U073 — see
   // packages/db/src/scope-closure.ts) because a live legacy-null Project can be a genuinely
@@ -416,6 +418,8 @@ model ApprovalRequest {
   aiReleaseEvaluations AiReleaseEvaluation[]
   retentionRuns RetentionRun[] @relation("RetentionRunApprovalRequest")
   dataExportRequests DataExportRequest[] @relation("DataExportRequestApprovalRequest")
+  metricBenchmarkVersions MetricBenchmarkVersion[] @relation("MetricBenchmarkVersionApprovalRequest")
+
 
   @@index([status])
   @@map("approval_requests")
@@ -1496,6 +1500,8 @@ model ArtifactVersion {
   legalHoldScopes LegalHoldScope[] @relation("LegalHoldScopeArtifactVersion")
   retentionRunsAsManifest RetentionRun[] @relation("RetentionRunApprovalManifestArtifactVersion")
   exportCapabilities ExportCapability[] @relation("ExportCapabilityArtifactVersion")
+  metricBenchmarkVersions MetricBenchmarkVersion[] @relation("MetricBenchmarkVersionArtifactVersion")
+  aiExecutions AiExecution[] @relation("AiExecutionArtifactVersion")
 
   @@unique([artifactId, version], map: "artifact_versions_artifact_id_version_key")
   @@unique([artifactId, contentHashVersion, contentHash], map: "artifact_versions_content_hash_key")
@@ -1660,6 +1666,8 @@ model WorkflowRun {
   steps     WorkflowRunStep[]
   artifacts WorkflowRunArtifact[]
   events    WorkflowRunEvent[]
+  aiExecutions AiExecution[]
+
 
   @@unique([projectId, idempotencyKey], map: "workflow_runs_project_id_idempotency_key_key")
   @@unique([legacySourceType, legacySourceId], map: "workflow_runs_legacy_source_key")
@@ -3014,6 +3022,8 @@ model Company {
   retentionRuns RetentionRun[] @relation("RetentionRunCompany")
   dataExportRequests DataExportRequest[] @relation("DataExportRequestCompany")
   artifactAccessEvents ArtifactAccessEvent[] @relation("ArtifactAccessEventCompany")
+  metricDefinitions MetricDefinition[]
+  aiExecutions AiExecution[]
 
   @@unique([tenantId, id], map: "companies_tenant_id_id_key")
   @@index([tenantId])
@@ -3122,6 +3132,8 @@ model UserCompanyRole {
   ownershipTransfersAsApprover OwnershipTransfer[] @relation("OwnershipTransferApprovedByAssignment")
   ownershipTransferItemsBefore OwnershipTransferItem[] @relation("OwnershipTransferItemOwnerAssignment")
   ownershipTransferItemsAfter OwnershipTransferItem[] @relation("OwnershipTransferItemAfterOwnerAssignment")
+  createdMetricDefinitions MetricDefinition[]
+  createdAiExecutions AiExecution[]
 
   @@unique([userId, companyId, role])
   @@unique([id, companyId], map: "user_company_roles_id_company_id_key")
@@ -4467,4 +4479,208 @@ model SchedulerRunAttempt {
   @@unique([runId, attemptNumber])
   @@index([runId])
   @@map("scheduler_run_attempts")
+}
+
+// --- ROI Evidence-Backed Metrics (U072) ---
+
+enum MetricDefinitionStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum MetricEvidenceState {
+  MEASURED
+  PARTIAL
+  UNKNOWN
+  COLLECTING
+  SOURCE_UNAVAILABLE
+}
+
+enum AiExecutionStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum AiProviderAttemptStatus {
+  STARTED
+  SUCCEEDED
+  FAILED
+  AMBIGUOUS
+}
+
+enum AiCostKind {
+  ESTIMATE
+  INVOICE
+}
+
+model MetricDefinition {
+  id                    String                 @id @default(cuid())
+  companyId             String                 @map("company_id")
+  metricKey             String                 @map("metric_key")
+  displayName           String                 @map("display_name")
+  unit                  String
+  sourceKind            String                 @map("source_kind")
+  sourceContractVersion String                 @map("source_contract_version")
+  provenanceContract    Json                   @map("provenance_contract")
+  freshnessSeconds      Int                    @map("freshness_seconds")
+  status                MetricDefinitionStatus @default(DRAFT)
+  revision              Int                    @default(1)
+  definitionHash        String                 @map("definition_hash")
+  createdByAssignmentId String                 @map("created_by_assignment_id")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+
+  company               Company                 @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "metric_definitions_company_id_fkey")
+  createdByAssignment   UserCompanyRole         @relation(fields: [createdByAssignmentId], references: [id], onDelete: Restrict, map: "metric_definitions_created_by_assignment_id_fkey")
+
+  benchmarks            MetricBenchmarkVersion[]
+  snapshots             MetricDailySnapshot[]
+
+  @@unique([companyId, metricKey, revision])
+  @@unique([companyId, metricKey, definitionHash])
+  @@index([companyId, status])
+  @@index([sourceKind])
+  @@map("metric_definitions")
+}
+
+model MetricBenchmarkVersion {
+  id                          String    @id @default(cuid())
+  metricDefinitionId          String    @map("metric_definition_id")
+  version                     Int
+  definitionRevision          Int       @map("definition_revision")
+  baselineValue               Decimal   @map("baseline_value") @db.Decimal(30, 8)
+  artifactVersionId           String    @map("artifact_version_id")
+  approvalRequestId           String    @map("approval_request_id")
+  approvalRequestRevision     Int       @map("approval_request_revision")
+  artifactHashSnapshot        String    @map("artifact_hash_snapshot")
+  policyHashSnapshot          String    @map("policy_hash_snapshot")
+  effectiveFrom               DateTime  @map("effective_from")
+  approvedAt                  DateTime  @map("approved_at")
+  supersedesBenchmarkVersionId String?   @map("supersedes_benchmark_version_id")
+  createdAt                   DateTime  @default(now()) @map("created_at")
+
+  definition                  MetricDefinition       @relation(fields: [metricDefinitionId], references: [id], onDelete: Restrict)
+  artifactVersion             ArtifactVersion        @relation("MetricBenchmarkVersionArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "metric_benchmark_versions_artifact_version_id_fkey")
+  approvalRequest             ApprovalRequest        @relation("MetricBenchmarkVersionApprovalRequest", fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "metric_benchmark_versions_approval_request_id_fkey")
+  supersedes                  MetricBenchmarkVersion? @relation("BenchmarkSupersedes", fields: [supersedesBenchmarkVersionId], references: [id], onDelete: Restrict)
+
+  successors                  MetricBenchmarkVersion[] @relation("BenchmarkSupersedes")
+  snapshots                   MetricDailySnapshot[]
+
+  @@unique([metricDefinitionId, version])
+  @@unique([id, metricDefinitionId])
+  @@unique([supersedesBenchmarkVersionId])
+  @@index([metricDefinitionId, effectiveFrom, approvedAt, version, id])
+  @@index([approvalRequestId, approvalRequestRevision])
+  @@map("metric_benchmark_versions")
+}
+
+model MetricDailySnapshot {
+  id                 String              @id @default(cuid())
+  metricDefinitionId String              @map("metric_definition_id")
+  benchmarkVersionId String?             @map("benchmark_version_id")
+  definitionRevision Int                 @map("definition_revision")
+  snapshotDate       DateTime            @map("snapshot_date") @db.Date
+  state              MetricEvidenceState
+  value              Decimal?            @db.Decimal(30, 8)
+  sampleCount        Int                 @default(0) @map("sample_count")
+  sourceCount        Int                 @default(0) @map("source_count")
+  sourceIdsHash      String              @map("source_ids_hash")
+  provenanceHash     String              @map("provenance_hash")
+  provenance         Json
+  asOf               DateTime
+  freshUntil         DateTime            @map("fresh_until")
+  createdAt          DateTime            @default(now()) @map("created_at")
+
+  definition         MetricDefinition        @relation(fields: [metricDefinitionId], references: [id], onDelete: Restrict)
+  benchmarkVersion   MetricBenchmarkVersion? @relation(fields: [benchmarkVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([metricDefinitionId, snapshotDate])
+  @@index([metricDefinitionId, asOf])
+  @@index([state, asOf])
+  @@map("metric_daily_snapshots")
+}
+
+model AiExecution {
+  id                    String            @id @default(cuid())
+  companyId             String            @map("company_id")
+  projectId             String            @map("project_id")
+  artifactVersionId     String            @map("artifact_version_id")
+  idempotencyKey        String            @map("idempotency_key")
+  purpose               String
+  status                AiExecutionStatus @default(QUEUED)
+  pricingContractVersion String           @map("pricing_contract_version")
+  createdByAssignmentId String            @map("created_by_assignment_id")
+  workflowRunId         String?           @map("workflow_run_id")
+  startedAt             DateTime          @default(now()) @map("started_at")
+  completedAt           DateTime?         @map("completed_at")
+  createdAt             DateTime          @default(now()) @map("created_at")
+
+  company               Company           @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "ai_executions_company_id_fkey")
+  project               Project           @relation(fields: [projectId], references: [id], onDelete: Restrict, map: "ai_executions_project_id_fkey")
+  artifactVersion       ArtifactVersion   @relation("AiExecutionArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "ai_executions_artifact_version_id_fkey")
+  createdByAssignment   UserCompanyRole   @relation(fields: [createdByAssignmentId], references: [id], onDelete: Restrict, map: "ai_executions_created_by_assignment_id_fkey")
+  workflowRun           WorkflowRun?      @relation(fields: [workflowRunId], references: [id], onDelete: Restrict, map: "ai_executions_workflow_run_id_fkey")
+
+
+  attempts              AiProviderAttempt[]
+  costs                 AiExecutionCost[]
+
+  @@unique([projectId, idempotencyKey])
+  @@index([companyId, projectId, status, startedAt])
+  @@index([artifactVersionId])
+  @@index([workflowRunId])
+  @@map("ai_executions")
+}
+
+model AiProviderAttempt {
+  id                    String                  @id @default(cuid())
+  aiExecutionId         String                  @map("ai_execution_id")
+  attemptNumber         Int                     @map("attempt_number")
+  provider              String
+  model                 String
+  requestDigest         String                  @map("request_digest")
+  providerRequestIdDigest String?               @map("provider_request_id_digest")
+  inputTokens           Int                     @default(0) @map("input_tokens")
+  outputTokens          Int                     @default(0) @map("output_tokens")
+  latencyMs             Int?                    @map("latency_ms")
+  status                AiProviderAttemptStatus @default(STARTED)
+  safeErrorCode         String?                 @map("safe_error_code")
+  startedAt             DateTime                @default(now()) @map("started_at")
+  finishedAt            DateTime?               @map("finished_at")
+  createdAt             DateTime                @default(now()) @map("created_at")
+
+  execution             AiExecution             @relation(fields: [aiExecutionId], references: [id], onDelete: Restrict)
+  costs                 AiExecutionCost[]
+
+  @@unique([aiExecutionId, attemptNumber])
+  @@unique([id, aiExecutionId])
+  @@index([aiExecutionId, status])
+  @@index([provider, model, startedAt])
+  @@map("ai_provider_attempts")
+}
+
+model AiExecutionCost {
+  id                String            @id @default(cuid())
+  aiExecutionId     String            @map("ai_execution_id")
+  providerAttemptId String            @map("provider_attempt_id")
+  kind              AiCostKind        @default(ESTIMATE)
+  amount            Decimal           @db.Decimal(30, 8)
+  currency          String            @default("USD")
+  pricingVersion    String            @map("pricing_version")
+  sourceKeyDigest   String            @map("source_key_digest")
+  occurredAt        DateTime          @default(now()) @map("occurred_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  execution         AiExecution       @relation(fields: [aiExecutionId], references: [id], onDelete: Restrict)
+  providerAttempt   AiProviderAttempt @relation(fields: [providerAttemptId], references: [id], onDelete: Restrict)
+
+  @@unique([providerAttemptId, kind, sourceKeyDigest])
+  @@index([aiExecutionId, occurredAt])
+  @@index([providerAttemptId, kind])
+  @@map("ai_execution_costs")
 }
