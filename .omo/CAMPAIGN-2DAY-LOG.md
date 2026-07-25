@@ -474,3 +474,28 @@
 - `scope-inventory.ts`: `SchedulerJob` (`COMPANY_ROOT`), `SchedulerRun` (`CHILD_VIA_FK`), `SchedulerRunAttempt` (`CHILD_VIA_FK`) RLS 분류 등록 (총 192 모델).
 
 ---
+
+## U069: OPS-01: Durable Authenticated Scheduler Runtime and Current-Path launchd Wrappers
+
+- **시작 시각**: 2026-07-25T22:00:43+09:00
+- **완료 시각**: 2026-07-25T22:03:42+09:00
+- **체크포인트 커밋**: `163ef295`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U069/attempt-1/red.txt` 저장 |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Business Unit Tests | 0 | 4/4 passed |
+| Web Unit Tests | 0 | 2/2 passed |
+| Web Build | 0 | Success (90 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `scheduler-handler-registry.ts` 및 `scheduler-catalog.ts`: 핸들러 레지스트리 및 시스템 작업 카탈로그 구현.
+- `scheduler-runtime.ts`: DB 영속성 및 서명된 주체 기반 스케줄러 실행 런타임 작성.
+- `/api/operator/scheduler/runs`: 오퍼레이터 스케줄러 내역 조회 API 경로 신설.
+- launchd plist.template: 9개 launchd 템플릿 작성 및 서명/실행 래퍼 스크립트 구현.
+
+---
