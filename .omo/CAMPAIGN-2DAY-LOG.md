@@ -281,3 +281,28 @@
 - `OwnershipTransferPanel` 컴포넌트: 이관 필요한 리소스 목록 표 및 미이관 시 배지 표시.
 
 ---
+
+## U060: UX-01: Canonical Role IA and Exact-Version Approval Diff
+
+- **시작 시각**: 2026-07-25T21:36:33+09:00
+- **완료 시각**: 2026-07-25T21:39:51+09:00
+- **체크포인트 커밋**: `d04f2cb6`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U060/attempt-1/red.txt` 저장 |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Business Unit Tests | 0 | 11/11 passed |
+| Web Unit Tests | 0 | 8/8 passed |
+| Web Build | 0 | Success (87 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `route-responsibilities.ts`: 10개 BusinessRole 랜딩 및 라우트 책임 명세 통합 정의 (`ROLE_LANDINGS`, `getRoleLanding`, `isRouteAllowed`).
+- `approval-detail.ts`: exact-version diff 계산 서비스 (`computeExactQuoteDiff`, `getApprovalDetail`).
+- `/operator/workflows` 정식 페이지 추가 및 `/operator` 리다이렉트 처리.
+- `/approvals/[approvalId]` 상세 라우트 및 페이지 구현 (`ApprovalVersionDiff`, `ApprovalDecisionPanel`).
+
+---

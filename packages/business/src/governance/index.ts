@@ -33,3 +33,4 @@ export * from "./retention-service";
 export * from "./retention-purge";
 export * from "./ownership-transfer";
 export * from "./approval-detail";
+export * from "./archive-lifecycle";
