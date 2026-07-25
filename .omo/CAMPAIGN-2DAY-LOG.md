@@ -402,3 +402,27 @@
 - AI 검증 디자인 의미 속성(`data-design-semantic="ai-validation"`) 및 인간 결정 조종 속성(`data-design-semantic="human-decision"`) 준수.
 
 ---
+
+## U065: UX-06: Loading/Error/Not-Found, A11y, i18n, Hydration, Control-Label, and Diff Semantics
+
+- **시작 시각**: 2026-07-25T21:52:18+09:00
+- **완료 시각**: 2026-07-25T21:53:57+09:00
+- **체크포인트 커밋**: `45fad08a`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U065/attempt-1/red.txt` 저장 |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Web Unit Tests | 0 | 3/3 passed |
+| Web Build | 0 | Success (89 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `ux-copy.ts`: 한국어 통합 상태 문자열 레지스트리 (`UX_COPY`) 작성.
+- `route-state.tsx`: `RouteState` 공통 상태 컴포넌트 신설 (`loading`, `error`, `not_found`, `empty` 대응).
+- Root 레벨 `error.tsx` 및 `not-found.tsx` 신설.
+- `ux-semantics.spec.ts` E2E 테스트 스펙 신설.
+
+---
