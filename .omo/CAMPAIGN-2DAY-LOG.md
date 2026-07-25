@@ -205,3 +205,28 @@
 
 ---
 
+
+## U057: SUP-02: Governed RCA Review and Support Close Gate
+
+- **시작 시각**: 2026-07-25T16:16:43+09:00
+- **완료 시각**: 2026-07-25T16:24:18+09:00
+- **체크포인트 커밋**: `65dbde9d`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 1 | `.omo/evidence/.../U057/attempt-1/red.txt` 저장 |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Business Unit Tests | 0 | 3/3 passed |
+| Web Unit Tests | 0 | 4/4 passed |
+| Web Build | 0 | Success (85 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `rca-workflow.ts`: `setCurrentRcaArtifactVersion` (CAS), `assessCurrentRca` (U054 위임), `requestRcaInternalApproval` (U022), `closeSupportCase` (resolved→closed CAS).
+- `POST /api/support/[id]/rca`: tagged union 3종 + Idempotency-Key 필수.
+- `POST /api/support/[id]/close`: expectedRevision + RCA all-or-none 5필드.
+- `RcaReviewPanel`: 전체 체인 완료 시만 Close 버튼 노출.
+
+---
