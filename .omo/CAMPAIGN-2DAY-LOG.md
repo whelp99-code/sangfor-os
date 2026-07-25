@@ -451,3 +451,26 @@
 - `operator-observability-runbook.md`: 오퍼레이터 진실 관측성 운영 매뉴얼 문서 작성.
 
 ---
+
+## U068: OPS-01: [DB] Durable Scheduler/Job/History/Idempotency Schema
+
+- **시작 시각**: 2026-07-25T21:56:52+09:00
+- **완료 시각**: 2026-07-25T22:00:41+09:00
+- **체크포인트 커밋**: `79b35090`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U068/attempt-1/red.txt` 저장 |
+| Prisma Generate | 0 | Success |
+| DB Typecheck | 0 | Clean |
+| DB Unit Tests | 0 | 60/60 passed |
+| Web Build | 0 | Success (89 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `schema.prisma`: `SchedulerJob`, `SchedulerRun`, `SchedulerRunAttempt` 3개 스케줄러 모델 및 에놈 추가 (`onDelete: Restrict`).
+- `migration.sql`: 20260716010800 정식 마이그레이션 SQL 작성.
+- `scope-inventory.ts`: `SchedulerJob` (`COMPANY_ROOT`), `SchedulerRun` (`CHILD_VIA_FK`), `SchedulerRunAttempt` (`CHILD_VIA_FK`) RLS 분류 등록 (총 192 모델).
+
+---
