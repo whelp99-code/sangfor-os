@@ -306,3 +306,27 @@
 - `/approvals/[approvalId]` 상세 라우트 및 페이지 구현 (`ApprovalVersionDiff`, `ApprovalDecisionPanel`).
 
 ---
+
+## U061: UX-02: Reversible Archive/Restore Center
+
+- **시작 시각**: 2026-07-25T21:40:43+09:00
+- **완료 시각**: 2026-07-25T21:44:12+09:00
+- **체크포인트 커밋**: `309f88c0`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U061/attempt-1/red.txt` 저장 |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Business Unit Tests | 0 | 2/2 passed |
+| Web Unit Tests | 0 | 4/4 passed |
+| Web Build | 0 | Success (89 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `archive-lifecycle.ts`: 7개 리소스 엔티티(`customer`, `partner`, `contact`, `opportunity`, `task`, `poc`, `proposal`)에 대한 `listArchivedEntities` 및 `restoreArchivedEntity` 서비스 작성. 복원 상태 매트릭스 및 CAS, 단일 감사 이벤트(`governance.archive.restored`) 적용.
+- API 라우트: `GET /api/archive`, `POST /api/archive/[entityType]/[id]/restore`.
+- UI 컴포넌트 & 페이지: `/settings/archive`, `ArchiveCenter`, `RestoreArchiveButton`, `ArchiveDiscoveryLink`.
+
+---
