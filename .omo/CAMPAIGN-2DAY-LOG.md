@@ -89,4 +89,34 @@
 
 ---
 
+## U051: DLV-01: Atomic Delivery Acceptance Projection
+
+- **시작 시각**: 2026-07-25T13:39:39+09:00
+- **완료 시각**: 2026-07-25T13:42:19+09:00
+- **체크포인트 커밋**: `fbbcd6ea` (`U051 implementation checkpoint — pending owner verification`)
+- **상태**: COMPLETED
+
+### VERIFY 검증 결과
+
+| 검증 항목 | 명령 | Exit Code | Result | 비고 |
+|---|---|---|---|---|
+| RED 증명 | `vitest run src/support/delivery-acceptance.test.ts` | 1 | Saved | `.omo/evidence/.../U051/attempt-1/red.txt` 선저장 |
+| Business Typecheck | `pnpm --filter @sangfor/business typecheck` | 0 | Clean | TypeScript 에러 0건 |
+| Web Typecheck | `pnpm --filter @sangfor/web typecheck` | 0 | Clean | TypeScript 에러 0건 |
+| Business Unit Tests | `vitest run src/support/delivery-acceptance.test.ts ...` | 0 | 10 / 10 Passed | 코어 서비스 & domain-persistence 단위 테스트 통과 |
+| Web Unit Tests | `vitest run 'src/app/api/engagements/...'` | 0 | 2 / 2 Passed | 라우트 & UI 컴포넌트 단위 테스트 통과 |
+| Web Production Build | `pnpm --filter @sangfor/web build` | 0 | Success | Next.js 16.2.6 production build 성공 |
+| Git Diff Check | `git diff --check` | 0 | Clean | 공백/줄바꿈 에러 없음 |
+| Playwright Spec Listing | `pnpm exec playwright test ... --list` | 0 | 1 test listed | 브라우저 실행 이연 |
+
+### 특이사항 & 이행 내역
+- U055 AiReleaseEvaluation (`quote.internal_release`) 및 U049 `requireCurrentQuoteVendorReadiness` 승인 전제조건 동시 산출 검증.
+- 단일 직렬화 트랜잭션 내 `DeliveryAcceptance` 생성 및 heterogeneous quote lines (`service_only`, `perpetual_product`, `subscription_product`) 프로젝션 구현.
+- `addUtcTermMonths`: UTC 기준 월말 일수 클램핑 계산 (Jan 31 + 1m -> Feb 28/29).
+- `domain-persistence.ts` 어댑터 유지 및 `CustomerAsset` 직접 변이 완전 제거 캐릭터라이제이션 테스트 보강.
+- Web API 라우트 `/api/engagements/[id]/acceptance` 및 `delivery-acceptance-panel.tsx` 신설.
+
+---
+
+
 

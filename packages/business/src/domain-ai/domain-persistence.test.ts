@@ -87,7 +87,7 @@ describe("createDomainPersister fail-closed boundary", () => {
       "utf8",
     );
 
-    expect(source).not.toMatch(/\.(?:customer|opportunity|quote)\.(?:create|update|upsert)/);
+    expect(source).not.toMatch(/\.(?:customer|opportunity|quote|customerAsset|assetLicense|subscription)\.(?:create|update|upsert)/);
     expect(source).not.toMatch(/resolveDefaultProject|withRlsTransaction/);
     expect(source).not.toMatch(/createQuoteVersion/);
   });
