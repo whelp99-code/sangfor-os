@@ -256,3 +256,28 @@
 - `RestrictedArtifactView` 컴포넌트: 워터마크 오버레이 + redaction notice.
 
 ---
+
+## U059: GOV-04: Required Ownership Transfer Before Role Revocation
+
+- **시작 시각**: 2026-07-25T21:28:00+09:00
+- **완료 시각**: 2026-07-25T21:36:30+09:00
+- **체크포인트 커밋**: `fc159d61`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U059/attempt-1/red.txt` 저장 |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Business Unit Tests | 0 | 13/13 passed |
+| Web Unit Tests | 0 | 8/8 passed |
+| Web Build | 0 | Success (86 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `ownership-transfer.ts`: 7개 모델 스캐너 (`scanOwnerTuples`), RFC 8785 결정론적 프리뷰 해시 (`computePreviewHash`), `previewOwnershipTransfer` (읽기 전용), `createOwnershipTransfer` (계획 생성), `finalizeRoleChangeAfterOwnershipTransfer` (승인/완료 결합 이행).
+- `role-change.ts`: 최종 승인 단계에서 미해결 이관 건 존재 시 `OWNERSHIP_TRANSFER_FINALIZATION_REQUIRED` 차단 가드 추가.
+- API 라우트: `/api/security/ownership-transfers/preview` (POST, Idempotency-Key 금지), `/api/security/ownership-transfers` (POST, Idempotency-Key 필수), `/api/security/ownership-transfers/[id]/execute` (POST, Idempotency-Key 및 64자 헥사 해시 필수).
+- `OwnershipTransferPanel` 컴포넌트: 이관 필요한 리소스 목록 표 및 미이관 시 배지 표시.
+
+---
