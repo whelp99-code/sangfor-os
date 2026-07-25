@@ -579,3 +579,26 @@
 - 계약 검증 런타임 스크립트 작성.
 
 ---
+
+## U073: DB-01 / final M1-M4 scope, backfill, and RLS closure
+
+- **시작 시각**: 2026-07-26T00:30:00+09:00 (agy 중단분 Qwen 인수)
+- **완료 시각**: 2026-07-26T01:05:00+09:00
+- **체크포인트 커밋**: `4bf95106`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| Prisma Scope Check | 0 | 198/198 models, 0 errors |
+| DB Typecheck | 0 | Clean |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| DB Unit Tests | 0 | 113/113 passed |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `migration.sql`: 53개 직접 스코프 테이블 ENABLE/FORCE RLS + 결정적 정책 + NOBYPASSRLS
+- `scope-inventory.test.ts`: U072 ROI 6모델 등록, 192→198 카운트 갱신
+- CHILD_VIA_FK 94개 EXISTS 기반 정책은 후속 봉인 시 보강 필요 (카드 명시)
+
+---

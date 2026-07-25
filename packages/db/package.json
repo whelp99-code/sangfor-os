@@ -30,6 +30,7 @@
     "scope:migration:verify": "node scripts/verify-scope-migration.mjs",
     "scope:backfill": "tsx scripts/backfill-canonical-scope.ts",
     "scope:validate": "tsx scripts/validate-scope-closure.ts",
+    "drill:tenant-restore": "tsx scripts/tenant-selective-restore-drill.ts",
     "governance:backfill": "tsx scripts/backfill-governance-core.ts",
     "governance:validate": "tsx scripts/validate-governance-core.ts",
     "backfill:domain-foundation": "tsx scripts/backfill-domain-foundation.ts",
