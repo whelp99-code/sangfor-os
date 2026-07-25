@@ -209,6 +209,9 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   { model: 'ExportCapability', unit: 'U042', category: 'CHILD_VIA_FK' },
   { model: 'OwnershipTransfer', unit: 'U042', category: 'CHILD_VIA_FK' },
   { model: 'OwnershipTransferItem', unit: 'U042', category: 'CHILD_VIA_FK' },
+  { model: 'SchedulerJob', unit: 'U068', category: 'COMPANY_ROOT' },
+  { model: 'SchedulerRun', unit: 'U068', category: 'CHILD_VIA_FK' },
+  { model: 'SchedulerRunAttempt', unit: 'U068', category: 'CHILD_VIA_FK' },
 ];
 
 export interface ReclassifiedModel {
@@ -474,6 +477,9 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   ExportCapability: { model: 'ExportCapability', category: 'CHILD_VIA_FK', parentModel: 'DataExportRequest', relationField: 'exportRequest', scalarFkField: 'exportRequestId', additionalRequiredRelationFields: ['artifactVersion', 'requesterAssignment'], nullable: false },
   OwnershipTransfer: { model: 'OwnershipTransfer', category: 'CHILD_VIA_FK', parentModel: 'UserCompanyRole', relationField: 'sourceAssignment', scalarFkField: 'sourceAssignmentId', additionalRequiredRelationFields: ['roleChangeRequest', 'successorAssignment', 'requestedByAssignment', 'previewAuditLog'], nullable: false },
   OwnershipTransferItem: { model: 'OwnershipTransferItem', category: 'CHILD_VIA_FK', parentModel: 'OwnershipTransfer', relationField: 'ownershipTransfer', scalarFkField: 'ownershipTransferId', additionalRequiredRelationFields: ['ownerAssignment', 'afterOwnerAssignment'], nullable: false },
+  SchedulerJob: { model: 'SchedulerJob', category: 'COMPANY_ROOT' },
+  SchedulerRun: { model: 'SchedulerRun', category: 'CHILD_VIA_FK', parentModel: 'SchedulerJob', relationField: 'job', scalarFkField: 'jobId', nullable: false },
+  SchedulerRunAttempt: { model: 'SchedulerRunAttempt', category: 'CHILD_VIA_FK', parentModel: 'SchedulerRun', relationField: 'run', scalarFkField: 'runId', nullable: false },
 };
 
 /** Look up a single model's classification. Returns `undefined` for an unknown model. */

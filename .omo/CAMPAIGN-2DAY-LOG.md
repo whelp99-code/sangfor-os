@@ -426,3 +426,28 @@
 - `ux-semantics.spec.ts` E2E 테스트 스펙 신설.
 
 ---
+
+## U067: OPS-01: Truthful Observability, Integration-State History, and Operator Remediation Controls
+
+- **시작 시각**: 2026-07-25T21:54:00+09:00
+- **완료 시각**: 2026-07-25T21:56:49+09:00
+- **체크포인트 커밋**: `da017dbe`
+- **상태**: COMPLETED
+
+| 검증 항목 | Exit | Result |
+|---|---|---|
+| RED 증명 | 0 | `.omo/evidence/.../U067/attempt-1/red.txt` 저장 |
+| Business Typecheck | 0 | Clean |
+| Web Typecheck | 0 | Clean |
+| Business Unit Tests | 0 | 2/2 passed |
+| Web Unit Tests | 0 | 2/2 passed |
+| Web Build | 0 | Success (89 pages) |
+| Git Diff Check | 0 | Clean |
+
+### 이행 내역
+- `integration-observability.ts`: 관측 데이터 캡처 함수 (`getIntegrationHealth`, `reprobeTarget`, `acknowledgeObservation`) 작성.
+- `/api/operator/remediations/[action]`: `reprobe-target` 및 `acknowledge-observation` 안전 조치 API 경로 신설 (Idempotency-Key 필수 적용).
+- `OperatorRemediationControls`: 오퍼레이터 재측정 조치 UI 컴포넌트 구현.
+- `operator-observability-runbook.md`: 오퍼레이터 진실 관측성 운영 매뉴얼 문서 작성.
+
+---

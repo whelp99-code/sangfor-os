@@ -4374,3 +4374,97 @@ model ScopeBackfillQuarantine {
   @@unique([sourceModel, sourceId])
   @@map("scope_backfill_quarantine")
 }
+
+// --- Durable Scheduler Runtime (U068) ---
+
+enum SchedulerJobKind {
+  interval
+  cron
+  manual
+}
+
+enum SchedulerRunStatus {
+  QUEUED
+  CLAIMED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  RETRY_WAIT
+  SKIPPED
+  CANCELLED
+}
+
+model SchedulerJob {
+  id                 String           @id @default(cuid())
+  companyId          String           @map("company_id")
+  projectId          String?          @map("project_id")
+  scopeKey           String           @map("scope_key")
+  jobKey             String           @map("job_key")
+  handlerKey         String           @map("handler_key")
+  scheduleKind       SchedulerJobKind @map("schedule_kind")
+  scheduleExpression String           @map("schedule_expression")
+  payloadJson        Json?            @map("payload_json")
+  enabled            Boolean          @default(true)
+  nextRunAt          DateTime?        @map("next_run_at")
+  lastRunAt          DateTime?        @map("last_run_at")
+  maxAttempts        Int              @default(3) @map("max_attempts")
+  backoffSeconds     Int              @default(60) @map("backoff_seconds")
+  timeoutSeconds     Int              @default(300) @map("timeout_seconds")
+  version            Int              @default(1)
+  createdBy          String           @map("created_by")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  runs SchedulerRun[]
+
+  @@unique([companyId, scopeKey, jobKey])
+  @@index([enabled, nextRunAt])
+  @@index([companyId, projectId])
+  @@index([handlerKey])
+  @@map("scheduler_jobs")
+}
+
+model SchedulerRun {
+  id             String             @id @default(cuid())
+  jobId          String             @map("job_id")
+  scheduledFor   DateTime           @map("scheduled_for")
+  idempotencyKey String             @unique @map("idempotency_key")
+  status         SchedulerRunStatus @default(QUEUED)
+  attemptCount   Int                @default(0) @map("attempt_count")
+  leaseOwner     String?            @map("lease_owner")
+  leaseExpiresAt DateTime?          @map("lease_expires_at")
+  startedAt      DateTime?          @map("started_at")
+  finishedAt     DateTime?          @map("finished_at")
+  nextAttemptAt  DateTime?          @map("next_attempt_at")
+  resultJson     Json?              @map("result_json")
+  errorCode      String?            @map("error_code")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  job      SchedulerJob          @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  attempts SchedulerRunAttempt[]
+
+  @@unique([jobId, scheduledFor])
+  @@index([status, scheduledFor])
+  @@index([jobId])
+  @@map("scheduler_runs")
+}
+
+model SchedulerRunAttempt {
+  id            String   @id @default(cuid())
+  runId         String   @map("run_id")
+  attemptNumber Int      @map("attempt_number")
+  workerId      String   @map("worker_id")
+  status        String
+  startedAt     DateTime @default(now()) @map("started_at")
+  finishedAt    DateTime? @map("finished_at")
+  errorCode     String?  @map("error_code")
+  receiptJson   Json?    @map("receipt_json")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  run SchedulerRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, attemptNumber])
+  @@index([runId])
+  @@map("scheduler_run_attempts")
+}
