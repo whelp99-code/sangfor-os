@@ -101,7 +101,7 @@ describe.runIf(integration)("U055 Governed Commercial Release Integration", () =
     );
 
     const opp = await migrationAdmin.opportunity.create({
-      data: { id: "u055-opp1", companyId: "u055-company", title: "U055 Opp", stage: "PROPOSAL" },
+      data: { id: "u055-opp1", projectId: "u055-project", title: "U055 Opp", stage: "PROPOSAL" },
     });
 
     const quote = await migrationAdmin.quote.create({
