@@ -176,7 +176,32 @@
 
 ---
 
+## U056: SUP-01: Support Case SLA Clocks and Paired Vendor Escalation
 
+- **시작 시각**: 2026-07-25T16:09:42+09:00
+- **완료 시각**: 2026-07-25T16:15:57+09:00
+- **체크포인트 커밋**: `07d4f8ba` (`U056 implementation checkpoint — pending owner verification`)
+- **상태**: COMPLETED
 
+### VERIFY 검증 결과
 
+| 검증 항목 | 명령 | Exit Code | Result | 비고 |
+|---|---|---|---|---|
+| RED 증명 | `vitest run src/support/support-sla.test.ts` | 1 | Saved | `.omo/evidence/.../U056/attempt-1/red.txt` 선저장 |
+| Business Typecheck | `pnpm --filter @sangfor/business typecheck` | 0 | Clean | TypeScript 에러 0건 |
+| Web Typecheck | `pnpm --filter @sangfor/web typecheck` | 0 | Clean | TypeScript 에러 0건 |
+| Business Unit Tests | `vitest run src/support/support-sla.test.ts src/support/support-service.test.ts` | 0 | 4 / 4 Passed | SLA 계산 및 케이스 상태 전환 단위 테스트 통과 |
+| Web Unit Tests | `vitest run 'src/app/api/support/route.test.ts' ...` | 0 | 4 / 4 Passed | 라우트 단위 테스트 통과 |
+| Web Production Build | `pnpm --filter @sangfor/web build` | 0 | Success | Next.js 16.2.6 (83 pages) |
+| Git Diff Check | `git diff --check` | 0 | Clean | 공백/줄바꿈 에러 없음 |
+| Playwright Spec Listing | `pnpm exec playwright test ... --list` | 0 | 1 test listed | 브라우저 실행 이연 |
+
+### 특이사항 & 이행 내역
+- `support-sla.ts` 24x7 SLA 정책 상수(critical 60/240, high 240/1440, medium 1440/2880, low 1440/4320) 및 `calculateSlaDeadlines` 구현.
+- `support-service.ts` 케이스 생성 시 `SupportSlaPolicyVersion` (retiredAt=null 기준 최신 버전) 조회 후 `SupportCaseSlaSnapshot` 원자적 생성. 정책 없을 경우 422 `SUPPORT_SLA_POLICY_NOT_CONFIGURED`.
+- `SupportCase` 상태 전이: respond (`open→in_progress`), resolve (`in_progress→resolved`) - CAS 기반 revision 충돌 탐지.
+- `POST /api/support`, `GET|PATCH /api/support/[id]`, `POST /api/support/[id]/vendor-escalations` Next.js 라우트 신설.
+- UI 컴포넌트: `SupportSlaClock`, `SupportCaseActions` 신설, `/support/[id]/page.tsx` 업데이트, `/support/policies` 페이지 신설.
+
+---
 

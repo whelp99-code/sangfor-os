@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@sangfor/db";
 import { RelatedKnowledgePanel } from "@/components/support/related-knowledge-panel";
+import { SupportSlaClock } from "@/components/support/support-sla-clock";
+import { SupportCaseActions } from "@/components/support/support-case-actions";
 
 export default async function SupportCaseDetail({
   params,
@@ -60,6 +62,14 @@ export default async function SupportCaseDetail({
                   ? new Date(supportCase.slaDeadline).toLocaleDateString("ko-KR")
                   : "—"}
               </span>
+            </div>
+            <div className="mt-4 space-y-3">
+              <SupportSlaClock severity={supportCase.severity} />
+              <SupportCaseActions
+                supportCaseId={supportCase.id}
+                status={supportCase.status}
+                revision={supportCase.revision}
+              />
             </div>
           </div>
 
