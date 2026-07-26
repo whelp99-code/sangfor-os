@@ -51,7 +51,7 @@ test("tracked Vitest steps use direct file-filtering invocations", () => {
   for (const entry of ALIAS_MAP) {
     for (const step of entry.steps) {
       const joined = step.argv.join(" ");
-      assert.doesNotMatch(joined, /\bpnpm(?: --filter \S+)? test --\b/, `${entry.alias}/${step.id}`);
+      assert.doesNotMatch(joined, /\bpnpm(?: --filter \S+)? (?:test|db:contract) --\b/, `${entry.alias}/${step.id}`);
     }
   }
 });
