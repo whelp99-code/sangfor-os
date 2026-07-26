@@ -12,6 +12,7 @@ import {
   buildChildArgv,
   buildGitHeadArgv,
   computeFinalPaths,
+  formatSuccessOutput,
   runS9aContract,
 } from "./run-s9a-contract.mjs";
 
@@ -418,6 +419,7 @@ describe("run-s9a-contract.mjs success path (deterministic receipt + sidecar)", 
     const spawnChild = makeSpawnChild({ rawContent: JSON.stringify(validRawReceipt({ runId, imageDigest: DIGEST })) });
     const result = await runS9aContract({ argv: [], env, deps: { spawnChild, runCapture } });
     assert.equal(result.exitCode, 0, JSON.stringify(result.error?.message));
+    assert.equal(formatSuccessOutput(result), `S9A_CONTRACT_RESULT=${JSON.stringify({ result: "PASS", receiptPath: result.receiptPath })}\n`);
 
     const finalPaths = computeFinalPaths(aliasEvidenceDir);
     assert.ok(existsSync(finalPaths.receiptFile));

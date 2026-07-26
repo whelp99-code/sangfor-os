@@ -419,6 +419,10 @@ export async function runS9aContract({ argv, env, now = () => new Date(), deps =
   }
 }
 
+export function formatSuccessOutput(result) {
+  return `S9A_CONTRACT_RESULT=${JSON.stringify({ result: "PASS", receiptPath: result.receiptPath })}\n`;
+}
+
 function mktempStaging(aliasEvidenceDir) {
   return mkdtempSync(join(aliasEvidenceDir, ".s9a-staging-"));
 }
@@ -427,6 +431,8 @@ async function main() {
   const result = await runS9aContract({ argv: process.argv.slice(2), env: process.env });
   if (result.error) {
     process.stderr.write(`${result.error.message}\n`);
+  } else if (result.exitCode === 0 && result.receiptPath) {
+    process.stdout.write(formatSuccessOutput(result));
   }
   process.exitCode = result.exitCode;
 }
