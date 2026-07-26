@@ -171,6 +171,8 @@ describe("prepare-ux-fixtures deterministic artifact contract", () => {
       assert.deepEqual(state, buildStorageState(`token-${role}`, expiresAt));
     }
     const env = readFileSync(result.envFile, "utf8");
+    assert.match(env, /DEFAULT_PROJECT_ID="ux-u066-project-scope"/);
+    assert.match(env, /DEFAULT_PROJECT_SLUG="ux-u066-project-scope"/);
     assert.match(env, /UX_AUTH_STORAGE_STATE_DIR=/);
     for (const [key, value] of Object.entries(FIXTURE_IDS)) {
       assert.match(env, new RegExp(`${key}=${JSON.stringify(value)}`));
@@ -180,6 +182,8 @@ describe("prepare-ux-fixtures deterministic artifact contract", () => {
     assert.equal(receipt.fixtureCount, 12);
     assert.equal(receipt.authProfileCount, 10);
     assert.equal(receipt.authProfiles.length, 10);
+    assert.equal(receipt.env.DEFAULT_PROJECT_ID, "ux-u066-project-scope");
+    assert.equal(receipt.env.DEFAULT_PROJECT_SLUG, "ux-u066-project-scope");
     assert.equal("DATABASE_URL" in receipt.env, false);
   });
 });

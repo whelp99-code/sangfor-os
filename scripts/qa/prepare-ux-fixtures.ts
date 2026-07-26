@@ -439,6 +439,8 @@ export function writeFixtureArtifacts(input: {
   });
 
   const fixtureEnv = {
+    DEFAULT_PROJECT_ID: PROJECT_SCOPE_ID,
+    DEFAULT_PROJECT_SLUG: PROJECT_SLUG,
     UX_AUTH_STORAGE_STATE_DIR: storageStateDirectory,
     ...FIXTURE_IDS,
   };
