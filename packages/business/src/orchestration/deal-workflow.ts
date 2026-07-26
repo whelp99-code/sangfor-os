@@ -144,7 +144,7 @@ async function evaluateDealWorkflowGatesInternal(
 
   // 2. Registration Gate
   const reg = await tx.dealRegistration.findFirst({
-    where: { opportunityId, status: "approved" },
+    where: { opportunityId, regStatus: "APPROVED" },
   });
   gates.push({
     gateKey: "registration",
