@@ -90,9 +90,9 @@ test("step env is allowlisted and required refs fail before spawn", async () => 
   // Given
   const { resolveStepEnvironment } = await loadRunner(), step = { env: { CI_INTEGRATION: { literal: "1" }, DATABASE_URL: { from: "TASK_OWNED_DATABASE_URL" } } };
   // When
-  const resolved = resolveStepEnvironment(step, { TASK_OWNED_DATABASE_URL: "postgres://loopback/db" }, { PATH: "/bin", SECRET: "no" });
+  const resolved = resolveStepEnvironment(step, { TASK_OWNED_DATABASE_URL: "postgres://loopback/db" }, { PATH: "/bin", UX_FIXTURE_DEAL_ID: "deal-a", SECRET: "no" });
   // Then
-  assert.deepEqual(resolved, { PATH: "/bin", CI_INTEGRATION: "1", DATABASE_URL: "postgres://loopback/db" });
+  assert.deepEqual(resolved, { PATH: "/bin", UX_FIXTURE_DEAL_ID: "deal-a", CI_INTEGRATION: "1", DATABASE_URL: "postgres://loopback/db" });
   assert.throws(() => resolveStepEnvironment(step, {}, { PATH: "/bin" }), /missing environment ref TASK_OWNED_DATABASE_URL/);
   assert.deepEqual(resolveStepEnvironment({ env: {} }, {}, { PATH: "/bin", TASK_OWNED_DATABASE_URL: "postgres://must-not-leak" }), { PATH: "/bin" });
 });

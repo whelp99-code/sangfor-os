@@ -8,6 +8,7 @@ const webPort = process.env.PORT ?? "3101";
 const apiPort = process.env.API_PORT ?? "3200";
 process.env.BASE_URL ??= `http://127.0.0.1:${webPort}`;
 process.env.API_BASE_URL ??= `http://127.0.0.1:${apiPort}`;
+process.env.FINANCE_API_URL = `${process.env.API_BASE_URL}/api/cfo`;
 
 /**
  * U007 acceptance config — exact workers/retries/parallelism/trace/reporter.
