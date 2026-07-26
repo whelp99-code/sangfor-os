@@ -567,6 +567,12 @@ export async function decideApprovalWithClient(
   assertCanonical(fetched);
   const request = fetched;
 
+  if (request.revision !== input.expectedRevision) {
+    throw new ApprovalKernelError(
+      "STALE_REVISION",
+      `expectedRevision ${input.expectedRevision} does not match current revision ${request.revision}`,
+    );
+  }
   if (TERMINAL_REQUEST_STATUSES.has(request.status)) {
     throw new ApprovalKernelError("TERMINAL_STATE", `approval request is already terminal (${request.status})`);
   }
@@ -581,12 +587,6 @@ export async function decideApprovalWithClient(
   }
   if (request.status !== "ready_for_human_approval") {
     throw new ApprovalKernelError("NOT_READY", `approval request is not ready for a human decision (status=${request.status})`);
-  }
-  if (request.revision !== input.expectedRevision) {
-    throw new ApprovalKernelError(
-      "STALE_REVISION",
-      `expectedRevision ${input.expectedRevision} does not match current revision ${request.revision}`,
-    );
   }
   if (request.requestedByAssignmentId === actor.assignmentId || request.ownerAssignmentId === actor.assignmentId) {
     throw new ApprovalKernelError("SELF_APPROVAL", "the requester/owner of an approval request may not decide it");
