@@ -111,6 +111,33 @@ test("mirror context binds detached root, script, candidate, cleanliness, and ha
   ]) { const fixture = structuredClone(context); mutate(fixture); assert.throws(() => validateMirrorContext(fixture), /mirror context/); }
 });
 
+test("U007 pre-dispatch context remains exact-key valid after artifact verification", async () => {
+  const { validateMirrorArtifacts, validateMirrorContext } = await loadRunner();
+  const attempt = await realpath(await mkdtemp(path.join(tmpdir(), "u076-context-v2-")));
+  const mirrorRoot = path.join(attempt, "source"), candidateSha = "a".repeat(40);
+  const artifact = {
+    schemaVersion: 1,
+    mode: "u076-final-aliases",
+    runId: "u076-context-test",
+    ownerUnit: "U076",
+    candidateSha,
+    mirrorPath: mirrorRoot,
+    mirrorHead: candidateSha,
+    detached: true,
+    sourceStatus: "clean",
+    envCheckpointHash: "1".repeat(64),
+    childEnvKeySetHash: "2".repeat(64),
+    receiptSchemaHash: "3".repeat(64),
+    createdAt: "2026-07-26T00:00:00.000Z",
+  };
+  const contextFile = path.join(attempt, "detached-release-mirror-context.json"), bytes = Buffer.from(`${JSON.stringify(artifact)}\n`);
+  await writeFile(contextFile, bytes);
+  const context = { mode: artifact.mode, detached: true, mirrorRoot, cwd: mirrorRoot, scriptPath: path.join(mirrorRoot, "scripts/run-test-alias.mjs"), headSha: candidateSha, candidateSha, status: "", envFiles: [], contextFile, contextHash: sha256(bytes) };
+  const verified = await validateMirrorArtifacts(context);
+  assert.deepEqual(verified, context);
+  assert.deepEqual(validateMirrorContext(verified), context);
+});
+
 test("production normalization requires an explicit complete machine result", async () => {
   const { parseMachineResult } = await loadRunner(), valid = { framework: "node:test", testCount: 2, skipped: 0, fixme: 0, todo: 0, only: 0, retried: 0, outputs: [], cleanup: { result: "NOT_REQUIRED", resources: 0 } };
   assert.deepEqual(parseMachineResult(Buffer.from(`ALIAS_MACHINE_RESULT=${JSON.stringify(valid)}\n`)), valid);

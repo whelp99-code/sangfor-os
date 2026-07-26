@@ -124,7 +124,7 @@ export const validateMirrorArtifacts = async (context) => {
   const artifact = await readBound(context.contextFile, context.contextHash, "U007 mirror context artifact");
   const valid = same(Object.keys(artifact.value).sort(), U007_CONTEXT_KEYS) && artifact.value.schemaVersion === 1 && artifact.value.mode === context.mode && artifact.value.ownerUnit === "U076" && artifact.value.candidateSha === context.candidateSha && artifact.value.mirrorHead === context.candidateSha && artifact.value.mirrorPath === context.mirrorRoot && artifact.value.detached === true && artifact.value.sourceStatus === "clean" && [artifact.value.envCheckpointHash, artifact.value.childEnvKeySetHash, artifact.value.receiptSchemaHash].every((value) => SHA64.test(value ?? ""));
   if (!valid) throw new AliasRunnerError("U007 mirror context artifact exact shape or identity mismatch");
-  return Object.freeze({ ...context, receiptHash: context.contextHash });
+  return Object.freeze({ ...context });
 };
 
 const validateS9aReceiptBody = async (receiptFile, refs, evidenceDir) => {
@@ -331,7 +331,8 @@ export const validateCrmClosure = async (entry, evidenceDir, stepResults, eviden
 
 export const runTrackedSteps = async ({ entry, evidenceDir, evidenceIdentity, refs, mirrorContext, runtimeBase, spawnStep }) => {
   if (!path.isAbsolute(evidenceDir) || refs.ALIAS_EVIDENCE_DIR !== evidenceDir) throw new AliasRunnerError("alias evidence directory must be the verified absolute lease path");
-  if (!SHA64.test(mirrorContext?.contextHash ?? "") || !SHA64.test(mirrorContext?.receiptHash ?? "")) throw new AliasRunnerError("mirror context and receipt hashes are required for step sealing");
+  const receiptHash = mirrorContext?.receiptHash ?? mirrorContext?.contextHash;
+  if (!SHA64.test(mirrorContext?.contextHash ?? "") || !SHA64.test(receiptHash ?? "")) throw new AliasRunnerError("mirror context and receipt hashes are required for step sealing");
   evidenceIdentity ??= await captureEvidenceIdentity(evidenceDir); await assertEvidenceIdentity(evidenceIdentity);
   const destinations = entry.steps.map((step) => path.join(evidenceDir, `steps/${step.id}/result.json`));
   if (entry.alias === "T-CRM") destinations.push(path.join(evidenceDir, "t-crm-closure.json"));
@@ -355,7 +356,7 @@ export const runTrackedSteps = async ({ entry, evidenceDir, evidenceIdentity, re
     if (result.exitCode !== 0 || result.signal !== null || !Number.isFinite(result.durationMs) || result.durationMs < 0 || !strictMachineResult(machine)) throw new AliasRunnerError(`${entry.alias}/${step.id} did not produce a strict nonzero-test PASS`);
     const declaredOutputs = []; for (const output of result.outputPaths) declaredOutputs.push(await checkedArtifact(evidenceDir, output));
     const caseTelemetry = step.id === "crm-scope-pagination-browser" ? Object.fromEntries(["customerCaseIds", "opportunityCaseIds", "executedCaseIds"].map((key) => [key, [...result.machineResult[key]]])) : null;
-    const sealed = { id: step.id, finalCandidateSha: refs.FINAL_CANDIDATE_SHA, contextHash: mirrorContext.contextHash, receiptHash: mirrorContext.receiptHash, argv: step.argv, environmentKeys: Object.keys(environment).sort(), framework: result.framework, testCount: result.testCount, skipped: 0, fixme: 0, todo: 0, only: 0, retried: 0, exitCode: result.exitCode, signal: result.signal, durationMs: result.durationMs, stdout: result.stdout, stderr: result.stderr, declaredOutputs, machineResult: caseTelemetry, cleanup: result.cleanup };
+    const sealed = { id: step.id, finalCandidateSha: refs.FINAL_CANDIDATE_SHA, contextHash: mirrorContext.contextHash, receiptHash, argv: step.argv, environmentKeys: Object.keys(environment).sort(), framework: result.framework, testCount: result.testCount, skipped: 0, fixme: 0, todo: 0, only: 0, retried: 0, exitCode: result.exitCode, signal: result.signal, durationMs: result.durationMs, stdout: result.stdout, stderr: result.stderr, declaredOutputs, machineResult: caseTelemetry, cleanup: result.cleanup };
     await sealJson(reservation, sealed);
     results.push(sealed);
     if (entry.alias === "T-OPS" && step.id === "fresh-s9a-final-candidate") await validateS9aReceipt(s9aReceiptFile, refs, evidenceDir);
