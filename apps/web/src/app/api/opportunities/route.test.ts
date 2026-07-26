@@ -77,6 +77,18 @@ describe("GET/POST /api/opportunities", () => {
     await expect(response.json()).resolves.toEqual({ opportunities: [], nextCursor: "next-a" });
   });
 
+  it("normalizes an omitted stage filter to undefined", async () => {
+    const response = await GET(new Request("http://localhost/api/opportunities?first=2"));
+    expect(response.status).toBe(200);
+    expect(mocks.listOpportunities).toHaveBeenCalledWith(SALES, {
+      first: 2,
+      cursor: undefined,
+      ownerAssignmentId: undefined,
+      stage: undefined,
+      search: undefined,
+    });
+  });
+
   it("creates at canonical service with a header key and no caller authority", async () => {
     const response = await POST(new Request("http://localhost/api/opportunities", {
       method: "POST",

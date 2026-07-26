@@ -78,7 +78,8 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
         const custId = items[0].id;
         const detailRes = await request.get(`${BASE}/api/customers/${custId}`, { headers, timeout: 15000 });
         expect(detailRes.ok()).toBeTruthy();
-        const customer = await detailRes.json();
+        const detailBody = await detailRes.json();
+        const customer = detailBody.customer;
 
         expect(customer).toHaveProperty("id");
         if (customer.customerAssets) expect(Array.isArray(customer.customerAssets)).toBeTruthy();
@@ -90,14 +91,11 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
           data: {
             expectedUpdatedAt: staleUpdatedAt,
             changes: { notes: "stale update attempt" },
-            idempotencyKey: `stale-cas-${Date.now()}`,
           },
-          headers,
+          headers: { ...headers, "Idempotency-Key": `stale-cas-${Date.now()}` },
           timeout: 15000,
         });
-        if (updateRes.status() === 409) {
-          expect(updateRes.status()).toBe(409);
-        }
+        expect(updateRes.status()).toBe(409);
       }
     }
   });

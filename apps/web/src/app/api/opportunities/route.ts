@@ -82,7 +82,7 @@ export async function GET(request: Request) {
       first,
       cursor: params.get("cursor") ?? undefined,
       ownerAssignmentId: params.get("ownerAssignmentId") ?? undefined,
-      stage: params.get("stage") as
+      stage: (params.get("stage") ?? undefined) as
         | "LEAD"
         | "QUALIFIED"
         | "PROPOSAL"
