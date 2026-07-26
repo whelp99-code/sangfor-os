@@ -108,7 +108,6 @@ export function parseTestCounts(stdout = "", stderr = "") {
   const fixme = Math.max(
     countRe(/\b(\d+)\s+fixme\b/gi),
     countRe(/^#\s*fixme\s+(\d+)\b/gim),
-    /\bfixme\b/i.test(text) && !/^#\s*fixme\s+0\b/im.test(text) ? 1 : 0,
   );
   const todo = Math.max(
     countRe(/\b(\d+)\s+todo\b/gi),
@@ -123,15 +122,11 @@ export function parseTestCounts(stdout = "", stderr = "") {
   const flaky = Math.max(
     countRe(/\b(\d+)\s+flaky\b/gi),
     countRe(/^#\s*flaky\s+(\d+)\b/gim),
-    /\bflaky\b/i.test(text) && !/\b0\s+flaky\b/i.test(text) ? 1 : 0,
   );
   const retry = Math.max(
     countRe(/\b(\d+)\s+retr(?:y|ies)\b/gi),
     countRe(/\bretr(?:y|ies)\s*[:=]\s*(\d+)\b/gi),
     countRe(/^#\s*retr(?:y|ies)\s+(\d+)\b/gim),
-    /\bretry\b/i.test(text) && !/\b0\s+retr/i.test(text) && !/^#\s*retr(?:y|ies)\s+0\b/im.test(text)
-      ? 1
-      : 0,
   );
 
   // Heuristic: if no structured counts and "No tests" present → total 0
