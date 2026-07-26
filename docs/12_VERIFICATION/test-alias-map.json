@@ -662,6 +662,12 @@
         "env": {
           "ACCEPTANCE_EVIDENCE_DIR": {
             "from": "ALIAS_EVIDENCE_DIR"
+          },
+          "DATABASE_URL": {
+            "from": "TASK_OWNED_DATABASE_URL"
+          },
+          "TASK_POSTGRES_RECEIPT_FILE": {
+            "from": "TASK_POSTGRES_RECEIPT_FILE"
           }
         },
         "argv": [
