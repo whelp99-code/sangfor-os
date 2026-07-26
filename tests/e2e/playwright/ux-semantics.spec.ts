@@ -7,7 +7,9 @@ test.describe("U065 UX Semantics E2E", () => {
     await page.goto("/login", { waitUntil: "networkidle" });
     expect(new URL(page.url()).pathname).toBe("/login");
     await expect(page.locator("h1:visible")).toHaveCount(1);
-    const controls = page.locator("input:visible, select:visible, textarea:visible, button:visible, a[href]:visible");
+    const controls = page.locator(
+      'input:not([aria-hidden="true"]), select:not([aria-hidden="true"]), textarea:not([aria-hidden="true"]), button:not([aria-hidden="true"]), a[href]:not([aria-hidden="true"])',
+    );
     for (let index = 0; index < await controls.count(); index += 1) {
       await expect(controls.nth(index)).toHaveAccessibleName(/\S/);
     }
@@ -26,7 +28,9 @@ test.describe("U065 UX Semantics E2E", () => {
     await expect(page.locator("h1:visible")).toHaveCount(1);
     expect(consoleErrors.filter((message) => /hydration/i.test(message))).toEqual([]);
 
-    const controls = page.locator("input:visible, select:visible, textarea:visible, button:visible, a[href]:visible");
+    const controls = page.locator(
+      'input:not([aria-hidden="true"]), select:not([aria-hidden="true"]), textarea:not([aria-hidden="true"]), button:not([aria-hidden="true"]), a[href]:not([aria-hidden="true"])',
+    );
     for (let index = 0; index < await controls.count(); index += 1) {
       await expect(controls.nth(index)).toHaveAccessibleName(/\S/);
     }
