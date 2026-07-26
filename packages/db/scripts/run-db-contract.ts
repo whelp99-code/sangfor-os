@@ -830,15 +830,12 @@ function listMigrationsThroughU010(): string[] {
     .sort();
 }
 
-/** Every real migration EXCEPT U021's own — the exact formal migration prefix "through U020" the
- * U021 legacy-upgrade lane deploys BEFORE loading the pre-U021 fixture (U021 dispatch: "the exact
- * formal migration prefix through U020"). Computed from disk (not a fixed unit list): U021 is
- * currently the newest migration, so this is simply every directory except U021's own. */
+/** The exact formal migration prefix through U020, ordered before U021 by timestamp. */
 function listMigrationsThroughU020(): string[] {
   return readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
-    .filter((name) => name !== NEW_MIGRATION_NAME_U021 && name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037 && name !== NEW_MIGRATION_NAME_U038 && name !== NEW_MIGRATION_NAME_U039 && name !== NEW_MIGRATION_NAME_U040 && name !== NEW_MIGRATION_NAME_U041 && name !== NEW_MIGRATION_NAME_U042)
+    .filter((name) => name < NEW_MIGRATION_NAME_U021)
     .sort();
 }
 
@@ -4628,19 +4625,12 @@ async function runAuditChainLegacyScenario(evidenceDir: string, runId: string) {
         // before it asks Prisma for an empty diff; otherwise a newly landed successor is falsely
         // reported as a U021 regression. Add only the canonical U024 symlink after all U021
         // observations above, preserving the genuinely pre-U021 fixture/deploy proof.
-        addMigrationToView(view, NEW_MIGRATION_NAME_U024);
-        addMigrationToView(view, NEW_MIGRATION_NAME_U032);
-        addMigrationToView(view, NEW_MIGRATION_NAME_U033);
-        addMigrationToView(view, NEW_MIGRATION_NAME_U034);
-        addMigrationToView(view, NEW_MIGRATION_NAME_U035);
-        addMigrationToView(view, NEW_MIGRATION_NAME_U036);
-        addMigrationToView(view, NEW_MIGRATION_NAME_U037);
-        addMigrationToView(view, NEW_MIGRATION_NAME_U038);
-        addMigrationToView(view, NEW_MIGRATION_NAME_U039);
-        addMigrationToView(view, NEW_MIGRATION_NAME_U040);
-        addMigrationToView(view, NEW_MIGRATION_NAME_U041);
-        addMigrationToView(view, NEW_MIGRATION_NAME_U042);
-        verifyViewIntegrity(view, [...throughU020, NEW_MIGRATION_NAME_U021, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037, NEW_MIGRATION_NAME_U038, NEW_MIGRATION_NAME_U039, NEW_MIGRATION_NAME_U040, NEW_MIGRATION_NAME_U041, NEW_MIGRATION_NAME_U042]);
+        const successors = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true })
+          .filter((entry) => entry.isDirectory() && entry.name > NEW_MIGRATION_NAME_U021)
+          .map((entry) => entry.name)
+          .sort();
+        for (const migration of successors) addMigrationToView(view, migration);
+        verifyViewIntegrity(view, [...throughU020, NEW_MIGRATION_NAME_U021, ...successors]);
         const deployU024ForCurrentSchema = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
         if (deployU024ForCurrentSchema.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `migrate deploy (+U024 after U021 verification) failed: ${deployU024ForCurrentSchema.stderr || deployU024ForCurrentSchema.stdout}`);
         evidence.deployU024ForCurrentSchema = true;
