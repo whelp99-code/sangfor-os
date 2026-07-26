@@ -206,10 +206,10 @@ const playwrightCaseIds = async (evidenceDir) => {
   return { customerCaseIds, opportunityCaseIds, executedCaseIds: [...customerCaseIds, ...opportunityCaseIds] };
 };
 
-const structuredContractCount = async ({ step, combined, evidenceDir }) => {
+const structuredContractCount = async ({ step, stdout, combined, evidenceDir }) => {
   if (step.id === "registry" && /requirements=28 acceptance=71 registry=99 testAliases=23/.test(combined) && /manualExternal=AC-DOD-09/.test(combined)) return 99;
-  if (step.id === "operator-drills" && combined.trim() === "Operator drills contract runner executed") return 1;
-  if (step.id === "roi-contract" && combined.trim() === "ROI contract runner executed") return 1;
+  if (step.id === "operator-drills" && stdout.trim() === "Operator drills contract runner executed") return 1;
+  if (step.id === "roi-contract" && stdout.trim() === "ROI contract runner executed") return 1;
   if (step.id === "tenant-restore-drill") {
     const match = combined.match(/^\[U074\] PASS (\{.*\})$/m);
     if (match && JSON.parse(match[1]).result === "PASS") return 1;
@@ -254,7 +254,7 @@ export const deriveMachineResult = async ({ raw, step, evidenceDir, variant = "b
     testCount = receipt.totalTests;
     skipped = receipt.skipped;
   } else {
-    testCount = await structuredContractCount({ step, combined, evidenceDir });
+    testCount = await structuredContractCount({ step, stdout, combined, evidenceDir });
   }
   if (!Number.isInteger(testCount) || testCount <= 0 || skipped !== 0) {
     throw new AliasRunnerError(`${step.id} output did not prove a strict nonzero-test PASS`);

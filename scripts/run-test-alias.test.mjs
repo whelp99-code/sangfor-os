@@ -205,6 +205,23 @@ test("derived normalization rejects generic PASS and binds CRM cases to Playwrig
   assert.deepEqual(browser.executedCaseIds, [...browser.customerCaseIds, ...browser.opportunityCaseIds]);
 });
 
+test("structured CLI contracts ignore runtime diagnostics on stderr", async () => {
+  const { deriveMachineResult } = await loadRunner();
+  const evidenceDir = await mkdtemp(path.join(tmpdir(), "u076-structured-contract-"));
+  const result = await deriveMachineResult({
+    raw: {
+      exitCode: 0,
+      signal: null,
+      stdout: Buffer.from("Operator drills contract runner executed\n"),
+      stderr: Buffer.from("run-workspace-runtime: selected nvm.sh=/tmp/nvm.sh\n"),
+    },
+    step: { id: "operator-drills" },
+    evidenceDir,
+  });
+  assert.equal(result.framework, "structured-contract");
+  assert.equal(result.testCount, 1);
+});
+
 test("CLI fails closed on every Git revalidation error before leases or children", async () => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "u001-alias-cli-"))), mirror = path.join(root, "source");
   await Promise.all([mkdir(path.join(mirror, "scripts"), { recursive: true }), mkdir(path.join(mirror, "docs/12_VERIFICATION"), { recursive: true })]);
