@@ -232,7 +232,8 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 9. /opportunities URL compatibility mapping to /deals
-  test("[opportunity] /opportunities route and detail URLs resolve to /deals suite", async ({ page }) => {
+  test("[opportunity] /opportunities route and detail URLs resolve to /deals suite", async ({ request, page }) => {
+    await login(request, "sales");
     await page.goto(`${BASE}/opportunities`, { waitUntil: "domcontentloaded" });
     expect(page.url()).toMatch(/\/deals|\/opportunities/);
 
@@ -241,7 +242,8 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 10. Multi-viewport screenshot capture (375px, 768px, 1280px) + DOM duplication check
-  test("[opportunity] Capture screenshots across 375px, 768px, 1280px viewports and verify single DOM hierarchy", async ({ page }) => {
+  test("[opportunity] Capture screenshots across 375px, 768px, 1280px viewports and verify single DOM hierarchy", async ({ request, page }) => {
+    await login(request, "sales");
     const viewports = [
       { width: 375, height: 667, name: "mobile" },
       { width: 768, height: 1024, name: "tablet" },
@@ -268,7 +270,8 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 11. Network response inspection: zero customer scope/actor internal fields leaked
-  test("[opportunity] Network log inspection verifies 0 leaked internal customer scope/actor fields", async ({ page }) => {
+  test("[opportunity] Network log inspection verifies 0 leaked internal customer scope/actor fields", async ({ request, page }) => {
+    await login(request, "sales");
     const leakedFields: string[] = [];
 
     page.on("response", async (response) => {

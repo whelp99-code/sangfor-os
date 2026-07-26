@@ -405,7 +405,7 @@ function aliasNeedsDatabase(entry) {
 }
 
 async function prepareAliasUxFixtures({ mirrorRoot, entry, lease, postgres, environment }) {
-  if (entry.alias !== "T-UX") return {};
+  if (!["T-CRM", "T-UX"].includes(entry.alias)) return {};
   const fixtureDir = path.join(path.dirname(postgres.receiptPath), "fixtures");
   const fixture = await spawnCommand(
     ["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "prepare:ux-fixtures"],
@@ -424,7 +424,7 @@ async function prepareAliasUxFixtures({ mirrorRoot, entry, lease, postgres, envi
       stream: true,
     },
   );
-  if (fixture.code !== 0) throw new FinalAcceptanceError(`T-UX fixture preparation failed: ${fixture.stderr.slice(-2000)}`);
+  if (fixture.code !== 0) throw new FinalAcceptanceError(`${entry.alias} fixture preparation failed: ${fixture.stderr.slice(-2000)}`);
   return fixtureEnvironment(JSON.parse(await readFile(path.join(fixtureDir, "ux-fixtures-receipt.json"), "utf8")));
 }
 
