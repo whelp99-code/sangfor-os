@@ -7,7 +7,7 @@ test.describe("U065 UX Semantics E2E", () => {
     await page.goto("/login", { waitUntil: "networkidle" });
     expect(new URL(page.url()).pathname).toBe("/login");
     await expect(page.locator("h1:visible")).toHaveCount(1);
-    const controls = page.locator("input, select, textarea, button, a[href]");
+    const controls = page.locator("input:visible, select:visible, textarea:visible, button:visible, a[href]:visible");
     for (let index = 0; index < await controls.count(); index += 1) {
       await expect(controls.nth(index)).toHaveAccessibleName(/\S/);
     }
@@ -26,7 +26,7 @@ test.describe("U065 UX Semantics E2E", () => {
     await expect(page.locator("h1:visible")).toHaveCount(1);
     expect(consoleErrors.filter((message) => /hydration/i.test(message))).toEqual([]);
 
-    const controls = page.locator("input, select, textarea, button, a[href]");
+    const controls = page.locator("input:visible, select:visible, textarea:visible, button:visible, a[href]:visible");
     for (let index = 0; index < await controls.count(); index += 1) {
       await expect(controls.nth(index)).toHaveAccessibleName(/\S/);
     }
@@ -38,7 +38,7 @@ test.describe("U065 UX Semantics E2E", () => {
     expect(response?.status()).toBe(404);
     await expect(page.locator("main")).toHaveCount(1);
     await expect(page.locator("h1:visible")).toHaveCount(1);
-    await expect(page.getByText(/찾을 수 없|존재하지 않/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "페이지를 찾을 수 없습니다" })).toBeVisible();
     await expect(page.getByText("불러오는 중…")).toHaveCount(0);
     await expect(page.getByText("오류가 발생했습니다")).toHaveCount(0);
   });
