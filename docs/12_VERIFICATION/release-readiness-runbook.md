@@ -46,6 +46,7 @@ node scripts/run-detached-release-mirror.mjs \
 ```
 
 Only this U007 detached-mirror entrypoint may produce authoritative evidence. It must finish with 23 fresh alias receipts, an exact 98-row autonomous partition, one `manual-external-staging.json` pending receipt, complete database/process/port/mirror cleanup, and `final-acceptance.json` reporting `LOCAL_PASS_EXTERNAL_PENDING`.
+The entrypoint performs frozen installs for all three workspaces and a clean root workspace build before preparing fixtures or running aliases; pre-existing `dist` output is never authoritative.
 
 ## Retry and cleanup
 

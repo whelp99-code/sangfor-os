@@ -1318,6 +1318,11 @@ export async function runDetachedReleaseMirrorMain(
           );
           if (install.code !== 0) abort(66, `u076 ${scope} frozen install failed: ${install.stderr.slice(-2000)}`);
         }
+        const build = await ctx.spawnInMirror(
+          ["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "build"],
+          ctx.makeChildEnv("generic"),
+        );
+        if (build.code !== 0) abort(65, `u076 clean-mirror build failed: ${build.stderr.slice(-4000)}`);
         const inner = await ctx.spawnInMirror(
           finalAcceptanceInnerArgv(ctx.mirrorContextFile, ctx.mirrorContextHash),
           ctx.makeChildEnv("generic", {
