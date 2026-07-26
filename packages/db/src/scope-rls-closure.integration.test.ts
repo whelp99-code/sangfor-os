@@ -1,17 +1,21 @@
 import { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { MODEL_SCOPE_INVENTORY } from './scope-inventory';
+
 const integration = process.env.CI_INTEGRATION === '1';
 let admin: PrismaClient;
 let app: PrismaClient;
 
 describe.skipIf(!integration)('U073 complete RLS closure on isolated Postgres', () => {
+  const expectedScopedTableCount = Object.values(MODEL_SCOPE_INVENTORY).filter((entry) => entry.category !== 'GLOBAL_SHARED').length;
+
   beforeAll(async () => {
-    if (!process.env.DATABASE_URL || !process.env.APP_DATABASE_URL) {
-      throw new Error('U073 integration test requires injected scratch DATABASE_URL and APP_DATABASE_URL');
+    if (!process.env.DATABASE_URL || !process.env.SANGFOR_APP_DATABASE_URL) {
+      throw new Error('U073 integration test requires injected scratch DATABASE_URL and SANGFOR_APP_DATABASE_URL');
     }
     admin = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
-    app = new PrismaClient({ datasources: { db: { url: process.env.APP_DATABASE_URL } } });
+    app = new PrismaClient({ datasources: { db: { url: process.env.SANGFOR_APP_DATABASE_URL } } });
 
     for (const suffix of ['a', 'b']) {
       await admin.tenant.create({ data: { id: `u073-tenant-${suffix}`, slug: `u073-tenant-${suffix}`, name: `U073 Tenant ${suffix}`, status: 'active' } });
@@ -40,8 +44,8 @@ describe.skipIf(!integration)('U073 complete RLS closure on isolated Postgres', 
         (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity AND c.relforcerowsecurity) AS protected_count,
         (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND policyname LIKE 'sangfor_scope_%') AS policy_count
     `);
-    expect(Number(state[0].protected_count)).toBe(187);
-    expect(Number(state[0].policy_count)).toBe(187);
+    expect(Number(state[0].protected_count)).toBe(expectedScopedTableCount);
+    expect(Number(state[0].policy_count)).toBe(expectedScopedTableCount);
 
     const schedulerPolicies = await admin.$queryRawUnsafe<Array<{ tablename: string; qual: string; with_check: string }>>(
       `SELECT tablename, qual, with_check FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('scheduler_jobs', 'scheduler_runs', 'scheduler_run_attempts') ORDER BY tablename`,

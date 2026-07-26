@@ -402,8 +402,9 @@
           "exec",
           "vitest",
           "run",
-          "src/scope-closure.integration.test.ts",
-          "src/rls.integration.test.ts"
+          "src/scope-inventory.test.ts",
+          "src/scope-rls-closure.test.ts",
+          "src/scope-rls-closure.integration.test.ts"
         ]
       }
     ]
