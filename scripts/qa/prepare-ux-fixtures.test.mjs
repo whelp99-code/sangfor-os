@@ -118,6 +118,28 @@ describe("prepare-ux-fixtures safety contract", () => {
     assert.equal(validateSafetyEnvironment(environment).ownerUnit, "U076");
     assert.throws(() => validateSafetyEnvironment({ ...environment, UX_FIXTURE_MODE: undefined }), /U066/);
   });
+
+  it("accepts U043 only in explicit CRM fixture mode", () => {
+    const directory = fixtureDirectory();
+    const receiptFile = taskReceipt(directory);
+    const receipt = JSON.parse(readFileSync(receiptFile, "utf8"));
+    receipt.runId = "u043-test";
+    receipt.ownerUnit = "U043";
+    receipt.databaseName = "sangfor_task_u043_test";
+    receipt.sentinel = { ...receipt.sentinel, runId: "u043-test", ownerUnit: "U043" };
+    writeFileSync(receiptFile, JSON.stringify(receipt));
+    const databaseUrl = "postgresql://u:p@127.0.0.1:5432/sangfor_task_u043_test";
+    const environment = {
+      DATABASE_URL: databaseUrl,
+      TASK_OWNED_DATABASE_URL: databaseUrl,
+      TASK_POSTGRES_RECEIPT_FILE: receiptFile,
+      TASK_OWNER_UNIT: "U043",
+      TASK_RUN_ID: "u043-test",
+      UX_FIXTURE_MODE: "u043-crm",
+    };
+    assert.equal(validateSafetyEnvironment(environment).ownerUnit, "U043");
+    assert.throws(() => validateSafetyEnvironment({ ...environment, UX_FIXTURE_MODE: undefined }), /U066/);
+  });
 });
 
 describe("prepare-ux-fixtures deterministic artifact contract", () => {

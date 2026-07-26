@@ -419,6 +419,7 @@ async function prepareAliasUxFixtures({ mirrorRoot, entry, lease, postgres, envi
         TASK_POSTGRES_RECEIPT_FILE: postgres.receiptPath,
         TASK_RUN_ID: lease.runId,
         TASK_OWNER_UNIT: entry.executionOwnerUnit,
+        ...(entry.alias === "T-CRM" ? { UX_FIXTURE_MODE: "u043-crm" } : {}),
         UX_FIXTURE_OUTPUT_DIR: fixtureDir,
       },
       stream: true,

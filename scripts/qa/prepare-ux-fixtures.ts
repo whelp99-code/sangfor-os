@@ -76,7 +76,7 @@ type TaskPostgresReceipt = {
 };
 
 export type SafetyContext = {
-  ownerUnit: "U066" | "U076";
+  ownerUnit: "U043" | "U066" | "U076";
   databaseName: string;
   databaseHost: string;
   postgresReceiptFile: string;
@@ -157,7 +157,11 @@ export function validateSafetyEnvironment(env: NodeJS.ProcessEnv = process.env):
   if (databaseUrlValue !== taskOwnedDatabaseUrl) {
     fail("DATABASE_URL must exactly match TASK_OWNED_DATABASE_URL");
   }
-  const ownerUnit = env.UX_FIXTURE_MODE === "u076-final" ? "U076" : OWNER_UNIT;
+  const ownerUnit = env.UX_FIXTURE_MODE === "u076-final"
+    ? "U076"
+    : env.UX_FIXTURE_MODE === "u043-crm"
+      ? "U043"
+      : OWNER_UNIT;
   if (env.TASK_OWNER_UNIT?.trim() !== ownerUnit) fail(`TASK_OWNER_UNIT must be ${ownerUnit}`);
   const taskRunId = env.TASK_RUN_ID?.trim();
   if (!taskRunId) fail("TASK_RUN_ID is required");
