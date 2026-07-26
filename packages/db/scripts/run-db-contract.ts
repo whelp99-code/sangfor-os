@@ -5937,7 +5937,10 @@ async function main(): Promise<number> {
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   main().then(
-    (code) => process.exit(code),
+    (code) => {
+      if (code === EXIT.SUCCESS) process.stdout.write('DB contract suite: PASS\n');
+      process.exit(code);
+    },
     (error) => {
       process.stderr.write(`${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`);
       process.exit(65);
