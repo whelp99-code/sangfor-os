@@ -211,8 +211,14 @@ describe('REGISTERED_ADDITIONS — U036 model registration', () => {
       parentModel: 'Customer',
       relationField: 'customer',
       scalarFkField: 'customerId',
+      additionalRequiredRelationFields: ['vendorRequest', 'productSku'],
       nullable: false,
     });
+  });
+
+  it('keeps required catalog links as non-scope references on project-scoped license records', () => {
+    expect(classifyModel('AssetLicense')).toMatchObject({ additionalRequiredRelationFields: ['sku'] });
+    expect(classifyModel('Subscription')).toMatchObject({ additionalRequiredRelationFields: ['sku'] });
   });
 });
 
@@ -367,6 +373,9 @@ describe('RECLASSIFIED_MODELS — sealed scope reclassifications', () => {
       { model: 'AuditLog', unit: 'U021', fromCategory: 'COMPANY_ROOT', toCategory: 'TENANT_ROOT' },
       { model: 'ProductFamily', unit: 'U040', fromCategory: 'GLOBAL_SHARED', toCategory: 'COMPANY_ROOT' },
       { model: 'LicenseMetric', unit: 'U040', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
+      { model: 'ProductEdition', unit: 'U073', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
+      { model: 'ProductSku', unit: 'U073', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
+      { model: 'CompatibilityRule', unit: 'U073', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
       { model: 'DataExportRequest', unit: 'U042', fromCategory: 'COMPANY_ROOT', toCategory: 'COMPANY_DIRECT' },
       { model: 'ArtifactAccessEvent', unit: 'U042', fromCategory: 'COMPANY_ROOT', toCategory: 'COMPANY_DIRECT' },
     ]);
@@ -381,7 +390,7 @@ describe('RECLASSIFIED_MODELS — sealed scope reclassifications', () => {
 
   it('derives the exact U041 vector from baseline plus additions and reclassifications', () => {
     expect(expectedCategoryCounts()).toEqual(buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES).tallies);
-    expect(expectedCategoryCounts()).toEqual({ GLOBAL_SHARED: 11, TENANT_ROOT: 2, COMPANY_ROOT: 38, PROJECT_ROOT: 49, CHILD_VIA_FK: 94, COMPANY_DIRECT: 4 });
+    expect(expectedCategoryCounts()).toEqual({ GLOBAL_SHARED: 8, TENANT_ROOT: 2, COMPANY_ROOT: 38, PROJECT_ROOT: 49, CHILD_VIA_FK: 97, COMPANY_DIRECT: 4 });
   });
 
   it('classifies RoleChangeRequest as CHILD_VIA_FK of Company via mandatory companyId in the live inventory', () => {

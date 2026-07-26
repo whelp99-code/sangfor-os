@@ -10,8 +10,8 @@ export async function GET() {
   try {
     return createApiResponse(await getLlmSettingsStatus());
   } catch (error) {
-    console.error("[api] status_failed:", error instanceof Error ? error.stack ?? error.message : error);
-    return createApiErrorResponse(API_ERRORS.INTERNAL_ERROR());
+    console.warn("[api] llm_status_unavailable:", error instanceof Error ? error.stack ?? error.message : error);
+    return createApiResponse({ configured: false, source: "none", availability: "unavailable" });
   }
 }
 

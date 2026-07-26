@@ -1,6 +1,3 @@
-import type { AuthContext } from "@sangfor/auth";
-import { getSchedulerHandler } from "./scheduler-handler-registry";
-
 export interface ScheduledJobCatalogEntry {
   jobKey: string;
   handlerKey: string;
@@ -14,14 +11,30 @@ export const SYSTEM_SCHEDULED_JOBS: ScheduledJobCatalogEntry[] = [
   { jobKey: "kpi-weekly", handlerKey: "kpi_weekly", scheduleKind: "cron", scheduleExpression: "0 9 * * 1", description: "Weekly KPI calculation" },
 ];
 
-export async function executeScheduledJobTick(input: { authContext: AuthContext; jobKey: string }) {
-  const { jobKey } = input;
-  const job = SYSTEM_SCHEDULED_JOBS.find((j) => j.jobKey === jobKey);
-  if (!job) throw new Error(`Job not found in catalog: ${jobKey}`);
+export interface ScheduledJobExecutionResult {
+  success: boolean;
+  result?: unknown;
+  error?: string;
+  errorCode?: string;
+}
 
-  const handler = getSchedulerHandler(job.handlerKey);
-  if (!handler) return { status: "FAILED", errorCode: "handler_not_registered", runId: `run-${Date.now()}` };
+export type ExecuteScheduledHandler = (input: { handlerKey: string; payload: unknown }) => Promise<ScheduledJobExecutionResult>;
 
-  const res = await handler({});
-  return { status: res.success ? "SUCCEEDED" : "FAILED", result: res.result, error: res.error, runId: `run-${Date.now()}` };
+export async function executeScheduledJobTick(input: {
+  jobKey: string;
+  payload: unknown;
+  executeHandler?: ExecuteScheduledHandler;
+}) {
+  const job = SYSTEM_SCHEDULED_JOBS.find((entry) => entry.jobKey === input.jobKey);
+  if (!job) return { status: "FAILED" as const, errorCode: "job_not_in_catalog" };
+  if (!input.executeHandler) return { status: "FAILED" as const, errorCode: "execution_adapter_not_configured" };
+
+  try {
+    const result = await input.executeHandler({ handlerKey: job.handlerKey, payload: input.payload });
+    return result.success
+      ? { status: "SUCCEEDED" as const, result: result.result }
+      : { status: "FAILED" as const, error: result.error, errorCode: result.errorCode ?? "handler_failed" };
+  } catch {
+    return { status: "FAILED" as const, errorCode: "handler_threw" };
+  }
 }

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
-import { runSyntheticRemediationDrill, resolveCrmAuthContext } from "@sangfor/business";
+import { isDrillScenario, runSyntheticRemediationDrill, resolveCrmAuthContext } from "@sangfor/business";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { scenario, idempotencyKey } = body;
 
-    if (!scenario || !idempotencyKey) {
+    if (!isDrillScenario(scenario) || !idempotencyKey) {
       return NextResponse.json({ error: "scenario and idempotencyKey required" }, { status: 400 });
     }
 
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     });
 
     const result = await runSyntheticRemediationDrill({ scenario, authContext, idempotencyKey });
-    return NextResponse.json(result);
+    return NextResponse.json(result, { status: result.status === "SUCCESS" ? 200 : 503 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }

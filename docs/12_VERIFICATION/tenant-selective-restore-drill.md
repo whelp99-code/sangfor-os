@@ -28,10 +28,10 @@ This is a **fixture-only** tenant-selective export/import drill. It is NOT a pro
 ## Running the drill
 
 ```bash
-# Safety check only (no Docker)
+# Full isolated lifecycle (creates and cleans two U009-labelled Docker resources)
 pnpm --filter @sangfor/db drill:tenant-restore
 
-# Full integration test (requires Docker)
+# The same lifecycle through Vitest (requires Docker)
 CI_INTEGRATION=1 pnpm --filter @sangfor/db exec vitest run src/tenant-restore/tenant-restore.integration.test.ts
 ```
 
@@ -39,6 +39,8 @@ CI_INTEGRATION=1 pnpm --filter @sangfor/db exec vitest run src/tenant-restore/te
 
 - Rejects caller `DATABASE_URL`, remote `DOCKER_HOST`, missing image digest
 - Uses U009 `withIsolatedPostgresPair` for source/target databases
+- Allows only `companies`, `projects`, `customers`, and `customer_activity_logs` identifiers and validates every imported column against Prisma DMMF
+- Uses deterministic target IDs plus target-row hash comparison for idempotency; `_prisma_migrations` remains exclusively Prisma's migration history and is never an import ledger
 - No real dump, home backup directory, staging/production, PITR, or network destination
 - No generic admin endpoint, UI restore button, or production import switch
 

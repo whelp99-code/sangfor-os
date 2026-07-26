@@ -52,19 +52,13 @@ describe('verify-operational-entrypoints', () => {
     }
   });
 
-  it('aborts every legacy quote mutator before a canonical quote can be selected for mutation', async () => {
-    const mutators = await Promise.all([
-      import('../packages/business/scripts/fill-uninvoiced-deals.ts'),
-      import('../packages/business/scripts/fix-purchase-price-deals.ts'),
-      import('../packages/business/scripts/regroup-chosun-deals.ts'),
-    ]);
-    for (const { assertNoCanonicalQuoteMutation } of mutators) {
-      expect(() => assertNoCanonicalQuoteMutation([
-        { id: 'canonical-quote-identifier', contentHash: 'a'.repeat(64) },
-      ])).toThrow('CANONICAL_QUOTE_IMMUTABLE');
-      expect(() => assertNoCanonicalQuoteMutation([
-        { id: 'legacy-quote-identifier', contentHash: null },
-      ])).not.toThrow();
+  it('keeps every retired legacy quote mutator as an import-time tombstone', async () => {
+    for (const path of [
+      '../packages/business/scripts/fill-uninvoiced-deals.ts',
+      '../packages/business/scripts/fix-purchase-price-deals.ts',
+      '../packages/business/scripts/regroup-chosun-deals.ts',
+    ]) {
+      await expect(import(path)).rejects.toThrow('is retired');
     }
   });
 });

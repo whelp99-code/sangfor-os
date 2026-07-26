@@ -122,8 +122,12 @@ export async function runWithIsolatedPostgresMain(argv = process.argv.slice(2)) 
           ...process.env,
           DATABASE_URL: ctx.databaseUrl,
           TASK_OWNED_DATABASE_URL: ctx.taskOwnedDatabaseUrl,
+          TASK_MIGRATION_DATABASE_URL: ctx.migrationDatabaseUrl,
           TASK_POSTGRES_RECEIPT_FILE: ctx.receiptPath,
         };
+        if (out.applicationRoleMode === "required") {
+          env.SANGFOR_APP_DATABASE_URL = ctx.databaseUrl;
+        }
         primaryExit = await spawnChild(childArgv, env);
         if (primaryExit !== 0) {
           const err = new Error(`child exited ${primaryExit}`);

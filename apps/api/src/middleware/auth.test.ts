@@ -92,8 +92,6 @@ async function requestRoute(
 
 const PROTECTED_ROUTE_MATRIX = [
   ["GET", "/api/metrics"],
-  ["GET", "/health"],
-  ["GET", "/api/health"],
   ["GET", "/api/whelp99/health"],
   ["GET", "/api/integrations/health"],
   ["GET", "/api/slack/status"],
@@ -103,10 +101,23 @@ const PROTECTED_ROUTE_MATRIX = [
   ["GET", "/api/cfo/health/ready"],
 ] as const;
 
+const PUBLIC_LIVENESS_MATRIX = [
+  ["GET", "/health"],
+  ["GET", "/api/health"],
+] as const;
+
 describe("authMiddleware containment", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();
+  });
+
+  it.each(PUBLIC_LIVENESS_MATRIX)("allows unauthenticated liveness %s %s", async (method, path) => {
+    vi.stubEnv("AUTH_BYPASS_ENABLED", "0");
+    vi.stubEnv("AUTH_PROFILE", "strict");
+    const { createApp } = await import("../index");
+
+    expect(await requestRoute(createApp(), method, path)).toBe(200);
   });
 
   it.each(PROTECTED_ROUTE_MATRIX)("denies unauthenticated %s %s on the real API route matrix", async (method, path) => {

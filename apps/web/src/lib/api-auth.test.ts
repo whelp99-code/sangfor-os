@@ -315,7 +315,7 @@ function findRouteFiles(dir: string, acc: string[] = []): string[] {
 }
 
 describe("mutating API routes are guarded (static coverage check)", () => {
-  it("every route.ts exporting POST/PUT/PATCH/DELETE calls assertApiAccess, except the whitelisted login route", () => {
+  it("every mutating route uses a canonical session guard, except the whitelisted login route", () => {
     const unguarded: string[] = [];
     for (const file of findRouteFiles(API_DIR)) {
       const source = readFileSync(file, "utf8");
@@ -324,7 +324,9 @@ describe("mutating API routes are guarded (static coverage check)", () => {
       if (PUBLIC_MUTATING_ROUTES.has(rel)) continue;
       if (
         !source.includes("assertApiAccess") &&
-        !source.includes("authorizeOperatorRequest")
+        !source.includes("authorizeOperatorRequest") &&
+        !source.includes("evaluatePersistedSessionFromRequest") &&
+        !source.includes("verifyInternalPrincipal")
       ) {
         unguarded.push(rel);
       }

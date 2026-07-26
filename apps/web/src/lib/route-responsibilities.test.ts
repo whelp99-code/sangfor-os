@@ -19,6 +19,11 @@ describe("U060: route-responsibilities unit tests", () => {
     expect(getRoleLanding("system_admin")).toBe("/operator/workflows");
   });
 
+  it("fails closed for an unknown role", () => {
+    expect(getRoleLanding("admin")).toBeNull();
+    expect(isRouteAllowed("/home", "admin")).toBe(false);
+  });
+
   it("isRouteAllowed correctly enforces role access for restricted paths", () => {
     expect(isRouteAllowed("/operator/workflows", "system_admin")).toBe(true);
     expect(isRouteAllowed("/operator/workflows", "support_engineer")).toBe(false);

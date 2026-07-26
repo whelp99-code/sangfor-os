@@ -74,7 +74,7 @@ export function CatalogWorkspace() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold">상품 & SKU 카탈로그 레지스트리</h2>
+          <h1 className="text-lg font-bold">상품 & SKU 카탈로그 레지스트리</h1>
           <p className="text-xs text-muted-foreground">
             Product Family, Edition, License Metric, SKU 생애주기 관리
           </p>

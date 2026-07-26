@@ -10,7 +10,11 @@ describe("Cockpit design semantics render tests", () => {
   it("renders VerificationConsole with ai-validation semantic attribute", () => {
     const html = renderToStaticMarkup(createElement(VerificationConsole, { gate: "B" }));
     expect(html).toContain('data-design-semantic="ai-validation"');
-    expect(html).toContain("[B]");
+    for (const channel of ["B", "R", "O", "G", "T"]) {
+      expect(html).toContain(`>${channel}</span>`);
+    }
+    expect(html).toContain("검증 채널 B");
+    expect(html).toContain("자동화 검증 조건 충족");
   });
 
   it("renders DispatchSlip container with correct data attribute", () => {

@@ -32,6 +32,7 @@ export async function POST(
       approvalId,
       previewHash,
       dryRun: dryRun !== false,
+      authContext,
       actorId: authContext.userId,
       now: new Date(),
     });

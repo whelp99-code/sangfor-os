@@ -1,4 +1,5 @@
 import { getProjectHub, listTasksByEngagement } from "@sangfor/business";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,9 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <Link href="/delivery" className="inline-flex rounded-md border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted">
+        딜리버리로 돌아가기
+      </Link>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight" style={{ color: CFO.ink }}>{engagement!.name}</h1>
         <p className="text-muted-foreground">{engagement!.opportunity?.customer?.name ?? "고객 미연결"} · {engagement!.status}</p>

@@ -198,6 +198,7 @@ function ProposalPreviewArea({
         {/* Toolbar stub (read-only preview; full editing at /proposals/[id]) */}
         <div
           className="mb-3 flex flex-wrap gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground"
+          role="toolbar"
           aria-label="편집 도구 모음 (전체 편집 페이지에서 사용 가능)"
         >
           {["B", "I", "제목", "표", "이미지", "|", "정렬", "목록", "링크"].map((item) => (

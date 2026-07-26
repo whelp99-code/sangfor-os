@@ -140,7 +140,7 @@ interface BearerVerification {
 }
 
 async function verifyBearerToken(token: string): Promise<BearerVerification | null> {
-  let claims: SessionJwtClaims | null = null;
+  let claims: SessionJwtClaims | null;
   try {
     claims = verifySessionJwt(token, getUserJwtConfig());
   } catch {

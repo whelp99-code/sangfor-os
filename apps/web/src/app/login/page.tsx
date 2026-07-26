@@ -41,16 +41,17 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>SANGFOR Partner OS</CardTitle>
+          <CardTitle><h1>SANGFOR Partner OS</h1></CardTitle>
           <CardDescription>업무 포털에 로그인하세요.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="flex flex-col gap-3">
             <Input
               type="email"
+              aria-label="이메일"
               placeholder="이메일 (선택)"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -58,6 +59,7 @@ export default function LoginPage() {
             />
             <Input
               type="password"
+              aria-label="비밀번호"
               placeholder="비밀번호"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -73,6 +75,6 @@ export default function LoginPage() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

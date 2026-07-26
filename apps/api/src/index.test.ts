@@ -27,12 +27,17 @@ const dbMocks = vi.hoisted(() => ({
   userFindUnique: vi.fn(async () => null as unknown),
 }));
 
-vi.mock('@sangfor/db', () => ({
-  prisma: {
+vi.mock('@sangfor/db', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@sangfor/db')>();
+  return {
+    ...actual,
+    prisma: {
+      ...actual.prisma,
     authSession: { findUnique: dbMocks.authSessionFindUnique },
     user: { findUnique: dbMocks.userFindUnique },
-  },
-}));
+    },
+  };
+});
 
 const API_KEY = 'u002-valid-operator-key-000000000';
 const FINANCE_API_KEY = 'u002-valid-finance-key-00000000';
@@ -142,7 +147,7 @@ let baseUrl = '';
 let server: HttpServer | undefined;
 let assignedPort = 0;
 const sockets = new Set<Socket>();
-let torndown = false;
+let teardownPromise: Promise<void> | undefined;
 let cleanupEvidence: Record<string, unknown> | undefined;
 
 function fetchClose(path: string, init: RequestInit = {}): Promise<Response> {
@@ -173,10 +178,10 @@ function postTool(argumentsValue: Readonly<Record<string, unknown>>, key = API_K
  * anywhere in here must fail the file even if every HTTP assertion passed.
  */
 async function teardown(): Promise<void> {
-  if (torndown) return;
-  torndown = true;
-  const target = server;
-  if (!target) return;
+  if (teardownPromise) return teardownPromise;
+  teardownPromise = (async () => {
+    const target = server;
+    if (!target) return;
 
   await new Promise<void>((resolveClose, rejectClose) => {
     const timer = setTimeout(() => rejectClose(new Error('server.close callback timed out')), 5_000);
@@ -220,10 +225,12 @@ async function teardown(): Promise<void> {
     probeAddressAfterClose: probe.address(),
   };
 
-  const evidenceDir = process.env.U013_EVIDENCE_DIR;
-  if (evidenceDir) {
-    await writeFile(`${evidenceDir}/cleanup.json`, JSON.stringify(cleanupEvidence, null, 2));
-  }
+    const evidenceDir = process.env.U013_EVIDENCE_DIR;
+    if (evidenceDir) {
+      await writeFile(`${evidenceDir}/cleanup.json`, JSON.stringify(cleanupEvidence, null, 2));
+    }
+  })();
+  return teardownPromise;
 }
 
 function onTerminationSignal(): void {

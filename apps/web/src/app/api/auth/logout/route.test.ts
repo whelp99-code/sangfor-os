@@ -4,11 +4,12 @@ const prismaMocks = vi.hoisted(() => ({
   authSessionUpdateMany: vi.fn(),
 }));
 
-vi.mock("@sangfor/db", () => ({
-  prisma: {
+vi.mock("@sangfor/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@sangfor/db")>();
+  return { ...actual, prisma: { ...actual.prisma,
     authSession: { updateMany: prismaMocks.authSessionUpdateMany },
-  },
-}));
+  } };
+});
 
 import { createSessionToken } from "@/lib/auth/session";
 import { POST } from "./route";

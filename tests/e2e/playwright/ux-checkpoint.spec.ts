@@ -1,83 +1,84 @@
-/**
- * U066 — 375/768/1280 Chrome + keyboard + axe visual checkpoint
- *
- * 37 route cases × 3 viewports. Execution deferred — spec + --list only.
- * Every cell proves: one main/H1, zero critical/serious axe, keyboard
- * reachability, visible focus, zero hydration/console/page errors,
- * no document overflow, independent screenshot.
- */
+/** U066 exact 56-entry / 65-auth-case / 195-cell checkpoint. */
 
-import { test, expect } from "@playwright/test";
-import { ROUTE_CASES, VIEWPORTS, ALL_ROLES, ROLE_LANDING_MAP, type RouteCase, type Viewport } from "./support/ux-route-manifest";
+import { test, expect, type Page } from "@playwright/test";
 import { runAxeAudit, assertAxeClean } from "./support/axe";
+import { installAuthProfile } from "./support/auth-profile";
+import {
+  EXPANDED_ROUTE_CASES,
+  ROLE_LANDING_MAP,
+  VIEWPORTS,
+  cellKey,
+  resolveFixturePath,
+  type ExpandedRouteCase,
+  type Viewport,
+} from "./support/ux-route-manifest";
+import { writeCellEvidence } from "./support/ux-evidence";
 
-function cellId(route: RouteCase, vp: Viewport): string {
-  return `${route.id}-${vp.label}`;
-}
-
-async function assertBaseContract(page: import("@playwright/test").Page, route: RouteCase, vp: Viewport) {
+async function assertBaseContract(page: Page, route: ExpandedRouteCase, viewport: Viewport) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
-  page.on("console", (msg) => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
-  page.on("pageerror", (err) => { pageErrors.push(err.message); });
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => pageErrors.push(error.message));
 
-  await page.goto(route.path, { waitUntil: "networkidle" });
+  const resolved = resolveFixturePath(route);
+  const response = await page.goto(resolved.path, { waitUntil: "networkidle" });
+  expect(response, `navigation response for ${resolved.path}`).not.toBeNull();
 
-  if (route.expectedRoute !== "role-dependent") {
-    const url = new URL(page.url());
-    const expected = new URL(route.expectedRoute, url.origin);
-    expect(url.pathname).toBe(expected.pathname);
-    if (expected.search) expect(url.search).toBe(expected.search);
+  const url = new URL(page.url());
+  const expectedRoute = route.id === "S01" && route.auth !== "anonymous"
+    ? ROLE_LANDING_MAP[route.auth]
+    : resolved.expectedRoute;
+  const expected = new URL(expectedRoute, url.origin);
+  expect(url.pathname).toBe(expected.pathname);
+  expect(url.search).toBe(expected.search);
+  if (route.auth !== "anonymous") {
+    expect(url.pathname, "authenticated routes must never false-green on login").not.toBe("/login");
   }
 
-  const mainCount = await page.locator("main").count();
-  expect(mainCount).toBe(1);
+  await expect(page.locator("main")).toHaveCount(1);
+  await expect(page.locator("h1:visible")).toHaveCount(1);
+  const expectedNavigation404 = route.id === "D14"
+    ? consoleErrors.filter((message) => message === "Failed to load resource: the server responded with a status of 404 (Not Found)")
+    : [];
+  expect(consoleErrors).toEqual(expectedNavigation404);
+  expect(pageErrors).toEqual([]);
 
-  const h1 = page.locator("h1");
-  await expect(h1.first()).toBeVisible();
-
-  expect(consoleErrors).toHaveLength(0);
-  expect(pageErrors).toHaveLength(0);
-
-  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-  const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
-  expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
+  const overflow = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
 
   const axeResult = await runAxeAudit(page);
   assertAxeClean(axeResult);
 
   await page.keyboard.press("Tab");
   const focused = page.locator(":focus");
-  await expect(focused.first()).toBeVisible();
-
-  await page.screenshot({
-    path: `tests/e2e/playwright/ux-checkpoint.spec.ts-snapshots/${cellId(route, vp)}.png`,
-    fullPage: false,
+  await expect(focused).toHaveCount(1);
+  await expect(focused).toBeVisible();
+  const focusStyle = await focused.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return `${style.outlineStyle}|${style.outlineWidth}|${style.boxShadow}`;
   });
+  expect(focusStyle).not.toBe("none|0px|none");
+
+  const screenshot = await page.screenshot({ fullPage: false, animations: "disabled", caret: "hide" });
+  writeCellEvidence(cellKey(route, viewport), screenshot, axeResult);
 }
 
-for (const vp of VIEWPORTS) {
-  test.describe(`viewport ${vp.label} (${vp.width}×${vp.height})`, () => {
+for (const viewport of VIEWPORTS) {
+  test.describe(`viewport ${viewport.width}x${viewport.height}`, () => {
     test.beforeEach(async ({ page }) => {
-      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
     });
 
-    for (const route of ROUTE_CASES) {
-      if (route.auth === "all") {
-        for (const role of ALL_ROLES) {
-          test(`${cellId(route, vp)} role=${role} ${route.path}`, async ({ page }) => {
-            await assertBaseContract(page, { ...route, expectedRoute: ROLE_LANDING_MAP[role] }, vp);
-          });
-        }
-      } else if (route.auth === "anonymous") {
-        test(`${cellId(route, vp)} anonymous ${route.path}`, async ({ page }) => {
-          await assertBaseContract(page, route, vp);
-        });
-      } else {
-        test(`${cellId(route, vp)} ${route.auth} ${route.path}`, async ({ page }) => {
-          await assertBaseContract(page, route, vp);
-        });
-      }
+    for (const route of EXPANDED_ROUTE_CASES) {
+      test(`${cellKey(route, viewport)} ${route.auth} ${route.path}`, async ({ context, page }) => {
+        await installAuthProfile(context, route.auth);
+        await assertBaseContract(page, route, viewport);
+      });
     }
   });
 }

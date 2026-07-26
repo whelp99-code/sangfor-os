@@ -19,6 +19,12 @@ import {
 } from "./workflow-contracts";
 
 type TxClient = Prisma.TransactionClient;
+const START_TRANSACTION_MAX_ATTEMPTS = 8;
+
+export function workflowStartRetryDelayMs(idempotencyKey: string, attempt: number): number {
+  const jitter = [...idempotencyKey].reduce((sum, character) => sum + character.charCodeAt(0), 0) % 9;
+  return Math.min(250, 5 * (2 ** attempt)) + jitter;
+}
 
 export interface StartWorkflowRunInput {
   readonly workflowDefinitionId: string;
@@ -254,15 +260,16 @@ export async function startWorkflowRun(input: StartWorkflowRunInput, caller: App
   // recovery read must happen in a fresh transaction. Retry serialization failures briefly, then
   // resolve the committed winner by the same normalized idempotency comparison.
   let lastError: unknown;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < START_TRANSACTION_MAX_ATTEMPTS; attempt += 1) {
     try {
-      return await prisma.$transaction((client) => startWithClient(client, input, caller), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      return await prisma.$transaction((client) => startWithClient(client, input, caller), { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
     } catch (error) {
       lastError = error;
       const retryable = isUniqueViolation(error) || (typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === "P2034");
       if (!retryable) throw error;
       const winner = await prisma.$transaction((client) => existingRunForIdempotency(client, caller, input, normalizeWorkflowInput(input.input)));
       if (winner) return winner;
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, workflowStartRetryDelayMs(input.idempotencyKey, attempt)));
     }
   }
   throw lastError;

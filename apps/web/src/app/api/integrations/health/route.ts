@@ -66,7 +66,7 @@ export async function GET() {
         targets,
         timestamp: report.timestamp,
       },
-      { status: report.httpStatus },
+      { status: 200 },
     );
   } catch (error) {
     // Sanitize: log the real cause server-side, return a stable code (no raw
@@ -88,7 +88,7 @@ export async function GET() {
         error: "integration_health_failed",
         timestamp: new Date().toISOString(),
       },
-      { status: 503 },
+      { status: 200 },
     );
   }
 }

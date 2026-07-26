@@ -7,7 +7,6 @@ export const CFO = {
   muted: "#6B7280", // secondary labels
   inflow: "#1B7A5A", // deposits / profit (deep teal-green)
   outflow: "#B4413A", // payments / loss (muted brick)
-  brass: "#C8A24B", // signature accent — used with restraint
+  brass: "#755A16", // signature accent with AA contrast on paper
 } as const;
-
 

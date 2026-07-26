@@ -1,8 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-const { mockRun, mockClaim } = vi.hoisted(() => ({ mockRun: vi.fn(), mockClaim: vi.fn() }));
+const { mockRun, mockClaim, playbooks } = vi.hoisted(() => ({ mockRun: vi.fn(), mockClaim: vi.fn(), playbooks: new Map<string, any>() }));
 vi.mock("@sangfor/agent", () => ({ runMcpAgent: mockRun }));
 vi.mock("@sangfor/business", () => ({ claimInternalPrincipalReplay: mockClaim }));
+vi.mock("@/lib/agent/playbook-store", () => ({
+  playbookStore: {
+    create: vi.fn(async (input: any) => {
+      const playbook = { id: `playbook-${playbooks.size + 1}`, createdAt: new Date().toISOString(), enabled: true, allowUnsafe: false, ...input };
+      playbooks.set(playbook.id, playbook);
+      return playbook;
+    }),
+    get: vi.fn(async (id: string) => playbooks.get(id)),
+  },
+}));
 
 import { POST } from "./route";
 import { playbookStore } from "@/lib/agent/playbook-store";
@@ -44,8 +54,7 @@ describe("POST /api/agent/schedules/tick", () => {
   });
   afterAll(async () => {
     process.env.AUTH_BYPASS_ENABLED = prevBypass;
-    const { prisma } = await import("@sangfor/db");
-    await prisma.agentPlaybook.deleteMany({ where: { name: { startsWith: runTag } } });
+    playbooks.clear();
   });
 
   it("runs due schedules, records a run, and advances nextRunAt", async () => {

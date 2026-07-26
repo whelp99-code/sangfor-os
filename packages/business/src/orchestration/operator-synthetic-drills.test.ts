@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { runSyntheticRemediationDrill } from "./operator-synthetic-drills";
 import type { AuthContext } from "@sangfor/auth";
 
@@ -8,14 +8,27 @@ const CTX: AuthContext = {
 };
 
 describe("U071: operator-synthetic-drills unit tests", () => {
-  it("runs stuck-approval synthetic drill through all 6 phases", async () => {
-    const res = await runSyntheticRemediationDrill({
+  it("fails closed when no drill evidence adapter is configured", async () => {
+    const result = await runSyntheticRemediationDrill({ scenario: "stuck-approval", authContext: CTX, idempotencyKey: "idem-stuck-1" });
+    expect(result).toMatchObject({ status: "FAILED", runId: null, startedAt: null, completedAt: null });
+    expect(result.phases.every((phase) => phase.status === "PENDING" && phase.timestamp === null)).toBe(true);
+  });
+
+  it("reports success only when every phase returns injected evidence", async () => {
+    let sequence = 0;
+    const executePhase = vi.fn(async () => ({
+      status: "SUCCESS" as const,
+      timestamp: `2026-07-26T00:00:0${sequence++}.000Z`,
+      evidenceId: `evidence-${sequence}`,
+    }));
+    const result = await runSyntheticRemediationDrill({
       scenario: "stuck-approval",
       authContext: CTX,
-      idempotencyKey: "idem-stuck-1",
+      idempotencyKey: "idem-stuck-2",
+      runId: "drill-run-1",
+      executePhase,
     });
-    expect(res.status).toBe("SUCCESS");
-    expect(res.phases).toHaveLength(6);
-    expect(res.phases.every((p) => p.status === "SUCCESS")).toBe(true);
+    expect(result).toMatchObject({ status: "SUCCESS", runId: "drill-run-1", completedAt: "2026-07-26T00:00:05.000Z" });
+    expect(result.phases).toHaveLength(6);
   });
 });

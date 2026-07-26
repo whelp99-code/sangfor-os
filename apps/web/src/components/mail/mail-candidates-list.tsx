@@ -124,7 +124,7 @@ export async function MailCandidatesList() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-normal">메일 후보 관리</h1>
+          <h2 className="text-2xl font-semibold tracking-normal">메일 후보 관리</h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
             Mail Intelligence 스레드 인사이트는 정책 메모리, 근거 검증, AIOS 재검증, 최종 사람 승인을
             거쳐 AIOS 후보로 전환됩니다.

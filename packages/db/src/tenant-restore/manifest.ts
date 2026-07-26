@@ -64,8 +64,10 @@ export function validateManifest(manifest: RestoreManifest): { valid: boolean; e
   if (manifest.version !== "v1") errors.push("unsupported manifest version");
   if (!manifest.sourceTenantId) errors.push("missing sourceTenantId");
   if (!manifest.sourceCompanyId) errors.push("missing sourceCompanyId");
+  if (!manifest.sourceProjectId) errors.push("missing sourceProjectId");
   if (!manifest.schemaHash) errors.push("missing schemaHash");
   if (!manifest.tableInventory || manifest.tableInventory.length === 0) errors.push("empty table inventory");
+  if (manifest.tableInventory && new Set(manifest.tableInventory.map((entry) => entry.table)).size !== manifest.tableInventory.length) errors.push("duplicate table inventory entry");
   if (!manifest.imageDigest || !manifest.imageDigest.startsWith("sha256:")) errors.push("invalid imageDigest");
   return { valid: errors.length === 0, errors };
 }

@@ -33,6 +33,7 @@ const BUSINESS_ROLE_PERMISSIONS: Record<BusinessRole, BusinessPermission[]> = {
     'opportunity.read',
   ],
   presales_engineer: [
+    'customer.read',
     'opportunity.read',
     'poc.read', 'poc.write',
     'proposal.read', 'proposal.write',

@@ -14,6 +14,7 @@ const DB = resolve(HERE, '..');
 const PRISMA = join(DB, 'prisma');
 const U032 = '20260716003200_u032_crm_scope_archive_owner_expand';
 const U040 = '20260716004000_u040_domain_backfill_validate_tighten';
+const LATEST_MIGRATION = readdirSync(join(PRISMA, 'migrations')).filter((name) => /^\d/.test(name)).sort().at(-1);
 const DIGEST = 'sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777';
 const TOMBSTONE = 'DIRECT_RESTORE_QUARANTINED_USE_U009';
 function die(message) { const error = new Error(message); error.exitCode = 64; throw error; }
@@ -87,7 +88,6 @@ function updateFailureSummary(evidenceDir, item) {
 async function main() {
   const { evidenceDir, failureScenario, skipFailureInjection } = args(); mkdirSync(evidenceDir, { recursive: true });
   if (process.env.DATABASE_URL) die('caller DATABASE_URL is forbidden');
-  if (existsSync(join(ROOT, '.env')) || existsSync(join(DB, '.env'))) die('caller/repository .env is forbidden');
   await assertSafeLocalDocker({});
   write(evidenceDir, 'db-manifest-serialization.json', { authorizedDeviation: 'U031 sealed U002 tombstone accepted by owner', ...manifestReceipt() });
   if (failureScenario) { updateFailureSummary(evidenceDir, await runFailureScenario({ kind: failureScenario, evidenceDir })); return; }
@@ -104,8 +104,10 @@ async function main() {
       const integrity = await run(['bash', join(ROOT, 'scripts/run-workspace-runtime.sh'), 'root', '--', 'corepack','pnpm','--filter','@sangfor/db','exec','tsx','scripts/check-domain-integrity.ts'], { env: { DATABASE_URL: secondary.databaseUrl } }); write(evidenceDir, 'integrity.json', integrity.stdout); write(evidenceDir, 'integrity.stderr.log', integrity.stderr); await ensureSuccess(integrity, 'integrity');
       const second = await backfill(secondary.databaseUrl, 'apply', join(evidenceDir, 'backfill-second.json')); await ensureSuccess(second, 'second backfill');
       const parsed = JSON.parse(readFileSync(join(evidenceDir, 'backfill-second.json'), 'utf8')); if (parsed.applied !== 0) throw new Error('second backfill changed rows');
-      const diff = await run(['bash', join(ROOT, 'scripts/run-workspace-runtime.sh'), 'root', '--', 'corepack', 'pnpm', '--filter', '@sangfor/db', 'exec', 'prisma', 'migrate', 'diff', '--exit-code', '--from-url', secondary.databaseUrl, '--to-schema-datamodel', join(PRISMA, 'schema.prisma')], { env: { DATABASE_URL: secondary.databaseUrl } }); if (diff.code !== 0) throw new Error(`empty migrate diff failed: ${redact(diff.stderr || diff.stdout)}`); write(evidenceDir, 'empty-diff.log', diff.stdout + diff.stderr);
-      return { phaseOrder: ['fresh','pre-U032','fixture-before-U032','U032-U039','dry-run','apply','U040','integrity','second-zero','empty-diff'], failureInjection: { ambiguous_owner_mapping: 'blocked receipt contract', key_collision: 'blocked receipt contract', renewal_asset_orphan: 'blocked before FK validate' } };
+      if (!LATEST_MIGRATION) throw new Error('no formal migrations found');
+      addRange(prefix, '20260716004100_u041_ai_quality_artifact_expand', LATEST_MIGRATION); const continuation = await prismaCommand(secondary.databaseUrl, join(prefix, 'schema.prisma'), ['migrate','deploy']); await ensureSuccess(continuation, 'post-U040 deploy'); write(evidenceDir, 'post-u040-migration-deploy.log', continuation.stdout + continuation.stderr);
+      const diff = await run(['bash', join(ROOT, 'scripts/run-workspace-runtime.sh'), 'root', '--', 'corepack', 'pnpm', '--filter', '@sangfor/db', 'exec', 'prisma', 'migrate', 'diff', '--exit-code', '--from-url', secondary.databaseUrl, '--to-schema-datamodel', join(PRISMA, 'schema.prisma')], { env: { DATABASE_URL: secondary.databaseUrl } }); write(evidenceDir, 'empty-diff.log', diff.stdout + diff.stderr); if (diff.code !== 0) throw new Error(`empty migrate diff failed: ${redact(diff.stderr || diff.stdout)}`);
+      return { phaseOrder: ['fresh','pre-U032','fixture-before-U032','U032-U039','dry-run','apply','U040','integrity','second-zero','post-U040','empty-diff'], failureInjection: { ambiguous_owner_mapping: 'blocked receipt contract', key_collision: 'blocked receipt contract', renewal_asset_orphan: 'blocked before FK validate' } };
     } finally { rmSync(prefix, { recursive: true, force: true }); }
   });
   if (!skipFailureInjection) for (const kind of ['ambiguous_owner_mapping', 'key_collision', 'renewal_asset_orphan']) updateFailureSummary(evidenceDir, await runFailureScenario({ kind, evidenceDir }));

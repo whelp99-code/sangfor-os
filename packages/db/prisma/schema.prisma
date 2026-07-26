@@ -4574,7 +4574,7 @@ model MetricBenchmarkVersion {
   @@unique([metricDefinitionId, version])
   @@unique([id, metricDefinitionId])
   @@unique([supersedesBenchmarkVersionId])
-  @@index([metricDefinitionId, effectiveFrom, approvedAt, version, id])
+  @@index([metricDefinitionId, effectiveFrom, approvedAt, version, id], map: "metric_benchmark_versions_metric_definition_id_effective_f_idx")
   @@index([approvalRequestId, approvalRequestRevision])
   @@map("metric_benchmark_versions")
 }
@@ -4592,7 +4592,7 @@ model MetricDailySnapshot {
   sourceIdsHash      String              @map("source_ids_hash")
   provenanceHash     String              @map("provenance_hash")
   provenance         Json
-  asOf               DateTime
+  asOf               DateTime            @map("as_of")
   freshUntil         DateTime            @map("fresh_until")
   createdAt          DateTime            @default(now()) @map("created_at")
 

@@ -7,12 +7,13 @@ const { findMailMessage, findProject } = vi.hoisted(() => ({
   findProject: vi.fn(),
 }));
 
-vi.mock("@sangfor/db", () => ({
-  prisma: {
+vi.mock("@sangfor/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@sangfor/db")>();
+  return { ...actual, prisma: { ...actual.prisma,
     mailMessage: { findFirst: findMailMessage },
     project: { findFirst: findProject },
-  },
-}));
+  } };
+});
 
 import {
   enforceRequestedProject,

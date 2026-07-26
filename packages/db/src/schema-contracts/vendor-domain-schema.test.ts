@@ -78,7 +78,13 @@ describe('U036 vendor, discount, and demo-license schema contract', () => {
     expect(rejected.ok).toBe(false);
     expect(rejected.missingModels).toEqual(['DemoLicense']);
     expect(MODEL_SCOPE_INVENTORY.DemoLicense).toEqual({
-      model: 'DemoLicense', category: 'CHILD_VIA_FK', parentModel: 'Customer', relationField: 'customer', scalarFkField: 'customerId', nullable: false,
+      model: 'DemoLicense',
+      category: 'CHILD_VIA_FK',
+      parentModel: 'Customer',
+      relationField: 'customer',
+      scalarFkField: 'customerId',
+      additionalRequiredRelationFields: ['vendorRequest', 'productSku'],
+      nullable: false,
     });
   });
 });

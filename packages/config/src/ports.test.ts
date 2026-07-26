@@ -47,12 +47,12 @@ function parsePortMappingYaml(text: string): Map<string, number> {
   for (const raw of lines) {
     const line = raw.replace(/\s+#.*$/, "");
     if (/^\s*#/.test(raw) || line.trim() === "") continue;
-    const keyMatch = line.match(/^  ([A-Za-z0-9_-]+):\s*$/);
+    const keyMatch = line.match(/^ {2}([A-Za-z0-9_-]+):\s*$/);
     if (keyMatch) {
       currentKey = keyMatch[1];
       continue;
     }
-    const portMatch = line.match(/^    port:\s*(\d+)\s*$/);
+    const portMatch = line.match(/^ {4}port:\s*(\d+)\s*$/);
     if (portMatch && currentKey) {
       out.set(currentKey, Number(portMatch[1]));
       currentKey = null;

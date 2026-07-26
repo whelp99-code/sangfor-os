@@ -18,16 +18,16 @@ export function MetricState({ label, metric }: Props) {
 
   return (
     <div className="metric-state-card border rounded p-4 flex flex-col justify-between" data-testid="metric-state">
-      <div className="text-xs text-gray-500">{label}</div>
+      <div className="text-xs text-foreground/80">{label}</div>
       <div className="text-2xl font-bold my-2">
         {isMeasured ? (
           <span>{String(metric.value)} {metric.unit ?? ""}</span>
         ) : (
-          <span className="text-amber-600 text-sm font-normal">{stateLabels[metric.state] ?? metric.state}</span>
+          <span className="text-foreground text-sm font-normal">{stateLabels[metric.state] ?? metric.state}</span>
         )}
       </div>
       {metric.reason && !isMeasured && (
-        <div className="text-xs text-amber-700 font-mono">{metric.reason}</div>
+        <div className="text-xs text-foreground/80">{metric.reason}</div>
       )}
     </div>
   );

@@ -9,8 +9,10 @@ const migrationPath = resolve(DB_ROOT, 'prisma/migrations/20260716004000_u040_do
 const runnerPath = resolve(DB_ROOT, 'scripts/verify-domain-migrations.mjs');
 
 function runnerEnv() {
-  const env = { ...process.env };
-  delete env.DATABASE_URL;
+  const env: NodeJS.ProcessEnv = {};
+  for (const key of ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TERM', 'NVM_DIR', 'COREPACK_HOME', 'PNPM_HOME', 'TMPDIR']) {
+    if (process.env[key]) env[key] = process.env[key];
+  }
   return env;
 }
 

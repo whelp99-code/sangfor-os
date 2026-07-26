@@ -136,7 +136,7 @@ function NavMenuButton({
         tooltip={item.title}
         className={cn(
           isActive &&
-            "border-l-2 border-l-[#a9822e] rounded-l-none [&>svg]:text-[#c9a34e] font-semibold"
+            "border-l-2 border-l-[#d8bd7a] rounded-l-none [&>svg]:text-[#ead49c] font-semibold"
         )}
         render={<Link href={item.href} aria-current={isActive ? "page" : undefined} />}
       >
@@ -202,11 +202,11 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
       <Sidebar collapsible="icon">
         <SidebarHeader className="gap-2 border-b border-sidebar-border px-3 py-3">
           <div className="px-1 group-data-[collapsible=icon]:hidden">
-            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-sidebar-foreground/45">
+            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-sidebar-foreground">
               {PROJECT_NAME}
             </p>
             <p className="text-sm font-semibold text-sidebar-foreground">SANGFOR Partner OS</p>
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/40">
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground">
               관제 타워
             </p>
           </div>
@@ -272,7 +272,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                     onClick={() => setMoreOpen((prev) => !prev)}
                     className={cn(
                       "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium",
-                      "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                       "transition-colors group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
                     )}
                   >
@@ -316,9 +316,9 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
             className="w-full justify-start gap-2 border-sidebar-border bg-transparent text-xs text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             onClick={handleAiCommand}
           >
-            <Sparkles className="h-3.5 w-3.5 text-[#c9a34e]" />
+            <Sparkles className="h-3.5 w-3.5 text-[#ead49c]" />
             <span className="group-data-[collapsible=icon]:hidden">AI 어시스턴트</span>
-            <kbd className="ml-auto inline-flex h-5 items-center gap-1 rounded border border-sidebar-border bg-sidebar-accent px-1.5 font-mono text-[10px] font-medium text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
+            <kbd className="ml-auto inline-flex h-5 items-center gap-1 rounded border border-sidebar-border bg-sidebar-accent px-1.5 font-mono text-[10px] font-medium text-sidebar-foreground group-data-[collapsible=icon]:hidden">
               <span className="text-xs">⌘</span>K
             </kbd>
           </Button>

@@ -91,7 +91,7 @@ export default async function VatPage({ searchParams }: { searchParams: Promise<
             <p className="mt-1 text-3xl font-semibold tabular-nums" style={{ color: vat.payableVat >= 0 ? CFO.outflow : CFO.inflow }}>
               {formatKRW(vat.payableVat)}
             </p>
-            <p className="mt-1 text-xs text-zinc-400">
+            <p className="mt-1 text-xs text-zinc-600">
               신고기한 {new Date(vat.filingDeadline).toLocaleDateString("ko-KR")}
             </p>
           </div>
@@ -102,7 +102,7 @@ export default async function VatPage({ searchParams }: { searchParams: Promise<
             </div>
             <div className="rounded-xl border bg-white p-4">
               <p className="text-xs font-medium text-zinc-500">매입세액</p>
-              <p className="mt-1 text-xl font-semibold text-orange-600">{formatKRW(vat.purchaseVat)}</p>
+              <p className="mt-1 text-xl font-semibold text-orange-800">{formatKRW(vat.purchaseVat)}</p>
             </div>
           </div>
         </>

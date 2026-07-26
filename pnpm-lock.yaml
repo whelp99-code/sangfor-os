@@ -30,6 +30,18 @@ importers:
       '@playwright/test':
         specifier: ^1.60.0
         version: 1.61.1
+      '@sangfor/auth':
+        specifier: workspace:*
+        version: link:packages/auth
+      '@sangfor/business':
+        specifier: workspace:*
+        version: link:packages/business
+      '@sangfor/config':
+        specifier: workspace:*
+        version: link:packages/config
+      '@sangfor/db':
+        specifier: workspace:*
+        version: link:packages/db
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.43
@@ -45,6 +57,9 @@ importers:
       playwright:
         specifier: ^1.60.0
         version: 1.61.1
+      tsx:
+        specifier: 4.22.4
+        version: 4.22.4
       turbo:
         specifier: ^2.5.0
         version: 2.10.0
@@ -60,6 +75,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@octokit/rest':
+        specifier: ^22.0.1
+        version: 22.0.1
       '@sangfor/api-utils':
         specifier: workspace:*
         version: link:../../packages/api-utils

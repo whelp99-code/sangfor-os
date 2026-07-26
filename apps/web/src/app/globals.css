@@ -94,32 +94,32 @@
   --success-subtle: oklch(0.96 0.04 155);
 
   /* ── Hermes Color Agents ── */
-  --color-blue-agent: oklch(0.52 0.15 265);
+  --color-blue-agent: oklch(0.40 0.15 265);
   --color-blue-agent-bg: oklch(0.95 0.03 265);
   --color-blue-agent-border: oklch(0.85 0.08 265);
 
-  --color-red-agent: oklch(0.53 0.20 25);
+  --color-red-agent: oklch(0.42 0.20 25);
   --color-red-agent-bg: oklch(0.95 0.04 25);
   --color-red-agent-border: oklch(0.85 0.12 25);
 
-  --color-orange-agent: oklch(0.54 0.18 50);
+  --color-orange-agent: oklch(0.40 0.16 50);
   --color-orange-agent-bg: oklch(0.96 0.04 50);
   --color-orange-agent-border: oklch(0.88 0.10 50);
 
-  --color-gray-agent: oklch(0.50 0.01 247);
+  --color-gray-agent: oklch(0.38 0.01 247);
   --color-gray-agent-bg: oklch(0.96 0.005 247);
   --color-gray-agent-border: oklch(0.88 0.008 247);
 
-  --color-teal-agent: oklch(0.50 0.12 180);
+  --color-teal-agent: oklch(0.38 0.12 180);
   --color-teal-agent-bg: oklch(0.95 0.03 180);
   --color-teal-agent-border: oklch(0.85 0.08 180);
 
   /* ── UX Status Colors ── */
-  --color-status-pending: oklch(0.52 0.12 85);
-  --color-status-validating: oklch(0.55 0.15 265);
-  --color-status-failed: oklch(0.55 0.20 25);
-  --color-status-approved: oklch(0.50 0.15 145);
-  --color-status-stale: oklch(0.60 0.15 50);
+  --color-status-pending: oklch(0.38 0.11 85);
+  --color-status-validating: oklch(0.40 0.15 265);
+  --color-status-failed: oklch(0.42 0.20 25);
+  --color-status-approved: oklch(0.38 0.13 145);
+  --color-status-stale: oklch(0.42 0.14 50);
 }
 
 .dark {
@@ -207,10 +207,10 @@
    ═══════════════════════════════════════════════════════════════ */
 .cockpit{
   --ck-paper:#E7E6E0; --ck-panel:#F8F7F3; --ck-panel-2:#F2F0EA;
-  --ck-ink:#191A17; --ck-muted:#605E55; --ck-faint:#8C897E; --ck-line:#D4D2C9; --ck-line-2:#E5E3DB;
+  --ck-ink:#191A17; --ck-muted:#605E55; --ck-faint:#605E55; --ck-line:#D4D2C9; --ck-line-2:#E5E3DB;
   --ck-blue:#2C5FE0; --ck-blue-deep:#1E44A8; --ck-red:#D2373C; --ck-red-deep:#B02226;
   --ck-orange:#DE7716; --ck-orange-deep:#A9530A; --ck-gray:#848177; --ck-teal:#0E9784; --ck-teal-deep:#0A6B5E;
-  --ck-brass:#A9822E; --ck-brass-ink:#7C5E1E; --ck-brass-bg:#F5EEDD; --ck-brass-line:#E4D6B4;
+  --ck-brass:#7C5E1E; --ck-brass-ink:#654B16; --ck-brass-bg:#F5EEDD; --ck-brass-line:#D6C494;
   --ck-sans:"Pretendard Variable",Pretendard,system-ui,sans-serif;
   --ck-disp:"IBM Plex Sans KR","Pretendard Variable",sans-serif;
   --ck-mono:"IBM Plex Mono",ui-monospace,monospace;
@@ -256,7 +256,7 @@
 .cockpit .slip{background:var(--ck-panel);border:1px solid var(--ck-line);border-radius:12px;margin-bottom:13px;overflow:hidden}
 .cockpit .slip .top{display:flex;align-items:flex-start;gap:13px;padding:15px 17px 0}
 .cockpit .rolech{width:36px;height:36px;border-radius:8px;flex:0 0 36px;display:grid;place-items:center;font-family:var(--ck-mono);font-weight:600;font-size:11px;color:#fff}
-.cockpit .rolech.mk{background:linear-gradient(160deg,#8F8C82,#6F6D64)} .cockpit .rolech.sa{background:linear-gradient(160deg,#E68A2E,#C96C12)}
+.cockpit .rolech.mk{background:linear-gradient(160deg,#77746B,#5F5D55)} .cockpit .rolech.sa{background:linear-gradient(160deg,#A9530A,#874106)}
 .cockpit .rolech.ps{background:linear-gradient(160deg,#3E6CE6,#2450C9)} .cockpit .rolech.en{background:linear-gradient(160deg,#20A896,#0E7A6B)}
 .cockpit .rolech.cf{background:linear-gradient(160deg,#B8923A,#8C6B22)}
 .cockpit .slip .meta{flex:1;min-width:0}

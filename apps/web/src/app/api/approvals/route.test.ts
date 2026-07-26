@@ -6,13 +6,14 @@ const prismaMocks = vi.hoisted(() => ({
   userCompanyRoleFindMany: vi.fn(),
 }));
 
-vi.mock("@sangfor/db", () => ({
-  prisma: {
+vi.mock("@sangfor/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@sangfor/db")>();
+  return { ...actual, prisma: { ...actual.prisma,
     authSession: { findUnique: prismaMocks.authSessionFindUnique },
     user: { findUnique: prismaMocks.userFindUnique },
     userCompanyRole: { findMany: prismaMocks.userCompanyRoleFindMany },
-  },
-}));
+  } };
+});
 
 const businessMocks = vi.hoisted(() => ({ decideApproval: vi.fn(), submitApprovalRequest: vi.fn() }));
 

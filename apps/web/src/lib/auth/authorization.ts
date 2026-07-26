@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import {
   PRIVILEGED_MFA_MAX_AGE_SECONDS,
   evaluateCapability,
+  type AuthContext,
   type PersistedCompanyRoleAssignment,
 } from "@sangfor/auth";
 
@@ -79,6 +80,45 @@ export async function assertBusinessCapability(
 export type CompanyScopeResourceResult<T> =
   | { readonly ok: true; readonly resource: T }
   | { readonly ok: false; readonly response: NextResponse };
+
+export async function resolveBusinessCapabilityContext(
+  identity: {
+    userId: string;
+    sessionId: string | null;
+    tenantId: string;
+    companyId: string;
+    projectId: string;
+    product: string;
+  },
+  routeKey: RouteCapabilityKey,
+): Promise<{ ok: true; context: AuthContext } | { ok: false; response: NextResponse }> {
+  const definition = getRouteCapabilityDefinition(routeKey);
+  if (!definition || definition.capabilityClass === "public" || definition.capabilityClass === "authenticated") {
+    return { ok: false, response: NextResponse.json({ error: "forbidden", reason: "INVALID_CONTEXT_ROUTE" }, { status: 403 }) };
+  }
+  const [companyRoleRows, projectAssignmentRow] = await Promise.all([
+    prisma.userCompanyRole.findMany({
+      where: { userId: identity.userId, companyId: identity.companyId },
+      select: { id: true, userId: true, companyId: true, role: true, status: true, validFrom: true, expiresAt: true, revokedAt: true },
+    }),
+    definition.capabilityClass === "project-assigned"
+      ? findProjectMembership(identity.userId, identity.projectId)
+      : Promise.resolve(null),
+  ]);
+  const evaluation = evaluateCapability({
+    companyRoleAssignments: companyRoleRows as PersistedCompanyRoleAssignment[],
+    projectAssignment: projectAssignmentRow,
+    definition,
+    now: new Date(),
+  });
+  if (!evaluation.ok || !evaluation.role) {
+    return { ok: false, response: NextResponse.json({ error: "forbidden", reason: evaluation.ok ? "ROLE_REQUIRED" : evaluation.reason }, { status: 403 }) };
+  }
+  return {
+    ok: true,
+    context: { ...identity, businessRole: evaluation.role, permissions: evaluation.permissions },
+  };
+}
 
 /**
  * Resource-level helper matching apps/web/src/lib/project-scope.ts's established pattern for

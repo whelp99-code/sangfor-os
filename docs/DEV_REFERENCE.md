@@ -501,6 +501,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ---
 
 ## 변경 이력
+- **2026-07-26**: U068/U073/U074 DB closure 보강 — scheduler 실통합 테스트, 198-model 중 187 scoped table의 FORCE RLS와 94개 CHILD_VIA_FK parent-EXISTS 정책, U009 격리 tenant-selective restore 실행기(식별자 allowlist·결정적 remap·hash 기반 멱등성)를 추가했다. 복구 멱등 ledger로 `_prisma_migrations`를 사용하지 않는다.
 - **2026-07-25**: AI 품질 커널 (U054) 안착 — policyKey/slot/quorum 규격, writer/lookup 커맨드, 409 에러 코드, user separation 규칙 및 qualityPassed ≠ 승인/발송 구분 명시.
 - **2026-07-17**: Canonical requirement/acceptance registry 동결 — 28 requirements, 71 acceptance, 99-row owner/closure manifest, evidence schema, 23-alias/63-step execution map, exact-set validator를 연결하고 C1–C5/W1–W5 제외 범위를 명시했다.
 - **2026-06-29**: 최초 작성. 2026-06-28 7개 워크스트림(A 도메인 / B CFO / C MCP / D Engagement / E 웹LLM / F 메일 / G DB마이그레이션) 일괄 정리.

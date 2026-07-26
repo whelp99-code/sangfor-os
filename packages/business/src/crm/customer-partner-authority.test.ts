@@ -71,7 +71,7 @@ function excluded(path: string): boolean {
   }
   return (
     /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(name) ||
-    /(?:^|[-_.])(fixture|verify|audit|check|smoke)(?:[-_.]|$)/.test(name)
+    /(?:^|[-_.])(fixtures?|verify|audit|check|smoke)(?:[-_.]|$)/.test(name)
   );
 }
 
@@ -285,9 +285,10 @@ describe("U043 repository-discovered CRM authority", () => {
     ).toEqual([]);
   });
 
-  it("keeps Customer writes exclusively in the canonical scoped service", () => {
+  it("keeps product Customer writes in the canonical scoped service and isolates the U074 drill fixture", () => {
     expect([...new Set(customerWriters.map((call) => call.file))]).toEqual([
       "packages/business/src/crm/customer-partner.ts",
+      "packages/db/src/tenant-restore/drill.ts",
     ]);
   });
 

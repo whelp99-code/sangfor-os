@@ -142,19 +142,29 @@ CREATE UNIQUE INDEX "metric_benchmark_versions_metric_definition_id_version_key"
 CREATE UNIQUE INDEX "metric_benchmark_versions_id_metric_definition_id_key" ON "metric_benchmark_versions"("id", "metric_definition_id");
 CREATE UNIQUE INDEX "metric_benchmark_versions_supersedes_benchmark_version_id_key" ON "metric_benchmark_versions"("supersedes_benchmark_version_id");
 CREATE INDEX "metric_benchmark_versions_metric_definition_id_effective_f_idx" ON "metric_benchmark_versions"("metric_definition_id", "effective_from", "approved_at", "version", "id");
+CREATE INDEX "metric_benchmark_versions_approval_request_id_approval_requ_idx" ON "metric_benchmark_versions"("approval_request_id", "approval_request_revision");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "metric_daily_snapshots_metric_definition_id_snapshot_date_key" ON "metric_daily_snapshots"("metric_definition_id", "snapshot_date");
+CREATE INDEX "metric_daily_snapshots_metric_definition_id_as_of_idx" ON "metric_daily_snapshots"("metric_definition_id", "as_of");
+CREATE INDEX "metric_daily_snapshots_state_as_of_idx" ON "metric_daily_snapshots"("state", "as_of");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ai_executions_project_id_idempotency_key_key" ON "ai_executions"("project_id", "idempotency_key");
+CREATE INDEX "ai_executions_company_id_project_id_status_started_at_idx" ON "ai_executions"("company_id", "project_id", "status", "started_at");
+CREATE INDEX "ai_executions_artifact_version_id_idx" ON "ai_executions"("artifact_version_id");
+CREATE INDEX "ai_executions_workflow_run_id_idx" ON "ai_executions"("workflow_run_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ai_provider_attempts_ai_execution_id_attempt_number_key" ON "ai_provider_attempts"("ai_execution_id", "attempt_number");
 CREATE UNIQUE INDEX "ai_provider_attempts_id_ai_execution_id_key" ON "ai_provider_attempts"("id", "ai_execution_id");
+CREATE INDEX "ai_provider_attempts_ai_execution_id_status_idx" ON "ai_provider_attempts"("ai_execution_id", "status");
+CREATE INDEX "ai_provider_attempts_provider_model_started_at_idx" ON "ai_provider_attempts"("provider", "model", "started_at");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ai_execution_costs_provider_attempt_id_kind_source_key_diges_key" ON "ai_execution_costs"("provider_attempt_id", "kind", "source_key_digest");
+CREATE UNIQUE INDEX "ai_execution_costs_provider_attempt_id_kind_source_key_dige_key" ON "ai_execution_costs"("provider_attempt_id", "kind", "source_key_digest");
+CREATE INDEX "ai_execution_costs_ai_execution_id_occurred_at_idx" ON "ai_execution_costs"("ai_execution_id", "occurred_at");
+CREATE INDEX "ai_execution_costs_provider_attempt_id_kind_idx" ON "ai_execution_costs"("provider_attempt_id", "kind");
 
 -- AddForeignKey
 ALTER TABLE "metric_definitions" ADD CONSTRAINT "metric_definitions_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

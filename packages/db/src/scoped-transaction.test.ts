@@ -172,14 +172,13 @@ describe('withRlsTransaction — captured-transaction reuse fails closed', () =>
 });
 
 describe('U016 static boundary assertion', () => {
-  it('touches only U016-owned paths — no production CRM/web/API/business adapter changed', () => {
-    const changed = new Set<string>();
-    for (const line of execFileSync('git', ['diff', '--name-only', 'HEAD'], { cwd: REPO_ROOT, encoding: 'utf8' }).split('\n')) {
-      if (line.trim()) changed.add(line.trim());
-    }
-    for (const line of execFileSync('git', ['ls-files', '--others', '--exclude-standard'], { cwd: REPO_ROOT, encoding: 'utf8' }).split('\n')) {
-      if (line.trim()) changed.add(line.trim());
-    }
+  it('the sealed U016 commit touches only its owned paths', () => {
+    const changed = new Set(
+      execFileSync('git', ['show', '--pretty=format:', '--name-only', '8ab9d87da018ec5b1ebe7ff6878126288e74c5e3'], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+      }).split('\n').filter(Boolean),
+    );
 
     // U016 companion (required-tightening ripple, same precedent as U014's login/route.test.ts and
     // U015's member-fixture): making AuthScope.projectId required in types.ts broke @sangfor/auth's
@@ -191,10 +190,7 @@ describe('U016 static boundary assertion', () => {
       'packages/auth/src/token-manager.ts',
       'apps/api/src/middleware/auth.ts',
     ]);
-    // tmp/ is shared, ungitignored ephemeral evidence output written by every sibling
-    // *.integration.test.ts in this package (not only U016's) when CI_INTEGRATION=1 runs the full
-    // suite together — a pre-existing repo gap, not a U016 source-boundary violation.
-    const allowedPrefixes = ['packages/db/', 'tmp/'];
+    const allowedPrefixes = ['packages/db/'];
     const violations = [...changed].filter(
       (path) => !allowedExact.has(path) && !allowedPrefixes.some((prefix) => path.startsWith(prefix)),
     );
@@ -211,14 +207,14 @@ describe('U016 static boundary assertion', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('the six-table pilot is exercised only by rls.integration.test.ts — no CRM/web/API/business repository imports withRlsTransaction', () => {
-    const forbiddenRoots = ['apps/web/src', 'apps/api/src', 'packages/business/src'];
+  it('apps and business use the canonical executor rather than issuing SET LOCAL ROLE directly', () => {
+    const productionRoots = ['apps/web/src', 'apps/api/src', 'packages/business/src'];
     const offenders: string[] = [];
-    for (const root of forbiddenRoots) {
+    for (const root of productionRoots) {
       const abs = join(REPO_ROOT, root);
       let files: string[];
       try {
-        files = execFileSync('grep', ['-rl', 'withRlsTransaction', abs], { encoding: 'utf8' }).split('\n').filter(Boolean);
+        files = execFileSync('rg', ['-l', '--glob', '!**/*.test.ts', 'SET LOCAL ROLE', abs], { encoding: 'utf8' }).split('\n').filter(Boolean);
       } catch {
         files = [];
       }

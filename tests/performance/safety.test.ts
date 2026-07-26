@@ -98,7 +98,7 @@ describe("U075 perf:smoke safety contract", () => {
     process.env.ACCEPTANCE_EVIDENCE_DIR = "/tmp/evidence";
     process.env.RESOURCE_LEASE_FILE = "/tmp/lease.json";
     const { validateEnvironment } = await import("../../scripts/perf-smoke.mjs");
-    expect(() => validateEnvironment()).toThrow("loopback");
+    expect(() => validateEnvironment()).toThrow("integer ports");
   });
 
   it("rejects occupied port at start", async () => {
@@ -136,8 +136,12 @@ describe("U075 perf:smoke safety contract", () => {
         ownerUnit: "U075",
         purpose: "performance-smoke",
         imageDigest: "sha256:abc",
-        sentinel: "sentinel-1",
-        receiptHash: "hash-1",
+        sentinel: {
+          runId: "test",
+          ownerUnit: "U075",
+          purpose: "performance-smoke",
+          imageDigest: "sha256:abc",
+        },
       }),
     ).not.toThrow();
   });

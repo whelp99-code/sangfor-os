@@ -12,7 +12,7 @@ export type AxeResult = {
   serious: number;
   moderate: number;
   minor: number;
-  violations: { id: string; impact: string; description: string; nodes: number }[];
+  violations: { id: string; impact: string; description: string; nodes: number; nodeDetails: string[] }[];
 };
 
 export async function runAxeAudit(page: Page): Promise<AxeResult> {
@@ -24,6 +24,7 @@ export async function runAxeAudit(page: Page): Promise<AxeResult> {
     impact: v.impact ?? "unknown",
     description: v.description,
     nodes: v.nodes.length,
+    nodeDetails: v.nodes.map((node) => `${node.target.join(" ")}: ${node.failureSummary ?? node.html}`),
   }));
 
   return {
@@ -36,6 +37,9 @@ export async function runAxeAudit(page: Page): Promise<AxeResult> {
 }
 
 export function assertAxeClean(result: AxeResult): void {
+  if (!Array.isArray(result.violations)) {
+    throw new Error("axe result is missing the raw violations array");
+  }
   if (result.critical > 0) {
     throw new Error(`axe critical violations: ${result.critical} — ${JSON.stringify(result.violations.filter((v) => v.impact === "critical"))}`);
   }

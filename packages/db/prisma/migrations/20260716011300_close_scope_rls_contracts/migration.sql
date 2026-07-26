@@ -1,333 +1,335 @@
--- U073 / DB-01: Final Scope RLS Closure Migration
--- Enable and Force RLS for ALL non-global tables (198 total - 11 global = 187 scoped)
--- Idempotent: ENABLE/FORCE are no-ops if already set; policies use DROP IF EXISTS + CREATE
+-- U073 / DB-01: close RLS over the complete 198-model inventory.
+-- Eleven GLOBAL_SHARED tables remain outside tenant scope. Every other model table receives
+-- ENABLE + FORCE RLS and exactly one canonical FOR ALL policy for sangfor_app. CHILD_VIA_FK
+-- policies inherit visibility only through their declared mandatory parent FK. Legacy roots
+-- without a canonical tenant/company/project column fail closed with USING (false).
 
-ALTER TABLE "projects" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "projects" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "project_members" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "project_members" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "workspaces" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "workspaces" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "command_runs" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "command_runs" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "approval_requests" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "approval_requests" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "audit_logs" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "audit_logs" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "mail_accounts" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "mail_accounts" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "portal_tasks" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "portal_tasks" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "customers" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "customers" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "partners" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "partners" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "work_tasks" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "work_tasks" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "poc_projects" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "poc_projects" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "opportunities" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "opportunities" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "knowledge_documents" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "knowledge_documents" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "document_templates" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "document_templates" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "artifacts" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "artifacts" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "workflow_definitions" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "workflow_definitions" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "workflow_runs" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "workflow_runs" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "mail_insight_threads" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "mail_insight_threads" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "policy_memories" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "policy_memories" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "policy_decision_logs" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "policy_decision_logs" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "domain_memories" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "domain_memories" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "domain_decision_logs" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "domain_decision_logs" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "finance_invoices" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "finance_invoices" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "finance_expenses" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "finance_expenses" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "finance_cashflows" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "finance_cashflows" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "finance_tax_invoices" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "finance_tax_invoices" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "project_color_agents" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "project_color_agents" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "kanban_handoff_cards" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "kanban_handoff_cards" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "support_sla_policies" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "support_sla_policies" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "support_sla_policy_versions" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "support_sla_policy_versions" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "certification_definitions" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "certification_definitions" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "engineer_skills" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "engineer_skills" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "engineer_eligibility_policies" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "engineer_eligibility_policies" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "companies" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "companies" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "auth_sessions" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "auth_sessions" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "user_company_roles" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "user_company_roles" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "role_change_requests" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "role_change_requests" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "personas" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "personas" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "product_families" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "product_families" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "quotes" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "quotes" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "delivery_projects" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "delivery_projects" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "data_export_requests" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "data_export_requests" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "artifact_access_events" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "artifact_access_events" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "retention_policies" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "retention_policies" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "legal_holds" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "legal_holds" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "legal_hold_scopes" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "legal_hold_scopes" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "retention_runs" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "retention_runs" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "retention_run_items" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "retention_run_items" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "notification_events" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "notification_events" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "scheduler_jobs" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "scheduler_jobs" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "metric_definitions" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "metric_definitions" FORCE ROW LEVEL SECURITY;
-ALTER TABLE "ai_executions" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ai_executions" FORCE ROW LEVEL SECURITY;
+CREATE TEMP TABLE u073_child_scope_edges (
+  child_table text PRIMARY KEY,
+  parent_table text NOT NULL,
+  child_fk_column text NOT NULL
+) ON COMMIT DROP;
 
--- Deterministic scope policies (one per scoped table)
+INSERT INTO u073_child_scope_edges (child_table, parent_table, child_fk_column) VALUES
+  ('agent_assignments', 'workflow_steps', 'workflow_step_id'),
+  ('agent_decision_logs', 'agent_assignments', 'agent_assignment_id'),
+  ('agent_messages', 'agent_assignments', 'agent_assignment_id'),
+  ('ai_execution_costs', 'ai_executions', 'ai_execution_id'),
+  ('ai_model_snapshots', 'ai_quality_assessments', 'assessment_id'),
+  ('ai_prompt_snapshots', 'ai_quality_assessments', 'assessment_id'),
+  ('ai_provider_attempts', 'ai_executions', 'ai_execution_id'),
+  ('ai_quality_assessments', 'artifact_versions', 'artifact_version_id'),
+  ('ai_quality_evidence', 'ai_quality_assessments', 'assessment_id'),
+  ('ai_quality_reviews', 'ai_quality_assessments', 'assessment_id'),
+  ('ai_release_evaluations', 'ai_quality_assessments', 'assessment_id'),
+  ('approval_current_validity', 'approval_requests', 'approval_request_id'),
+  ('approval_decisions', 'approval_requests', 'approval_request_id'),
+  ('artifact_versions', 'artifacts', 'artifact_id'),
+  ('asset_licenses', 'customer_assets', 'asset_id'),
+  ('branches', 'repositories', 'repository_id'),
+  ('certification_evidence', 'artifact_versions', 'artifact_version_id'),
+  ('changed_files', 'code_changes', 'code_change_id'),
+  ('codex_task_logs', 'codex_tasks', 'codex_task_id'),
+  ('color_agent_decisions', 'kanban_handoff_cards', 'handoff_card_id'),
+  ('color_review_requirements', 'kanban_handoff_cards', 'handoff_card_id'),
+  ('command_runs', 'projects', 'project_id'),
+  ('customer_activity_logs', 'customers', 'customer_id'),
+  ('customer_assets', 'customers', 'customer_id'),
+  ('customer_partner_links', 'customers', 'customer_id'),
+  ('deal_qualifications', 'opportunities', 'opportunity_id'),
+  ('deal_registrations', 'opportunities', 'opportunity_id'),
+  ('delivery_acceptances', 'delivery_projects', 'engagement_id'),
+  ('delivery_checklist_items', 'delivery_projects', 'delivery_id'),
+  ('delivery_projects', 'opportunities', 'opportunity_id'),
+  ('demo_licenses', 'customers', 'customer_id'),
+  ('discount_requests', 'quotes', 'quote_id'),
+  ('document_versions', 'generated_documents', 'generated_document_id'),
+  ('domain_decision_logs', 'projects', 'project_id'),
+  ('domain_memories', 'projects', 'project_id'),
+  ('engagement_capability_requirements', 'delivery_projects', 'engagement_id'),
+  ('engineer_assignments', 'engagement_capability_requirements', 'requirement_id'),
+  ('export_capabilities', 'data_export_requests', 'export_request_id'),
+  ('finance_chat_messages', 'finance_chat_sessions', 'session_id'),
+  ('generated_documents', 'document_templates', 'template_id'),
+  ('handoff_events', 'kanban_handoff_cards', 'card_id'),
+  ('intent_analyses', 'command_runs', 'command_run_id'),
+  ('knowledge_chunks', 'knowledge_documents', 'document_id'),
+  ('license_metrics', 'product_families', 'product_family_id'),
+  ('mail_evidence_links', 'mail_derived_candidates', 'mail_derived_candidate_id'),
+  ('mail_insight_threads', 'projects', 'project_id'),
+  ('mail_messages', 'mail_accounts', 'account_id'),
+  ('maintenance_contracts', 'customer_assets', 'asset_id'),
+  ('metric_benchmark_versions', 'metric_definitions', 'metric_definition_id'),
+  ('metric_daily_snapshots', 'metric_definitions', 'metric_definition_id'),
+  ('opportunity_links', 'opportunities', 'opportunity_id'),
+  ('opportunity_stage_events', 'opportunities', 'opportunity_id'),
+  ('ownership_transfer_items', 'ownership_transfers', 'ownership_transfer_id'),
+  ('ownership_transfers', 'user_company_roles', 'source_assignment_id'),
+  ('personas', 'companies', 'company_id'),
+  ('poc_checklist_items', 'poc_projects', 'poc_project_id'),
+  ('poc_events', 'poc_projects', 'poc_project_id'),
+  ('poc_issues', 'poc_projects', 'poc_project_id'),
+  ('poc_requirements', 'poc_projects', 'poc_project_id'),
+  ('poc_result_reports', 'poc_projects', 'poc_project_id'),
+  ('product_editions', 'product_families', 'family_id'),
+  ('product_skus', 'product_editions', 'edition_id'),
+  ('compatibility_rules', 'product_skus', 'source_sku_id'),
+  ('policy_decision_logs', 'projects', 'project_id'),
+  ('policy_memories', 'projects', 'project_id'),
+  ('project_members', 'projects', 'project_id'),
+  ('pull_requests', 'repositories', 'repository_id'),
+  ('quote_commercial_snapshots', 'quotes', 'quote_id'),
+  ('quote_line_items', 'quotes', 'quote_id'),
+  ('quote_service_line_items', 'opportunities', 'opportunity_id'),
+  ('quotes', 'opportunities', 'opportunity_id'),
+  ('renewal_opportunities', 'customers', 'customer_id'),
+  ('renewal_reminder_events', 'renewal_opportunities', 'renewal_opportunity_id'),
+  ('reports', 'validation_results', 'validation_result_id'),
+  ('retention_assignments', 'retention_policy_versions', 'policy_version_id'),
+  ('retention_policy_versions', 'retention_policies', 'policy_id'),
+  ('retention_run_items', 'retention_runs', 'retention_run_id'),
+  ('risk_analyses', 'command_runs', 'command_run_id'),
+  ('role_change_requests', 'companies', 'company_id'),
+  ('scheduler_run_attempts', 'scheduler_runs', 'run_id'),
+  ('scheduler_runs', 'scheduler_jobs', 'job_id'),
+  ('subscriptions', 'customer_assets', 'asset_id'),
+  ('support_case_sla_snapshots', 'support_cases', 'support_case_id'),
+  ('support_cases', 'customers', 'customer_id'),
+  ('task_links', 'work_tasks', 'work_task_id'),
+  ('task_status_events', 'work_tasks', 'work_task_id'),
+  ('tool_calls', 'agent_assignments', 'agent_assignment_id'),
+  ('user_company_roles', 'companies', 'company_id'),
+  ('validation_checks', 'validation_plans', 'plan_id'),
+  ('validation_results', 'workflow_steps', 'workflow_step_id'),
+  ('vendor_escalations', 'support_cases', 'case_id'),
+  ('vendor_request_events', 'vendor_requests', 'request_id'),
+  ('workflow_run_artifacts', 'workflow_runs', 'workflow_run_id'),
+  ('workflow_run_events', 'workflow_runs', 'workflow_run_id'),
+  ('workflow_run_steps', 'workflow_runs', 'workflow_run_id'),
+  ('workflow_steps', 'workflows', 'workflow_id'),
+  ('workflows', 'command_runs', 'command_run_id');
 
-DROP POLICY IF EXISTS "projects_scope_policy" ON "projects";
-CREATE POLICY "projects_scope_policy" ON "projects"
-  USING ("company_id" = current_setting('app.current_company_id', true));
+CREATE TEMP TABLE u073_root_scope_categories (
+  table_name text PRIMARY KEY,
+  scope_category text NOT NULL CHECK (scope_category IN ('TENANT_ROOT', 'COMPANY_ROOT', 'COMPANY_DIRECT', 'PROJECT_ROOT'))
+) ON COMMIT DROP;
 
-DROP POLICY IF EXISTS "project_members_scope_policy" ON "project_members";
-CREATE POLICY "project_members_scope_policy" ON "project_members"
-  USING ("project_id" = current_setting('app.current_project_id', true));
+INSERT INTO u073_root_scope_categories (table_name, scope_category) VALUES
+  ('audit_logs', 'TENANT_ROOT'),
+  ('tenants', 'TENANT_ROOT'),
+  ('agent_assignment_rules', 'COMPANY_ROOT'),
+  ('agent_playbooks', 'COMPANY_ROOT'),
+  ('ai_evaluation_datasets', 'COMPANY_ROOT'),
+  ('ai_models', 'COMPANY_ROOT'),
+  ('autonomy_policies', 'COMPANY_ROOT'),
+  ('certification_definitions', 'COMPANY_ROOT'),
+  ('companies', 'COMPANY_ROOT'),
+  ('connector_registry', 'COMPANY_ROOT'),
+  ('engineer_certifications', 'COMPANY_ROOT'),
+  ('engineer_eligibility_policies', 'COMPANY_ROOT'),
+  ('engineer_skills', 'COMPANY_ROOT'),
+  ('error_events', 'COMPANY_ROOT'),
+  ('execution_policies', 'COMPANY_ROOT'),
+  ('finance_accounts', 'COMPANY_ROOT'),
+  ('finance_cashflows', 'COMPANY_ROOT'),
+  ('finance_chat_sessions', 'COMPANY_ROOT'),
+  ('finance_company_settings', 'COMPANY_ROOT'),
+  ('finance_expenses', 'COMPANY_ROOT'),
+  ('finance_invoices', 'COMPANY_ROOT'),
+  ('finance_ledger_entries', 'COMPANY_ROOT'),
+  ('finance_month_closes', 'COMPANY_ROOT'),
+  ('finance_projects', 'COMPANY_ROOT'),
+  ('finance_subscriptions', 'COMPANY_ROOT'),
+  ('finance_tax_invoices', 'COMPANY_ROOT'),
+  ('legal_holds', 'COMPANY_ROOT'),
+  ('memory_items', 'COMPANY_ROOT'),
+  ('metric_definitions', 'COMPANY_ROOT'),
+  ('notification_events', 'COMPANY_ROOT'),
+  ('product_families', 'COMPANY_ROOT'),
+  ('quality_gates', 'COMPANY_ROOT'),
+  ('repositories', 'COMPANY_ROOT'),
+  ('retention_policies', 'COMPANY_ROOT'),
+  ('runtime_policies', 'COMPANY_ROOT'),
+  ('scheduler_jobs', 'COMPANY_ROOT'),
+  ('sizing_templates', 'COMPANY_ROOT'),
+  ('skill_catalog_items', 'COMPANY_ROOT'),
+  ('support_sla_policies', 'COMPANY_ROOT'),
+  ('support_sla_policy_versions', 'COMPANY_ROOT'),
+  ('artifact_access_events', 'COMPANY_DIRECT'),
+  ('data_export_requests', 'COMPANY_DIRECT'),
+  ('legal_hold_scopes', 'COMPANY_DIRECT'),
+  ('retention_runs', 'COMPANY_DIRECT'),
+  ('ai_executions', 'PROJECT_ROOT'),
+  ('ai_prompt_runs', 'PROJECT_ROOT'),
+  ('ai_quality_results', 'PROJECT_ROOT'),
+  ('approval_requests', 'PROJECT_ROOT'),
+  ('artifacts', 'PROJECT_ROOT'),
+  ('auth_sessions', 'PROJECT_ROOT'),
+  ('block_registry', 'PROJECT_ROOT'),
+  ('build_runs', 'PROJECT_ROOT'),
+  ('canvases', 'PROJECT_ROOT'),
+  ('code_changes', 'PROJECT_ROOT'),
+  ('codex_tasks', 'PROJECT_ROOT'),
+  ('command_notification_events', 'PROJECT_ROOT'),
+  ('config_values', 'PROJECT_ROOT'),
+  ('contacts', 'PROJECT_ROOT'),
+  ('cost_events', 'PROJECT_ROOT'),
+  ('cursor_sessions', 'PROJECT_ROOT'),
+  ('customers', 'PROJECT_ROOT'),
+  ('document_templates', 'PROJECT_ROOT'),
+  ('github_issues', 'PROJECT_ROOT'),
+  ('improvement_candidates', 'PROJECT_ROOT'),
+  ('kanban_handoff_cards', 'PROJECT_ROOT'),
+  ('knowledge_documents', 'PROJECT_ROOT'),
+  ('layout_slots', 'PROJECT_ROOT'),
+  ('llm_calls', 'PROJECT_ROOT'),
+  ('mail_accounts', 'PROJECT_ROOT'),
+  ('mail_derived_candidates', 'PROJECT_ROOT'),
+  ('meeting_notes', 'PROJECT_ROOT'),
+  ('node_registry', 'PROJECT_ROOT'),
+  ('opportunities', 'PROJECT_ROOT'),
+  ('outbox_events', 'PROJECT_ROOT'),
+  ('partners', 'PROJECT_ROOT'),
+  ('poc_projects', 'PROJECT_ROOT'),
+  ('portal_tasks', 'PROJECT_ROOT'),
+  ('project_color_agents', 'PROJECT_ROOT'),
+  ('projects', 'PROJECT_ROOT'),
+  ('query_registry', 'PROJECT_ROOT'),
+  ('review_threads', 'PROJECT_ROOT'),
+  ('run_timeline_items', 'PROJECT_ROOT'),
+  ('skill_runs', 'PROJECT_ROOT'),
+  ('state_transition_logs', 'PROJECT_ROOT'),
+  ('test_runs', 'PROJECT_ROOT'),
+  ('validation_plans', 'PROJECT_ROOT'),
+  ('vendor_requests', 'PROJECT_ROOT'),
+  ('work_breakdown_items', 'PROJECT_ROOT'),
+  ('work_tasks', 'PROJECT_ROOT'),
+  ('workflow_definitions', 'PROJECT_ROOT'),
+  ('workflow_runs', 'PROJECT_ROOT'),
+  ('workflow_templates', 'PROJECT_ROOT'),
+  ('workspaces', 'PROJECT_ROOT');
 
-DROP POLICY IF EXISTS "workspaces_scope_policy" ON "workspaces";
-CREATE POLICY "workspaces_scope_policy" ON "workspaces"
-  USING ("project_id" = current_setting('app.current_project_id', true));
+DO $$
+DECLARE
+  scoped_count integer;
+  scoped record;
+  existing_policy record;
+  edge record;
+  root_category text;
+  predicate_sql text;
+  has_tenant boolean;
+  has_company boolean;
+  has_project boolean;
+BEGIN
+  SELECT count(*) INTO scoped_count
+  FROM information_schema.tables
+  WHERE table_schema = 'public'
+    AND table_type = 'BASE TABLE'
+    AND table_name <> '_prisma_migrations'
+    AND table_name NOT IN (
+      'ai_golden_answers', 'ai_prompt_templates', 'color_agent_profiles', 'commands',
+      'config_profiles', 'module_registry', 'scope_backfill_quarantine', 'users'
+    );
 
-DROP POLICY IF EXISTS "command_runs_scope_policy" ON "command_runs";
-CREATE POLICY "command_runs_scope_policy" ON "command_runs"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "approval_requests_scope_policy" ON "approval_requests";
-CREATE POLICY "approval_requests_scope_policy" ON "approval_requests"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "audit_logs_scope_policy" ON "audit_logs";
-CREATE POLICY "audit_logs_scope_policy" ON "audit_logs"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "mail_accounts_scope_policy" ON "mail_accounts";
-CREATE POLICY "mail_accounts_scope_policy" ON "mail_accounts"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "portal_tasks_scope_policy" ON "portal_tasks";
-CREATE POLICY "portal_tasks_scope_policy" ON "portal_tasks"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "customers_scope_policy" ON "customers";
-CREATE POLICY "customers_scope_policy" ON "customers"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "partners_scope_policy" ON "partners";
-CREATE POLICY "partners_scope_policy" ON "partners"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "work_tasks_scope_policy" ON "work_tasks";
-CREATE POLICY "work_tasks_scope_policy" ON "work_tasks"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "poc_projects_scope_policy" ON "poc_projects";
-CREATE POLICY "poc_projects_scope_policy" ON "poc_projects"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "opportunities_scope_policy" ON "opportunities";
-CREATE POLICY "opportunities_scope_policy" ON "opportunities"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "knowledge_documents_scope_policy" ON "knowledge_documents";
-CREATE POLICY "knowledge_documents_scope_policy" ON "knowledge_documents"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "document_templates_scope_policy" ON "document_templates";
-CREATE POLICY "document_templates_scope_policy" ON "document_templates"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "artifacts_scope_policy" ON "artifacts";
-CREATE POLICY "artifacts_scope_policy" ON "artifacts"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "workflow_definitions_scope_policy" ON "workflow_definitions";
-CREATE POLICY "workflow_definitions_scope_policy" ON "workflow_definitions"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "workflow_runs_scope_policy" ON "workflow_runs";
-CREATE POLICY "workflow_runs_scope_policy" ON "workflow_runs"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "mail_insight_threads_scope_policy" ON "mail_insight_threads";
-CREATE POLICY "mail_insight_threads_scope_policy" ON "mail_insight_threads"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "policy_memories_scope_policy" ON "policy_memories";
-CREATE POLICY "policy_memories_scope_policy" ON "policy_memories"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "policy_decision_logs_scope_policy" ON "policy_decision_logs";
-CREATE POLICY "policy_decision_logs_scope_policy" ON "policy_decision_logs"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "domain_memories_scope_policy" ON "domain_memories";
-CREATE POLICY "domain_memories_scope_policy" ON "domain_memories"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "domain_decision_logs_scope_policy" ON "domain_decision_logs";
-CREATE POLICY "domain_decision_logs_scope_policy" ON "domain_decision_logs"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "finance_invoices_scope_policy" ON "finance_invoices";
-CREATE POLICY "finance_invoices_scope_policy" ON "finance_invoices"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "finance_expenses_scope_policy" ON "finance_expenses";
-CREATE POLICY "finance_expenses_scope_policy" ON "finance_expenses"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "finance_cashflows_scope_policy" ON "finance_cashflows";
-CREATE POLICY "finance_cashflows_scope_policy" ON "finance_cashflows"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "finance_tax_invoices_scope_policy" ON "finance_tax_invoices";
-CREATE POLICY "finance_tax_invoices_scope_policy" ON "finance_tax_invoices"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "project_color_agents_scope_policy" ON "project_color_agents";
-CREATE POLICY "project_color_agents_scope_policy" ON "project_color_agents"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "kanban_handoff_cards_scope_policy" ON "kanban_handoff_cards";
-CREATE POLICY "kanban_handoff_cards_scope_policy" ON "kanban_handoff_cards"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "support_sla_policies_scope_policy" ON "support_sla_policies";
-CREATE POLICY "support_sla_policies_scope_policy" ON "support_sla_policies"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "support_sla_policy_versions_scope_policy" ON "support_sla_policy_versions";
-CREATE POLICY "support_sla_policy_versions_scope_policy" ON "support_sla_policy_versions"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "certification_definitions_scope_policy" ON "certification_definitions";
-CREATE POLICY "certification_definitions_scope_policy" ON "certification_definitions"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "engineer_skills_scope_policy" ON "engineer_skills";
-CREATE POLICY "engineer_skills_scope_policy" ON "engineer_skills"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "engineer_eligibility_policies_scope_policy" ON "engineer_eligibility_policies";
-CREATE POLICY "engineer_eligibility_policies_scope_policy" ON "engineer_eligibility_policies"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "companies_scope_policy" ON "companies";
-CREATE POLICY "companies_scope_policy" ON "companies"
-  USING ("tenant_id" = current_setting('app.current_tenant_id', true));
-
-DROP POLICY IF EXISTS "auth_sessions_scope_policy" ON "auth_sessions";
-CREATE POLICY "auth_sessions_scope_policy" ON "auth_sessions"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "user_company_roles_scope_policy" ON "user_company_roles";
-CREATE POLICY "user_company_roles_scope_policy" ON "user_company_roles"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "role_change_requests_scope_policy" ON "role_change_requests";
-CREATE POLICY "role_change_requests_scope_policy" ON "role_change_requests"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "personas_scope_policy" ON "personas";
-CREATE POLICY "personas_scope_policy" ON "personas"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "product_families_scope_policy" ON "product_families";
-CREATE POLICY "product_families_scope_policy" ON "product_families"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "quotes_scope_policy" ON "quotes";
-CREATE POLICY "quotes_scope_policy" ON "quotes"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "delivery_projects_scope_policy" ON "delivery_projects";
-CREATE POLICY "delivery_projects_scope_policy" ON "delivery_projects"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "data_export_requests_scope_policy" ON "data_export_requests";
-CREATE POLICY "data_export_requests_scope_policy" ON "data_export_requests"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "artifact_access_events_scope_policy" ON "artifact_access_events";
-CREATE POLICY "artifact_access_events_scope_policy" ON "artifact_access_events"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "retention_policies_scope_policy" ON "retention_policies";
-CREATE POLICY "retention_policies_scope_policy" ON "retention_policies"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "legal_holds_scope_policy" ON "legal_holds";
-CREATE POLICY "legal_holds_scope_policy" ON "legal_holds"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "legal_hold_scopes_scope_policy" ON "legal_hold_scopes";
-CREATE POLICY "legal_hold_scopes_scope_policy" ON "legal_hold_scopes"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "retention_runs_scope_policy" ON "retention_runs";
-CREATE POLICY "retention_runs_scope_policy" ON "retention_runs"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "retention_run_items_scope_policy" ON "retention_run_items";
-CREATE POLICY "retention_run_items_scope_policy" ON "retention_run_items"
-  USING ("project_id" = current_setting('app.current_project_id', true));
-
-DROP POLICY IF EXISTS "notification_events_scope_policy" ON "notification_events";
-CREATE POLICY "notification_events_scope_policy" ON "notification_events"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "scheduler_jobs_scope_policy" ON "scheduler_jobs";
-CREATE POLICY "scheduler_jobs_scope_policy" ON "scheduler_jobs"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "metric_definitions_scope_policy" ON "metric_definitions";
-CREATE POLICY "metric_definitions_scope_policy" ON "metric_definitions"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
-DROP POLICY IF EXISTS "ai_executions_scope_policy" ON "ai_executions";
-CREATE POLICY "ai_executions_scope_policy" ON "ai_executions"
-  USING ("company_id" = current_setting('app.current_company_id', true));
-
--- NOBYPASSRLS app role enforcement
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sangfor_app') THEN
-    CREATE ROLE sangfor_app NOLOGIN NOBYPASSRLS;
-  ELSE
-    ALTER ROLE sangfor_app NOBYPASSRLS;
+  IF scoped_count <> 190 THEN
+    RAISE EXCEPTION 'U073 scoped table denominator mismatch: expected 190, got %', scoped_count;
   END IF;
+
+  IF (SELECT count(*) FROM u073_child_scope_edges) <> 97 THEN
+    RAISE EXCEPTION 'U073 CHILD_VIA_FK denominator mismatch';
+  END IF;
+  IF (SELECT count(*) FROM u073_root_scope_categories) <> 93 THEN
+    RAISE EXCEPTION 'U073 root scope denominator mismatch';
+  END IF;
+
+  FOR scoped IN
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_type = 'BASE TABLE'
+      AND table_name <> '_prisma_migrations'
+      AND table_name NOT IN (
+        'ai_golden_answers', 'ai_prompt_templates', 'color_agent_profiles', 'commands',
+        'config_profiles', 'module_registry', 'scope_backfill_quarantine', 'users'
+      )
+    ORDER BY table_name
+  LOOP
+    FOR existing_policy IN
+      SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = scoped.table_name
+    LOOP
+      EXECUTE format('DROP POLICY %I ON %I', existing_policy.policyname, scoped.table_name);
+    END LOOP;
+
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', scoped.table_name);
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', scoped.table_name);
+    EXECUTE format('REVOKE ALL ON TABLE %I FROM sangfor_app_login', scoped.table_name);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE %I TO sangfor_app', scoped.table_name);
+
+    SELECT * INTO edge FROM u073_child_scope_edges WHERE child_table = scoped.table_name;
+    IF FOUND THEN
+      predicate_sql := format(
+        'EXISTS (SELECT 1 FROM %I AS scope_parent WHERE scope_parent.id = %I.%I)',
+        edge.parent_table,
+        scoped.table_name,
+        edge.child_fk_column
+      );
+    ELSE
+      SELECT scope_category INTO root_category FROM u073_root_scope_categories WHERE table_name = scoped.table_name;
+      IF NOT FOUND THEN
+        RAISE EXCEPTION 'U073 scoped table lacks root/child classification: %', scoped.table_name;
+      END IF;
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = scoped.table_name AND column_name = 'tenant_id'
+      ) INTO has_tenant;
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = scoped.table_name AND column_name = 'company_id'
+      ) INTO has_company;
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = scoped.table_name AND column_name = 'project_id'
+      ) INTO has_project;
+
+      IF scoped.table_name = 'tenants' THEN
+        predicate_sql := format('%I.id = current_setting(''app.tenant_id'', true)', scoped.table_name);
+      ELSIF scoped.table_name = 'companies' THEN
+        predicate_sql := format('%I.id = current_setting(''app.company_id'', true) AND %I.tenant_id = current_setting(''app.tenant_id'', true)', scoped.table_name, scoped.table_name);
+      ELSIF scoped.table_name = 'projects' THEN
+        predicate_sql := format(
+          '%I.id = current_setting(''app.project_id'', true) AND %I.company_id = current_setting(''app.company_id'', true) AND EXISTS (SELECT 1 FROM companies AS scope_company WHERE scope_company.id = %I.company_id AND scope_company.tenant_id = current_setting(''app.tenant_id'', true))',
+          scoped.table_name,
+          scoped.table_name,
+          scoped.table_name
+        );
+      ELSIF root_category = 'PROJECT_ROOT' AND has_project THEN
+        predicate_sql := format(
+          '%I.project_id = current_setting(''app.project_id'', true) AND EXISTS (SELECT 1 FROM projects AS scope_project JOIN companies AS scope_company ON scope_company.id = scope_project.company_id WHERE scope_project.id = %I.project_id AND scope_project.company_id = current_setting(''app.company_id'', true) AND scope_company.tenant_id = current_setting(''app.tenant_id'', true))',
+          scoped.table_name,
+          scoped.table_name
+        );
+      ELSIF root_category IN ('COMPANY_ROOT', 'COMPANY_DIRECT') AND has_company THEN
+        predicate_sql := format(
+          '%I.company_id = current_setting(''app.company_id'', true) AND EXISTS (SELECT 1 FROM companies AS scope_company WHERE scope_company.id = %I.company_id AND scope_company.tenant_id = current_setting(''app.tenant_id'', true))',
+          scoped.table_name,
+          scoped.table_name
+        );
+      ELSIF root_category = 'TENANT_ROOT' AND has_tenant THEN
+        predicate_sql := format('%I.tenant_id = current_setting(''app.tenant_id'', true)', scoped.table_name);
+      ELSE
+        predicate_sql := 'false';
+      END IF;
+    END IF;
+
+    EXECUTE format(
+      'CREATE POLICY %I ON %I FOR ALL TO sangfor_app USING (%s) WITH CHECK (%s)',
+      'sangfor_scope_' || scoped.table_name,
+      scoped.table_name,
+      predicate_sql,
+      predicate_sql
+    );
+  END LOOP;
 END $$;
+
+ALTER ROLE sangfor_app NOBYPASSRLS;
+ALTER ROLE sangfor_app_login NOBYPASSRLS;

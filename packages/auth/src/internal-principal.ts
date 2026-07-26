@@ -252,7 +252,7 @@ export function verifyInternalPrincipal(token: string, expected: VerifyInternalP
   const payload = parseCanonicalObject(payloadSegment, 'payload');
   const profile = expected.profile; const profileConfig = config.profiles[profile];
   const payloadForRotation = verifiedPayload(payload, expected, config, now);
-  let key = header.kid === profileConfig.active.kid ? profileConfig.active : profileConfig.verifyOnly.get(header.kid);
+  const key = header.kid === profileConfig.active.kid ? profileConfig.active : profileConfig.verifyOnly.get(header.kid);
   if (!key) reject('unknown, retired, or cross-profile kid');
   if (isVerifyOnlyKey(key) && !(payloadForRotation.iat < key.demotedAtSeconds && payloadForRotation.exp <= key.demotedAtSeconds + config.ttlSeconds && now <= key.verificationCutoffSeconds)) {
     reject('verify-only key outside bounded rotation window');

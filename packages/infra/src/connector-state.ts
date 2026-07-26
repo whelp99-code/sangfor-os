@@ -41,7 +41,7 @@ export function evaluateConnectorState(input: {
   } = input;
 
   const warnings: string[] = [];
-  let state: ConnectorLifecycleState = "unconfigured";
+  let state: ConnectorLifecycleState;
 
   if (!hasCredentials) {
     state = "unconfigured";

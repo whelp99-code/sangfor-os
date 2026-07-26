@@ -69,7 +69,7 @@ export function RuleWorkspace({ type, initialRule, onSave }: RuleWorkspaceProps)
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 bg-slate-950 text-slate-100 rounded-xl border border-slate-800">
+    <div className="grid min-w-0 grid-cols-1 gap-6 rounded-xl border border-slate-800 bg-slate-950 p-3 text-slate-100 sm:p-6 lg:grid-cols-2">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-100 uppercase tracking-wider">
@@ -82,11 +82,12 @@ export function RuleWorkspace({ type, initialRule, onSave }: RuleWorkspaceProps)
 
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">
+            <label htmlFor="catalog-product-family" className="block text-xs font-medium text-slate-400 mb-1">
               Product Family ID
             </label>
             <input
               type="text"
+              id="catalog-product-family"
               value={productFamilyId}
               onChange={(e) => setProductFamilyId(e.target.value)}
               placeholder="e.g. fam-hci-v6"
@@ -95,11 +96,12 @@ export function RuleWorkspace({ type, initialRule, onSave }: RuleWorkspaceProps)
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">
+            <label htmlFor="catalog-rule-key" className="block text-xs font-medium text-slate-400 mb-1">
               Rule Key Identifier
             </label>
             <input
               type="text"
+              id="catalog-rule-key"
               value={key}
               onChange={(e) => setKey(e.target.value)}
               placeholder="e.g. SIZING_V1"
@@ -108,11 +110,12 @@ export function RuleWorkspace({ type, initialRule, onSave }: RuleWorkspaceProps)
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">
+            <label htmlFor="catalog-rule-name" className="block text-xs font-medium text-slate-400 mb-1">
               Rule Name
             </label>
             <input
               type="text"
+              id="catalog-rule-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Standard HCI Sizing Rule"
@@ -121,10 +124,11 @@ export function RuleWorkspace({ type, initialRule, onSave }: RuleWorkspaceProps)
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">
+            <label htmlFor="catalog-rule-json" className="block text-xs font-medium text-slate-400 mb-1">
               JSON Rule Definition (V1 Sandbox)
             </label>
             <textarea
+              id="catalog-rule-json"
               rows={12}
               value={configStr}
               onChange={(e) => setConfigStr(e.target.value)}
@@ -151,7 +155,7 @@ export function RuleWorkspace({ type, initialRule, onSave }: RuleWorkspaceProps)
         </div>
       </div>
 
-      <div>
+      <div className="min-w-0">
         <RuleEvaluationPanel type={type} configJson={parsedConfig || {}} />
       </div>
     </div>

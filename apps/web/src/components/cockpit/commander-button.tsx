@@ -8,7 +8,8 @@ export function CommanderButton({ children, className = "", ...props }: Props) {
   return (
     <button
       {...props}
-      className={`commander-button font-semibold px-4 py-2 text-sm rounded bg-amber-700 text-white hover:bg-amber-800 disabled:opacity-50 ${className}`}
+      className={`commander-button rounded px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 ${className}`}
+      style={{ backgroundColor: "var(--ck-brass)", ...props.style }}
       data-design-semantic="human-decision"
     >
       {children}

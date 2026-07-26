@@ -1,6 +1,5 @@
-import { createHash } from "node:crypto";
 import type { AuthContext } from "@sangfor/auth";
-import { withRlsTransaction } from "@sangfor/db";
+import { Prisma, withRlsTransaction } from "@sangfor/db";
 import { appendAuditEvent } from "./audit-db";
 
 export class ArchiveError extends Error {
@@ -159,6 +158,10 @@ export async function restoreArchivedEntity(input: RestoreArchivedEntityInput) {
   }
 
   return withRlsTransaction(scope, async (tx) => {
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`archive-restore:${entityType}:${id}`}, 0))`,
+    );
+
     let modelName = entityType === "poc" ? "pocProject" : entityType === "task" ? "workTask" : entityType === "proposal" ? "opportunity" : entityType;
     let targetModel = (tx as any)[modelName];
 
@@ -181,22 +184,33 @@ export async function restoreArchivedEntity(input: RestoreArchivedEntityInput) {
       throw new ArchiveError("archive_state_changed", "Archive state changed or version mismatch", 409);
     }
 
-    // Update
+    const archivedWhere = ["customer", "partner", "poc"].includes(entityType)
+      ? { status: "archived" }
+      : entityType === "proposal"
+        ? { dealStatus: "LOST" }
+        : { archivedAt: { not: null } };
+    let data: Record<string, unknown>;
     if (["customer", "partner", "poc"].includes(entityType)) {
-      await targetModel.update({
-        where: { id },
-        data: { status: restoreStatus },
-      });
+      data = { status: restoreStatus };
     } else if (entityType === "proposal") {
-      await targetModel.update({
-        where: { id },
-        data: { dealStatus: "OPEN" },
-      });
+      data = { dealStatus: "OPEN" };
     } else {
-      await targetModel.update({
-        where: { id },
-        data: { archivedAt: null },
-      });
+      data = { archivedAt: null };
+    }
+
+    const restored = await targetModel.updateMany({
+      where: { id, updatedAt: existing.updatedAt, ...archivedWhere },
+      data,
+    });
+    if (restored.count !== 1) {
+      const current = await targetModel.findUnique({ where: { id } });
+      const stillArchived = current && (["customer", "partner", "poc"].includes(entityType)
+        ? current.status === "archived"
+        : entityType === "proposal"
+          ? current.dealStatus === "LOST"
+          : current.archivedAt !== null);
+      if (!stillArchived) return { restored: false, reason: "already_restored" };
+      throw new ArchiveError("archive_state_changed", "Archive state changed or version mismatch", 409);
     }
 
     await appendAuditEvent(tx, {
@@ -206,7 +220,7 @@ export async function restoreArchivedEntity(input: RestoreArchivedEntityInput) {
       resourceType: entityType,
       resourceId: id,
       details: { entityType, id, restoreStatus },
-      idempotencyKey: `restore-${id}-${Date.now()}`,
+      idempotencyKey: `archive-restore:${entityType}:${id}:${expectedVersion}`,
     });
 
     return { restored: true, id, entityType, restoreStatus: restoreStatus ?? "restored" };

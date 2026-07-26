@@ -43,7 +43,7 @@ export function SyntheticDrillPanel() {
         <button
           disabled={running}
           onClick={() => runDrill("ai-cost-spike")}
-          className="px-3 py-1.5 bg-amber-600 text-white text-xs rounded hover:bg-amber-700 disabled:opacity-50"
+          className="px-3 py-1.5 bg-amber-800 text-white text-xs rounded hover:bg-amber-900 disabled:opacity-50"
         >
           AI Cost Spike 드릴
         </button>

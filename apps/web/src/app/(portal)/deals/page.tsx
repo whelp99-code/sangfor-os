@@ -31,10 +31,11 @@ export default async function DealsPage() {
     projectId: session.projectId,
     product: "portal",
   });
+  const canReadCustomers = ctx.permissions.includes("customer.read");
   const [opportunityPage, customerPage, partners] = await Promise.all([
     listOpportunities(ctx, { first: 50 }),
-    listCustomers(ctx, { first: 100 }),
-    listPartners(),
+    canReadCustomers ? listCustomers(ctx, { first: 100 }) : Promise.resolve({ items: [], nextCursor: null }),
+    canReadCustomers ? listPartners() : Promise.resolve([]),
   ]);
   const safe = serializeDecimalAtBoundary(opportunityPage.items);
 

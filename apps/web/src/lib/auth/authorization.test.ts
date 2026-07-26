@@ -5,12 +5,13 @@ const prismaMocks = vi.hoisted(() => ({
   projectMemberFindUnique: vi.fn(),
 }));
 
-vi.mock("@sangfor/db", () => ({
-  prisma: {
+vi.mock("@sangfor/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@sangfor/db")>();
+  return { ...actual, prisma: { ...actual.prisma,
     userCompanyRole: { findMany: prismaMocks.userCompanyRoleFindMany },
     projectMember: { findUnique: prismaMocks.projectMemberFindUnique },
-  },
-}));
+  } };
+});
 
 import { INTERNAL_CONTEXT_HEADER, signInternalContext } from "@/lib/auth/persisted-session";
 import { assertBusinessCapability, enforceRequestedCompany } from "./authorization";

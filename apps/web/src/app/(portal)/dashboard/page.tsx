@@ -13,7 +13,7 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { DashboardAiShell } from "@/components/dashboard/dashboard-ai-shell"
-import { ExecutiveDashboard } from "@/components/dashboard/executive-dashboard"
+import { BusinessRoleDashboardPanel } from "@/components/dashboard/business-role-dashboard-panel"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session"
 
@@ -153,7 +153,7 @@ export default async function DashboardPage() {
     >
       <div className="space-y-6">
         <AtRiskDealsCard deals={atRiskDeals} />
-        <ExecutiveDashboard />
+        <BusinessRoleDashboardPanel role="ceo" />
       </div>
     </DashboardAiShell>
   )

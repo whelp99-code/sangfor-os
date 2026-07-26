@@ -188,6 +188,7 @@ describe("apiKeyMiddleware containment", () => {
         NODE_ENV: "production",
         HOST: "127.0.0.1",
         AUTH_BYPASS_ENABLED: "0",
+        WHELP99_ENFORCE_SAFE_TOOLS: "true",
         API_KEY: "u002-valid-operator-key-000000000",
         FINANCE_API_KEY: "u002-valid-finance-key-00000000",
         SANGFOR_API_KEY: "u002-valid-mcp-bridge-key",
@@ -230,7 +231,13 @@ describe("apiKeyMiddleware containment", () => {
       expect(listener.stdout).toContain(`127.0.0.1:${port} (LISTEN)`);
       expect(listener.stdout).not.toContain(`*:${port} (LISTEN)`);
     } finally {
-      if (child.pid !== undefined) process.kill(-child.pid, "SIGTERM");
+      if (child.pid !== undefined && child.exitCode === null && child.signalCode === null) {
+        try {
+          process.kill(-child.pid, "SIGTERM");
+        } catch (error) {
+          expect((error as NodeJS.ErrnoException).code).toBe("ESRCH");
+        }
+      }
       await new Promise<void>((resolveExit) => {
         if (child.exitCode !== null || child.signalCode !== null) resolveExit();
         else child.once("exit", () => resolveExit());

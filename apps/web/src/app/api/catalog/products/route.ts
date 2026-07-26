@@ -2,11 +2,11 @@ import {
   createProductFamily,
   createProductFamilySchema,
   listCatalogProducts,
-  resolveCrmAuthContext,
 } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
 import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
+import { resolveBusinessCapabilityContext } from "@/lib/auth/authorization";
 
 const SCOPE_FIELDS = new Set(["tenantId", "companyId", "projectId", "projectSlug", "actor", "role"]);
 const ALLOWED_QUERY_FIELDS = new Set(["q", "search", "vendor", "category", "status", "first", "cursor"]);
@@ -35,22 +35,17 @@ async function resolveContext(request: Request) {
       response: NextResponse.json({ error: "unauthorized" }, { status: 401 }),
     };
   }
-  try {
-    const ctx = await resolveCrmAuthContext({
-      userId: session.userId,
-      sessionId: null,
-      tenantId: session.tenantId,
-      companyId: session.companyId,
-      projectId: session.projectId,
-      product: "portal",
-    });
-    return { ok: true as const, ctx };
-  } catch (error) {
-    return {
-      ok: false as const,
-      response: catalogErrorResponse(error, "authorization_failed", 403),
-    };
-  }
+  const resolved = await resolveBusinessCapabilityContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  }, "apps/web/src/app/api/catalog/products/route.ts");
+  return resolved.ok
+    ? { ok: true as const, ctx: resolved.context }
+    : { ok: false as const, response: resolved.response };
 }
 
 function catalogErrorResponse(error: unknown, fallback: string, fallbackStatus: number) {

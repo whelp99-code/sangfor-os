@@ -1,4 +1,5 @@
-import type { BusinessRole } from "@sangfor/auth";
+import { isBusinessRoleCode, type BusinessRole } from "@sangfor/auth";
+import { BUSINESS_ROLE_DASHBOARD_LANDINGS } from "@sangfor/business";
 
 export interface RouteResponsibility {
   readonly canonicalPath: string;
@@ -8,18 +9,7 @@ export interface RouteResponsibility {
   readonly compatibilityRedirectFrom?: string;
 }
 
-export const ROLE_LANDINGS: Record<BusinessRole, string> = {
-  ceo: "/dashboard",
-  sales_manager: "/deals",
-  account_manager: "/home",
-  presales_engineer: "/deals?view=presales",
-  solution_architect: "/registry/rules",
-  finance_manager: "/cfo/dashboard",
-  delivery_engineer: "/delivery",
-  support_engineer: "/support",
-  security_officer: "/security",
-  system_admin: "/operator/workflows",
-};
+export const ROLE_LANDINGS: Record<BusinessRole, string> = BUSINESS_ROLE_DASHBOARD_LANDINGS;
 
 export const ROUTE_RESPONSIBILITIES: readonly RouteResponsibility[] = [
   { canonicalPath: "/home", allowedRoles: ["ceo", "sales_manager", "account_manager", "presales_engineer", "solution_architect", "finance_manager", "delivery_engineer", "support_engineer", "security_officer", "system_admin"], navVisible: true, isHub: false },
@@ -35,11 +25,12 @@ export const ROUTE_RESPONSIBILITIES: readonly RouteResponsibility[] = [
   { canonicalPath: "/registry/rules", allowedRoles: ["solution_architect", "system_admin"], navVisible: true, isHub: true },
 ];
 
-export function getRoleLanding(role: BusinessRole): string {
-  return ROLE_LANDINGS[role] ?? "/home";
+export function getRoleLanding(role: string): string | null {
+  return isBusinessRoleCode(role) ? ROLE_LANDINGS[role] : null;
 }
 
-export function isRouteAllowed(path: string, role: BusinessRole): boolean {
+export function isRouteAllowed(path: string, role: string): boolean {
+  if (!isBusinessRoleCode(role)) return false;
   const match = ROUTE_RESPONSIBILITIES.find((r) => r.canonicalPath === path || r.compatibilityRedirectFrom === path);
   if (!match) return true; // Unmapped paths default to allowed if authenticated
   return match.allowedRoles.includes(role);

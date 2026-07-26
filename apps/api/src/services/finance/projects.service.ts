@@ -68,7 +68,7 @@ export class ProjectsService {
       const eng = key ? engById.get(key) : null;
       return {
         engagementId: key,
-        opportunityId: eng?.opportunity?.id ?? null,
+        opportunityId: eng?.opportunityId ?? null,
         dealTitle: eng?.opportunity?.title ?? eng?.name ?? (key ? '(삭제된 딜)' : '미배정'),
         customer: eng?.opportunity?.customer?.name ?? null,
         revenue,

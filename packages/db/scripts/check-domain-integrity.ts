@@ -9,6 +9,8 @@ import {
   assertScopeBridgeOnDelete,
   buildScopeInventoryReport,
   deriveStructuralMismatches,
+  expectedCategoryCounts,
+  expectedCurrentModelCount,
   validateChildViaFkEntries,
   type DmmfRelationField,
   type ScopeInventoryEntry,
@@ -122,6 +124,8 @@ async function main() {
   const scopeErrors = [...inventory.errors, ...validateChildViaFkEntries(entries, dmmf), ...deriveStructuralMismatches(entries, dmmf)];
   const projectCompany = dmmf.find((relation) => relation.model === 'Project' && relation.relationField === 'company');
   const scopeBridge = assertScopeBridgeOnDelete(projectCompany?.onDelete ?? null);
+  const expectedModelCount = expectedCurrentModelCount();
+  const expectedTallies = expectedCategoryCounts();
   const m1 = {
     literalBaseline: { modelCount: 150, tallies: { GLOBAL_SHARED: 13, TENANT_ROOT: 1, COMPANY_ROOT: 32, PROJECT_ROOT: 44, CHILD_VIA_FK: 60 }, recorded: SCOPE_INVENTORY_BASELINE },
     exactAdditions: { count: REGISTERED_ADDITIONS.length, uniqueCount: new Set(REGISTERED_ADDITIONS.map((item) => item.model)).size, additions: REGISTERED_ADDITIONS },
@@ -154,7 +158,7 @@ async function main() {
     && fkReceipt.every((item) => item.ok) && invalidValidatedConstraints.length === 0 && missingDeferredConstraints.length === 0
     && Object.values(negativeOwnership).every((value) => value === 0) && casContracts.length === 5 && casContracts.every((item) => item.requiresCompareAndSwap && item.ownerOnlyMutation)
     && ownerCas.staleAffected === 0 && ownerCas.replayAffected === 0 && rollbackOnly.certificationIllegalUpdateRejected && rollbackOnly.certificationIllegalDeleteRejected && rollbackOnly.evidenceUpdateGuardPresent && rollbackOnly.evidenceDeleteGuardPresent && rollbackOnly.matrixFunctions.every((item) => item.rejects)
-    && m1.exactAdditions.count === 23 && m1.exactAdditions.uniqueCount === 23 && m1.current.modelCount === 173 && m1.current.registryCount === 173 && m1.current.tallies.GLOBAL_SHARED === 11 && m1.current.tallies.TENANT_ROOT === 2 && m1.current.tallies.COMPANY_ROOT === 36 && m1.current.tallies.PROJECT_ROOT === 48 && m1.current.tallies.CHILD_VIA_FK === 76 && m1.closure.missing === 0 && m1.closure.stale === 0 && m1.closure.duplicate === 0 && m1.closure.ambiguous === 0 && m1.closure.optionalOnlyFk === 0 && m1.closure.projectCompanyRestrict
+    && m1.exactAdditions.count === m1.exactAdditions.uniqueCount && m1.current.modelCount === expectedModelCount && m1.current.registryCount === expectedModelCount && Object.entries(expectedTallies).every(([category, count]) => m1.current.tallies[category as keyof typeof m1.current.tallies] === count) && m1.closure.missing === 0 && m1.closure.stale === 0 && m1.closure.duplicate === 0 && m1.closure.ambiguous === 0 && m1.closure.optionalOnlyFk === 0 && m1.closure.projectCompanyRestrict
     && data.renewalAssetOrphan === 0 && data.catalogNull === 0 && data.catalogDuplicate === 0 && data.opportunityOwnerCrossScope === 0 && data.unresolvedQuarantine.length === 0 && data.unknownCategoryCount === 0;
   process.stdout.write(`${JSON.stringify({ ...report, ok }, null, 2)}\n`);
   process.exitCode = ok ? 0 : 1;

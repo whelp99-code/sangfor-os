@@ -145,6 +145,9 @@ export function collectOperationalEntrypointViolations(root) {
       add(violations, 'MISSING_LEGACY_QUOTE_MUTATOR', relativePath);
       continue;
     }
+    const retiredTombstone = /throw new Error\(["'][^"']+ is retired:/.test(source)
+      && !/@sangfor\/db|\bprisma\s*\./.test(source);
+    if (retiredTombstone) continue;
     const requirements = [
       ['legacy_quote_mutator', /legacy_quote_mutator/],
       ['explicit --apply-legacy-only', /--apply-legacy-only/],

@@ -62,22 +62,24 @@ export function RuleEvaluationPanel({ type, configJson }: RuleEvaluationPanelPro
       <h3 className="text-sm font-semibold text-slate-200">Rule Evaluation Simulator</h3>
 
       <div className="space-y-2">
-        <label className="text-xs text-slate-400">Simulation Inputs</label>
+        <p className="text-xs text-slate-400">Simulation Inputs</p>
         {inputs.map((item, idx) => (
-          <div key={idx} className="flex gap-2 items-center">
+          <div key={idx} className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               type="text"
+              aria-label={`입력 키 ${idx + 1}`}
               placeholder="Key (e.g. userCount)"
               value={item.key}
               onChange={(e) => handleInputChange(idx, "key", e.target.value)}
-              className="px-3 py-1.5 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded"
+              className="min-w-0 w-full px-3 py-1.5 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded"
             />
             <input
               type="text"
+              aria-label={`입력 값 ${idx + 1}`}
               placeholder="Value"
               value={item.value}
               onChange={(e) => handleInputChange(idx, "value", e.target.value)}
-              className="px-3 py-1.5 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded"
+              className="min-w-0 w-full px-3 py-1.5 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded"
             />
             <button
               type="button"

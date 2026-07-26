@@ -8,13 +8,14 @@ const dbMocks = vi.hoisted(() => ({
   authSessionFindFirst: vi.fn(),
   userCompanyRoleFindMany: vi.fn(),
 }));
-vi.mock("@sangfor/db", () => ({
-  prisma: {
+vi.mock("@sangfor/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@sangfor/db")>();
+  return { ...actual, prisma: { ...actual.prisma,
     project: { findUnique: dbMocks.projectFindUnique },
     authSession: { findFirst: dbMocks.authSessionFindFirst },
     userCompanyRole: { findMany: dbMocks.userCompanyRoleFindMany },
-  },
-}));
+  } };
+});
 
 import { GET, POST } from "./route";
 
@@ -24,7 +25,7 @@ const prevFinanceApiKey = process.env.FINANCE_API_KEY;
 const ADMIN_USER: SessionUser = {
   id: "finance-route-admin",
   email: "finance-route-admin@example.com",
-  role: "admin",
+  role: "operator",
   projectId: "finance-route-project",
   projectSlug: "finance-route-project",
 };

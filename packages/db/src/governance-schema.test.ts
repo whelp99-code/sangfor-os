@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { Prisma } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 
-import { MODEL_SCOPE_INVENTORY, buildScopeInventoryReport } from './scope-inventory';
+import { MODEL_SCOPE_INVENTORY, buildScopeInventoryReport, expectedCurrentModelCount } from './scope-inventory';
 
 const MIGRATION = join(__dirname, '../prisma/migrations/20260716004200_u042_retention_legal_hold_ownership_expand/migration.sql');
 const FIXTURE = join(__dirname, 'fixtures/u042-governance-pre-migration.sql');
@@ -27,11 +27,12 @@ function field(modelName: string, fieldName: string) {
 }
 
 describe('U042 GOV-01 governance schema contract', () => {
-  it('adds exactly the ten planned Prisma models and preserves the 189-model inventory', () => {
-    expect(Prisma.dmmf.datamodel.models).toHaveLength(189);
+  it('adds exactly the ten planned Prisma models and preserves the registered model inventory', () => {
+    const expectedModelCount = expectedCurrentModelCount();
+    expect(Prisma.dmmf.datamodel.models).toHaveLength(expectedModelCount);
     for (const name of NEW_MODELS) expect(model(name)).toBeDefined();
     const report = buildScopeInventoryReport(Prisma.dmmf.datamodel.models.map((candidate) => candidate.name), Object.values(MODEL_SCOPE_INVENTORY));
-    expect(report).toMatchObject({ ok: true, currentModelCount: 189, missingModels: [], unknownModels: [], duplicateModels: [], errors: [] });
+    expect(report).toMatchObject({ ok: true, currentModelCount: expectedModelCount, missingModels: [], unknownModels: [], duplicateModels: [], errors: [] });
   });
 
   it('uses canonical activation/company authority rather than legacy fields or nullable artifact correlation', () => {

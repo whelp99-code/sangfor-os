@@ -18,11 +18,13 @@ vi.mock("@/lib/api-auth", () => ({
 vi.mock("@/lib/auth/persisted-session", () => ({
   evaluatePersistedSessionFromRequest: mocks.evaluateSession,
 }));
+vi.mock("@/lib/auth/authorization", () => ({
+  resolveBusinessCapabilityContext: mocks.resolveContext,
+}));
 vi.mock("@sangfor/business", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@sangfor/business")>();
   return {
     ...actual,
-    resolveCrmAuthContext: mocks.resolveContext,
     listCatalogProducts: mocks.listCatalogProducts,
     createProductFamily: mocks.createProductFamily,
   };
@@ -51,7 +53,7 @@ describe("GET/POST /api/catalog/products", () => {
       companyId: WRITER.companyId,
       projectId: WRITER.projectId,
     });
-    mocks.resolveContext.mockResolvedValue(WRITER);
+    mocks.resolveContext.mockResolvedValue({ ok: true, context: WRITER });
     mocks.listCatalogProducts.mockResolvedValue({ items: [], nextCursor: null });
     mocks.createProductFamily.mockResolvedValue({ id: "fam-1", name: "Family 1" });
   });

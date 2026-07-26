@@ -70,7 +70,7 @@ describe("GET /api/integrations/health", () => {
     });
     const res = await GET();
     const body = await res.json();
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(200);
     expect(body.overall).toBe("error");
     expect(body.summary).toMatchObject({ healthy: 0, unreachable: 1, unknown: 1 });
     expect(body.targets).toEqual([
@@ -83,7 +83,7 @@ describe("GET /api/integrations/health", () => {
     mockProbeCanonical.mockRejectedValue(new Error("probe failure"));
     const res = await GET();
     const body = await res.json();
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(200);
     expect(body.overall).toBe("error");
     expect(typeof body.error).toBe("string");
     expect(body.targets).toEqual([]);

@@ -28,7 +28,7 @@ export async function POST(
       const { targetId } = body;
       if (!targetId) return NextResponse.json({ error: "targetId required" }, { status: 400, headers: cacheHeaders });
       const result = await reprobeTarget({ authContext, targetId, idempotencyKey });
-      return NextResponse.json(result, { status: 200, headers: cacheHeaders });
+      return NextResponse.json(result, { status: result.state === "healthy" || result.state === "degraded" ? 200 : 503, headers: cacheHeaders });
     }
 
     if (action === "acknowledge-observation") {

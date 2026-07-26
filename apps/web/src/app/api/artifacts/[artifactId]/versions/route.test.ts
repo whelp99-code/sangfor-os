@@ -5,7 +5,7 @@ import { PrismaClient } from "@prisma/client";
 
 const db = vi.hoisted(() => ({ authSessionFindUnique: vi.fn(), userFindUnique: vi.fn() }));
 const business = vi.hoisted(() => ({ createArtifactVersion: vi.fn() }));
-vi.mock("@sangfor/db", () => ({ prisma: { authSession: { findUnique: db.authSessionFindUnique }, user: { findUnique: db.userFindUnique } } }));
+vi.mock("@sangfor/db", async (importOriginal) => { const actual = await importOriginal<typeof import("@sangfor/db")>(); return { ...actual, prisma: { ...actual.prisma, authSession: { findUnique: db.authSessionFindUnique }, user: { findUnique: db.userFindUnique } } }; });
 vi.mock("@sangfor/business", async (original) => ({ ...(await original<typeof import("@sangfor/business")>()), createArtifactVersion: business.createArtifactVersion }));
 
 import { signSessionJwt } from "@sangfor/auth";

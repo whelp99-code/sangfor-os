@@ -168,9 +168,9 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   // U035: one immutable commercial calculation snapshot inherits its quote's scope through the
   // mandatory quoteId FK. It deliberately carries no redundant project/company scope column.
   { model: 'QuoteCommercialSnapshot', unit: 'U035', category: 'CHILD_VIA_FK' },
-  // U036: DemoLicense has a required customerId -> Customer -> Project scope chain. Its
-  // vendorRequestId is deliberately not the scope basis because VendorRequest.customerId stays
-  // nullable during the expand phase; do not classify through that optional chain.
+  // U036/U073: DemoLicense inherits through customerId -> Customer -> Project. The mandatory
+  // vendor-request and product-SKU links identify request/catalog records and are not alternate
+  // scope containers; their agreement is enforced by the domain guards.
   { model: 'DemoLicense', unit: 'U036', category: 'CHILD_VIA_FK' },
   // U037: DeliveryAcceptance inherits its only scope through mandatory engagementId; its quote,
   // artifact-version, and accepting-assignment relations are immutable provenance/attribution.
@@ -249,6 +249,9 @@ export const RECLASSIFIED_MODELS: ReclassifiedModel[] = [
   // U040 validates the non-null catalog anchors after its conservative, zero-ambiguity backfill.
   { model: 'ProductFamily', unit: 'U040', fromCategory: 'GLOBAL_SHARED', toCategory: 'COMPANY_ROOT' },
   { model: 'LicenseMetric', unit: 'U040', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
+  { model: 'ProductEdition', unit: 'U073', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
+  { model: 'ProductSku', unit: 'U073', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
+  { model: 'CompatibilityRule', unit: 'U073', fromCategory: 'GLOBAL_SHARED', toCategory: 'CHILD_VIA_FK' },
   { model: 'DataExportRequest', unit: 'U042', fromCategory: 'COMPANY_ROOT', toCategory: 'COMPANY_DIRECT' },
   { model: 'ArtifactAccessEvent', unit: 'U042', fromCategory: 'COMPANY_ROOT', toCategory: 'COMPANY_DIRECT' },
 ];
@@ -305,7 +308,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   Artifact: { model: 'Artifact', category: 'PROJECT_ROOT' },
   ArtifactAccessEvent: { model: 'ArtifactAccessEvent', category: 'COMPANY_DIRECT', companyField: 'companyId', activationField: 'canonicalActivatedAt' },
   ArtifactVersion: { model: 'ArtifactVersion', category: 'CHILD_VIA_FK', parentModel: 'Artifact', relationField: 'artifact', scalarFkField: 'artifactId', nullable: false },
-  AssetLicense: { model: 'AssetLicense', category: 'CHILD_VIA_FK', parentModel: 'CustomerAsset', relationField: 'asset', scalarFkField: 'assetId', nullable: false },
+  AssetLicense: { model: 'AssetLicense', category: 'CHILD_VIA_FK', parentModel: 'CustomerAsset', relationField: 'asset', scalarFkField: 'assetId', additionalRequiredRelationFields: ['sku'], nullable: false },
   // U021/AUD-01b: reclassified from COMPANY_ROOT to TENANT_ROOT (tenantId always mandatory) — see
   // RECLASSIFIED_MODELS below; the RECLASSIFIED_MODELS entry is what documents the change, this is
   // simply the model's one current entry (never counted under both categories).
@@ -333,7 +336,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   CommandRun: { model: 'CommandRun', category: 'CHILD_VIA_FK', parentModel: 'Project', relationField: 'project', scalarFkField: 'projectId', nullable: false },
   Company: { model: 'Company', category: 'COMPANY_ROOT' },
   CompanySettings: { model: 'CompanySettings', category: 'COMPANY_ROOT' },
-  CompatibilityRule: { model: 'CompatibilityRule', category: 'GLOBAL_SHARED' },
+  CompatibilityRule: { model: 'CompatibilityRule', category: 'CHILD_VIA_FK', parentModel: 'ProductSku', relationField: 'sourceSku', scalarFkField: 'sourceSkuId', additionalRequiredRelationFields: ['targetSku'], nullable: false },
   ConfigProfile: { model: 'ConfigProfile', category: 'GLOBAL_SHARED' },
   ConfigValue: { model: 'ConfigValue', category: 'PROJECT_ROOT' },
   ConnectorRegistry: { model: 'ConnectorRegistry', category: 'COMPANY_ROOT' },
@@ -350,7 +353,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   DeliveryChecklistItem: { model: 'DeliveryChecklistItem', category: 'CHILD_VIA_FK', parentModel: 'Engagement', relationField: 'delivery', scalarFkField: 'deliveryId', nullable: false },
   DeliveryAcceptance: { model: 'DeliveryAcceptance', category: 'CHILD_VIA_FK', parentModel: 'Engagement', relationField: 'engagement', scalarFkField: 'engagementId', nullable: false },
   DiscountRequest: { model: 'DiscountRequest', category: 'CHILD_VIA_FK', parentModel: 'Quote', relationField: 'quote', scalarFkField: 'quoteId', nullable: false },
-  DemoLicense: { model: 'DemoLicense', category: 'CHILD_VIA_FK', parentModel: 'Customer', relationField: 'customer', scalarFkField: 'customerId', nullable: false },
+  DemoLicense: { model: 'DemoLicense', category: 'CHILD_VIA_FK', parentModel: 'Customer', relationField: 'customer', scalarFkField: 'customerId', additionalRequiredRelationFields: ['vendorRequest', 'productSku'], nullable: false },
   DocumentTemplate: { model: 'DocumentTemplate', category: 'PROJECT_ROOT' },
   DocumentVersion: { model: 'DocumentVersion', category: 'CHILD_VIA_FK', parentModel: 'GeneratedDocument', relationField: 'generatedDocument', scalarFkField: 'generatedDocumentId', nullable: false },
   DomainDecisionLog: { model: 'DomainDecisionLog', category: 'CHILD_VIA_FK', parentModel: 'Project', relationField: 'project', scalarFkField: 'projectId', nullable: false },
@@ -407,9 +410,9 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   PolicyDecisionLog: { model: 'PolicyDecisionLog', category: 'CHILD_VIA_FK', parentModel: 'Project', relationField: 'project', scalarFkField: 'projectId', nullable: false },
   PolicyMemory: { model: 'PolicyMemory', category: 'CHILD_VIA_FK', parentModel: 'Project', relationField: 'project', scalarFkField: 'projectId', nullable: false },
   PortalTask: { model: 'PortalTask', category: 'PROJECT_ROOT' },
-  ProductEdition: { model: 'ProductEdition', category: 'GLOBAL_SHARED' },
+  ProductEdition: { model: 'ProductEdition', category: 'CHILD_VIA_FK', parentModel: 'ProductFamily', relationField: 'family', scalarFkField: 'familyId', nullable: false },
   ProductFamily: { model: 'ProductFamily', category: 'COMPANY_ROOT' },
-  ProductSku: { model: 'ProductSku', category: 'GLOBAL_SHARED' },
+  ProductSku: { model: 'ProductSku', category: 'CHILD_VIA_FK', parentModel: 'ProductEdition', relationField: 'edition', scalarFkField: 'editionId', nullable: false },
   Project: { model: 'Project', category: 'PROJECT_ROOT' },
   ProjectColorAgent: { model: 'ProjectColorAgent', category: 'PROJECT_ROOT' },
   ProjectMember: { model: 'ProjectMember', category: 'CHILD_VIA_FK', parentModel: 'Project', relationField: 'project', scalarFkField: 'projectId', nullable: false },
@@ -434,7 +437,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   SkillCatalogItem: { model: 'SkillCatalogItem', category: 'COMPANY_ROOT' },
   SkillRun: { model: 'SkillRun', category: 'PROJECT_ROOT' },
   StateTransitionLog: { model: 'StateTransitionLog', category: 'PROJECT_ROOT' },
-  Subscription: { model: 'Subscription', category: 'CHILD_VIA_FK', parentModel: 'CustomerAsset', relationField: 'asset', scalarFkField: 'assetId', nullable: false },
+  Subscription: { model: 'Subscription', category: 'CHILD_VIA_FK', parentModel: 'CustomerAsset', relationField: 'asset', scalarFkField: 'assetId', additionalRequiredRelationFields: ['sku'], nullable: false },
   SupportCase: { model: 'SupportCase', category: 'CHILD_VIA_FK', parentModel: 'Customer', relationField: 'customer', scalarFkField: 'customerId', nullable: false },
   SupportCaseSlaSnapshot: { model: 'SupportCaseSlaSnapshot', category: 'CHILD_VIA_FK', parentModel: 'SupportCase', relationField: 'supportCase', scalarFkField: 'supportCaseId', nullable: false },
   SupportSlaPolicy: { model: 'SupportSlaPolicy', category: 'COMPANY_ROOT' },

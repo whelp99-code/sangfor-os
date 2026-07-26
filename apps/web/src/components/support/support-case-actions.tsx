@@ -52,7 +52,7 @@ export function SupportCaseActions({
           <button
             onClick={() => handleAction("respond")}
             disabled={submitting}
-            className="py-1.5 px-3 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-medium text-xs rounded transition"
+            className="py-1.5 px-3 bg-cyan-800 hover:bg-cyan-900 disabled:opacity-50 text-white font-medium text-xs rounded transition"
             data-testid="btn-respond"
           >
             Respond (In Progress)

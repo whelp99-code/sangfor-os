@@ -3,7 +3,7 @@
  */
 
 import type { SampleResult } from "./measure";
-import { PERF_CONTRACTS, evaluateAllContracts } from "./contracts";
+import { evaluateAllContracts } from "./contracts";
 
 export type PerfReport = {
   runId: string;
@@ -35,4 +35,21 @@ export function generateReport(
     samples,
     overallPassed: passed,
   };
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const { readFileSync, writeFileSync } = await import("node:fs");
+  const inputFile = process.env.PERF_RESULTS_FILE;
+  const browserFile = process.env.PERF_BROWSER_RESULTS_FILE;
+  const reportFile = process.env.PERF_REPORT_FILE;
+  const runId = process.env.TASK_RUN_ID;
+  if (!inputFile || !browserFile || !reportFile || !runId) {
+    throw new Error("PERF_RESULTS_FILE, PERF_BROWSER_RESULTS_FILE, PERF_REPORT_FILE and TASK_RUN_ID are required");
+  }
+  const phaseA = JSON.parse(readFileSync(inputFile, "utf8")) as Record<string, SampleResult>;
+  const browser = JSON.parse(readFileSync(browserFile, "utf8")) as Record<string, SampleResult>;
+  const report = generateReport(runId, { ...phaseA, ...browser });
+  writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`, { flag: "wx" });
+  process.stdout.write(`${JSON.stringify({ overallPassed: report.overallPassed, reportFile })}\n`);
+  if (!report.overallPassed) process.exitCode = 1;
 }

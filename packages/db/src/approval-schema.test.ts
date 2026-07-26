@@ -127,16 +127,20 @@ describe('[SCHEMA ASSERTION] ApprovalRequest — unchanged pre-U022 legacy write
     expect(dmmfField('ApprovalRequest', 'status').default).toBe('pending');
   });
 
-  it('packages/business/src/governance/approval-db.ts stays the unchanged legacy writer — never references any new canonical column/field', () => {
+  it('keeps the pre-U022 legacy writer free of canonical authority fields', () => {
     const approvalDbSource = readFileSync(
       join(__dirname, '../../business/src/governance/approval-db.ts'),
       'utf8',
     );
+    const canonicalWriterMarker = '// U022/APR-01b: canonical, exact-version writer.';
+    const markerIndex = approvalDbSource.indexOf(canonicalWriterMarker);
+    expect(markerIndex).toBeGreaterThan(0);
+    const legacyWriterSource = approvalDbSource.slice(0, markerIndex);
     for (const name of [
       'legacyUnbound', 'artifactVersionId', 'requestedByAssignmentId', 'ownerAssignmentId',
       'ownershipRevision', 'validationSnapshot', 'policyHash', 'requiredQuorum',
     ]) {
-      expect(approvalDbSource).not.toContain(name);
+      expect(legacyWriterSource).not.toContain(name);
     }
   });
 });

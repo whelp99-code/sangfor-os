@@ -34,8 +34,8 @@ function expectOptionalArtifactLinks(model: 'SizingTemplate' | 'CompatibilityRul
 }
 
 describe('U033 catalog sizing and compatibility DMMF contract', () => {
-  it('adds nullable-for-expand canonical company ownership and lifecycle metadata to ProductFamily', () => {
-    expectScalar('ProductFamily', 'companyId', 'String', false, 'company_id');
+  it('keeps the U040-tightened canonical company ownership and lifecycle metadata on ProductFamily', () => {
+    expectScalar('ProductFamily', 'companyId', 'String', true, 'company_id');
     expectScalar('ProductFamily', 'familyKey', 'String', false, 'family_key');
     expectScalar('ProductFamily', 'vendorKey', 'String', false, 'vendor_key');
     expectScalar('ProductFamily', 'category', 'String', false, 'category');
@@ -45,7 +45,7 @@ describe('U033 catalog sizing and compatibility DMMF contract', () => {
     expectScalar('ProductFamily', 'updatedAt', 'DateTime', false, 'updated_at');
     const company = dmmfField('ProductFamily', 'company');
     expect(company.type).toBe('Company');
-    expect(company.isRequired).toBe(false);
+    expect(company.isRequired).toBe(true);
     expect(company.relationFromFields).toEqual(['companyId']);
     expect(company.relationOnDelete).toBe('Restrict');
     expect(dmmfIndex('ProductFamily', ['companyId', 'status', 'archivedAt', 'updatedAt', 'id'])).toBe(true);
@@ -68,15 +68,15 @@ describe('U033 catalog sizing and compatibility DMMF contract', () => {
     expect(dmmfIndex('ProductSku', ['editionId', 'status', 'archivedAt', 'updatedAt', 'id'])).toBe(true);
   });
 
-  it('keeps LicenseMetric transitional/global in inventory while preparing its nullable family link', () => {
-    expectScalar('LicenseMetric', 'productFamilyId', 'String', false, 'product_family_id');
+  it('keeps the U040-tightened LicenseMetric family link', () => {
+    expectScalar('LicenseMetric', 'productFamilyId', 'String', true, 'product_family_id');
     expectScalar('LicenseMetric', 'description', 'String', false, 'description');
     expectScalar('LicenseMetric', 'status', 'String', false, 'status');
     expectScalar('LicenseMetric', 'createdAt', 'DateTime', false, 'created_at');
     expectScalar('LicenseMetric', 'updatedAt', 'DateTime', false, 'updated_at');
     const family = dmmfField('LicenseMetric', 'productFamily');
     expect(family.type).toBe('ProductFamily');
-    expect(family.isRequired).toBe(false);
+    expect(family.isRequired).toBe(true);
     expect(family.relationOnDelete).toBe('Restrict');
     expect(dmmfIndex('LicenseMetric', ['productFamilyId', 'status', 'updatedAt', 'id'])).toBe(true);
   });

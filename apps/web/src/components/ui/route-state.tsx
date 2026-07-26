@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { UX_COPY } from "@/lib/ux-copy";
 
 interface Props {
@@ -36,8 +37,11 @@ export function RouteState({ kind, code, onRetry }: Props) {
   if (kind === "not_found") {
     return (
       <div className="route-state route-state-not-found p-8 text-center" data-testid="route-state-not-found">
-        <h2 className="text-xl font-bold mb-2">{UX_COPY.notFoundTitle}</h2>
+        <h1 className="text-xl font-bold mb-2">{UX_COPY.notFoundTitle}</h1>
         <p className="text-sm text-gray-600 mb-4">{UX_COPY.notFoundMessage}</p>
+        <Link href="/" className="inline-flex rounded-md border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted">
+          홈으로 돌아가기
+        </Link>
       </div>
     );
   }

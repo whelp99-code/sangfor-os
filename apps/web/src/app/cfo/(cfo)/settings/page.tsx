@@ -187,6 +187,7 @@ function StatusSection({
       <pre
         className="overflow-x-auto text-xs"
         style={{ color: CFO.muted }}
+        tabIndex={0}
       >
         {data === null ? "로딩 중..." : JSON.stringify(data, null, 2)}
       </pre>

@@ -92,7 +92,7 @@ describe("run-with-isolated-postgres", () => {
             "--",
             process.execPath,
             "-e",
-            "if(!process.env.TASK_OWNED_DATABASE_URL||!process.env.TASK_POSTGRES_RECEIPT_FILE)process.exit(2); process.exit(0)",
+            "if(!process.env.TASK_OWNED_DATABASE_URL||!process.env.TASK_MIGRATION_DATABASE_URL||!process.env.TASK_POSTGRES_RECEIPT_FILE)process.exit(2); process.exit(0)",
           ],
           { encoding: "utf8", env: { ...process.env } },
         );

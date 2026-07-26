@@ -14,6 +14,10 @@ export type PerfContract = {
   blocking: boolean;
 };
 
+export const DEFAULT_WARMUP_SAMPLES = 5;
+export const QUOTE_HTTP_SAMPLE_COUNT = 20;
+export const QUOTE_HTTP_OPPORTUNITY_COUNT = DEFAULT_WARMUP_SAMPLES + QUOTE_HTTP_SAMPLE_COUNT;
+
 export const PERF_CONTRACTS: PerfContract[] = [
   { name: "quote-kernel", metric: "quote_calculation_latency", p95: 5, p99: 10, unit: "ms", blocking: true },
   { name: "quote-http", metric: "quote_http_latency", p95: 300, p99: 500, unit: "ms", blocking: true },
@@ -53,8 +57,15 @@ export function evaluateAllContracts(results: Record<string, { p95: number; p99:
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  console.log("[U075] Performance contracts defined:");
-  for (const c of PERF_CONTRACTS) {
-    console.log(`  ${c.name}: p95<=${c.p95}${c.unit} p99<=${c.p99}${c.unit} ${c.blocking ? "BLOCKING" : "nonblocking"}`);
+  const resultsFile = process.env.PERF_RESULTS_FILE;
+  if (!resultsFile) {
+    console.error("[U075] PERF_RESULTS_FILE is required; defining thresholds is not a performance measurement");
+    process.exit(64);
   }
+
+  const { readFileSync } = await import("node:fs");
+  const parsed = JSON.parse(readFileSync(resultsFile, "utf8")) as Record<string, { p95: number; p99: number }>;
+  const result = evaluateAllContracts(parsed);
+  console.log(JSON.stringify(result, null, 2));
+  process.exit(result.passed ? 0 : 1);
 }

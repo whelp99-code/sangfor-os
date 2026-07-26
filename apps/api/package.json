@@ -13,6 +13,7 @@
     "test:production": "node --test --test-concurrency=1 scripts/build-production.test.mjs scripts/production-start.test.mjs"
   },
   "dependencies": {
+    "@octokit/rest": "^22.0.1",
     "@sangfor/api-utils": "workspace:*",
     "@sangfor/auth": "workspace:^",
     "@sangfor/business": "workspace:*",

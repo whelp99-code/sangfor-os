@@ -8,6 +8,7 @@ import {
   assertStepTransition,
   normalizeWorkflowInput,
 } from "./workflow-contracts";
+import { workflowStartRetryDelayMs } from "./workflow-runtime";
 
 describe("canonical persisted workflow runtime contracts", () => {
   it("binds the exhaustive U019 run state graph and never reopens terminal rows", () => {
@@ -35,5 +36,12 @@ describe("canonical persisted workflow runtime contracts", () => {
   it("normalizes a persisted input snapshot and rejects non-JSON input", () => {
     expect(normalizeWorkflowInput({ nested: { b: 2, a: 1 } })).toEqual({ nested: { a: 1, b: 2 } });
     expect(() => normalizeWorkflowInput({ value: undefined })).toThrow(WorkflowRuntimeError);
+  });
+
+  it("backs off serialization retries with a bounded deterministic jitter", () => {
+    const delays = Array.from({ length: 8 }, (_, attempt) => workflowStartRetryDelayMs("workflow-key", attempt));
+    expect(delays).toEqual([...delays].sort((left, right) => left - right));
+    expect(delays.at(-1)).toBeLessThanOrEqual(258);
+    expect(workflowStartRetryDelayMs("another-key", 2)).not.toBe(workflowStartRetryDelayMs("workflow-key", 2));
   });
 });
