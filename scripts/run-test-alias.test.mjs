@@ -47,6 +47,15 @@ test("runner accepts exactly one --alias argument", async () => {
   assert.equal(parseAliasArguments(["--alias", "T-DOC"]), "T-DOC"); for (const argv of [[], ["--alias"], ["T-DOC"], ["--alias", "T-DOC", "extra"], ["--alias", "T-DOC", "--alias", "T-REL"]]) assert.throws(() => parseAliasArguments(argv), /exactly --alias/);
 });
 
+test("tracked Vitest steps use direct file-filtering invocations", () => {
+  for (const entry of ALIAS_MAP) {
+    for (const step of entry.steps) {
+      const joined = step.argv.join(" ");
+      assert.doesNotMatch(joined, /\bpnpm(?: --filter \S+)? test --\b/, `${entry.alias}/${step.id}`);
+    }
+  }
+});
+
 test("23-alias lease map has exact six-field, unique resources", async (context) => {
   const { validateFinalAliasLeaseMap } = await loadRunner(), root = await mkdtemp(path.join(tmpdir(), "u001-leases-")), canonical = makeLeaseMap(root);
   assert.deepEqual(validateFinalAliasLeaseMap(canonical, ALIAS_MAP), canonical);

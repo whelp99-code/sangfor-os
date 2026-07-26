@@ -69,8 +69,9 @@
           "pnpm",
           "--filter",
           "@sangfor/auth",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/session-jwt.test.ts",
           "src/auth-context.test.ts"
         ]
@@ -87,8 +88,9 @@
           "pnpm",
           "--filter",
           "@sangfor/web",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/lib/auth/session.test.ts",
           "src/lib/api-auth.test.ts",
           "src/proxy.test.ts",
@@ -107,8 +109,9 @@
           "pnpm",
           "--filter",
           "@sangfor/api",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/index.test.ts"
         ]
       },
@@ -124,8 +127,9 @@
           "pnpm",
           "--filter",
           "@sangfor/auth",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/principal-policy.test.ts"
         ]
       },
@@ -141,8 +145,9 @@
           "pnpm",
           "--filter",
           "@sangfor/web",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/lib/auth/persisted-session.test.ts",
           "src/proxy.test.ts",
           "src/app/api/auth/login/route.test.ts",
@@ -161,8 +166,9 @@
           "pnpm",
           "--filter",
           "@sangfor/api",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/middleware/persisted-session.test.ts",
           "src/index.test.ts"
         ]
@@ -230,8 +236,9 @@
           "pnpm",
           "--filter",
           "@sangfor/auth",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/capability-policy.test.ts",
           "src/auth-context.test.ts"
         ]
@@ -248,8 +255,9 @@
           "pnpm",
           "--filter",
           "@sangfor/web",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/lib/auth/authorization.test.ts",
           "src/lib/auth/route-capability-registry.test.ts",
           "src/lib/project-scope.test.ts",
@@ -269,8 +277,9 @@
           "pnpm",
           "--filter",
           "@sangfor/api",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/middleware/business-authorization.test.ts",
           "src/index.test.ts"
         ]
@@ -321,8 +330,9 @@
           "pnpm",
           "--filter",
           "@sangfor/business",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/governance/role-change.test.ts"
         ]
       },
@@ -338,8 +348,9 @@
           "pnpm",
           "--filter",
           "@sangfor/web",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/app/api/security/role-changes/route.test.ts",
           "src/app/api/security/role-changes/[id]/decisions/route.test.ts"
         ]
@@ -449,8 +460,9 @@
           "pnpm",
           "--filter",
           "@sangfor/business",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/governance/audit-chain.test.ts"
         ]
       },
@@ -526,8 +538,9 @@
           "pnpm",
           "--filter",
           "@sangfor/business",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/governance/approval-kernel.integration.test.ts"
         ]
       },
@@ -543,8 +556,9 @@
           "pnpm",
           "--filter",
           "@sangfor/web",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/app/api/security/role-changes/[id]/decisions/route.test.ts"
         ]
       }
@@ -581,8 +595,9 @@
           "pnpm",
           "--filter",
           "@sangfor/business",
-          "test",
-          "--",
+          "exec",
+          "vitest",
+          "run",
           "src/governance/artifact-service.integration.test.ts"
         ]
       }
@@ -638,9 +653,10 @@
         "argv": [
           "corepack",
           "pnpm",
-          "test",
-          "--",
-          "--run"
+          "exec",
+          "vitest",
+          "run",
+          "packages/workflow-engine/src/canonical-workflow-client.test.ts"
         ]
       }
     ]
