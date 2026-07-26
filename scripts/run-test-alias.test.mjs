@@ -126,6 +126,33 @@ test("production normalization requires an explicit complete machine result", as
   assert.deepEqual(parseMachineResult(Buffer.from(`ALIAS_MACHINE_RESULT=${JSON.stringify(browser)}\n`), "crm-browser"), browser);
 });
 
+test("derived normalization rejects generic PASS and binds CRM cases to Playwright titles", async () => {
+  const { deriveMachineResult } = await loadRunner();
+  const evidenceDir = await mkdtemp(path.join(tmpdir(), "u076-derived-machine-"));
+  const raw = { exitCode: 0, signal: null, stdout: Buffer.from("PASS overallPassed\n"), stderr: Buffer.alloc(0) };
+  await assert.rejects(
+    () => deriveMachineResult({ raw, step: { id: "unknown-contract" }, evidenceDir }),
+    /strict nonzero-test PASS/,
+  );
+  await writeFile(path.join(evidenceDir, "playwright-receipt.json"), JSON.stringify({ totalTests: 2, skipped: 0 }));
+  await writeFile(path.join(evidenceDir, "playwright-report.json"), JSON.stringify({
+    suites: [{ specs: [
+      { title: "[customer] customer case" },
+      { title: "[opportunity] opportunity case" },
+    ] }],
+  }));
+  const browser = await deriveMachineResult({
+    raw: { ...raw, stdout: Buffer.alloc(0) },
+    step: { id: "crm-scope-pagination-browser" },
+    evidenceDir,
+    variant: "crm-browser",
+  });
+  assert.equal(browser.testCount, 2);
+  assert.equal(browser.customerCaseIds.length, 1);
+  assert.equal(browser.opportunityCaseIds.length, 1);
+  assert.deepEqual(browser.executedCaseIds, [...browser.customerCaseIds, ...browser.opportunityCaseIds]);
+});
+
 test("CLI fails closed on every Git revalidation error before leases or children", async () => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "u001-alias-cli-"))), mirror = path.join(root, "source");
   await Promise.all([mkdir(path.join(mirror, "scripts"), { recursive: true }), mkdir(path.join(mirror, "docs/12_VERIFICATION"), { recursive: true })]);
@@ -139,7 +166,7 @@ test("CLI fails closed on every Git revalidation error before leases or children
   const wrongHash = run({ ...context, contextHash: "0".repeat(64) }); assert.equal(wrongHash.status, 64, `${wrongHash.stdout}\n${wrongHash.stderr}`); assert.match(wrongHash.stderr, /mirror context artifact.*hash|context hash/);
   for (const command of ["status", "ls-files", "symbolic-ref", "rev-parse"]) { await writeGit(command); const failed = run(context); assert.equal(failed.status, 64, `${command}: ${failed.stdout}\n${failed.stderr}`); assert.match(failed.stderr, /Git mirror revalidation failed/); await Promise.all([assertMissing(`${wrapper}.ran`), assertMissing(path.join(leaseMap["T-DOC"].evidenceDir, "steps"))]); }
   await writeGit();
-  const result = run(context); assert.equal(result.status, 64, `${result.stdout}\n${result.stderr}`); assert.match(result.stderr, /exactly one ALIAS_MACHINE_RESULT is required/);
+  const result = run(context); assert.equal(result.status, 64, `${result.stdout}\n${result.stderr}`); assert.match(result.stderr, /strict nonzero-test PASS|ALIAS_MACHINE_RESULT/);
 });
 
 test("step result seals mirror hashes and verified declared output metadata", async () => {

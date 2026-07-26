@@ -9,8 +9,10 @@ import { createHash, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   writeFileSync,
 } from "node:fs";
@@ -70,8 +72,48 @@ function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
+function spawnCapture(argv, { cwd = REPO_ROOT, env = process.env } = {}) {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(argv[0], argv.slice(1), { cwd, env, shell: false, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.once("error", reject);
+    child.once("close", (code, signal) => resolvePromise({ code: code ?? 1, signal, stdout, stderr }));
+  });
+}
+
 function sha256Text(text) {
   return createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+export function validateScmHandoff(handoffFile, candidateSha) {
+  const invalid = (message) => {
+    const error = new Error(message);
+    error.exitCode = 64;
+    throw error;
+  };
+  const canonicalFile = resolve(handoffFile);
+  const metadata = lstatSync(canonicalFile);
+  if (metadata.isSymbolicLink() || !metadata.isFile() || realpathSync(canonicalFile) !== canonicalFile) {
+    invalid("SCM handoff must be a canonical regular non-symlink file");
+  }
+  const bytes = readFileSync(canonicalFile);
+  const handoff = JSON.parse(bytes.toString("utf8"));
+  if (
+    JSON.stringify(Object.keys(handoff).sort()) !== JSON.stringify(["candidateSha", "committedBy", "issuedAt", "sourceHead", "sourceStatus"].sort()) ||
+    handoff.candidateSha !== candidateSha ||
+    handoff.committedBy !== "SCM" ||
+    handoff.sourceHead !== candidateSha ||
+    handoff.sourceStatus !== "clean" ||
+    Number.isNaN(Date.parse(handoff.issuedAt))
+  ) {
+    invalid("SCM handoff envelope identity or shape mismatch");
+  }
+  return Object.freeze({ file: canonicalFile, sha256: createHash("sha256").update(bytes).digest("hex") });
 }
 
 /**
@@ -320,6 +362,7 @@ async function countLabeledDockerResources(runId) {
  *   lock: {manifestListDigest: string, resolvedImage: string},
  *   releaseManifestSha256: string,
  *   releaseSchemaSha256: string,
+ *   falseGreenScan?: ReturnType<typeof scanFalseGreenTests>,
  *   inject?: Partial<Record<string, {ok: boolean, detail?: unknown}>>,
  * }} opts
  */
@@ -338,6 +381,7 @@ export async function executeU007RunnerContract(ctx, opts) {
     lock,
     releaseManifestSha256,
     releaseSchemaSha256,
+    falseGreenScan,
     inject = {},
   } = opts;
 
@@ -355,7 +399,7 @@ export async function executeU007RunnerContract(ctx, opts) {
   const notes = [];
 
   // Preflight product false-green scan (mirror tree) — product RED_EXPECTED path
-  const scan = scanFalseGreenTests(mirrorRoot);
+  const scan = falseGreenScan ?? scanFalseGreenTests(mirrorRoot);
   const uiBlocker = scan.findings.find((f) => f.name === "@sangfor/ui");
   if (!uiBlocker) {
     fail(64, "pre-U030 expected @sangfor/ui false-green blocker not found");
@@ -973,6 +1017,7 @@ function enrichMirrorReceipt(attemptDir, enrichment) {
  * @param {string[]} [argv]
  * @param {{
  *   inject?: Parameters<typeof executeU007RunnerContract>[1]["inject"],
+ *   falseGreenScan?: Parameters<typeof executeU007RunnerContract>[1]["falseGreenScan"],
  *   withMirror?: typeof withDetachedReleaseMirror,
  * }} [deps] Test-only dependency injection (omit in production).
  */
@@ -1057,6 +1102,7 @@ export async function runDetachedReleaseMirrorMain(
           lock,
           releaseManifestSha256,
           releaseSchemaSha256,
+          falseGreenScan: deps.falseGreenScan,
           inject: deps.inject,
         }),
     );
@@ -1225,7 +1271,96 @@ export async function runDetachedReleaseMirrorMain(
     fail(64, "u030-post-release not executable in this worktree phase (U030 card)");
   }
   if (mode === "u076-final-aliases") {
-    fail(64, "u076-final-aliases not executable in this worktree phase (U076 card)");
+    for (const key of ["FINAL_CANDIDATE_SHA", "FINAL_ALIAS_LEASE_MAP", "SCM_HANDOFF_FILE", "TASK_RUN_ID", "TASK_OWNER_UNIT", "PORT", "API_PORT", "ACCEPTANCE_EVIDENCE_DIR", "RESOURCE_LEASE_FILE"]) {
+      if (!process.env[key]) fail(64, `u076-final-aliases requires ${key}`);
+    }
+    if (
+      process.env.FINAL_CANDIDATE_SHA !== candidateSha ||
+      process.env.TASK_RUN_ID !== runId ||
+      process.env.TASK_OWNER_UNIT !== "U076" ||
+      resolve(process.env.RESOURCE_LEASE_FILE) !== resolve(resourceLeaseFile)
+    ) {
+      fail(64, "u076-final-aliases command/environment identity mismatch");
+    }
+    const handoff = validateScmHandoff(process.env.SCM_HANDOFF_FILE, candidateSha);
+    const sourceHead = await spawnCapture(["git", "rev-parse", "HEAD"]);
+    const sourceStatus = await spawnCapture(["git", "status", "--porcelain=v1", "--untracked-files=all"]);
+    if (sourceHead.code !== 0 || sourceHead.stdout.trim() !== candidateSha || sourceStatus.code !== 0 || sourceStatus.stdout !== "") {
+      fail(64, "u076-final-aliases requires clean source HEAD equal to candidate SHA");
+    }
+    const withMirror = deps.withMirror ?? withDetachedReleaseMirror;
+    const mirrorRun = await withMirror(
+      { candidateSha, runId, ownerUnit, attemptDir: absAttempt, mode },
+      async (ctx) => {
+        for (const scope of INSTALL_SCOPES) {
+          const install = await ctx.spawnInMirror(
+            ["bash", "scripts/run-workspace-runtime.sh", scope, "--", "corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline"],
+            ctx.makeChildEnv("install"),
+          );
+          if (install.code !== 0) fail(66, `u076 ${scope} frozen install failed: ${install.stderr.slice(-2000)}`);
+        }
+        const inner = await ctx.spawnInMirror(
+          [
+            "bash",
+            "scripts/run-workspace-runtime.sh",
+            "root",
+            "--",
+            "corepack",
+            "pnpm",
+            "verify:final-acceptance",
+            "--",
+            "--mirror-context-file",
+            ctx.mirrorContextFile,
+            "--mirror-context-sha256",
+            ctx.mirrorContextHash,
+          ],
+          ctx.makeChildEnv("generic", {
+            U076_AUTHORITATIVE: "1",
+            FINAL_CANDIDATE_SHA: candidateSha,
+            FINAL_ALIAS_LEASE_MAP: resolve(process.env.FINAL_ALIAS_LEASE_MAP),
+            TASK_RUN_ID: runId,
+            TASK_OWNER_UNIT: "U076",
+            PORT: String(lease.webPort),
+            API_PORT: String(lease.apiPort),
+            ACCEPTANCE_EVIDENCE_DIR: resolve(process.env.ACCEPTANCE_EVIDENCE_DIR),
+            RESOURCE_LEASE_FILE: resolve(resourceLeaseFile),
+          }),
+        );
+        if (inner.code !== 0) fail(65, `U076 inner acceptance failed: ${inner.stderr.slice(-4000)}`);
+        const lines = inner.stdout.split("\n").filter((line) => line.startsWith("U076_INNER_SUMMARY="));
+        if (lines.length !== 1) fail(64, "U076 inner summary marker missing or duplicated");
+        const summary = JSON.parse(lines[0].slice("U076_INNER_SUMMARY=".length));
+        if (summary.candidateSha !== candidateSha || summary.state !== "LOCAL_PASS_EXTERNAL_PENDING" || summary.autonomousPassed !== 98 || summary.manualPending !== 1) {
+          fail(64, "U076 inner summary identity/state mismatch");
+        }
+        return summary;
+      },
+    );
+    const innerSummaryFile = join(absAttempt, "mirror-internal-summary.json");
+    const mirrorReceiptFile = join(absAttempt, "detached-release-mirror-receipt.json");
+    const mirrorReceipt = JSON.parse(readFileSync(mirrorReceiptFile, "utf8"));
+    if (mirrorReceipt.cleanup?.status !== "PASS" || mirrorReceipt.result !== "PASS") {
+      fail(64, "U076 detached mirror cleanup did not PASS");
+    }
+    const envelope = {
+      schemaVersion: 1,
+      unit: "U076",
+      candidateSha,
+      runId,
+      state: "LOCAL_PASS_EXTERNAL_PENDING",
+      autonomousPassed: 98,
+      manualPending: 1,
+      innerSummarySha256: sha256File(innerSummaryFile),
+      detachedMirrorReceiptSha256: sha256File(mirrorReceiptFile),
+      scmHandoffSha256: handoff.sha256,
+      cleanup: "PASS",
+      createdAt: new Date().toISOString(),
+    };
+    const temporary = join(absAttempt, "final-acceptance.json.tmp");
+    writeFileSync(temporary, `${JSON.stringify(envelope, null, 2)}\n`, { mode: 0o600 });
+    renameSync(temporary, join(absAttempt, "final-acceptance.json"));
+    process.stdout.write(`${JSON.stringify(envelope, null, 2)}\n`);
+    return mirrorRun.result;
   }
 }
 

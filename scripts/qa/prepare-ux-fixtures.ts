@@ -76,6 +76,7 @@ type TaskPostgresReceipt = {
 };
 
 export type SafetyContext = {
+  ownerUnit: "U066" | "U076";
   databaseName: string;
   databaseHost: string;
   postgresReceiptFile: string;
@@ -156,9 +157,8 @@ export function validateSafetyEnvironment(env: NodeJS.ProcessEnv = process.env):
   if (databaseUrlValue !== taskOwnedDatabaseUrl) {
     fail("DATABASE_URL must exactly match TASK_OWNED_DATABASE_URL");
   }
-  if (env.TASK_OWNER_UNIT?.trim() !== OWNER_UNIT) {
-    fail(`TASK_OWNER_UNIT must be ${OWNER_UNIT}`);
-  }
+  const ownerUnit = env.UX_FIXTURE_MODE === "u076-final" ? "U076" : OWNER_UNIT;
+  if (env.TASK_OWNER_UNIT?.trim() !== ownerUnit) fail(`TASK_OWNER_UNIT must be ${ownerUnit}`);
   const taskRunId = env.TASK_RUN_ID?.trim();
   if (!taskRunId) fail("TASK_RUN_ID is required");
 
@@ -187,8 +187,8 @@ export function validateSafetyEnvironment(env: NodeJS.ProcessEnv = process.env):
   const receiptValue = parseJsonFile(postgresReceiptFile);
   if (!isTaskPostgresReceipt(receiptValue)) fail("task PostgreSQL receipt has an invalid shape");
   const receipt = receiptValue;
-  if (receipt.ownerUnit !== OWNER_UNIT || receipt.sentinel.ownerUnit !== OWNER_UNIT) {
-    fail(`task PostgreSQL receipt owner must be ${OWNER_UNIT}`);
+  if (receipt.ownerUnit !== ownerUnit || receipt.sentinel.ownerUnit !== ownerUnit) {
+    fail(`task PostgreSQL receipt owner must be ${ownerUnit}`);
   }
   if (receipt.runId.length === 0 || receipt.sentinel.runId !== receipt.runId) {
     fail("task PostgreSQL receipt runId mismatch");
@@ -210,6 +210,7 @@ export function validateSafetyEnvironment(env: NodeJS.ProcessEnv = process.env):
   if (receipt.cleanupState !== "open") fail("task PostgreSQL receipt is not open");
 
   return {
+    ownerUnit,
     databaseName,
     databaseHost: databaseUrl.hostname,
     postgresReceiptFile,
@@ -448,7 +449,7 @@ export function writeFixtureArtifacts(input: {
   const receiptFile = join(outputDirectory, "ux-fixtures-receipt.json");
   writeJsonAtomic(receiptFile, {
     schemaVersion: FIXTURE_SCHEMA_VERSION,
-    ownerUnit: OWNER_UNIT,
+    ownerUnit: input.safety.ownerUnit,
     taskRunId: input.safety.taskRunId,
     generatedAt: input.issuedAt.toISOString(),
     expiresAt: input.expiresAt.toISOString(),

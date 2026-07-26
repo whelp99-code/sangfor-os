@@ -8,6 +8,7 @@ import {
   rmSync,
   existsSync,
   readFileSync,
+  realpathSync,
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -17,6 +18,7 @@ import {
   deriveRunnerContractChecks,
   evaluateNodeTestTap,
   runDetachedReleaseMirrorMain,
+  validateScmHandoff,
 } from "./run-detached-release-mirror.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +40,19 @@ function writeLease(dir, overrides = {}) {
   chmodSync(p, 0o600);
   chmodSync(dir, 0o700);
   return p;
+}
+
+function writeScmHandoff(dir, candidateSha, overrides = {}) {
+  const handoff = join(dir, "scm-handoff.json");
+  writeFileSync(handoff, JSON.stringify({
+    candidateSha,
+    committedBy: "SCM",
+    issuedAt: "2026-07-26T00:00:00.000Z",
+    sourceHead: candidateSha,
+    sourceStatus: "clean",
+    ...overrides,
+  }));
+  return handoff;
 }
 
 /** Capture process.exit without killing the test runner. */
@@ -88,7 +103,31 @@ function allPassInject(overrides = {}) {
   };
 }
 
+function historicalPreU030Scan() {
+  return {
+    findings: [
+      {
+        name: "@sangfor/ui",
+        testScript: "echo No tests",
+        reason: "FALSE_GREEN_TEST_SCRIPT",
+      },
+    ],
+  };
+}
+
 describe("run-detached-release-mirror", () => {
+  it("binds an exact canonical SCM handoff to the candidate SHA", () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "u076-scm-handoff-")));
+    try {
+      const handoff = writeScmHandoff(dir, HEAD);
+      const result = validateScmHandoff(handoff, HEAD);
+      assert.equal(result.file, handoff);
+      assert.match(result.sha256, /^[a-f0-9]{64}$/);
+      assert.throws(() => validateScmHandoff(writeScmHandoff(dir, HEAD, { sourceStatus: "dirty" }), HEAD), /identity or shape/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
   it("exit 64 on missing required args / bad mode", () => {
     const r = spawnSync(process.execPath, [SCRIPT], { encoding: "utf8" });
     assert.equal(r.status, 64);
@@ -206,6 +245,7 @@ describe("run-detached-release-mirror", () => {
               lease,
             ],
             {
+              falseGreenScan: historicalPreU030Scan(),
               inject: allPassInject({
                 // Real derivation path: one stubbed failure must flip status
                 scratchPostgres: {
@@ -266,6 +306,7 @@ describe("run-detached-release-mirror", () => {
               lease,
             ],
             {
+              falseGreenScan: historicalPreU030Scan(),
               // Leave detachedMirrorCleanup un-injected → real mirror cleanup
               inject: allPassInject(),
             },

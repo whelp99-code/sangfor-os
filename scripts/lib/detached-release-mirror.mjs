@@ -11,6 +11,7 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  renameSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -216,6 +217,8 @@ async function listWorktrees(repoRoot = REPO_ROOT) {
  *   candidateSha: string,
  *   spawnInMirror: (argv: string[], env?: NodeJS.ProcessEnv) => Promise<{code:number,stdout:string,stderr:string}>,
  *   makeChildEnv: (lane?: string, explicit?: Record<string,string>) => Record<string,string>,
+ *   mirrorContextFile: string,
+ *   mirrorContextHash: string,
  * }) => Promise<unknown>} callback
  */
 export async function withDetachedReleaseMirror(options, callback) {
@@ -338,11 +341,44 @@ export async function withDetachedReleaseMirror(options, callback) {
     const makeChildEnv = (lane = "generic", explicit = {}) =>
       makeSanitizedProcessEnv({ lane, explicit });
 
+    const context = {
+      schemaVersion: 1,
+      mode,
+      runId: options.runId,
+      ownerUnit: options.ownerUnit,
+      candidateSha,
+      mirrorPath,
+      mirrorHead,
+      detached: true,
+      sourceStatus: "clean",
+      envCheckpointHash: createHash("sha256")
+        .update(JSON.stringify({ originalIgnoredEnvBefore, envScanCheckpoints }))
+        .digest("hex"),
+      childEnvKeySetHash: createHash("sha256")
+        .update(JSON.stringify(envKeySet(makeChildEnv())))
+        .digest("hex"),
+      receiptSchemaHash: createHash("sha256")
+        .update(readFileSync(join(repoRoot, "scripts/lib/detached-release-mirror-receipt.schema.json")))
+        .digest("hex"),
+      createdAt: new Date().toISOString(),
+    };
+    const mirrorContextFile = join(attemptDir, "detached-release-mirror-context.json");
+    const contextTmp = `${mirrorContextFile}.tmp`;
+    if (existsSync(mirrorContextFile) || existsSync(contextTmp)) {
+      fail(64, "fresh detached mirror context destination required");
+    }
+    const contextBytes = `${JSON.stringify(context, null, 2)}\n`;
+    writeFileSync(contextTmp, contextBytes, { mode: 0o600 });
+    renameSync(contextTmp, mirrorContextFile);
+    const mirrorContextHash = createHash("sha256").update(contextBytes).digest("hex");
+
     const cbResult = await callback({
       mirrorRoot: mirrorPath,
       candidateSha,
       spawnInMirror,
       makeChildEnv,
+      mirrorContextFile,
+      mirrorContextHash,
     });
 
     await assertEnvFileGate(mirrorPath, candidateSha);

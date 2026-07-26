@@ -209,7 +209,7 @@ export async function assertSafeLocalDocker(options = {}) {
 }
 
 function sanitizeRunId(runId) {
-  return runId.replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 48);
+  return runId.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase().slice(0, 48);
 }
 
 function randomSecret(bytes = 18) {

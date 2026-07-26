@@ -1,6 +1,8 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
+import { resolve } from "node:path";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3101";
+const EVIDENCE_DIR = resolve(process.env.ACCEPTANCE_EVIDENCE_DIR ?? "test-results/acceptance");
 
 async function login(request: APIRequestContext, role: "sales" | "viewer" = "sales"): Promise<string | null> {
   const password = process.env.AUTH_DEMO_PASSWORD?.trim();
@@ -20,7 +22,7 @@ async function login(request: APIRequestContext, role: "sales" | "viewer" = "sal
 
 test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   // 1. Customers list & Scope verification
-  test("Sales & Viewer authentication and /customers scoped row verification", async ({ request, page }) => {
+  test("[customer] Sales & Viewer authentication and /customers scoped row verification", async ({ request, page }) => {
     const salesToken = await login(request, "sales");
     const headers = salesToken ? { Authorization: `Bearer ${salesToken}` } : {};
 
@@ -35,7 +37,7 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 2. Project-field-less create + Idempotency-Key retry
-  test("Customer create without project field + idempotency replay consistency", async ({ request }) => {
+  test("[customer] Customer create without project field + idempotency replay consistency", async ({ request }) => {
     const token = await login(request, "sales");
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const idempotencyKey = `e2e-idemp-${Date.now()}`;
@@ -69,7 +71,7 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 3. /customers/<id> asset/renewal/support read model & stale version CAS conflict (409)
-  test("Customer detail read model & stale version CAS update 409 handling", async ({ request }) => {
+  test("[customer] Customer detail read model & stale version CAS update 409 handling", async ({ request }) => {
     const token = await login(request, "sales");
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -106,7 +108,7 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 4. Archive current customer and verify removal from active list
-  test("Archive customer removes record from active list", async ({ request }) => {
+  test("[customer] Archive customer removes record from active list", async ({ request }) => {
     const token = await login(request, "sales");
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -135,7 +137,7 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 5. Viewer role read-only & absence of mutation controls
-  test("Viewer role has read access but lacks UI mutation controls and CUD permissions", async ({ request, page }) => {
+  test("[customer] Viewer role has read access but lacks UI mutation controls and CUD permissions", async ({ request, page }) => {
     const viewerToken = await login(request, "viewer");
     const headers = viewerToken ? { Authorization: `Bearer ${viewerToken}` } : {};
 
@@ -157,7 +159,7 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 6. Cross-tenant isolation (Tenant A token cannot access Tenant B sentinel)
-  test("Tenant-A token cannot access Tenant-B sentinel customer", async ({ request }) => {
+  test("[customer] Tenant-A token cannot access Tenant-B sentinel customer", async ({ request }) => {
     const tokenA = await login(request, "sales");
     const headersA = tokenA ? { Authorization: `Bearer ${tokenA}` } : {};
 
@@ -172,7 +174,7 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 7. /deals 2-page cursor pagination without duplication or omission
-  test("/deals cursor pagination across 2 pages has zero duplication or omission", async ({ request }) => {
+  test("[opportunity] /deals cursor pagination across 2 pages has zero duplication or omission", async ({ request }) => {
     const token = await login(request, "sales");
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -199,7 +201,7 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 8. Eligible owner assignment and detail reload persistence
-  test("Assign eligible owner to opportunity and verify reload persistence", async ({ request }) => {
+  test("[opportunity] Assign eligible owner to opportunity and verify reload persistence", async ({ request }) => {
     const token = await login(request, "sales");
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -230,7 +232,7 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 9. /opportunities URL compatibility mapping to /deals
-  test("/opportunities route and detail URLs resolve to /deals suite", async ({ page }) => {
+  test("[opportunity] /opportunities route and detail URLs resolve to /deals suite", async ({ page }) => {
     await page.goto(`${BASE}/opportunities`, { waitUntil: "domcontentloaded" });
     expect(page.url()).toMatch(/\/deals|\/opportunities/);
 
@@ -239,7 +241,7 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 10. Multi-viewport screenshot capture (375px, 768px, 1280px) + DOM duplication check
-  test("Capture screenshots across 375px, 768px, 1280px viewports and verify single DOM hierarchy", async ({ page }) => {
+  test("[opportunity] Capture screenshots across 375px, 768px, 1280px viewports and verify single DOM hierarchy", async ({ page }) => {
     const viewports = [
       { width: 375, height: 667, name: "mobile" },
       { width: 768, height: 1024, name: "tablet" },
@@ -251,9 +253,14 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
       await page.goto(`${BASE}/customers`, { waitUntil: "domcontentloaded" });
 
       await page.screenshot({
-        path: `.omo/evidence/sangfor-system-refactor-2026-07-15/U043/attempt-1/customer-viewport-${vp.name}.png`,
+        path: `${EVIDENCE_DIR}/customers-${vp.width}.png`,
         fullPage: true,
       });
+
+      await page.goto(`${BASE}/customers`, { waitUntil: "domcontentloaded" });
+      await page.screenshot({ path: `${EVIDENCE_DIR}/customer-detail-${vp.width}.png`, fullPage: true });
+      await page.goto(`${BASE}/deals`, { waitUntil: "domcontentloaded" });
+      await page.screenshot({ path: `${EVIDENCE_DIR}/deals-${vp.width}.png`, fullPage: true });
 
       const mobileNavCount = await page.locator('[data-testid="mobile-nav"], .mobile-nav-duplicate').count();
       expect(mobileNavCount).toBeLessThanOrEqual(1);
@@ -261,7 +268,7 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 11. Network response inspection: zero customer scope/actor internal fields leaked
-  test("Network log inspection verifies 0 leaked internal customer scope/actor fields", async ({ page }) => {
+  test("[opportunity] Network log inspection verifies 0 leaked internal customer scope/actor fields", async ({ page }) => {
     const leakedFields: string[] = [];
 
     page.on("response", async (response) => {

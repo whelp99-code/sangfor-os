@@ -48,15 +48,12 @@ jobs:
             scripts/run-detached-release-mirror.test.mjs \
             scripts/lib/isolated-postgres.test.mjs \
             scripts/run-with-isolated-postgres.test.mjs \
-            scripts/run-playwright-acceptance.test.mjs
-      - name: False-green scan (must report @sangfor/ui until U030)
-        run: |
-          set +e
-          bash scripts/run-workspace-runtime.sh root -- node scripts/check-no-false-green-tests.mjs
-          code=$?
-          set -e
-          # non-zero is expected while @sangfor/ui has echo No tests
-          test "$code" -ne 0
+            scripts/run-playwright-acceptance.test.mjs \
+            scripts/run-final-acceptance.test.mjs \
+            scripts/verify-acceptance.test.mjs \
+            scripts/verify-staging-equivalent.test.mjs
+      - name: False-green scan
+        run: bash scripts/run-workspace-runtime.sh root -- node scripts/check-no-false-green-tests.mjs
 
   static-checks:
     runs-on: ubuntu-latest

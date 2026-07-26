@@ -96,6 +96,28 @@ describe("prepare-ux-fixtures safety contract", () => {
     }));
     assert.throws(() => validateSafetyEnvironment(validEnvironment(receiptFile)), /must confirm migrations/);
   });
+
+  it("accepts U076 only in explicit final-release fixture mode", () => {
+    const directory = fixtureDirectory();
+    const receiptFile = taskReceipt(directory);
+    const receipt = JSON.parse(readFileSync(receiptFile, "utf8"));
+    receipt.runId = "u076-test";
+    receipt.ownerUnit = "U076";
+    receipt.databaseName = "sangfor_task_u076_test";
+    receipt.sentinel = { ...receipt.sentinel, runId: "u076-test", ownerUnit: "U076" };
+    writeFileSync(receiptFile, JSON.stringify(receipt));
+    const databaseUrl = "postgresql://u:p@127.0.0.1:5432/sangfor_task_u076_test";
+    const environment = {
+      DATABASE_URL: databaseUrl,
+      TASK_OWNED_DATABASE_URL: databaseUrl,
+      TASK_POSTGRES_RECEIPT_FILE: receiptFile,
+      TASK_OWNER_UNIT: "U076",
+      TASK_RUN_ID: "u076-test",
+      UX_FIXTURE_MODE: "u076-final",
+    };
+    assert.equal(validateSafetyEnvironment(environment).ownerUnit, "U076");
+    assert.throws(() => validateSafetyEnvironment({ ...environment, UX_FIXTURE_MODE: undefined }), /U066/);
+  });
 });
 
 describe("prepare-ux-fixtures deterministic artifact contract", () => {
