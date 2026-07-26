@@ -56,7 +56,8 @@ const SEQUENCE_SQL = `
 `;
 
 const CONSTRAINT_SQL = `
-  SELECT conname, contype, conrelid::regclass::text AS table_name, pg_get_constraintdef(oid) AS definition
+  SELECT conname, contype, conrelid::regclass::text AS table_name,
+    CASE WHEN contype = 'c' THEN 'CHECK_VALIDATED=' || convalidated::text ELSE pg_get_constraintdef(oid) END AS definition
   FROM pg_constraint
   WHERE connamespace = 'public'::regnamespace
   ORDER BY conname

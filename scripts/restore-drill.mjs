@@ -92,6 +92,27 @@ async function verifySentinelMatch(side) {
   }
 }
 
+async function prepareRestoreRoles(side) {
+  const { user, database } = parseConnection(side.databaseUrl);
+  const result = await side.exec([
+    "psql", "-h", "127.0.0.1", "-U", user, "-d", database, "-v", "ON_ERROR_STOP=1", "-c",
+    `DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sangfor_app') THEN
+    CREATE ROLE sangfor_app WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sangfor_app_login') THEN
+    CREATE ROLE sangfor_app_login WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  END IF;
+  GRANT sangfor_app TO sangfor_app_login WITH INHERIT FALSE, SET TRUE;
+END
+$$;`,
+  ]);
+  if (result.code !== 0) {
+    throw fail(EXIT.RESTORE, "restore", `restore role preparation failed: ${result.stderr || result.stdout}`);
+  }
+}
+
 function sanitizedEnv(extra) {
   const allowed = ["PATH", "HOME", "LANG", "LC_ALL", "TERM", "NVM_DIR", "NO_COLOR", "TMPDIR", "XDG_CACHE_HOME", "COREPACK_HOME", "PNPM_HOME", "SHELL"];
   const env = {};
@@ -169,6 +190,7 @@ async function runDrillBody({ primary, secondary, args, partial, checkAborted })
   if (!partial.targetSentinelMatch) throw fail(EXIT.RESTORE, "restore", "target sentinel mismatch before restore");
 
   checkAborted();
+  await prepareRestoreRoles(target);
   const restoreStartedAt = new Date();
   await restoreLogicalDump(target, dump.bytes, { injectFailure: scenario === "target-restore-failure" });
   if (scenario === "corrupt-dump") {
