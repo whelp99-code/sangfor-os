@@ -60,6 +60,9 @@ function rootPredicate(entry: ScopeInventoryEntry, model: DmmfModel, table: stri
   if (entry.model === 'Project') {
     return `${quoteIdentifier(table)}."id" = current_setting('app.project_id', true) AND ${companyPredicate(table, 'company_id')}`;
   }
+  if (entry.model === 'SizingTemplate') {
+    return `EXISTS (SELECT 1 FROM "product_families" AS scope_family JOIN "companies" AS scope_company ON scope_company."id" = scope_family."company_id" WHERE scope_family."id" = ${quoteIdentifier(table)}."product_family_id" AND scope_family."company_id" = current_setting('app.company_id', true) AND scope_company."tenant_id" = current_setting('app.tenant_id', true))`;
+  }
 
   if (entry.category === 'PROJECT_ROOT') {
     const projectColumn = scalarColumn(model, 'projectId');

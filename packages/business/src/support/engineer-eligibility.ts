@@ -121,6 +121,13 @@ export async function assignEngineerToEngagement(cmd: AssignEngineerCommand) {
   }
 
   return withRlsTransaction(rlsScope(authContext), async (tx) => {
+    const callerAssignment = await tx.userCompanyRole.findFirst({
+      where: { userId: authContext.userId, companyId: authContext.companyId, status: "active" },
+      select: { id: true },
+    });
+    if (!callerAssignment) {
+      throw new EngineerEligibilityError("NO_ASSIGNMENT", "No active same-company caller assignment found", 403);
+    }
     const existing = await tx.engineerAssignment.findFirst({
       where: { requirementId, engineerMembershipId, status: "active" },
     });
@@ -136,7 +143,7 @@ export async function assignEngineerToEngagement(cmd: AssignEngineerCommand) {
       data: {
         requirementId,
         engineerMembershipId,
-        assignedByAssignmentId: authContext.userId,
+        assignedByAssignmentId: callerAssignment.id,
         status: "active",
         eligibilitySnapshotJson: snapshotObj,
         eligibilitySnapshotHash: snapshotHash,

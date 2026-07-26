@@ -42,6 +42,7 @@ describe('U073 complete scope RLS closure', () => {
     expect(policies.find((policy) => policy.model === 'Customer')?.predicate).toContain('scope_project');
     expect(policies.find((policy) => policy.model === 'SchedulerJob')?.predicate).toContain('scope_company');
     expect(policies.find((policy) => policy.model === 'SchedulerJob')?.predicate).not.toContain('scope_project');
+    expect(policies.find((policy) => policy.model === 'SizingTemplate')?.predicate).toContain('scope_family');
   });
 
   it('migration builds one canonical FOR ALL policy with USING and WITH CHECK', () => {
