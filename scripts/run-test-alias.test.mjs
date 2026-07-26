@@ -179,6 +179,13 @@ test("derived normalization rejects generic PASS and binds CRM cases to Playwrig
     /strict nonzero-test PASS/,
   );
   await writeFile(path.join(evidenceDir, "playwright-receipt.json"), JSON.stringify({ totalTests: 2, skipped: 0 }));
+  const semanticUi = await deriveMachineResult({
+    raw: { ...raw, stdout: Buffer.alloc(0) },
+    step: { id: "semantic-ui", argv: ["corepack", "pnpm", "test:acceptance"] },
+    evidenceDir,
+  });
+  assert.equal(semanticUi.framework, "playwright");
+  assert.equal(semanticUi.testCount, 2);
   await writeFile(path.join(evidenceDir, "playwright-report.json"), JSON.stringify({
     suites: [{ specs: [
       { title: "[customer] customer case" },

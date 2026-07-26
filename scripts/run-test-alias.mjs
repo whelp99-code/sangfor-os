@@ -235,6 +235,7 @@ export const deriveMachineResult = async ({ raw, step, evidenceDir, variant = "b
   const combined = `${stdout}\n${Buffer.from(raw.stderr).toString("utf8")}`;
   const tap = combined.match(/# tests (\d+)[\s\S]*?# pass (\d+)[\s\S]*?# fail (\d+)(?:[\s\S]*?# skipped (\d+))?/);
   const vitest = [...combined.matchAll(/Tests\s+(\d+)\s+passed(?:\s+\|\s+(\d+)\s+skipped)?/g)];
+  const playwrightStep = step.id.includes("browser") || step.argv?.includes("test:acceptance");
   let testCount = 0;
   let skipped = 0;
   if (tap) {
@@ -244,7 +245,7 @@ export const deriveMachineResult = async ({ raw, step, evidenceDir, variant = "b
   } else if (vitest.length > 0) {
     testCount = vitest.reduce((total, match) => total + Number(match[1]), 0);
     skipped = vitest.reduce((total, match) => total + Number(match[2] ?? 0), 0);
-  } else if (step.id.includes("browser")) {
+  } else if (playwrightStep) {
     const receipt = JSON.parse(await readFile(path.join(evidenceDir, "playwright-receipt.json"), "utf8"));
     testCount = receipt.totalTests;
     skipped = receipt.skipped;
@@ -255,7 +256,7 @@ export const deriveMachineResult = async ({ raw, step, evidenceDir, variant = "b
     throw new AliasRunnerError(`${step.id} output did not prove a strict nonzero-test PASS`);
   }
   const base = {
-    framework: tap ? "node-test" : vitest.length > 0 ? "vitest" : step.id.includes("browser") ? "playwright" : "structured-contract",
+    framework: tap ? "node-test" : vitest.length > 0 ? "vitest" : playwrightStep ? "playwright" : "structured-contract",
     testCount,
     skipped: 0,
     fixme: 0,
