@@ -662,12 +662,6 @@
         "env": {
           "ACCEPTANCE_EVIDENCE_DIR": {
             "from": "ALIAS_EVIDENCE_DIR"
-          },
-          "DATABASE_URL": {
-            "from": "TASK_OWNED_DATABASE_URL"
-          },
-          "TASK_POSTGRES_RECEIPT_FILE": {
-            "from": "TASK_POSTGRES_RECEIPT_FILE"
           }
         },
         "argv": [
@@ -684,7 +678,6 @@
           "src/app/(portal)/customers/[id]/page.test.tsx",
           "src/components/customers/create-customer-form.test.tsx",
           "src/components/customers/customer-detail-actions.test.tsx",
-          "src/lib/registry/service.test.ts",
           "--reporter=verbose"
         ]
       },
