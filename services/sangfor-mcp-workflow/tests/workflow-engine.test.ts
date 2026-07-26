@@ -612,6 +612,14 @@ function waitForExit(child: ReturnType<typeof spawn>): Promise<void> {
   });
 }
 
+async function waitForPath(path: string, timeoutMs = 2_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!existsSync(path)) {
+    if (Date.now() >= deadline) throw new Error(`path readiness timeout: ${path}`);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 describe('U028 explicit output roots and signal cleanup', () => {
   it('rejects implicit, relative, in-repository, and out-of-attempt roots before writers construct', async () => {
     const attempt = mkdtempSync(join(tmpdir(), 'u028-attempt-'));
@@ -631,8 +639,9 @@ describe('U028 explicit output roots and signal cleanup', () => {
       const root = mkdtempSync(join(tmpdir(), 'u028-signal-'));
       const cleanup = () => rmSync(root, { recursive: true, force: true });
       try {
-        const child = spawn(process.execPath, ['-e', `const fs=require('node:fs');const root=process.argv[1];fs.writeFileSync(root+'/task-created.txt','x');const done=()=>{fs.rmSync(root,{recursive:true,force:true});process.exit(0)};process.on('SIGINT',done);process.on('SIGTERM',done);setInterval(()=>{},1000)`, root]);
-        await new Promise((resolve) => setTimeout(resolve, 30));
+        const readyPath = join(root, 'task-created.txt');
+        const child = spawn(process.execPath, ['-e', `const fs=require('node:fs');const root=process.argv[1];const done=()=>{fs.rmSync(root,{recursive:true,force:true});process.exit(0)};process.on('SIGINT',done);process.on('SIGTERM',done);fs.writeFileSync(root+'/task-created.txt','x');setInterval(()=>{},1000)`, root]);
+        await waitForPath(readyPath);
         child.kill(signal);
         await waitForExit(child);
         expect(existsSync(root)).toBe(false);
