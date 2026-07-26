@@ -141,9 +141,11 @@ export function parseTestCounts(stdout = "", stderr = "") {
     failed = 0;
   }
 
+  const effectiveNoTestsPhrase = noTestsPhrase && (total === null || total === 0);
+
   const parseable =
     total !== null ||
-    noTestsPhrase ||
+    effectiveNoTestsPhrase ||
     skipped > 0 ||
     fixme > 0 ||
     todo > 0 ||
@@ -161,7 +163,7 @@ export function parseTestCounts(stdout = "", stderr = "") {
     only: Number(only) || 0,
     flaky: Number(flaky) || 0,
     retry: Number(retry) || 0,
-    noTestsPhrase,
+    noTestsPhrase: effectiveNoTestsPhrase,
     parseable,
   };
 }

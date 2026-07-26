@@ -102,4 +102,14 @@ describe("strict-command-result", () => {
     assert.equal(c.total, 2);
     assert.equal(c.passed, 2);
   });
+
+  it("ignores no-test phrases inside test names when TAP proves positive totals", () => {
+    const r = evaluateSample({
+      exitCode: 0,
+      stdout: "# Subtest: FAIL: exit 0 + 0 tests\n# Subtest: FAIL: No tests phrase\n# tests 2\n# pass 2\n# fail 0\n",
+    });
+    assert.equal(r.verdict, "PASS");
+    assert.equal(r.counts.total, 2);
+    assert.equal(r.counts.noTestsPhrase, false);
+  });
 });
