@@ -84,8 +84,15 @@ export const resolveStepEnvironment = (step, refs, runtimeBase) => { const envir
   }
   return environment; };
 
-export const buildStepInvocation = (mirrorRoot, step) => ({
-  command: path.join(mirrorRoot, "scripts/run-workspace-runtime.sh"), args: [step.workspace, "--", ...step.argv], shell: false,
+export const buildStepInvocation = (mirrorRoot, step, environment = {}) => ({
+  command: path.join(mirrorRoot, "scripts/run-workspace-runtime.sh"),
+  args: [step.workspace, "--", ...step.argv.map((argument) => {
+    if (argument !== "$ACCEPTANCE_EVIDENCE_DIR") return argument;
+    const evidenceDir = environment.ACCEPTANCE_EVIDENCE_DIR;
+    if (typeof evidenceDir !== "string" || !path.isAbsolute(evidenceDir)) throw new AliasRunnerError("tracked evidence argv requires an absolute ACCEPTANCE_EVIDENCE_DIR");
+    return evidenceDir;
+  })],
+  shell: false,
 });
 
 const validateRuntimeWrapper = async (mirrorRoot) => {
@@ -399,7 +406,7 @@ const main = async () => {
   const runtimeBase = Object.fromEntries(RUNTIME_BASE_KEYS.map((key) => [key, process.env[key]]));
   const evidenceIdentity = evidenceIdentities.get(lease.evidenceDir);
   await runTrackedSteps({ entry, evidenceDir: lease.evidenceDir, evidenceIdentity, refs, mirrorContext: declared, runtimeBase, spawnStep: async (step, environment) => {
-    const raw = await spawnCommand(buildStepInvocation(actualRoot, step), actualRoot, environment);
+    const raw = await spawnCommand(buildStepInvocation(actualRoot, step, environment), actualRoot, environment);
     const stepDir = path.join(lease.evidenceDir, `steps/${step.id}`);
     await assertEvidenceIdentity(evidenceIdentity);
     const stdoutFile = path.join(stepDir, "stdout.txt"), stderrFile = path.join(stepDir, "stderr.txt");

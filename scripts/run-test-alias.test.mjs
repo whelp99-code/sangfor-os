@@ -104,6 +104,14 @@ test("step invocation uses the mirror-root absolute wrapper without a shell", as
   const invocation = buildStepInvocation("/private/tmp/release-mirror", step);
   // Then
   assert.deepEqual(invocation, { command: "/private/tmp/release-mirror/scripts/run-workspace-runtime.sh", args: ["root", "--", "node", "script.mjs"], shell: false });
+  assert.deepEqual(
+    buildStepInvocation("/private/tmp/release-mirror", { workspace: "root", argv: ["--evidence", "$ACCEPTANCE_EVIDENCE_DIR"] }, { ACCEPTANCE_EVIDENCE_DIR: "/private/tmp/evidence" }).args,
+    ["root", "--", "--evidence", "/private/tmp/evidence"],
+  );
+  assert.throws(
+    () => buildStepInvocation("/private/tmp/release-mirror", { workspace: "root", argv: ["$ACCEPTANCE_EVIDENCE_DIR"] }),
+    /absolute ACCEPTANCE_EVIDENCE_DIR/,
+  );
 });
 
 test("mirror context binds detached root, script, candidate, cleanliness, and hashes", async () => {

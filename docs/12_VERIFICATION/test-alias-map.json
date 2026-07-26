@@ -182,15 +182,6 @@
         "env": {
           "ACCEPTANCE_EVIDENCE_DIR": {
             "from": "ALIAS_EVIDENCE_DIR"
-          },
-          "CI_INTEGRATION": {
-            "literal": "1"
-          },
-          "DATABASE_URL": {
-            "from": "TASK_OWNED_DATABASE_URL"
-          },
-          "TASK_POSTGRES_RECEIPT_FILE": {
-            "from": "TASK_POSTGRES_RECEIPT_FILE"
           }
         },
         "argv": [
@@ -203,9 +194,8 @@
           "scripts/run-db-contract.ts",
           "--suite",
           "principal-session",
-          "--evidence-env",
-          "ACCEPTANCE_EVIDENCE_DIR",
-          "--provided-task-postgres"
+          "--evidence",
+          "$ACCEPTANCE_EVIDENCE_DIR"
         ]
       }
     ]
@@ -294,15 +284,6 @@
         "env": {
           "ACCEPTANCE_EVIDENCE_DIR": {
             "from": "ALIAS_EVIDENCE_DIR"
-          },
-          "CI_INTEGRATION": {
-            "literal": "1"
-          },
-          "DATABASE_URL": {
-            "from": "TASK_OWNED_DATABASE_URL"
-          },
-          "TASK_POSTGRES_RECEIPT_FILE": {
-            "from": "TASK_POSTGRES_RECEIPT_FILE"
           }
         },
         "argv": [
@@ -315,9 +296,8 @@
           "scripts/run-db-contract.ts",
           "--suite",
           "business-role",
-          "--evidence-env",
-          "ACCEPTANCE_EVIDENCE_DIR",
-          "--provided-task-postgres"
+          "--evidence",
+          "$ACCEPTANCE_EVIDENCE_DIR"
         ]
       },
       {
@@ -366,15 +346,6 @@
         "env": {
           "ACCEPTANCE_EVIDENCE_DIR": {
             "from": "ALIAS_EVIDENCE_DIR"
-          },
-          "CI_INTEGRATION": {
-            "literal": "1"
-          },
-          "DATABASE_URL": {
-            "from": "TASK_OWNED_DATABASE_URL"
-          },
-          "TASK_POSTGRES_RECEIPT_FILE": {
-            "from": "TASK_POSTGRES_RECEIPT_FILE"
           }
         },
         "argv": [
@@ -387,9 +358,8 @@
           "scripts/run-db-contract.ts",
           "--suite",
           "role-change",
-          "--evidence-env",
-          "ACCEPTANCE_EVIDENCE_DIR",
-          "--provided-task-postgres"
+          "--evidence",
+          "$ACCEPTANCE_EVIDENCE_DIR"
         ]
       }
     ]
@@ -478,15 +448,6 @@
         "env": {
           "ACCEPTANCE_EVIDENCE_DIR": {
             "from": "ALIAS_EVIDENCE_DIR"
-          },
-          "CI_INTEGRATION": {
-            "literal": "1"
-          },
-          "DATABASE_URL": {
-            "from": "TASK_OWNED_DATABASE_URL"
-          },
-          "TASK_POSTGRES_RECEIPT_FILE": {
-            "from": "TASK_POSTGRES_RECEIPT_FILE"
           }
         },
         "argv": [
@@ -499,9 +460,8 @@
           "scripts/run-db-contract.ts",
           "--suite",
           "audit-chain",
-          "--evidence-env",
-          "ACCEPTANCE_EVIDENCE_DIR",
-          "--provided-task-postgres"
+          "--evidence",
+          "$ACCEPTANCE_EVIDENCE_DIR"
         ]
       }
     ]
