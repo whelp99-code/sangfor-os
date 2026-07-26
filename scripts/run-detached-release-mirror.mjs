@@ -68,6 +68,10 @@ function fail(code, msg) {
   process.exit(code);
 }
 
+function abort(code, message) {
+  throw Object.assign(new Error(message), { exitCode: code });
+}
+
 function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
@@ -114,6 +118,21 @@ export function validateScmHandoff(handoffFile, candidateSha) {
     invalid("SCM handoff envelope identity or shape mismatch");
   }
   return Object.freeze({ file: canonicalFile, sha256: createHash("sha256").update(bytes).digest("hex") });
+}
+
+export function finalAcceptanceInnerArgv(contextFile, contextHash) {
+  return [
+    "bash",
+    "scripts/run-workspace-runtime.sh",
+    "root",
+    "--",
+    "node",
+    "scripts/run-final-acceptance.mjs",
+    "--mirror-context-file",
+    contextFile,
+    "--mirror-context-sha256",
+    contextHash,
+  ];
 }
 
 /**
@@ -1297,23 +1316,10 @@ export async function runDetachedReleaseMirrorMain(
             ["bash", "scripts/run-workspace-runtime.sh", scope, "--", "corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline"],
             ctx.makeChildEnv("install"),
           );
-          if (install.code !== 0) fail(66, `u076 ${scope} frozen install failed: ${install.stderr.slice(-2000)}`);
+          if (install.code !== 0) abort(66, `u076 ${scope} frozen install failed: ${install.stderr.slice(-2000)}`);
         }
         const inner = await ctx.spawnInMirror(
-          [
-            "bash",
-            "scripts/run-workspace-runtime.sh",
-            "root",
-            "--",
-            "corepack",
-            "pnpm",
-            "verify:final-acceptance",
-            "--",
-            "--mirror-context-file",
-            ctx.mirrorContextFile,
-            "--mirror-context-sha256",
-            ctx.mirrorContextHash,
-          ],
+          finalAcceptanceInnerArgv(ctx.mirrorContextFile, ctx.mirrorContextHash),
           ctx.makeChildEnv("generic", {
             U076_AUTHORITATIVE: "1",
             FINAL_CANDIDATE_SHA: candidateSha,
@@ -1326,12 +1332,12 @@ export async function runDetachedReleaseMirrorMain(
             RESOURCE_LEASE_FILE: resolve(resourceLeaseFile),
           }),
         );
-        if (inner.code !== 0) fail(65, `U076 inner acceptance failed: ${inner.stderr.slice(-4000)}`);
+        if (inner.code !== 0) abort(65, `U076 inner acceptance failed: ${inner.stderr.slice(-4000)}`);
         const lines = inner.stdout.split("\n").filter((line) => line.startsWith("U076_INNER_SUMMARY="));
-        if (lines.length !== 1) fail(64, "U076 inner summary marker missing or duplicated");
+        if (lines.length !== 1) abort(64, "U076 inner summary marker missing or duplicated");
         const summary = JSON.parse(lines[0].slice("U076_INNER_SUMMARY=".length));
         if (summary.candidateSha !== candidateSha || summary.state !== "LOCAL_PASS_EXTERNAL_PENDING" || summary.autonomousPassed !== 98 || summary.manualPending !== 1) {
-          fail(64, "U076 inner summary identity/state mismatch");
+          abort(64, "U076 inner summary identity/state mismatch");
         }
         return summary;
       },

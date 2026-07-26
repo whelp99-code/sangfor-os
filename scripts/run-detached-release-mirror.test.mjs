@@ -17,6 +17,7 @@ import { dirname } from "node:path";
 import {
   deriveRunnerContractChecks,
   evaluateNodeTestTap,
+  finalAcceptanceInnerArgv,
   runDetachedReleaseMirrorMain,
   validateScmHandoff,
 } from "./run-detached-release-mirror.mjs";
@@ -127,6 +128,21 @@ describe("run-detached-release-mirror", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("invokes final acceptance directly without a pnpm argument separator", () => {
+    assert.deepEqual(finalAcceptanceInnerArgv("/attempt/context.json", "f".repeat(64)), [
+      "bash",
+      "scripts/run-workspace-runtime.sh",
+      "root",
+      "--",
+      "node",
+      "scripts/run-final-acceptance.mjs",
+      "--mirror-context-file",
+      "/attempt/context.json",
+      "--mirror-context-sha256",
+      "f".repeat(64),
+    ]);
   });
   it("exit 64 on missing required args / bad mode", () => {
     const r = spawnSync(process.execPath, [SCRIPT], { encoding: "utf8" });
