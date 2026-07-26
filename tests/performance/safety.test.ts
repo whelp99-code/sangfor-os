@@ -90,6 +90,18 @@ describe("U075 perf:smoke safety contract", () => {
     expect(() => validateEnvironment()).toThrow("RESOURCE_LEASE_FILE");
   });
 
+  it("accepts a detached mirror lease-bound T-PERF evidence directory", async () => {
+    const { validateEvidenceBoundary } = await import("../../scripts/perf-smoke.mjs");
+    expect(() => validateEvidenceBoundary(
+      "/tmp/u076-attempt/aliases/T-PERF",
+      "/tmp/u076-attempt/leases/t-perf.json",
+    )).not.toThrow();
+    expect(() => validateEvidenceBoundary(
+      "/tmp/unbound/T-PERF",
+      "/tmp/u076-attempt/leases/t-perf.json",
+    )).toThrow("lease-bound T-PERF");
+  });
+
   it("rejects non-loopback PORT", async () => {
     process.env.TASK_RUN_ID = "test-run";
     process.env.TASK_OWNER_UNIT = "U075";

@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -32,8 +32,23 @@ export function validateEnvironment(env = process.env) {
   if (env.TASK_OWNER_UNIT !== "U075") fail("TASK_OWNER_UNIT must equal U075");
   const ports = [env.PORT, env.API_PORT].map(Number);
   if (!ports.every((port) => Number.isInteger(port) && port > 0 && port < 65_536) || ports[0] === ports[1]) fail("PORT/API_PORT must be distinct integer ports");
-  if (!resolve(env.ACCEPTANCE_EVIDENCE_DIR).startsWith(`${REPO_ROOT}/.omo/evidence/`)) fail("ACCEPTANCE_EVIDENCE_DIR must be under repository .omo/evidence");
+  validateEvidenceBoundary(env.ACCEPTANCE_EVIDENCE_DIR, env.RESOURCE_LEASE_FILE);
   return { webPort: ports[0], apiPort: ports[1] };
+}
+
+export function validateEvidenceBoundary(evidenceDirRaw, leaseFileRaw) {
+  if (!isAbsolute(evidenceDirRaw) || !isAbsolute(leaseFileRaw)) fail("evidence and lease paths must be absolute");
+  const evidenceDir = resolve(evidenceDirRaw);
+  const repositoryEvidenceRoot = resolve(REPO_ROOT, ".omo/evidence");
+  const repositoryRelative = relative(repositoryEvidenceRoot, evidenceDir);
+  const insideRepository = repositoryRelative !== "" && !repositoryRelative.startsWith("..") && !isAbsolute(repositoryRelative);
+  const leaseFile = resolve(leaseFileRaw);
+  const attemptRoot = dirname(dirname(leaseFile));
+  const leaseBoundAlias = dirname(dirname(evidenceDir)) === attemptRoot
+    && basename(dirname(evidenceDir)) === "aliases"
+    && basename(dirname(leaseFile)) === "leases"
+    && basename(evidenceDir) === "T-PERF";
+  if (!insideRepository && !leaseBoundAlias) fail("ACCEPTANCE_EVIDENCE_DIR must be repository evidence or the lease-bound T-PERF alias directory");
 }
 
 export async function assertPortFree(port) {
