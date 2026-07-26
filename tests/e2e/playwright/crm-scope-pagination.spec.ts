@@ -1,30 +1,25 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext, type BrowserContext } from "@playwright/test";
 import { resolve } from "node:path";
+import { installAuthProfile } from "./support/auth-profile";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3101";
 const EVIDENCE_DIR = resolve(process.env.ACCEPTANCE_EVIDENCE_DIR ?? "test-results/acceptance");
 
-async function login(request: APIRequestContext, role: "sales" | "viewer" = "sales"): Promise<string | null> {
-  const password = process.env.AUTH_DEMO_PASSWORD?.trim();
-  const res = await request.post(`${BASE}/api/auth/login`, {
-    data: password ? { password, role } : { role },
-    timeout: 15000,
-  });
-  if (!res.ok()) {
-    if (process.env.JWT_SECRET?.trim()) {
-      throw new Error(`login failed with JWT_SECRET configured (status ${res.status()})`);
-    }
-    return null;
-  }
-  const body = await res.json();
-  return (body.token as string) ?? null;
+async function login(
+  context: BrowserContext,
+  role: "sales_manager" | "account_manager" = "sales_manager",
+): Promise<{ request: APIRequestContext; token: string }> {
+  await installAuthProfile(context, role);
+  const session = (await context.cookies(BASE)).find((cookie) => cookie.name === "session");
+  if (!session?.value) throw new Error(`AUTH_PROFILE_SESSION_MISSING:${role}`);
+  return { request: context.request, token: session.value };
 }
 
 test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   // 1. Customers list & Scope verification
-  test("[customer] Sales & Viewer authentication and /customers scoped row verification", async ({ request, page }) => {
-    const salesToken = await login(request, "sales");
-    const headers = salesToken ? { Authorization: `Bearer ${salesToken}` } : {};
+  test("[customer] Sales & Viewer authentication and /customers scoped row verification", async ({ context, page }) => {
+    const { request, token: salesToken } = await login(context);
+    const headers = { Authorization: `Bearer ${salesToken}` };
 
     const listRes = await request.get(`${BASE}/api/customers`, { headers, timeout: 15000 });
     expect(listRes.ok()).toBeTruthy();
@@ -37,9 +32,9 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 2. Project-field-less create + Idempotency-Key retry
-  test("[customer] Customer create without project field + idempotency replay consistency", async ({ request }) => {
-    const token = await login(request, "sales");
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  test("[customer] Customer create without project field + idempotency replay consistency", async ({ context }) => {
+    const { request, token } = await login(context);
+    const headers = { Authorization: `Bearer ${token}` };
     const idempotencyKey = `e2e-idemp-${Date.now()}`;
 
     const createPayload = {
@@ -71,9 +66,9 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 3. /customers/<id> asset/renewal/support read model & stale version CAS conflict (409)
-  test("[customer] Customer detail read model & stale version CAS update 409 handling", async ({ request }) => {
-    const token = await login(request, "sales");
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  test("[customer] Customer detail read model & stale version CAS update 409 handling", async ({ context }) => {
+    const { request, token } = await login(context);
+    const headers = { Authorization: `Bearer ${token}` };
 
     const listRes = await request.get(`${BASE}/api/customers`, { headers, timeout: 15000 });
     if (listRes.ok()) {
@@ -108,9 +103,9 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 4. Archive current customer and verify removal from active list
-  test("[customer] Archive customer removes record from active list", async ({ request }) => {
-    const token = await login(request, "sales");
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  test("[customer] Archive customer removes record from active list", async ({ context }) => {
+    const { request, token } = await login(context);
+    const headers = { Authorization: `Bearer ${token}` };
 
     const listRes = await request.get(`${BASE}/api/customers`, { headers, timeout: 15000 });
     if (listRes.ok()) {
@@ -137,9 +132,9 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 5. Viewer role read-only & absence of mutation controls
-  test("[customer] Viewer role has read access but lacks UI mutation controls and CUD permissions", async ({ request, page }) => {
-    const viewerToken = await login(request, "viewer");
-    const headers = viewerToken ? { Authorization: `Bearer ${viewerToken}` } : {};
+  test("[customer] Viewer role has read access but lacks UI mutation controls and CUD permissions", async ({ context, page }) => {
+    const { request, token: viewerToken } = await login(context, "account_manager");
+    const headers = { Authorization: `Bearer ${viewerToken}` };
 
     const listRes = await request.get(`${BASE}/api/customers`, { headers, timeout: 15000 });
     expect(listRes.ok()).toBeTruthy();
@@ -149,9 +144,7 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
       headers,
       timeout: 15000,
     });
-    if (viewerToken && process.env.JWT_SECRET) {
-      expect(mutateRes.status()).toBe(403);
-    }
+    expect(mutateRes.status()).toBe(403);
 
     await page.goto(`${BASE}/customers`, { waitUntil: "domcontentloaded" });
     const createButton = page.locator('button:has-text("고객 추가"), button:has-text("Create"), a:has-text("고객 추가")');
@@ -159,9 +152,9 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 6. Cross-tenant isolation (Tenant A token cannot access Tenant B sentinel)
-  test("[customer] Tenant-A token cannot access Tenant-B sentinel customer", async ({ request }) => {
-    const tokenA = await login(request, "sales");
-    const headersA = tokenA ? { Authorization: `Bearer ${tokenA}` } : {};
+  test("[customer] Tenant-A token cannot access Tenant-B sentinel customer", async ({ context }) => {
+    const { request, token: tokenA } = await login(context);
+    const headersA = { Authorization: `Bearer ${tokenA}` };
 
     const sentinelId = "u043-customer-b-sentinel";
     const sentinelRes = await request.get(`${BASE}/api/customers/${sentinelId}`, { headers: headersA, timeout: 15000 });
@@ -174,9 +167,9 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 7. /deals 2-page cursor pagination without duplication or omission
-  test("[opportunity] /deals cursor pagination across 2 pages has zero duplication or omission", async ({ request }) => {
-    const token = await login(request, "sales");
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  test("[opportunity] /deals cursor pagination across 2 pages has zero duplication or omission", async ({ context }) => {
+    const { request, token } = await login(context);
+    const headers = { Authorization: `Bearer ${token}` };
 
     const page1Res = await request.get(`${BASE}/api/opportunities?first=2`, { headers, timeout: 15000 });
     expect(page1Res.ok()).toBeTruthy();
@@ -201,9 +194,9 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 8. Eligible owner assignment and detail reload persistence
-  test("[opportunity] Assign eligible owner to opportunity and verify reload persistence", async ({ request }) => {
-    const token = await login(request, "sales");
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  test("[opportunity] Assign eligible owner to opportunity and verify reload persistence", async ({ context }) => {
+    const { request, token } = await login(context);
+    const headers = { Authorization: `Bearer ${token}` };
 
     const listRes = await request.get(`${BASE}/api/opportunities`, { headers, timeout: 15000 });
     if (listRes.ok()) {
@@ -232,8 +225,8 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 9. /opportunities URL compatibility mapping to /deals
-  test("[opportunity] /opportunities route and detail URLs resolve to /deals suite", async ({ request, page }) => {
-    await login(request, "sales");
+  test("[opportunity] /opportunities route and detail URLs resolve to /deals suite", async ({ context, page }) => {
+    await login(context);
     await page.goto(`${BASE}/opportunities`, { waitUntil: "domcontentloaded" });
     expect(page.url()).toMatch(/\/deals|\/opportunities/);
 
@@ -242,8 +235,8 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 10. Multi-viewport screenshot capture (375px, 768px, 1280px) + DOM duplication check
-  test("[opportunity] Capture screenshots across 375px, 768px, 1280px viewports and verify single DOM hierarchy", async ({ request, page }) => {
-    await login(request, "sales");
+  test("[opportunity] Capture screenshots across 375px, 768px, 1280px viewports and verify single DOM hierarchy", async ({ context, page }) => {
+    await login(context);
     const viewports = [
       { width: 375, height: 667, name: "mobile" },
       { width: 768, height: 1024, name: "tablet" },
@@ -270,8 +263,8 @@ test.describe("CRM Scope & Pagination E2E User-Surface QA", () => {
   });
 
   // 11. Network response inspection: zero customer scope/actor internal fields leaked
-  test("[opportunity] Network log inspection verifies 0 leaked internal customer scope/actor fields", async ({ request, page }) => {
-    await login(request, "sales");
+  test("[opportunity] Network log inspection verifies 0 leaked internal customer scope/actor fields", async ({ context, page }) => {
+    await login(context);
     const leakedFields: string[] = [];
 
     page.on("response", async (response) => {
