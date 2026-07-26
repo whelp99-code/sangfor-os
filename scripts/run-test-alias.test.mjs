@@ -35,7 +35,8 @@ const writeMirrorArtifacts = async (root, mirror, candidateSha) => {
 const writeS9a = async (evidenceDir, finalCandidateSha) => {
   const directory = path.join(evidenceDir, "s9a"), rawFile = path.join(directory, "raw/receipt.json"); await mkdir(path.dirname(rawFile), { recursive: true });
   const raw = Buffer.from('{"result":"PASS"}\n'); await writeFile(rawFile, raw);
-  const receipt = { unit: "U009", alias: "T-OPS", runId: "ops-run", finalCandidateSha, pinnedDigest: `sha256:${"b".repeat(64)}`, postgresVersion: 16, exitCode: 0, checks: { dump: "PASS", restore: "PASS", hash: "PASS", sequence: "PASS", migration: "PASS" }, sentinelMatch: true, cleanup: { containers: 0, networks: 0, volumes: 0 }, rawReceiptRelativePath: "raw/receipt.json", rawReceiptSha256: sha256(raw) };
+  const checks = Object.fromEntries(["dump", "restore", "schema", "tableCount", "contentHash", "sequence", "constraint", "migrationIdempotency", "rpo", "rto"].map((key) => [key, "PASS"]));
+  const receipt = { schemaVersion: 1, unit: "U009", alias: "T-OPS", runId: "ops-run", finalCandidateSha, lockFileSha256: "c".repeat(64), imageDigest: `sha256:${"b".repeat(64)}`, postgresMajor: 16, restoreDrill: { argv: ["restore:drill"], exitCode: 0, rawReceiptRelativePath: "raw/receipt.json", rawReceiptSha256: sha256(raw), checks }, cleanup: { source: { containers: 0, networks: 0, volumes: 0 }, target: { containers: 0, networks: 0, volumes: 0 } }, result: "PASS", createdAt: "2026-07-27T00:00:00.000Z" };
   const receiptFile = path.join(directory, "receipt.json"), receiptBytes = Buffer.from(`${JSON.stringify(receipt)}\n`); await writeFile(receiptFile, receiptBytes); await writeFile(path.join(directory, "receipt.sha256"), `${sha256(receiptBytes)}\n`);
   return { receiptFile, rawFile, sidecarFile: path.join(directory, "receipt.sha256") };
 };

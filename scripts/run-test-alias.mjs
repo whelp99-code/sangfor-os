@@ -16,7 +16,7 @@ const MIRROR_RECEIPT_KEYS = ["build", "candidateSha", "childEnvKeySets", "cleanu
 const MACHINE_KEYS = ["cleanup", "fixme", "framework", "only", "outputs", "retried", "skipped", "testCount", "todo"];
 const CRM_MACHINE_KEYS = [...MACHINE_KEYS, "customerCaseIds", "executedCaseIds", "opportunityCaseIds"].sort();
 const DB_CONTRACT_STEPS = new Set(["principal-session-contract", "business-role-contract", "role-change-contract", "audit-chain-contract"]);
-const S9A_KEYS = ["alias", "checks", "cleanup", "exitCode", "finalCandidateSha", "pinnedDigest", "postgresVersion", "rawReceiptRelativePath", "rawReceiptSha256", "runId", "sentinelMatch", "unit"];
+const S9A_KEYS = ["alias", "cleanup", "createdAt", "finalCandidateSha", "imageDigest", "lockFileSha256", "postgresMajor", "restoreDrill", "result", "runId", "schemaVersion", "unit"];
 const SHA40 = /^[a-f0-9]{40}$/, SHA64 = /^[a-f0-9]{64}$/, UNIT = /^U(?:00[1-9]|0[1-6][0-9]|07[0-6])$/;
 
 class AliasRunnerError extends Error {}
@@ -143,10 +143,14 @@ const validateS9aReceiptBody = async (receiptFile, refs, evidenceDir) => {
   const rawMetadata = await lstat(rawFile), sidecarMetadata = await lstat(sidecarFile);
   if ([rawMetadata, sidecarMetadata].some((value) => value.isSymbolicLink() || !value.isFile()) || await realpath(rawFile) !== rawFile || await realpath(sidecarFile) !== sidecarFile) throw new AliasRunnerError("S9a receipt raw/sidecar must be canonical contained regular files");
   const rawBytes = await readFile(rawFile), sidecar = await readFile(sidecarFile, "utf8");
-  const checks = ["dump", "restore", "hash", "sequence", "migration"];
-  const clean = receipt.cleanup && ["containers", "networks", "volumes"].every((key) => receipt.cleanup[key] === 0);
-  const valid = same(Object.keys(receipt).sort(), S9A_KEYS) && receipt.unit === "U009" && receipt.alias === "T-OPS" && receipt.runId === refs.ALIAS_RUN_ID && receipt.finalCandidateSha === refs.FINAL_CANDIDATE_SHA && /^sha256:[a-f0-9]{64}$/.test(receipt.pinnedDigest ?? "")
-    && receipt.postgresVersion === 16 && receipt.exitCode === 0 && checks.every((key) => receipt.checks?.[key] === "PASS") && receipt.sentinelMatch === true && clean && receipt.rawReceiptRelativePath === "raw/receipt.json" && receipt.rawReceiptSha256 === hash(rawBytes) && sidecar === `${hash(receiptBytes)}\n`;
+  const checks = ["dump", "restore", "schema", "tableCount", "contentHash", "sequence", "constraint", "migrationIdempotency", "rpo", "rto"];
+  const clean = receipt.cleanup && ["source", "target"].every((side) =>
+    receipt.cleanup[side] && ["containers", "networks", "volumes"].every((key) => receipt.cleanup[side][key] === 0));
+  const drill = receipt.restoreDrill;
+  const valid = same(Object.keys(receipt).sort(), S9A_KEYS) && receipt.schemaVersion === 1 && receipt.unit === "U009" && receipt.alias === "T-OPS" && receipt.runId === refs.ALIAS_RUN_ID && receipt.finalCandidateSha === refs.FINAL_CANDIDATE_SHA
+    && SHA64.test(receipt.lockFileSha256 ?? "") && /^sha256:[a-f0-9]{64}$/.test(receipt.imageDigest ?? "") && receipt.postgresMajor === 16 && receipt.result === "PASS" && typeof receipt.createdAt === "string"
+    && drill && same(Object.keys(drill).sort(), ["argv", "checks", "exitCode", "rawReceiptRelativePath", "rawReceiptSha256"]) && Array.isArray(drill.argv) && drill.argv.length > 0 && drill.argv.every((value) => typeof value === "string" && value.length > 0)
+    && drill.exitCode === 0 && checks.every((key) => drill.checks?.[key] === "PASS") && clean && drill.rawReceiptRelativePath === "raw/receipt.json" && drill.rawReceiptSha256 === hash(rawBytes) && sidecar === `${hash(receiptBytes)}\n`;
   if (!valid) throw new AliasRunnerError("S9a receipt does not match final alias/run/PostgreSQL16 cleanup contract");
 };
 
@@ -212,7 +216,7 @@ const structuredContractCount = async ({ step, combined, evidenceDir }) => {
   }
   if (step.id === "fresh-s9a-final-candidate") {
     const receipt = JSON.parse(await readFile(path.join(evidenceDir, "s9a", "receipt.json"), "utf8"));
-    if (receipt.result === "PASS" && receipt.exitCode === 0) return 1;
+    if (receipt.result === "PASS" && receipt.restoreDrill?.exitCode === 0) return 1;
   }
   if (step.id === "performance-smoke") {
     const receipt = JSON.parse(await readFile(path.join(evidenceDir, "u075-receipt.json"), "utf8"));
