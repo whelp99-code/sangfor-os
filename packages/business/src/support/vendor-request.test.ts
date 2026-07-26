@@ -48,6 +48,7 @@ describe("U049: vendor-request service unit tests", () => {
       const tx = {
         userCompanyRole: { findFirst: vi.fn(async () => ({ id: "ucr1", userId: "u1" })) },
         quote: { findUniqueOrThrow: vi.fn(async () => ({ id: "q1", opportunityId: "opp1", totalRevenue: 1000, totalCost: 500 })) },
+        opportunity: { findUniqueOrThrow: vi.fn(async () => ({ customerId: "cust1" })) },
         vendorRequest: {
           findFirst: vi.fn(async () => null),
           create: vi.fn(async () => ({ id: "vreq1", status: "ready_for_manual_submission", revision: 0, ownershipRevision: 0 })),

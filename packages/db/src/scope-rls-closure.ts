@@ -50,6 +50,10 @@ function projectPredicate(table: string, projectColumn: string): string {
   ].join(' AND ');
 }
 
+function customerPredicate(table: string, customerColumn: string): string {
+  return `EXISTS (SELECT 1 FROM "customers" AS scope_customer JOIN "projects" AS scope_project ON scope_project."id" = scope_customer."project_id" JOIN "companies" AS scope_company ON scope_company."id" = scope_project."company_id" WHERE scope_customer."id" = ${quoteIdentifier(table)}.${quoteIdentifier(customerColumn)} AND scope_project."id" = current_setting('app.project_id', true) AND scope_project."company_id" = current_setting('app.company_id', true) AND scope_company."tenant_id" = current_setting('app.tenant_id', true))`;
+}
+
 function rootPredicate(entry: ScopeInventoryEntry, model: DmmfModel, table: string): string {
   if (entry.model === 'Tenant') {
     return `${quoteIdentifier(table)}."id" = current_setting('app.tenant_id', true)`;
@@ -62,6 +66,12 @@ function rootPredicate(entry: ScopeInventoryEntry, model: DmmfModel, table: stri
   }
   if (entry.model === 'SizingTemplate') {
     return `EXISTS (SELECT 1 FROM "product_families" AS scope_family JOIN "companies" AS scope_company ON scope_company."id" = scope_family."company_id" WHERE scope_family."id" = ${quoteIdentifier(table)}."product_family_id" AND scope_family."company_id" = current_setting('app.company_id', true) AND scope_company."tenant_id" = current_setting('app.tenant_id', true))`;
+  }
+  if (entry.model === 'Contact') {
+    return customerPredicate(table, 'customer_id');
+  }
+  if (entry.model === 'VendorRequest') {
+    return customerPredicate(table, 'customer_id');
   }
 
   if (entry.category === 'PROJECT_ROOT') {

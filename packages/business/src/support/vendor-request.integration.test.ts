@@ -65,12 +65,21 @@ describe.runIf(integration)("U049 Vendor Request Integration", () => {
     await migrationAdmin.tenant.create({ data: { id: "u049-tenant", slug: "u049-tenant", name: "U049", status: "active" } });
     await migrationAdmin.company.create({ data: { id: "u049-company", tenantId: "u049-tenant", slug: "u049-company", name: "U049 Co" } });
     await migrationAdmin.project.create({ data: { id: "u049-project", companyId: "u049-company", slug: "u049-project", name: "U049 Proj" } });
+    await migrationAdmin.customer.create({
+      data: { id: "u049-customer", projectId: "u049-project", name: "U049 Customer" },
+    });
 
     await migrationAdmin.user.create({ data: { id: "u049-sales", email: "u049-sales@sangfor.local", name: "u049-sales" } });
     await migrationAdmin.userCompanyRole.create({ data: { id: "ucr-u049-sales", companyId: "u049-company", userId: "u049-sales", role: "sales_manager", status: "active", validFrom: new Date(Date.now() - 3600000) } });
 
     const opp = await migrationAdmin.opportunity.create({
-      data: { id: "u049-opp1", projectId: "u049-project", title: "U049 Opp", stage: "PROPOSAL" },
+      data: {
+        id: "u049-opp1",
+        projectId: "u049-project",
+        customerId: "u049-customer",
+        title: "U049 Opp",
+        stage: "PROPOSAL",
+      },
     });
     (globalThis as any).__u049OppId = opp.id;
 

@@ -115,6 +115,14 @@ export async function createVendorRequest(
       throw new VendorRequestError("OPPORTUNITY_REQUIRED", "opportunityId or quoteId is required", 400);
     }
 
+    const opportunity = await tx.opportunity.findUniqueOrThrow({
+      where: { id: oppId },
+      select: { customerId: true },
+    });
+    if (!opportunity.customerId) {
+      throw new VendorRequestError("CUSTOMER_REQUIRED", "Opportunity must have a canonical customer", 409);
+    }
+
     if (cmd.requestType === "special_discount") {
       if (!cmd.quoteId) {
         throw new VendorRequestError("QUOTE_REQUIRED", "quoteId is required for special_discount request", 400);
@@ -135,6 +143,7 @@ export async function createVendorRequest(
     const vreq = await tx.vendorRequest.create({
       data: {
         opportunityId: oppId,
+        customerId: opportunity.customerId,
         quoteId: cmd.quoteId ?? null,
         discountRequestId: discountRequestId ?? null,
         requestType: cmd.requestType,
