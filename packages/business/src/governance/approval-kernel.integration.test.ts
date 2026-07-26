@@ -1,5 +1,6 @@
-import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -22,11 +23,9 @@ import {
 
 const integration = process.env.CI_INTEGRATION === "1";
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(HERE, "../../../..");
 const IMAGE_DIGEST = "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777";
 const RUN_ID = `u022it${Date.now().toString(36)}`;
-const EVIDENCE_DIR = join(REPO_ROOT, "tmp/u022-integration-evidence");
+const EVIDENCE_DIR = mkdtempSync(join(tmpdir(), "u022-integration-evidence-"));
 
 const TENANT = "u022-tenant-1";
 const COMPANY = "u022-company-1";
@@ -160,7 +159,11 @@ describe.skipIf(!integration)("approval-kernel (integration, requires Docker + C
 
   afterAll(async () => {
     await prisma?.$disconnect();
-    await cleanupFn?.();
+    try {
+      await cleanupFn?.();
+    } finally {
+      rmSync(EVIDENCE_DIR, { recursive: true, force: true });
+    }
   }, 60_000);
 
   it("creates pending@0, CASes to ready_for_human_approval@1, and the validity projection matches every snapshot field", async () => {
