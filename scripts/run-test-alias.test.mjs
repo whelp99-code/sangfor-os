@@ -222,6 +222,33 @@ test("structured CLI contracts ignore runtime diagnostics on stderr", async () =
   assert.equal(result.testCount, 1);
 });
 
+test("tenant restore drill accepts its strict successful payload", async () => {
+  const { deriveMachineResult } = await loadRunner();
+  const evidenceDir = await mkdtemp(path.join(tmpdir(), "u076-tenant-restore-contract-"));
+  const payload = {
+    evidenceDir,
+    imported: true,
+    idempotentReplay: true,
+    tableCounts: { companies: 1, projects: 1, customers: 2, customer_activity_logs: 1 },
+    remapCount: 6,
+    targetCounts: { companies: 1, projects: 1, customers: 2, customer_activity_logs: 1 },
+    tamperRejected: true,
+    crossScopeRejected: true,
+  };
+  const result = await deriveMachineResult({
+    raw: {
+      exitCode: 0,
+      signal: null,
+      stdout: Buffer.from(`[U074] PASS ${JSON.stringify(payload)}\n`),
+      stderr: Buffer.from("run-workspace-runtime: selected nvm.sh=/tmp/nvm.sh\n"),
+    },
+    step: { id: "tenant-restore-drill" },
+    evidenceDir,
+  });
+  assert.equal(result.framework, "structured-contract");
+  assert.equal(result.testCount, 1);
+});
+
 test("CLI fails closed on every Git revalidation error before leases or children", async () => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "u001-alias-cli-"))), mirror = path.join(root, "source");
   await Promise.all([mkdir(path.join(mirror, "scripts"), { recursive: true }), mkdir(path.join(mirror, "docs/12_VERIFICATION"), { recursive: true })]);

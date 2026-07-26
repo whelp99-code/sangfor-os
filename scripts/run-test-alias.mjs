@@ -211,8 +211,17 @@ const structuredContractCount = async ({ step, stdout, combined, evidenceDir }) 
   if (step.id === "operator-drills" && stdout.trim() === "Operator drills contract runner executed") return 1;
   if (step.id === "roi-contract" && stdout.trim() === "ROI contract runner executed") return 1;
   if (step.id === "tenant-restore-drill") {
-    const match = combined.match(/^\[U074\] PASS (\{.*\})$/m);
-    if (match && JSON.parse(match[1]).result === "PASS") return 1;
+    const match = stdout.match(/^\[U074\] PASS (\{.*\})$/m);
+    if (match) {
+      const result = JSON.parse(match[1]);
+      const countsPass = [result.tableCounts, result.targetCounts].every((counts) =>
+        counts && typeof counts === "object" && !Array.isArray(counts) && Object.values(counts).length > 0
+          && Object.values(counts).every((count) => Number.isInteger(count) && count > 0));
+      const valid = same(Object.keys(result).sort(), ["crossScopeRejected", "evidenceDir", "idempotentReplay", "imported", "remapCount", "tableCounts", "tamperRejected", "targetCounts"])
+        && typeof result.evidenceDir === "string" && path.isAbsolute(result.evidenceDir) && result.imported === true && result.idempotentReplay === true
+        && Number.isInteger(result.remapCount) && result.remapCount > 0 && result.tamperRejected === true && result.crossScopeRejected === true && countsPass;
+      if (valid) return 1;
+    }
   }
   if (step.id === "fresh-s9a-final-candidate") {
     const receipt = JSON.parse(await readFile(path.join(evidenceDir, "s9a", "receipt.json"), "utf8"));
