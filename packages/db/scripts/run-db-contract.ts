@@ -4771,7 +4771,9 @@ async function runRoleChangeSuite(evidenceDir: string): Promise<number> {
       { runId, ownerUnit: OWNER_UNIT_U024, purpose: `${PURPOSE_U024}-legacy`, evidenceDir: join(evidenceDir, 'legacy'), imageDigest: IMAGE_DIGEST, migrate: false },
       async (ctx: any) => {
         const conn = parseConn(ctx.databaseUrl);
-        const before = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).filter((name) => name !== NEW_MIGRATION_NAME_U024 && name !== NEW_MIGRATION_NAME_U032 && name !== NEW_MIGRATION_NAME_U033 && name !== NEW_MIGRATION_NAME_U034 && name !== NEW_MIGRATION_NAME_U035 && name !== NEW_MIGRATION_NAME_U036 && name !== NEW_MIGRATION_NAME_U037 && name !== NEW_MIGRATION_NAME_U038 && name !== NEW_MIGRATION_NAME_U039 && name !== NEW_MIGRATION_NAME_U040 && name !== NEW_MIGRATION_NAME_U041 && name !== NEW_MIGRATION_NAME_U042).sort();
+        const migrations = readdirSync(join(REAL_PRISMA_DIR, 'migrations'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+        const before = migrations.filter((name) => name < NEW_MIGRATION_NAME_U024);
+        const after = migrations.filter((name) => name >= NEW_MIGRATION_NAME_U024);
         const view = buildReadOnlyMigrationView('u024-legacy', before);
         try {
           verifyViewIntegrity(view, before);
@@ -4781,19 +4783,8 @@ async function runRoleChangeSuite(evidenceDir: string): Promise<number> {
           const loaded = await spawnCapture(['docker', 'exec', '-i', '-e', `PGPASSWORD=${conn.password}`, ctx.containerName, 'psql', '-h', '127.0.0.1', '-U', conn.user, '-d', conn.database, '-v', 'ON_ERROR_STOP=1'], sanitizedEnv({}), { input: fixture });
           if (loaded.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `legacy fixture load failed: ${loaded.stderr || loaded.stdout}`);
           const beforeStatus = await execSql(ctx.containerName, conn, `SELECT status || '|' || id FROM role_change_requests WHERE id='u024-legacy-role-change';`);
-          addMigrationToView(view, NEW_MIGRATION_NAME_U024);
-          addMigrationToView(view, NEW_MIGRATION_NAME_U032);
-          addMigrationToView(view, NEW_MIGRATION_NAME_U033);
-          addMigrationToView(view, NEW_MIGRATION_NAME_U034);
-          addMigrationToView(view, NEW_MIGRATION_NAME_U035);
-          addMigrationToView(view, NEW_MIGRATION_NAME_U036);
-          addMigrationToView(view, NEW_MIGRATION_NAME_U037);
-          addMigrationToView(view, NEW_MIGRATION_NAME_U038);
-          addMigrationToView(view, NEW_MIGRATION_NAME_U039);
-          addMigrationToView(view, NEW_MIGRATION_NAME_U040);
-          addMigrationToView(view, NEW_MIGRATION_NAME_U041);
-          addMigrationToView(view, NEW_MIGRATION_NAME_U042);
-          verifyViewIntegrity(view, [...before, NEW_MIGRATION_NAME_U024, NEW_MIGRATION_NAME_U032, NEW_MIGRATION_NAME_U033, NEW_MIGRATION_NAME_U034, NEW_MIGRATION_NAME_U035, NEW_MIGRATION_NAME_U036, NEW_MIGRATION_NAME_U037, NEW_MIGRATION_NAME_U038, NEW_MIGRATION_NAME_U039, NEW_MIGRATION_NAME_U040, NEW_MIGRATION_NAME_U041, NEW_MIGRATION_NAME_U042]);
+          for (const migration of after) addMigrationToView(view, migration);
+          verifyViewIntegrity(view, migrations);
           const deploy = await runWorkspaceMigrateDeploy(ctx.databaseUrl, view.schemaPath);
           if (deploy.code !== 0) throw new ContractFailure(EXIT.CONTRACT, `U024 deploy failed: ${deploy.stderr || deploy.stdout}`);
           const frozen = await execSql(ctx.containerName, conn, `SELECT status || '|' || legacy_status || '|' || legacy_unbound::text || '|' || revision::text FROM role_change_requests WHERE id='u024-legacy-role-change';`);
