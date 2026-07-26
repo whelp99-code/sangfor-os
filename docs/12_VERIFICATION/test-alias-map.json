@@ -547,9 +547,6 @@
         "env": {
           "CI_INTEGRATION": {
             "literal": "1"
-          },
-          "DATABASE_URL": {
-            "from": "TASK_OWNED_DATABASE_URL"
           }
         },
         "argv": [

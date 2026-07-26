@@ -1,5 +1,6 @@
-import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -10,10 +11,8 @@ import { withIsolatedPostgres } from "../../../../scripts/lib/isolated-postgres.
 import { createArtifactVersion, decideApprovalWithClient, evaluateArtifactRelease, submitApprovalRequest, type ApprovalKernelCaller } from "./index";
 
 const integration = process.env.CI_INTEGRATION === "1";
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(HERE, "../../../..");
 const IMAGE_DIGEST = "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777";
-const EVIDENCE_DIR = join(REPO_ROOT, ".omo/evidence/sangfor-system-refactor-2026-07-15/U023/attempt-1/integration-lifecycle");
+const EVIDENCE_DIR = mkdtempSync(join(tmpdir(), "u023-integration-evidence-"));
 const RUN_ID = `u023it${Date.now().toString(36)}`;
 const scope = { tenantId: "u023-tenant", companyId: "u023-company", projectId: "u023-project" };
 let prisma: PrismaClient;
@@ -46,7 +45,14 @@ describe.skipIf(!integration)("artifact service (U009 isolated PostgreSQL)", () 
     await prisma.artifact.create({ data: { id: "u023-artifact", ...scope, artifactType: "proposal", classification: "internal", origin: "human", title: "U023", createdByAssignmentId: "u023-assignment", ownerAssignmentId: "u023-assignment" } });
   }, 180_000);
 
-  afterAll(async () => { await prisma?.$disconnect(); await cleanup?.(); }, 60_000);
+  afterAll(async () => {
+    await prisma?.$disconnect();
+    try {
+      await cleanup?.();
+    } finally {
+      rmSync(EVIDENCE_DIR, { recursive: true, force: true });
+    }
+  }, 60_000);
 
   it("executes the U023 real-surface sequence: save v1, approve/evaluate, race v2, then stale/pending evaluation", async () => {
     const first = await prisma.$transaction((tx) => createArtifactVersion({ artifactId: "u023-artifact", expectedCurrentVersionId: null, expectedCurrentRevision: 0, content: '{"title":"v1"}', contentType: "application/json" }, caller(), tx));
