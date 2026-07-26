@@ -123,7 +123,14 @@ export async function startLmStudioFixture(): Promise<LmStudioFixture> {
     listenerCount: () => server.listeners("request").length,
     close: () =>
       new Promise<void>((resolve, reject) => {
-        server.close((err) => (err ? reject(err) : resolve()));
+        server.close((err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          server.removeAllListeners();
+          resolve();
+        });
       }),
   };
 }
