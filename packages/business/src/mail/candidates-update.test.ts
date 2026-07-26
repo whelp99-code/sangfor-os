@@ -1,10 +1,20 @@
-import { describe, expect, it, afterAll } from "vitest";
+import { describe, expect, it, afterAll, beforeAll } from "vitest";
 
 const integrationEnabled = process.env.CI_INTEGRATION === "1";
 
 describe.skipIf(!integrationEnabled)("rejectMailDerivedCandidate — A-8 rejection learning", () => {
   const tag = `test_REJ_${Date.now()}`;
+  const tenantId = `${tag}_tenant`;
+  const companyId = `${tag}_company`;
+  const projectId = `${tag}_project`;
   let candidateId: string | undefined;
+
+  beforeAll(async () => {
+    const { prisma } = await import("@sangfor/db");
+    await prisma.tenant.create({ data: { id: tenantId, slug: tenantId, name: tag, status: "active" } });
+    await prisma.company.create({ data: { id: companyId, tenantId, slug: companyId, name: tag } });
+    await prisma.project.create({ data: { id: projectId, companyId, slug: projectId, name: tag } });
+  });
 
   afterAll(async () => {
     const { prisma } = await import("@sangfor/db");
@@ -14,6 +24,9 @@ describe.skipIf(!integrationEnabled)("rejectMailDerivedCandidate — A-8 rejecti
       await prisma.mailDerivedCandidate.deleteMany({ where: { id: candidateId } });
       await prisma.improvementCandidate.deleteMany({ where: { sourceId: candidateId } });
     }
+    await prisma.project.deleteMany({ where: { id: projectId } });
+    await prisma.company.deleteMany({ where: { id: companyId } });
+    await prisma.tenant.deleteMany({ where: { id: tenantId } });
   });
 
   it("records a rejected-outcome DomainMemory for ANY reasonCode (negative learning)", async () => {
