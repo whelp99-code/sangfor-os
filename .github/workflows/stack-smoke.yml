@@ -41,7 +41,7 @@ jobs:
 
       - name: Assert health (bridge 3600 / console 3502 / mock 3400)
         run: |
-          probe() { curl -s -o /dev/null -w '%{http_code}' --max-time 4 "$1" || echo 000; }
+          probe() { curl -s -o /dev/null -w '%{http_code}' --max-time 4 -H "x-api-key: ${SANGFOR_API_KEY}" "$1" || echo 000; }
           fail=0
           for ep in \
             "bridge:3600|http://localhost:3600/health" \

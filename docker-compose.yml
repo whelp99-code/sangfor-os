@@ -126,6 +126,7 @@ services:
       - "3600:3600"
       - "3502:3502"
     environment:
+      HOST: 0.0.0.0
       PORT: 3600
       OPERATOR_CONSOLE_PORT: 3502
       AUTH_BYPASS_ENABLED: "0"
