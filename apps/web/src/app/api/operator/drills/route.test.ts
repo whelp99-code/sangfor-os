@@ -2,7 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 import { NextRequest } from "next/server";
 
-const mocks = vi.hoisted(() => ({ runSyntheticRemediationDrill: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  resolveBusinessRoleDashboardAuthContext: vi.fn(),
+  runSyntheticRemediationDrill: vi.fn(),
+}));
+
+type DashboardIdentity = {
+  userId: string;
+  sessionId: null;
+  tenantId: string;
+  companyId: string;
+  projectId: string;
+  product: string;
+};
 
 vi.mock("@/lib/auth/persisted-session", () => ({
   evaluatePersistedSessionFromRequest: vi.fn(async () => ({
@@ -13,11 +25,18 @@ vi.mock("@/lib/auth/persisted-session", () => ({
 vi.mock("@sangfor/business", () => ({
   isDrillScenario: vi.fn((value: unknown) => value === "stuck-approval"),
   runSyntheticRemediationDrill: mocks.runSyntheticRemediationDrill,
-  resolveCrmAuthContext: vi.fn(async (x: any) => ({ ...x, sessionId: "s1" })),
+  resolveBusinessRoleDashboardAuthContext: mocks.resolveBusinessRoleDashboardAuthContext,
 }));
 
 describe("POST /api/operator/drills", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.resolveBusinessRoleDashboardAuthContext.mockImplementation(async (x: DashboardIdentity) => ({
+      ...x,
+      sessionId: "s1",
+      businessRole: "system_admin",
+      permissions: ["system.admin"],
+    }));
     mocks.runSyntheticRemediationDrill.mockResolvedValue({ status: "SUCCESS", phases: [] });
   });
 
@@ -38,5 +57,21 @@ describe("POST /api/operator/drills", () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(503);
+  });
+
+  it("rejects a caller without system.admin", async () => {
+    mocks.resolveBusinessRoleDashboardAuthContext.mockImplementationOnce(async (x: DashboardIdentity) => ({
+      ...x,
+      sessionId: "s1",
+      businessRole: "account_manager",
+      permissions: ["opportunity.read"],
+    }));
+    const req = new NextRequest("http://localhost/api/operator/drills", {
+      method: "POST",
+      body: JSON.stringify({ scenario: "stuck-approval", idempotencyKey: "key-3" }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(403);
+    expect(mocks.runSyntheticRemediationDrill).not.toHaveBeenCalled();
   });
 });

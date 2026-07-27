@@ -9,7 +9,7 @@ export type NavItem = {
 
 export const PORTAL_NAV: NavItem[] = [
   // ═══ 홈 ═══
-  { title: "홈", href: "/home", icon: "home", group: "홈", tier: "primary" },
+  { title: "홈", href: "/", icon: "home", group: "홈", tier: "primary" },
   { title: "내 업무", href: "/my-work", icon: "layout-grid", group: "홈", tier: "primary" },
   { title: "인입함", href: "/inbox", icon: "inbox", group: "홈", tier: "primary" },
   { title: "AI 팀", href: "/ai-team", icon: "bot", group: "홈", tier: "primary" },

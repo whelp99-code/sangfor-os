@@ -135,9 +135,10 @@ async function main() {
 
   await prisma.supportSlaPolicy.upsert({
     where: { id: "sla-support-default" },
-    update: {},
+    update: { companyId: company.id },
     create: {
       id: "sla-support-default",
+      companyId: company.id,
       name: "기본 영업지원 SLA",
       responseTimeHrs: 24,
       resolutionTimeHrs: 48,

@@ -6,9 +6,11 @@ import type { DrillScenario, DrillRunResult } from "@sangfor/business";
 export function SyntheticDrillPanel() {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<DrillRunResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const runDrill = async (scenario: DrillScenario) => {
     setRunning(true);
+    setError(null);
     try {
       const res = await fetch("/api/operator/drills", {
         method: "POST",
@@ -16,7 +18,15 @@ export function SyntheticDrillPanel() {
         body: JSON.stringify({ scenario, idempotencyKey: `drill-ui-${Date.now()}` }),
       });
       const data = await res.json();
-      setResult(data);
+      if (Array.isArray(data.phases)) {
+        setResult(data);
+      } else {
+        setResult(null);
+        setError(data.error ?? "드릴 실행에 실패했습니다.");
+      }
+    } catch {
+      setResult(null);
+      setError("드릴 실행 서버에 연결할 수 없습니다.");
     } finally {
       setRunning(false);
     }
@@ -48,6 +58,8 @@ export function SyntheticDrillPanel() {
           AI Cost Spike 드릴
         </button>
       </div>
+
+      {error ? <p role="alert" className="text-xs text-red-600">{error}</p> : null}
 
       {result && (
         <div className="bg-gray-50 p-3 rounded text-xs space-y-2">

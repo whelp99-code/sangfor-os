@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
-import { isDrillScenario, runSyntheticRemediationDrill, resolveCrmAuthContext } from "@sangfor/business";
+import {
+  isDrillScenario,
+  resolveBusinessRoleDashboardAuthContext,
+  runSyntheticRemediationDrill,
+} from "@sangfor/business";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,10 +18,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "scenario and idempotencyKey required" }, { status: 400 });
     }
 
-    const authContext = await resolveCrmAuthContext({
+    const authContext = await resolveBusinessRoleDashboardAuthContext({
       userId: session.userId, sessionId: null,
       tenantId: session.tenantId, companyId: session.companyId, projectId: session.projectId, product: "portal",
     });
+    if (!authContext.permissions.includes("system.admin")) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
 
     const result = await runSyntheticRemediationDrill({ scenario, authContext, idempotencyKey });
     return NextResponse.json(result, { status: result.status === "SUCCESS" ? 200 : 503 });
