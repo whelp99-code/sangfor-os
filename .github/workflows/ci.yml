@@ -87,7 +87,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: postgresql://aios:aios_password@localhost:5432/aios_v2
       REDIS_URL: redis://localhost:6379
       CI_INTEGRATION: '0'
     services:
@@ -127,7 +126,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
       - run: pnpm db:migrate:deploy
+        env:
+          DATABASE_URL: postgresql://aios:aios_password@localhost:5432/aios_v2
       - run: pnpm db:seed
+        env:
+          DATABASE_URL: postgresql://aios:aios_password@localhost:5432/aios_v2
       - run: pnpm --filter "./packages/**" build
       - run: pnpm test:coverage
       - name: Upload coverage report
