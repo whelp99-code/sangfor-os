@@ -217,7 +217,7 @@ const JUNK_SUBSTRINGS = [
 // Exact-match junk names (not substrings — to avoid false-positives like 'Mailsoft')
 const JUNK_EXACT_NAMES = ['mails'];
 
-const JUNK_PREFIX_REGEX = /^(re|fw|fwd|re:|fw:)/i;
+const JUNK_PREFIX_REGEX = /^(?:(?:re|fw|fwd)\s*:|(?:re|fw|fwd)$)/i;
 
 /**
  * Returns true if the company name looks like noise (subject text, forward markers, etc.).
@@ -274,7 +274,10 @@ export function deriveEntityFromCandidate(input: {
     return { skip: true, reason: 'non_business_domain', name: '', domain };
   }
 
-  const name = companyNameFromDomain(domain);
+  const classifiedTitle = input.title?.match(/^(?:Customer|Partner):\s*(.+)$/i)?.[1]?.trim() ?? '';
+  const name = !KNOWN_DOMAIN_MAP[domain] && classifiedTitle && !isJunkCompanyName(classifiedTitle)
+    ? classifiedTitle
+    : companyNameFromDomain(domain);
 
   if (isJunkCompanyName(name)) {
     return { skip: true, reason: 'junk_name', name, domain };

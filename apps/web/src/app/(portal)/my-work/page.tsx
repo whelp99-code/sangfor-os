@@ -264,7 +264,11 @@ export default async function MyWorkPage() {
                       hasSummary: !!c.summary,
                     })}
                   />
-                  <SlipActions candidateId={c.id} detailHref={`/approvals/mail-candidates/${c.id}`} />
+                  <SlipActions
+                    candidateId={c.id}
+                    expectedUpdatedAt={c.updatedAt.toISOString()}
+                    detailHref={`/approvals/mail-candidates/${c.id}`}
+                  />
                 </div>
               );
             })

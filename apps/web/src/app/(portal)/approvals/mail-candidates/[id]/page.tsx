@@ -103,7 +103,11 @@ export default async function MailCandidateApprovalDetailPage({ params }: PagePr
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">{candidate.candidateType}</Badge>
             {candidate.candidateType === "customer" || candidate.candidateType === "partner" ? (
-              <CandidateTypeToggle candidateId={candidate.id} candidateType={candidate.candidateType} />
+              <CandidateTypeToggle
+                candidateId={candidate.id}
+                candidateType={candidate.candidateType}
+                expectedUpdatedAt={candidate.updatedAt.toISOString()}
+              />
             ) : null}
             <Badge variant={candidate.status === "converted" ? "secondary" : "outline"}>
               {candidate.status}
@@ -117,6 +121,7 @@ export default async function MailCandidateApprovalDetailPage({ params }: PagePr
           candidateId={candidate.id}
           status={candidate.status}
           requiresAiCheck={requiresAiCheck}
+          expectedUpdatedAt={candidate.updatedAt.toISOString()}
         />
       </div>
 
@@ -171,12 +176,14 @@ export default async function MailCandidateApprovalDetailPage({ params }: PagePr
 
       <Card>
         <CardHeader>
-          <CardTitle>승인 후 CRM / 제안서 연결</CardTitle>
+          <CardTitle>승인 후 운영 레코드 연결</CardTitle>
         </CardHeader>
         <CardContent>
           <ApproveConnectForm
             candidateId={candidate.id}
+            candidateType={candidate.candidateType}
             status={candidate.status}
+            expectedUpdatedAt={candidate.updatedAt.toISOString()}
             defaults={connectionDefaults}
           />
         </CardContent>

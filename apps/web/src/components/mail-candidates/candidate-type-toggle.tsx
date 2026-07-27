@@ -18,9 +18,11 @@ const TARGET_LABEL: Record<CorrectableType, string> = {
 export function CandidateTypeToggle({
   candidateId,
   candidateType,
+  expectedUpdatedAt,
 }: {
   candidateId: string;
   candidateType: CorrectableType;
+  expectedUpdatedAt: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -33,8 +35,15 @@ export function CandidateTypeToggle({
     setError(null);
     const res = await fetch(`/api/mail-candidates/${candidateId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "set_candidate_type", candidateType: target }),
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": `mail-candidate-set-type-${candidateId}-${crypto.randomUUID()}`,
+      },
+      body: JSON.stringify({
+        action: "set_candidate_type",
+        candidateType: target,
+        expectedUpdatedAt,
+      }),
     });
     if (res.ok) {
       toast.success(`${TARGET_LABEL[target]} 유형으로 교정했습니다.`);

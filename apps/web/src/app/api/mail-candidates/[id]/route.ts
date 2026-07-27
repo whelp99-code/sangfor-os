@@ -1,5 +1,6 @@
 import {
   approveMailDerivedCandidate,
+  executeScopedMailCandidateManualCommand,
   getScopedMailDerivedCandidate,
   revalidateMailDerivedCandidate,
 } from "@sangfor/business/mail-candidates";
@@ -19,6 +20,17 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("revalidate"),
     expectedUpdatedAt: z.string().datetime({ offset: true }),
+  }).strict(),
+  z.object({
+    action: z.literal("reject"),
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+    reasonCode: z.string().trim().min(1).max(100),
+    note: z.string().trim().max(2_000).optional(),
+  }).strict(),
+  z.object({
+    action: z.literal("set_candidate_type"),
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+    candidateType: z.enum(["customer", "partner"]),
   }).strict(),
 ]);
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
@@ -127,11 +139,18 @@ export async function PATCH(request: Request, { params }: Params) {
       });
       return NextResponse.json(result);
     }
-    const result = await revalidateMailDerivedCandidate(auth.ctx, id, {
-      expectedUpdatedAt: parsed.data.expectedUpdatedAt,
+    if (parsed.data.action === "revalidate") {
+      const result = await revalidateMailDerivedCandidate(auth.ctx, id, {
+        expectedUpdatedAt: parsed.data.expectedUpdatedAt,
+        idempotencyKey,
+      });
+      return NextResponse.json(result);
+    }
+    const candidate = await executeScopedMailCandidateManualCommand(auth.ctx, id, {
+      ...parsed.data,
       idempotencyKey,
     });
-    return NextResponse.json(result);
+    return NextResponse.json({ candidate });
   } catch (error) {
     return commandError(error);
   }

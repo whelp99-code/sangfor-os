@@ -23,10 +23,12 @@ const REJECT_REASONS = [
  */
 export function SlipActions({
   candidateId,
+  expectedUpdatedAt,
   detailHref,
   needsAiRevalidation,
 }: {
   candidateId: string;
+  expectedUpdatedAt: string;
   detailHref?: string;
   /** true면 승인 시 project_candidate_requires_ai_revalidation 로 막힌다는 뜻. */
   needsAiRevalidation?: boolean;
@@ -44,9 +46,14 @@ export function SlipActions({
     try {
       const res = await fetch(`/api/mail-candidates/${candidateId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": `mail-candidate-${action}-${candidateId}-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify(
-          action === "reject" ? { action: "reject", reasonCode } : { action: "approve" }
+          action === "reject"
+            ? { action: "reject", reasonCode, expectedUpdatedAt }
+            : { action: "approve", expectedUpdatedAt }
         ),
       });
       if (!res.ok) {

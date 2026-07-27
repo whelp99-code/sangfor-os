@@ -260,5 +260,6 @@ export async function approveAndConnectMailCandidate(
       expectedUpdatedAt: parsed.expectedUpdatedAt,
     }],
     idempotencyKey: parsed.idempotencyKey,
+    approveProposed: true,
   });
 }

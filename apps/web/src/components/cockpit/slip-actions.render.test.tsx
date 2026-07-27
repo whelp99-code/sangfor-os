@@ -12,7 +12,10 @@ import { SlipActions } from "./slip-actions";
 describe("SlipActions render", () => {
   it("throws without a ToastProvider ancestor (useToast contract)", () => {
     expect(() =>
-      renderToStaticMarkup(createElement(SlipActions, { candidateId: "cand-1" })),
+      renderToStaticMarkup(createElement(SlipActions, {
+        candidateId: "cand-1",
+        expectedUpdatedAt: "2026-07-27T00:00:00.000Z",
+      })),
     ).toThrow(/ToastProvider/);
   });
 
@@ -23,6 +26,7 @@ describe("SlipActions render", () => {
         null,
         createElement(SlipActions, {
           candidateId: "cand-1",
+          expectedUpdatedAt: "2026-07-27T00:00:00.000Z",
           detailHref: "/approvals/mail-candidates/cand-1",
         }),
       ),
@@ -38,7 +42,11 @@ describe("SlipActions render", () => {
       createElement(
         ToastProvider,
         null,
-        createElement(SlipActions, { candidateId: "cand-1", needsAiRevalidation: true }),
+      createElement(SlipActions, {
+        candidateId: "cand-1",
+        expectedUpdatedAt: "2026-07-27T00:00:00.000Z",
+        needsAiRevalidation: true,
+      }),
       ),
     );
     expect(html).toContain("AI 재검증 필요");
@@ -46,7 +54,10 @@ describe("SlipActions render", () => {
 
   it("omits the nudge when needsAiRevalidation is not set", () => {
     const html = renderToStaticMarkup(
-      createElement(ToastProvider, null, createElement(SlipActions, { candidateId: "cand-1" })),
+      createElement(ToastProvider, null, createElement(SlipActions, {
+        candidateId: "cand-1",
+        expectedUpdatedAt: "2026-07-27T00:00:00.000Z",
+      })),
     );
     expect(html).not.toContain("AI 재검증 필요");
   });

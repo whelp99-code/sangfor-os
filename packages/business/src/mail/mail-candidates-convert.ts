@@ -41,6 +41,7 @@ export const convertApprovedMailCandidatesSchema = z.object({
     }
   }),
   idempotencyKey: z.string().trim().min(1).max(128),
+  approveProposed: z.boolean().default(false),
 }).strict();
 
 export type ConvertApprovedMailCandidatesCommand = z.input<
@@ -113,6 +114,7 @@ function inputHash(
   ctx: AuthContext,
   actorAssignmentId: string,
   candidates: Array<{ id: string; expectedUpdatedAt: string }>,
+  approveProposed: boolean,
 ): string {
   return createHash("sha256")
     .update(canonicalizeRfc8785({
@@ -124,6 +126,7 @@ function inputHash(
       },
       actorAssignmentId,
       candidates,
+      approveProposed,
     }))
     .digest("hex");
 }
@@ -230,7 +233,7 @@ export async function convertApprovedMailCandidates(
 
   return withRlsTransaction(ctx, async (tx) => {
     const actor = await resolveConversionActor(tx, ctx);
-    const hash = inputHash(ctx, actor.id, ordered);
+    const hash = inputHash(ctx, actor.id, ordered, command.approveProposed);
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${deriveChainScopeKey(scope)}, 0))`;
     const prior = await tx.auditLog.findFirst({
       where: { chainScopeKey: deriveChainScopeKey(scope), idempotencyKey: auditKey },
@@ -262,12 +265,23 @@ export async function convertApprovedMailCandidates(
       if (!candidate) {
         throw new CrmServiceError("NOT_FOUND", 404, "mail_candidate_not_found");
       }
+      const statusAllowed = candidate.status === "approved" ||
+        (command.approveProposed && candidate.status === "proposed");
       if (
-        candidate.status !== "approved" ||
+        !statusAllowed ||
         candidate.updatedAt.getTime() !== new Date(expected.expectedUpdatedAt).getTime() ||
         candidate.createdEntityId !== null
       ) {
         throw new CrmServiceError("CONFLICT", 409, "mail_candidate_version_conflict");
+      }
+      if (command.approveProposed && ["task", "opportunity", "poc"].includes(candidate.candidateType)) {
+        const revalidation = asRecord(asRecord(candidate.metadata).aiRevalidation);
+        if (
+          revalidation.decision !== "approve_candidate" &&
+          revalidation.decision !== "needs_human_review"
+        ) {
+          throw new CrmServiceError("CONFLICT", 409, "project_candidate_requires_ai_revalidation");
+        }
       }
       return candidate;
     });
@@ -357,7 +371,7 @@ export async function convertApprovedMailCandidates(
       const changed = await tx.mailDerivedCandidate.updateMany({
         where: {
           id: candidate.id,
-          status: "approved",
+          status: candidate.status,
           updatedAt: candidate.updatedAt,
           createdEntityId: null,
         },

@@ -125,7 +125,7 @@ export async function runAutopilotPass(
   // 1) Reversal auto-demote (runs BEFORE scanning new candidates)
   const demoted = await checkReversalsAndDemote(client);
 
-  // 2) Scan dual-gate candidates (mirror mail-candidates-batch.ts pattern)
+  // 2) Scan candidates that satisfy the dual gate.
   const rawCandidates = await client.mailDerivedCandidate.findMany({
     where: { status: "proposed", confidence: { gte: 85 } },
     select: { id: true, candidateType: true, metadata: true },

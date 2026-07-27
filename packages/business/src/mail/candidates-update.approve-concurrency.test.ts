@@ -62,6 +62,7 @@ describe("approveMailDerivedCandidate compatibility delegate", () => {
         },
       ],
       idempotencyKey: "approve-candidate-1",
+      approveProposed: true,
     });
   });
 
@@ -82,6 +83,7 @@ describe("approveMailDerivedCandidate compatibility delegate", () => {
         ([ctx, command]) =>
           ctx === SALES &&
           command.idempotencyKey === "approve-candidate-1" &&
+          command.approveProposed === true &&
           command.candidates.length === 1,
       ),
     ).toBe(true);

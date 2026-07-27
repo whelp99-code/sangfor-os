@@ -14,9 +14,10 @@ const ACTION_SUCCESS: Record<"approve" | "reject" | "revalidate", string> = {
 };
 
 type Props = {
-  candidateId?: string;
-  status?: string;
+  candidateId: string;
+  status: string;
   requiresAiCheck?: boolean;
+  expectedUpdatedAt: string;
 };
 
 export function GenerateMailCandidatesButton() {
@@ -52,7 +53,12 @@ export function GenerateMailCandidatesButton() {
   );
 }
 
-export function MailCandidateActions({ candidateId, status, requiresAiCheck = false }: Props) {
+export function MailCandidateActions({
+  candidateId,
+  status,
+  requiresAiCheck = false,
+  expectedUpdatedAt,
+}: Props) {
   const router = useRouter();
   const toast = useToast();
   const [loading, setLoading] = useState<string | null>(null);
@@ -60,13 +66,19 @@ export function MailCandidateActions({ candidateId, status, requiresAiCheck = fa
   const [reasonCode, setReasonCode] = useState("weak_evidence");
 
   async function patch(action: "approve" | "reject" | "revalidate") {
-    if (!candidateId) return;
     setLoading(action);
     setError(null);
     const res = await fetch(`/api/mail-candidates/${candidateId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, ...(action === "reject" ? { reasonCode } : {}) }),
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": `mail-candidate-${action}-${candidateId}-${crypto.randomUUID()}`,
+      },
+      body: JSON.stringify({
+        action,
+        expectedUpdatedAt,
+        ...(action === "reject" ? { reasonCode } : {}),
+      }),
     });
     if (res.ok) {
       toast.success(ACTION_SUCCESS[action]);

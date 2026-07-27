@@ -1,9 +1,15 @@
-import type { AuthContext } from "@sangfor/auth";
-import { prisma, withRlsTransaction } from "@sangfor/db";
+import { createHash } from "node:crypto";
+
+import {
+  hasCapability,
+  isActiveProjectAssignment,
+  resolveActiveCompanyRole,
+  type AuthContext,
+} from "@sangfor/auth";
+import { canonicalizeRfc8785, prisma, withRlsTransaction, type Prisma } from "@sangfor/db";
 import { z } from "zod";
 
 import { createImprovementCandidateFromError } from "../orchestration/improvement-loop";
-import { resolveDefaultProjectId } from "../infrastructure/default-project";
 import { upsertPolicyMemory } from "./mail-policy-memory";
 import { upsertDomainMemory } from "../domain-ai/domain-memory";
 import { convertApprovedMailCandidates } from "./mail-candidates-convert";
@@ -20,6 +26,9 @@ import {
   toInputJson,
 } from "./classify-rules";
 import { recordDecision } from "../governance/ai-decision";
+import { appendAuditEvent } from "../governance/audit-db";
+import { deriveChainScopeKey } from "../governance/audit-chain";
+import { CrmServiceError } from "../crm/customer-partner";
 import { caseRefFor } from "../infrastructure/case-ref";
 
 const listMailCandidatesSchema = z.object({
@@ -77,65 +86,245 @@ export async function getScopedMailDerivedCandidate(ctx: AuthContext, id: string
   });
 }
 
-const rejectMailCandidateSchema = z.object({
-  reasonCode: z.string().min(1).default("manual_reject"),
-  note: z.string().optional(),
-});
+const manualCandidateCommandSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("reject"),
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+    idempotencyKey: z.string().trim().min(1).max(128),
+    reasonCode: z.string().trim().min(1).max(100),
+    note: z.string().trim().max(2_000).optional(),
+  }).strict(),
+  z.object({
+    action: z.literal("set_candidate_type"),
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+    idempotencyKey: z.string().trim().min(1).max(128),
+    candidateType: z.enum(["customer", "partner"]),
+  }).strict(),
+]);
 
-export async function rejectMailDerivedCandidate(
-  id: string,
-  input: z.input<typeof rejectMailCandidateSchema> = {},
-) {
-  const parsed = rejectMailCandidateSchema.parse(input);
-  const candidate = await getMailDerivedCandidate(id);
-  const projectId = await resolveDefaultProjectId(prisma);
-  const metadata = asRecord(candidate.metadata);
-  const rejection = {
-    reasonCode: parsed.reasonCode,
-    note: parsed.note,
-    rejectedAt: new Date().toISOString(),
-  };
-  const updated = await prisma.mailDerivedCandidate.update({
-    where: { id },
-    data: {
-      status: "rejected",
-      metadata: toInputJson({
-        ...metadata,
-        rejection,
-      }),
-    },
-  });
-  const domain = gtmDomainForCandidate(candidate.candidateType);
-  await recordDecision({
-    projectId,
-    domain,
-    actor: domain === "presales" ? "presales" : "sales",
-    actionType: "candidate_rejected",
-    caseRef: caseRefFor("mailCandidate", id),
-    outcome: "rejected",
-    input: toInputJson({
-      candidateType: candidate.candidateType,
-      title: candidate.title,
-      metadata,
+type ManualCandidateCommand = z.input<typeof manualCandidateCommandSchema>;
+
+async function resolveManualCandidateActor(tx: Prisma.TransactionClient, ctx: AuthContext) {
+  const now = new Date();
+  const [assignments, projectAssignment] = await Promise.all([
+    tx.userCompanyRole.findMany({
+      where: { userId: ctx.userId, companyId: ctx.companyId },
+      select: {
+        id: true,
+        userId: true,
+        companyId: true,
+        role: true,
+        status: true,
+        validFrom: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
     }),
-    output: toInputJson(rejection),
+    tx.projectMember.findFirst({
+      where: { userId: ctx.userId, projectId: ctx.projectId },
+      select: {
+        id: true,
+        userId: true,
+        projectId: true,
+        status: true,
+        validFrom: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    }),
+  ]);
+  const resolved = resolveActiveCompanyRole(assignments, now);
+  if (
+    !resolved.ok ||
+    !isActiveProjectAssignment(projectAssignment, now) ||
+    !hasCapability(resolved.role, "customer.write")
+  ) {
+    throw new CrmServiceError("FORBIDDEN", 403, "mail_candidate_manual_command_denied");
+  }
+  return resolved.assignment;
+}
+
+async function loadScopedCandidate(
+  tx: Prisma.TransactionClient,
+  ctx: AuthContext,
+  id: string,
+) {
+  const candidate = await tx.mailDerivedCandidate.findFirst({
+    where: { id },
+    include: { mailInsightThread: { select: { projectId: true } } },
   });
-  await createImprovementCandidateFromError({
-    sourceType: "mail_candidate_rejection",
-    sourceId: id,
-    message: `Mail candidate rejected: ${candidate.title} (${parsed.reasonCode})`,
-    details: {
-      candidateType: candidate.candidateType,
-      reasonCode: parsed.reasonCode,
-      note: parsed.note,
-      policyDecision: metadata.policyDecision,
-    },
-    severity: parsed.reasonCode === "internal_company" || parsed.reasonCode === "wrong_entity_role" ? "medium" : "low",
-    suggestedModule: "mail-policy-memory",
+  if (!candidate) {
+    throw new CrmServiceError("NOT_FOUND", 404, "mail_candidate_not_found");
+  }
+  const projectIds: string[] = [];
+  if (candidate.mailInsightThreadId) {
+    if (!candidate.mailInsightThread?.projectId) {
+      throw new CrmServiceError("NOT_FOUND", 404, "mail_candidate_not_found");
+    }
+    projectIds.push(candidate.mailInsightThread.projectId);
+  }
+  if (candidate.knowledgeDocumentId) {
+    const document = await tx.knowledgeDocument.findFirst({
+      where: { id: candidate.knowledgeDocumentId },
+      select: { projectId: true },
+    });
+    if (!document) {
+      throw new CrmServiceError("NOT_FOUND", 404, "mail_candidate_not_found");
+    }
+    projectIds.push(document.projectId);
+  }
+  if (
+    projectIds.length === 0 ||
+    new Set(projectIds).size !== 1 ||
+    projectIds.some((projectId) => projectId !== ctx.projectId)
+  ) {
+    throw new CrmServiceError("NOT_FOUND", 404, "mail_candidate_not_found");
+  }
+  return candidate;
+}
+
+function manualCommandHash(
+  ctx: AuthContext,
+  actorAssignmentId: string,
+  candidateId: string,
+  command: z.output<typeof manualCandidateCommandSchema>,
+) {
+  return createHash("sha256")
+    .update(canonicalizeRfc8785({
+      contract: "sangfor.mail_candidate.manual_command/v1",
+      scope: { tenantId: ctx.tenantId, companyId: ctx.companyId, projectId: ctx.projectId },
+      actorAssignmentId,
+      candidateId,
+      command,
+    }))
+    .digest("hex");
+}
+
+export async function executeScopedMailCandidateManualCommand(
+  ctx: AuthContext,
+  id: string,
+  rawCommand: ManualCandidateCommand,
+) {
+  const command = manualCandidateCommandSchema.parse(rawCommand);
+  const scope = {
+    tenantId: ctx.tenantId,
+    companyId: ctx.companyId,
+    projectId: ctx.projectId,
+    level: "PROJECT" as const,
+  };
+  const auditKey = `mail_candidate.${command.action}:${command.idempotencyKey}`;
+  const result = await withRlsTransaction(ctx, async (tx) => {
+    const actor = await resolveManualCandidateActor(tx, ctx);
+    const inputHash = manualCommandHash(ctx, actor.id, id, command);
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${deriveChainScopeKey(scope)}, 0))`;
+    const prior = await tx.auditLog.findFirst({
+      where: { chainScopeKey: deriveChainScopeKey(scope), idempotencyKey: auditKey },
+    });
+    if (prior) {
+      const details = prior.details && typeof prior.details === "object" && !Array.isArray(prior.details)
+        ? prior.details as Record<string, unknown>
+        : {};
+      if (
+        details.contract !== "sangfor.mail_candidate.manual_command/v1" ||
+        details.inputHash !== inputHash
+      ) {
+        throw new CrmServiceError("CONFLICT", 409, "mail_candidate_idempotency_conflict");
+      }
+      return { candidate: await loadScopedCandidate(tx, ctx, id), replayed: true };
+    }
+
+    const candidate = await loadScopedCandidate(tx, ctx, id);
+    if (candidate.updatedAt.getTime() !== new Date(command.expectedUpdatedAt).getTime()) {
+      throw new CrmServiceError("CONFLICT", 409, "mail_candidate_version_conflict");
+    }
+    if (candidate.status !== "proposed" && candidate.status !== "needs_revalidation") {
+      throw new CrmServiceError("CONFLICT", 409, "mail_candidate_status_conflict");
+    }
+    if (
+      command.action === "set_candidate_type" &&
+      !CORRECTABLE_CANDIDATE_TYPES.has(candidate.candidateType)
+    ) {
+      throw new CrmServiceError("CONFLICT", 409, "candidate_type_not_correctable");
+    }
+    const metadata = asRecord(candidate.metadata);
+    const changed = await tx.mailDerivedCandidate.updateMany({
+      where: { id, updatedAt: candidate.updatedAt, status: candidate.status },
+      data: command.action === "reject"
+        ? {
+            status: "rejected",
+            metadata: toInputJson({
+              ...metadata,
+              rejection: {
+                reasonCode: command.reasonCode,
+                note: command.note,
+                rejectedAt: new Date().toISOString(),
+              },
+            }),
+          }
+        : { candidateType: command.candidateType },
+    });
+    if (changed.count !== 1) {
+      throw new CrmServiceError("CONFLICT", 409, "mail_candidate_version_conflict");
+    }
+    const updated = await loadScopedCandidate(tx, ctx, id);
+    await appendAuditEvent(tx, {
+      scope,
+      eventType: command.action === "reject"
+        ? "mail_candidate.rejected"
+        : "mail_candidate.type_corrected",
+      actorId: actor.id,
+      resourceType: "mail_candidate",
+      resourceId: id,
+      idempotencyKey: auditKey,
+      details: {
+        contract: "sangfor.mail_candidate.manual_command/v1",
+        inputHash,
+        actorAssignmentId: actor.id,
+        result: {
+          candidateId: updated.id,
+          status: updated.status,
+          candidateType: updated.candidateType,
+          updatedAt: updated.updatedAt.toISOString(),
+        },
+      },
+    });
+    return { candidate: updated, replayed: false };
   });
-  await maybeProposePolicyMemoryFromRejection(updated, parsed.reasonCode);
-  await recordRejectionAsNegativeMemory(updated, parsed.reasonCode);
-  return updated;
+
+  if (!result.replayed && command.action === "reject") {
+    await createImprovementCandidateFromError({
+      sourceType: "mail_candidate_rejection",
+      sourceId: id,
+      message: `Mail candidate rejected: ${result.candidate.title} (${command.reasonCode})`,
+      details: {
+        candidateType: result.candidate.candidateType,
+        reasonCode: command.reasonCode,
+        note: command.note,
+        policyDecision: asRecord(result.candidate.metadata).policyDecision,
+      },
+      severity: command.reasonCode === "internal_company" || command.reasonCode === "wrong_entity_role"
+        ? "medium"
+        : "low",
+      suggestedModule: "mail-policy-memory",
+    });
+    await maybeProposePolicyMemoryFromRejection(result.candidate, command.reasonCode);
+    await recordRejectionAsNegativeMemory(result.candidate, command.reasonCode);
+  }
+  if (!result.replayed && command.action === "set_candidate_type") {
+    await recordDecision({
+      projectId: ctx.projectId,
+      domain: gtmDomainForCandidate(command.candidateType),
+      actor: "human",
+      actionType: "entity_edit",
+      caseRef: caseRefFor("mailCandidate", id),
+      outcome: "corrected",
+      humanEdit: {
+        previousCandidateType: command.candidateType === "customer" ? "partner" : "customer",
+        candidateType: command.candidateType,
+      },
+    });
+  }
+  return result.candidate;
 }
 
 /**
@@ -243,59 +432,11 @@ export async function approveMailDerivedCandidate(
   return convertApprovedMailCandidates(ctx, {
     candidates: [{ id, expectedUpdatedAt: command.expectedUpdatedAt }],
     idempotencyKey: command.idempotencyKey,
+    approveProposed: true,
   });
 }
-
-const setCandidateTypeSchema = z.object({
-  candidateType: z.enum(["customer", "partner"]),
-});
 
 const CORRECTABLE_CANDIDATE_TYPES = new Set(["customer", "partner"]);
-
-function isUniqueViolation(error: unknown): boolean {
-  return Boolean(
-    error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "P2002",
-  );
-}
-
-export async function setCandidateType(
-  id: string,
-  input: z.input<typeof setCandidateTypeSchema>,
-) {
-  const parsed = setCandidateTypeSchema.parse(input);
-  const candidate = await getMailDerivedCandidate(id);
-  if (!CORRECTABLE_CANDIDATE_TYPES.has(candidate.candidateType)) {
-    throw new Error("candidate_type_not_correctable");
-  }
-  const projectId = await resolveDefaultProjectId(prisma);
-
-  const previousCandidateType = candidate.candidateType;
-  let updated;
-  try {
-    updated = await prisma.mailDerivedCandidate.update({
-      where: { id },
-      data: { candidateType: parsed.candidateType },
-    });
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      throw new Error("candidate_type_conflict", { cause: error });
-    }
-    throw error;
-  }
-
-  // Best-effort decision spine capture — outside txn, never throws.
-  await recordDecision({
-    projectId,
-    domain: gtmDomainForCandidate(parsed.candidateType),
-    actor: "human",
-    actionType: "entity_edit",
-    caseRef: caseRefFor("mailCandidate", id),
-    outcome: "corrected",
-    humanEdit: { previousCandidateType, candidateType: parsed.candidateType },
-  });
-
-  return updated;
-}
 
 async function reinforcePolicyMemoryFromApproval(
   candidate: Awaited<ReturnType<typeof getMailDerivedCandidate>>,

@@ -835,7 +835,7 @@ export async function revalidateMailDerivedCandidate(
         contract: "sangfor.mail_candidate.revalidate/v1",
         inputHash: initial.inputHash,
         actorAssignmentId: actor.id,
-        result,
+        result: toInputJson(result),
       },
     });
     return { candidate: updated, revalidation };

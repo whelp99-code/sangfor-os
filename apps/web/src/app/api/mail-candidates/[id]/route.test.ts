@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   evaluateSession: vi.fn(),
   resolveContext: vi.fn(),
   approve: vi.fn(),
+  executeManual: vi.fn(),
   getScoped: vi.fn(),
   revalidate: vi.fn(),
 }));
@@ -24,6 +25,7 @@ vi.mock("@sangfor/business", () => ({
 }));
 vi.mock("@sangfor/business/mail-candidates", () => ({
   approveMailDerivedCandidate: mocks.approve,
+  executeScopedMailCandidateManualCommand: mocks.executeManual,
   getScopedMailDerivedCandidate: mocks.getScoped,
   revalidateMailDerivedCandidate: mocks.revalidate,
 }));
@@ -83,6 +85,11 @@ beforeEach(() => {
     candidate: { id: "candidate-1" },
     revalidation: { decision: "needs_human_review" },
   });
+  mocks.executeManual.mockResolvedValue({
+    id: "candidate-1",
+    status: "rejected",
+    updatedAt: new Date("2026-07-24T00:00:01.000Z"),
+  });
 });
 
 describe("GET/PATCH /api/mail-candidates/[id]", () => {
@@ -135,6 +142,31 @@ describe("GET/PATCH /api/mail-candidates/[id]", () => {
   });
 
   it.each([
+    {
+      body: {
+        action: "reject",
+        expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+        reasonCode: "weak_evidence",
+      },
+    },
+    {
+      body: {
+        action: "set_candidate_type",
+        expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+        candidateType: "partner",
+      },
+    },
+  ])("delegates $body.action through the scoped manual command", async ({ body }) => {
+    const response = await PATCH(request(body), params());
+
+    expect(response.status).toBe(200);
+    expect(mocks.executeManual).toHaveBeenCalledWith(SALES, "candidate-1", {
+      ...body,
+      idempotencyKey: "mail-candidate-command-1",
+    });
+  });
+
+  it.each([
     "tenantId",
     "companyId",
     "projectId",
@@ -156,7 +188,7 @@ describe("GET/PATCH /api/mail-candidates/[id]", () => {
     expect(mocks.approve).not.toHaveBeenCalled();
   });
 
-  it("rejects a missing key, stale-shape action, and missing expected version", async () => {
+  it("rejects a missing key, unknown action, and missing expected version", async () => {
     const missingKey = await PATCH(
       request(
         {
@@ -167,13 +199,18 @@ describe("GET/PATCH /api/mail-candidates/[id]", () => {
       ),
       params(),
     );
-    const legacyAction = await PATCH(
+    const unknownAction = await PATCH(
+      request({ action: "delete", expectedUpdatedAt: "2026-07-24T00:00:00.000Z" }),
+      params(),
+    );
+    const missingVersion = await PATCH(
       request({ action: "set_candidate_type", candidateType: "partner" }),
       params(),
     );
 
     expect(missingKey.status).toBe(422);
-    expect(legacyAction.status).toBe(422);
+    expect(unknownAction.status).toBe(422);
+    expect(missingVersion.status).toBe(422);
     expect(mocks.approve).not.toHaveBeenCalled();
   });
 });

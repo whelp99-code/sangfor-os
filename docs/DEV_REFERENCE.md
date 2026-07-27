@@ -501,6 +501,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ---
 
 ## 변경 이력
+- **2026-07-27**: U076 100건 격리 실사용 검증 — 이메일 학습 50건과 사용자 UI 입력 50건을 실제 입력해 메일 스레드 50·후보 130·직접 고객 50을 확인하고 승인/반려/AI 재검증/유형교정/연결 산출물을 표본 실측했다. CAS·멱등성·RLS·감사 JSON·회사명 도출·연결 UI 결함을 수정하고 비스코프 레거시 배치/거부/유형수정 경로를 제거했다. 테스트 행·JWT 픽스처·격리 Docker 자원은 모두 삭제했으며 Grok 독립 감사와 Node 20 전체 품질 게이트가 PASS했다. 상세 범위와 과장 금지 경계는 [`docs/plans/2026-07-27-u076-real-use-100.md`](plans/2026-07-27-u076-real-use-100.md)에 기록했다.
 - **2026-07-26**: U068/U073/U074 DB closure 보강 — scheduler 실통합 테스트, 198-model 중 187 scoped table의 FORCE RLS와 94개 CHILD_VIA_FK parent-EXISTS 정책, U009 격리 tenant-selective restore 실행기(식별자 allowlist·결정적 remap·hash 기반 멱등성)를 추가했다. 복구 멱등 ledger로 `_prisma_migrations`를 사용하지 않는다.
 - **2026-07-25**: AI 품질 커널 (U054) 안착 — policyKey/slot/quorum 규격, writer/lookup 커맨드, 409 에러 코드, user separation 규칙 및 qualityPassed ≠ 승인/발송 구분 명시.
 - **2026-07-17**: Canonical requirement/acceptance registry 동결 — 28 requirements, 71 acceptance, 99-row owner/closure manifest, evidence schema, 23-alias/63-step execution map, exact-set validator를 연결하고 C1–C5/W1–W5 제외 범위를 명시했다.

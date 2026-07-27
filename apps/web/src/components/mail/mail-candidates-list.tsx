@@ -205,6 +205,7 @@ export async function MailCandidatesList() {
                   <MailCandidateActions
                     candidateId={candidate.id}
                     status={candidate.status}
+                    expectedUpdatedAt={candidate.updatedAt.toISOString()}
                     requiresAiCheck={isProjectCandidate(candidate.candidateType) && !hasAiRevalidation(candidate.metadata)}
                   />
                 </CardHeader>
