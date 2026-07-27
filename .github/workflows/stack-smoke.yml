@@ -21,6 +21,9 @@ jobs:
   container-stack:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      SANGFOR_API_KEY: stack-smoke-key-0000000000000000
+      SANGFOR_OPERATOR_PRINCIPAL_ID: stack-smoke-operator
     steps:
       - uses: actions/checkout@v4
 
