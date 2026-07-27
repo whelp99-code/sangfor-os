@@ -88,6 +88,17 @@ if [[ "$_pkg_mgr" != "pnpm@10.28.1" ]]; then
   die64 "packageManager mismatch: expected pnpm@10.28.1, got ${_pkg_mgr}"
 fi
 
+# GitHub setup-node installs the requested runtime outside nvm. Trust that
+# hosted-toolcache runtime only when its major exactly matches this workspace;
+# otherwise continue through the deterministic nvm selection below.
+if [[ -n "${RUNNER_TOOL_CACHE:-}" ]] && command -v node >/dev/null 2>&1; then
+  _preselected_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+  if [[ "$_preselected_major" == "$WS_MAJOR" ]]; then
+    printf 'run-workspace-runtime: using setup-node major=%s\n' "$WS_MAJOR" >&2
+    exec "$@"
+  fi
+fi
+
 # --- NVM discovery (deterministic priority + realpath canonicalize + dedupe) ---
 _canonical_realpath() {
   local p="$1"

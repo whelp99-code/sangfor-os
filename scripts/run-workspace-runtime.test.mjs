@@ -190,6 +190,22 @@ test("NVM zero candidates -> exit 69", () => {
   assert.equal(r.status, 69, r.stderr);
 });
 
+test("setup-node runtime works without an nvm installation", () => {
+  const empty = makeTemp();
+  const r = runWrapper(["root", "--", "node", "-e", "process.stdout.write(process.versions.node)"], {
+    env: {
+      HOME: empty,
+      NVM_DIR: join(empty, "nvm-missing"),
+      XDG_CONFIG_HOME: join(empty, "xdg"),
+      RUNNER_TOOL_CACHE: join(empty, "hostedtoolcache"),
+      PATH: process.env.PATH,
+    },
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /using setup-node major=20/);
+  assert.match(r.stdout, /^20\./);
+});
+
 // --- child exit 37 propagates ---
 
 test("fake child exit 37 propagates as 37", () => {

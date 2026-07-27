@@ -139,14 +139,16 @@ export function assertWorkflowMcpPreflight(
   return Object.freeze({ mcpApiKey, principalId });
 }
 
-function resolveEngineerTsx(engineerRoot: string): string {
-  const localTsx = join(engineerRoot, 'node_modules/tsx/dist/cli.mjs');
-  if (existsSync(localTsx)) return localTsx;
-  const pnpmTsx = join(
-    engineerRoot,
-    'node_modules/.pnpm/tsx@4.22.4/node_modules/tsx/dist/cli.mjs',
-  );
-  if (existsSync(pnpmTsx)) return pnpmTsx;
+function resolveEngineerTsx(engineerRoot: string, workflowRoot: string): string {
+  for (const root of [engineerRoot, workflowRoot]) {
+    const localTsx = join(root, 'node_modules/tsx/dist/cli.mjs');
+    if (existsSync(localTsx)) return localTsx;
+    const pnpmTsx = join(
+      root,
+      'node_modules/.pnpm/tsx@4.22.4/node_modules/tsx/dist/cli.mjs',
+    );
+    if (existsSync(pnpmTsx)) return pnpmTsx;
+  }
   throw new UnsafeAuthConfigurationError('engineer MCP tsx CLI unavailable');
 }
 
@@ -171,7 +173,7 @@ export function createDomainSeparatedEngineerMcpLaunch(
   if (!existsSync(serverPath) || !existsSync(tsconfigPath)) {
     throw new UnsafeAuthConfigurationError('engineer MCP runtime unavailable');
   }
-  const args = Object.freeze([resolveEngineerTsx(engineerRoot), serverPath]);
+  const args = Object.freeze([resolveEngineerTsx(engineerRoot, workflowRoot), serverPath]);
   const env = Object.freeze({
     PATH: path,
     HOME: home,
