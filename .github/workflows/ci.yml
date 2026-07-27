@@ -89,7 +89,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://aios:aios_password@localhost:5432/aios_v2
       REDIS_URL: redis://localhost:6379
-      CI_INTEGRATION: '1'
+      CI_INTEGRATION: '0'
     services:
       postgres:
         image: postgres:16-alpine
@@ -115,6 +115,8 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v4
         with:

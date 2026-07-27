@@ -10,7 +10,7 @@ const runnerPath = resolve(DB_ROOT, 'scripts/verify-domain-migrations.mjs');
 
 function runnerEnv() {
   const env: NodeJS.ProcessEnv = {};
-  for (const key of ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TERM', 'NVM_DIR', 'COREPACK_HOME', 'PNPM_HOME', 'TMPDIR']) {
+  for (const key of ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TERM', 'NVM_DIR', 'COREPACK_HOME', 'PNPM_HOME', 'RUNNER_TOOL_CACHE', 'TMPDIR']) {
     if (process.env[key]) env[key] = process.env[key];
   }
   return env;
