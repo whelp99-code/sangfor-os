@@ -12,8 +12,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, "../../../../..");
 const WEB_APP_ROOT = resolve(REPO_ROOT, "apps/web");
 
-function rgList(pattern: string): string[] {
-  const out = execFileSync("rg", ["-l", pattern, "apps/web/src/app/api", "-g", "route.ts"], {
+function guardedRouteList(pattern: string): string[] {
+  const out = execFileSync("git", ["grep", "-l", "-E", pattern, "--", "apps/web/src/app/api/**/route.ts"], {
     cwd: REPO_ROOT,
     encoding: "utf8",
   });
@@ -24,10 +24,10 @@ function rgList(pattern: string): string[] {
 }
 
 function deriveCurrentCoverageSet(): string[] {
-  const assertApiAccess = rgList("assertApiAccess\\(");
-  const authorizeOperatorRequest = rgList("authorizeOperatorRequest\\(");
-  const evaluatePersistedSession = rgList("evaluatePersistedSessionFromRequest\\(");
-  const verifyInternalPrincipal = rgList("verifyInternalPrincipal\\(");
+  const assertApiAccess = guardedRouteList("assertApiAccess\\(");
+  const authorizeOperatorRequest = guardedRouteList("authorizeOperatorRequest\\(");
+  const evaluatePersistedSession = guardedRouteList("evaluatePersistedSessionFromRequest\\(");
+  const verifyInternalPrincipal = guardedRouteList("verifyInternalPrincipal\\(");
   const union = new Set([...assertApiAccess, ...authorizeOperatorRequest, ...evaluatePersistedSession, ...verifyInternalPrincipal]);
   return [...union].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
