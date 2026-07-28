@@ -16,7 +16,7 @@ test.describe('Approval Flow', () => {
     expect(res.ok()).toBeTruthy()
   })
   test('Color agent review status displayed', async ({ request }) => {
-    const res = await request.get(`${BASE}/agents`, { timeout: 10000 })
+    const res = await request.get(`${BASE}/ai-team`, { timeout: 10000 })
     const body = await res.text()
     expect(body).toContain('Blue')
     expect(body).toContain('Red')

@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { resolve } from "node:path";
 
 // Overridable so a lane other than the default 3101/3200 pair can run this
 // suite without colliding with another local instance (e.g. another worktree's
@@ -8,16 +9,34 @@ import { defineConfig } from "@playwright/test";
 // callers don't also have to set BASE_URL / API_BASE_URL by hand.
 const WEB_PORT = process.env.PORT ?? "3101";
 const API_PORT = process.env.API_PORT ?? "3200";
-process.env.BASE_URL ??= `http://localhost:${WEB_PORT}`;
-process.env.API_BASE_URL ??= `http://localhost:${API_PORT}`;
+process.env.BASE_URL ??= `http://127.0.0.1:${WEB_PORT}`;
+process.env.API_BASE_URL ??= `http://127.0.0.1:${API_PORT}`;
+const authStorageStateDirectory = process.env.UX_AUTH_STORAGE_STATE_DIR?.trim();
 
 export default defineConfig({
   testDir: "./tests/e2e/playwright",
+  testMatch: [
+    "agent-automation.spec.ts",
+    "api-business.spec.ts",
+    "approval-flow.spec.ts",
+    "business-api.spec.ts",
+    "business-crm.spec.ts",
+    "color-agent.spec.ts",
+    "core-flow-smoke.spec.ts",
+    "finance.spec.ts",
+    "navigation.spec.ts",
+    "role-dashboards.spec.ts",
+    "system-health.spec.ts",
+    "system.spec.ts",
+  ],
   timeout: 90_000,
   workers: 1,
   retries: 1,
   use: {
     baseURL: process.env.BASE_URL,
+    storageState: authStorageStateDirectory
+      ? resolve(authStorageStateDirectory, "ceo.json")
+      : undefined,
     headless: true,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
