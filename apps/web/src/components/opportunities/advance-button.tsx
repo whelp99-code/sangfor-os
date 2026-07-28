@@ -28,7 +28,10 @@ export function AdvanceOpportunityButton({
     try {
       const res = await fetch(`/api/opportunities/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
         body: JSON.stringify({ action: "advance", expectedUpdatedAt }),
       });
       if (!res.ok) {

@@ -1,45 +1,93 @@
-/**
- * 인증 미들웨어
- * 
- * API 키 기반 인증 (fail-fast)
- */
+import type { NextFunction, Request, Response } from 'express';
+import {
+  IdentityConflictError,
+  authenticateWorkflowApiKey,
+  enforceServerIdentity,
+  stripCallerIdentityFields,
+  type AuthContext,
+} from '../../../../packages/shared/src/mutation-policy.js';
 
-import { Request, Response, NextFunction } from 'express';
-import { timingSafeEqual } from 'crypto';
-import { createLogger } from '@sangfor/workflow-shared';
+type ServerPrincipal = {
+  readonly principalId: string;
+  readonly role: string;
+  readonly source: string;
+};
 
-const log = createLogger('auth-middleware');
+type AuthLocals = {
+  authContext?: ServerPrincipal;
+};
 
-// 환경변수 미설정 시 서버 기동 거부
-const API_KEY = process.env.SANGFOR_API_KEY as string;
-if (!API_KEY) {
-  throw new Error('SANGFOR_API_KEY environment variable is required');
+function readPresentedKey(request: Request): string | undefined {
+  const value = request.headers['x-api-key'];
+  return typeof value === 'string' ? value : undefined;
 }
 
-/**
- * API 키 인증 미들웨어
- * 
- * X-API-Key 헤더 검증
- * 타이밍 공격 방지를 위해 timingSafeEqual 사용
- */
-export function apiKeyAuth(req: Request, res: Response, next: NextFunction) {
-  const apiKey = req.headers['x-api-key'] as string;
-  
-  if (!apiKey) {
-    log.warn(`API key missing for ${req.method} ${req.path}`);
-    return res.status(401).json({ error: 'API key required' });
+function readServerPrincipal(response: Response<unknown, AuthLocals>): ServerPrincipal | undefined {
+  return response.locals.authContext;
+}
+
+export function apiKeyAuth(
+  request: Request,
+  response: Response<unknown, AuthLocals>,
+  next: NextFunction,
+): void {
+  if (readServerPrincipal(response)) {
+    next();
+    return;
   }
-  
-  // 타이밍 공격 방지
-  const apiKeyBuffer = Buffer.from(apiKey);
-  const validKeyBuffer = Buffer.from(API_KEY);
-  
-  if (apiKeyBuffer.length !== validKeyBuffer.length || 
-      !timingSafeEqual(apiKeyBuffer, validKeyBuffer)) {
-    log.warn(`Invalid API key for ${req.method} ${req.path}`);
-    return res.status(401).json({ error: 'Invalid API key' });
+
+  const context = authenticateWorkflowApiKey(readPresentedKey(request), {
+    apiKey: process.env.SANGFOR_API_KEY,
+    principalId: process.env.SANGFOR_OPERATOR_PRINCIPAL_ID,
+  });
+  if (!context) {
+    response.status(401).json({ error: 'UNAUTHENTICATED' });
+    return;
   }
-  
-  log.info(`Authenticated ${req.method} ${req.path}`);
+
+  response.locals.authContext = context;
   next();
+}
+
+export function requireOperatorContext(
+  _request: Request,
+  response: Response<unknown, AuthLocals>,
+  next: NextFunction,
+): void {
+  const context = readServerPrincipal(response);
+  if (!context) {
+    response.status(401).json({ error: 'UNAUTHENTICATED' });
+    return;
+  }
+  if (context.role !== 'operator' || context.source !== 'api_key') {
+    response.status(403).json({ error: 'FORBIDDEN' });
+    return;
+  }
+  next();
+}
+
+export function getOperatorContext(response: Response<unknown, AuthLocals>): AuthContext {
+  const context = readServerPrincipal(response);
+  if (!context || context.role !== 'operator' || context.source !== 'api_key') {
+    throw new TypeError('Operator middleware did not establish an operator context');
+  }
+  return { principalId: context.principalId, role: 'operator', source: 'api_key' };
+}
+
+export function identityConflictGuard(
+  request: Request,
+  response: Response<unknown, AuthLocals>,
+  next: NextFunction,
+): void {
+  try {
+    enforceServerIdentity(getOperatorContext(response), request.body);
+    request.body = stripCallerIdentityFields(request.body);
+    next();
+  } catch (error) {
+    if (error instanceof IdentityConflictError) {
+      response.status(400).json({ error: error.code });
+      return;
+    }
+    throw error;
+  }
 }

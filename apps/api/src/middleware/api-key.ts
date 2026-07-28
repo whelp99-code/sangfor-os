@@ -1,5 +1,29 @@
 import type { Request, Response, NextFunction } from 'express'
 import { ApiKeyManager, createDevelopmentAuthContext, type Role, type BusinessRole } from '@sangfor/auth'
+import { isLocalMockAuthEnabled } from './auth'
+
+export const UNSAFE_AUTH_CONFIGURATION = 'UNSAFE_AUTH_CONFIGURATION' as const
+
+const MIN_SERVICE_KEY_LENGTH = 24
+
+function configuredServiceKey(value: string | undefined): boolean {
+  return (value?.trim().length ?? 0) >= MIN_SERVICE_KEY_LENGTH
+}
+
+export function productionAuthConfigurationIsSafe(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.NODE_ENV !== 'production') return true
+  if (env.AUTH_BYPASS_ENABLED === '1' || env.API_KEY_BYPASS_ENABLED === '1') return false
+  if (env.AUTH_PROFILE === 'local_mock') return false
+  if (!configuredServiceKey(env.API_KEY) || !configuredServiceKey(env.FINANCE_API_KEY)) return false
+  if (env.API_KEY?.trim() === env.FINANCE_API_KEY?.trim()) return false
+  if (!(env.SANGFOR_API_KEY?.trim())) return false
+  return (env.SANGFOR_OPERATOR_PRINCIPAL_ID?.trim().length ?? 0) > 0
+}
+
+if (!productionAuthConfigurationIsSafe()) {
+  process.stderr.write(`${UNSAFE_AUTH_CONFIGURATION}\n`)
+  process.exit(78)
+}
 
 const keyManager = new ApiKeyManager()
 
@@ -47,7 +71,7 @@ export function apiKeyMiddleware(req: Request, res: Response, next: NextFunction
     // Secure by default: no implicit bypass. Dev/demo must opt in *explicitly*
     // via AUTH_BYPASS_ENABLED=1 (consistent with auth.ts). Otherwise a missing
     // or empty key is rejected — including when no keys are configured.
-    if (process.env.AUTH_BYPASS_ENABLED === '1') {
+    if (isLocalMockAuthEnabled()) {
       applyDevAuthContext(req, 'dev', 'admin')
       return next()
     }
@@ -55,8 +79,20 @@ export function apiKeyMiddleware(req: Request, res: Response, next: NextFunction
   }
   const result = keyManager.validateKey(apiKey)
   if (!result) {
-    return res.status(403).json({ error: 'Invalid API key' })
+    return res.status(401).json({ error: 'Invalid API key' })
   }
   applyDevAuthContext(req, result.name, result.role)
   next()
+}
+
+/** Finance transport authentication only. It deliberately never creates an
+ * AuthContext: the signed FINANCE envelope is the sole actor authority. */
+export function financeApiKeyTransportMiddleware(req: Request, res: Response, next: NextFunction) {
+  const provided = (req.headers['x-api-key'] as string | undefined)?.trim();
+  const configured = process.env.FINANCE_API_KEY?.trim();
+  if (!provided || !configured || provided !== configured) {
+    res.status(401).json({ error: 'Invalid API key' });
+    return;
+  }
+  next();
 }

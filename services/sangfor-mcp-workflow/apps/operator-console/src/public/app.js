@@ -65,17 +65,16 @@ async function loadSystemHealth() {
   try {
     const health = await fetch(API + '/api/system/health').then((r) => r.json());
     const badge = document.getElementById('systemBadge');
-    badge.textContent = health.status === 'ok' ? 'Healthy' : 'Degraded';
+    badge.textContent = health.status === 'ok' ? 'Healthy' : 'Unavailable';
     badge.className = 'badge' + (health.status === 'ok' ? '' : ' error');
 
     const mcpBadge = document.getElementById('mcpBadge');
-    mcpBadge.textContent = health.mcpConnected ? 'MCP OK' : 'MCP Stub';
-    mcpBadge.className = 'badge mcp' + (health.mcpConnected ? ' ok' : '');
+    mcpBadge.textContent = health.status === 'ok' ? 'Ready' : 'Unavailable';
+    mcpBadge.className = 'badge mcp' + (health.status === 'ok' ? ' ok' : '');
 
-    const uptimeSec = Math.floor(health.uptime || 0);
-    const uptimeMin = Math.floor(uptimeSec / 60);
-    document.getElementById('uptime').textContent =
-      `Uptime: ${uptimeMin}m | MCP: ${health.mcpConnected ? 'connected' : 'offline'}`;
+    document.getElementById('uptime').textContent = health.status === 'ok'
+      ? 'Service ready'
+      : 'Service unavailable';
   } catch {
     document.getElementById('systemBadge').textContent = 'Unreachable';
     document.getElementById('systemBadge').className = 'badge error';
@@ -84,7 +83,7 @@ async function loadSystemHealth() {
 
 async function loadDashboard() {
   try {
-    const stats = await fetch(API + '/api/dashboard/stats').then((r) => r.json());
+    const stats = await apiJson('/api/dashboard/stats');
     let workflows = [];
     let templates = [];
 
@@ -250,7 +249,7 @@ async function createFromTemplate(templateId) {
 async function approveWorkflow(id) {
   await apiJson('/api/workflows/' + id + '/approve', {
     method: 'POST',
-    body: JSON.stringify({ approvedBy: 'admin' }),
+    body: JSON.stringify({}),
   });
   closeDetailModal();
   loadDashboard();
@@ -519,7 +518,7 @@ async function loadApprovals() {
 async function approvePlan(approvalId) {
   await apiJson('/api/approvals/' + approvalId + '/approve', {
     method: 'POST',
-    body: JSON.stringify({ approvedBy: 'operator' }),
+    body: JSON.stringify({}),
   });
   loadApprovals();
 }
@@ -548,11 +547,10 @@ async function runAutoOpsFlow() {
 
 async function requestBreakGlass() {
   const reason = document.getElementById('breakglassReason').value;
-  const requestedBy = document.getElementById('breakglassUser').value || 'operator';
   if (!reason) { alert('Enter reason'); return; }
   const result = await apiJson('/api/breakglass/request', {
     method: 'POST',
-    body: JSON.stringify({ reason, requestedBy, durationMinutes: 30 }),
+    body: JSON.stringify({ reason, durationMinutes: 30 }),
   });
   showResult('breakglassStatus', `Break-glass request: ${result.id}\nStatus: ${result.status}`);
 }

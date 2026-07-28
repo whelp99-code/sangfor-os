@@ -1,0 +1,1460 @@
+[
+  {
+    "id": "REQ-M1",
+    "kind": "requirement",
+    "title": "tenant/company/user/persona/role 모델",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "DB-01",
+    "executionUnits": [
+      "U010",
+      "U011",
+      "U012",
+      "U073"
+    ],
+    "closureUnit": "U073",
+    "evidenceToken": "T-DB-SCOPE-RLS",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-DB-SCOPE-RLS"
+  },
+  {
+    "id": "REQ-M2",
+    "kind": "requirement",
+    "title": "AuthContext 강제",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "SEC-01",
+    "executionUnits": [
+      "U002",
+      "U013",
+      "U014"
+    ],
+    "closureUnit": "U014",
+    "evidenceToken": "T-SEC-AUTH",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SEC-AUTH"
+  },
+  {
+    "id": "REQ-M3",
+    "kind": "requirement",
+    "title": "RBAC + ABAC",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "SEC-02",
+    "executionUnits": [
+      "U015",
+      "U024"
+    ],
+    "closureUnit": "U024",
+    "evidenceToken": "T-SEC-RBAC",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SEC-RBAC"
+  },
+  {
+    "id": "REQ-M4",
+    "kind": "requirement",
+    "title": "PostgreSQL RLS",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "DB-01",
+    "executionUnits": [
+      "U016",
+      "U073"
+    ],
+    "closureUnit": "U073",
+    "evidenceToken": "T-DB-SCOPE-RLS",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-DB-SCOPE-RLS"
+  },
+  {
+    "id": "REQ-M5",
+    "kind": "requirement",
+    "title": "Append-only audit log",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "AUD-01",
+    "executionUnits": [
+      "U021"
+    ],
+    "closureUnit": "U021",
+    "evidenceToken": "T-AUD",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-AUD"
+  },
+  {
+    "id": "REQ-M6",
+    "kind": "requirement",
+    "title": "Workflow Definition/Run",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "WF-01",
+    "executionUnits": [
+      "U019",
+      "U025",
+      "U028",
+      "U050"
+    ],
+    "closureUnit": "U050",
+    "evidenceToken": "T-WF",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-WF"
+  },
+  {
+    "id": "REQ-M7",
+    "kind": "requirement",
+    "title": "Gate 상태 머신",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "APR-01",
+    "executionUnits": [
+      "U018",
+      "U022"
+    ],
+    "closureUnit": "U022",
+    "evidenceToken": "T-APR",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-APR"
+  },
+  {
+    "id": "REQ-M8",
+    "kind": "requirement",
+    "title": "versioning/classification",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "ART-01",
+    "executionUnits": [
+      "U017",
+      "U023"
+    ],
+    "closureUnit": "U023",
+    "evidenceToken": "T-ART",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-ART"
+  },
+  {
+    "id": "REQ-M9",
+    "kind": "requirement",
+    "title": "Customer/Opportunity",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "CRM-01",
+    "executionUnits": [
+      "U032",
+      "U043"
+    ],
+    "closureUnit": "U043",
+    "evidenceToken": "T-CRM",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-CRM"
+  },
+  {
+    "id": "REQ-M10",
+    "kind": "requirement",
+    "title": "Deal Qualification",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "QUAL-01",
+    "executionUnits": [
+      "U034",
+      "U045"
+    ],
+    "closureUnit": "U045",
+    "evidenceToken": "T-QUAL",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-QUAL"
+  },
+  {
+    "id": "REQ-M11",
+    "kind": "requirement",
+    "title": "Product/SKU Catalog",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "CAT-01",
+    "executionUnits": [
+      "U033",
+      "U044"
+    ],
+    "closureUnit": "U044",
+    "evidenceToken": "T-CAT",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-CAT"
+  },
+  {
+    "id": "REQ-M12",
+    "kind": "requirement",
+    "title": "Quote Line Items",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "QTE-01",
+    "executionUnits": [
+      "U035",
+      "U047"
+    ],
+    "closureUnit": "U047",
+    "evidenceToken": "T-QTE",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-QTE"
+  },
+  {
+    "id": "REQ-M13",
+    "kind": "requirement",
+    "title": "Commercial Gate",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "QTE-01",
+    "executionUnits": [
+      "U035",
+      "U048"
+    ],
+    "closureUnit": "U048",
+    "evidenceToken": "T-QTE",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-QTE"
+  },
+  {
+    "id": "REQ-M14",
+    "kind": "requirement",
+    "title": "Customer Asset",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "DLV-01",
+    "executionUnits": [
+      "U037",
+      "U051"
+    ],
+    "closureUnit": "U051",
+    "evidenceToken": "T-DLV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-DLV"
+  },
+  {
+    "id": "REQ-M15",
+    "kind": "requirement",
+    "title": "Renewal Reminder",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "DLV-01",
+    "executionUnits": [
+      "U037",
+      "U052"
+    ],
+    "closureUnit": "U052",
+    "evidenceToken": "T-DLV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-DLV"
+  },
+  {
+    "id": "REQ-M16",
+    "kind": "requirement",
+    "title": "AI Quality Gate",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "AIQ-01",
+    "executionUnits": [
+      "U041",
+      "U054",
+      "U055"
+    ],
+    "closureUnit": "U055",
+    "evidenceToken": "T-AIQ",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-AIQ"
+  },
+  {
+    "id": "REQ-M17",
+    "kind": "requirement",
+    "title": "Role-based dashboard",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "UX-01",
+    "executionUnits": [
+      "U060",
+      "U061",
+      "U062",
+      "U063",
+      "U064",
+      "U065",
+      "U066"
+    ],
+    "closureUnit": "U066",
+    "evidenceToken": "T-UX",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-UX"
+  },
+  {
+    "id": "REQ-M18",
+    "kind": "requirement",
+    "title": "Runbook",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "OPS-01",
+    "executionUnits": [
+      "U067",
+      "U068",
+      "U069",
+      "U071"
+    ],
+    "closureUnit": "U071",
+    "evidenceToken": "T-OPS",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-OPS"
+  },
+  {
+    "id": "REQ-S1",
+    "kind": "requirement",
+    "title": "Special discount/demo license request",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "VND-01",
+    "executionUnits": [
+      "U036",
+      "U049"
+    ],
+    "closureUnit": "U049",
+    "evidenceToken": "T-VND",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-VND"
+  },
+  {
+    "id": "REQ-S2",
+    "kind": "requirement",
+    "title": "Vendor escalation case",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "SUP-01",
+    "executionUnits": [
+      "U039",
+      "U056"
+    ],
+    "closureUnit": "U056",
+    "evidenceToken": "T-SUP",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SUP"
+  },
+  {
+    "id": "REQ-S3",
+    "kind": "requirement",
+    "title": "Compatibility/sizing templates",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "CAT-01",
+    "executionUnits": [
+      "U033",
+      "U046"
+    ],
+    "closureUnit": "U046",
+    "evidenceToken": "T-CAT",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-CAT"
+  },
+  {
+    "id": "REQ-S4",
+    "kind": "requirement",
+    "title": "SLA policy",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "SUP-01",
+    "executionUnits": [
+      "U039",
+      "U056"
+    ],
+    "closureUnit": "U056",
+    "evidenceToken": "T-SUP",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SUP"
+  },
+  {
+    "id": "REQ-S5",
+    "kind": "requirement",
+    "title": "RCA workflow",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "SUP-01",
+    "executionUnits": [
+      "U039",
+      "U057"
+    ],
+    "closureUnit": "U057",
+    "evidenceToken": "T-SUP",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SUP"
+  },
+  {
+    "id": "REQ-S6",
+    "kind": "requirement",
+    "title": "Engineer certification matrix",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "PPL-01",
+    "executionUnits": [
+      "U038",
+      "U053"
+    ],
+    "closureUnit": "U053",
+    "evidenceToken": "T-PPL",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-PPL"
+  },
+  {
+    "id": "REQ-S7",
+    "kind": "requirement",
+    "title": "Retention/legal hold workflow",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "GOV-01",
+    "executionUnits": [
+      "U042",
+      "U058",
+      "U059"
+    ],
+    "closureUnit": "U059",
+    "evidenceToken": "T-GOV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-GOV"
+  },
+  {
+    "id": "REQ-S8",
+    "kind": "requirement",
+    "title": "Approval diff viewer",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "UX-01",
+    "executionUnits": [
+      "U060",
+      "U065"
+    ],
+    "closureUnit": "U065",
+    "evidenceToken": "T-UX",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-UX"
+  },
+  {
+    "id": "REQ-S9",
+    "kind": "requirement",
+    "title": "Tenant restore drill",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "OPS-01",
+    "executionUnits": [
+      "U009",
+      "U074"
+    ],
+    "closureUnit": "U074",
+    "evidenceToken": "T-OPS",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-OPS"
+  },
+  {
+    "id": "REQ-S10",
+    "kind": "requirement",
+    "title": "ROI dashboard",
+    "source": "docs/01_SPEC/Requirements_MoSCoW.md",
+    "primaryOwner": "ROI-01",
+    "executionUnits": [
+      "U072"
+    ],
+    "closureUnit": "U072",
+    "evidenceToken": "T-ROI",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-ROI"
+  },
+  {
+    "id": "AC-SEC-01",
+    "kind": "acceptance",
+    "title": "인증 없는 API 호출",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "SEC-01",
+    "executionUnits": [
+      "U002",
+      "U013"
+    ],
+    "closureUnit": "U013",
+    "evidenceToken": "T-SEC-AUTH",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SEC-AUTH"
+  },
+  {
+    "id": "AC-SEC-02",
+    "kind": "acceptance",
+    "title": "다른 tenant customer 조회",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "DB-01",
+    "executionUnits": [
+      "U016",
+      "U073"
+    ],
+    "closureUnit": "U073",
+    "evidenceToken": "T-DB-SCOPE-RLS",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-DB-SCOPE-RLS"
+  },
+  {
+    "id": "AC-SEC-03",
+    "kind": "acceptance",
+    "title": "다른 company quote 승인",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "DB-01",
+    "executionUnits": [
+      "U016",
+      "U073"
+    ],
+    "closureUnit": "U073",
+    "evidenceToken": "T-DB-SCOPE-RLS",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-DB-SCOPE-RLS"
+  },
+  {
+    "id": "AC-SEC-04",
+    "kind": "acceptance",
+    "title": "approver_persona_id body 조작",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "APR-01",
+    "executionUnits": [
+      "U022"
+    ],
+    "closureUnit": "U022",
+    "evidenceToken": "T-APR",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-APR"
+  },
+  {
+    "id": "AC-SEC-05",
+    "kind": "acceptance",
+    "title": "auto_failed approval approve",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "APR-01",
+    "executionUnits": [
+      "U022"
+    ],
+    "closureUnit": "U022",
+    "evidenceToken": "T-APR",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-APR"
+  },
+  {
+    "id": "AC-SEC-06",
+    "kind": "acceptance",
+    "title": "System Admin self CEO grant",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "SEC-02",
+    "executionUnits": [
+      "U015"
+    ],
+    "closureUnit": "U015",
+    "evidenceToken": "T-SEC-RBAC",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SEC-RBAC"
+  },
+  {
+    "id": "AC-SEC-07",
+    "kind": "acceptance",
+    "title": "audit log update/delete",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "AUD-01",
+    "executionUnits": [
+      "U021"
+    ],
+    "closureUnit": "U021",
+    "evidenceToken": "T-AUD",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-AUD"
+  },
+  {
+    "id": "AC-SEC-08",
+    "kind": "acceptance",
+    "title": "RLS context missing query",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "DB-01",
+    "executionUnits": [
+      "U016",
+      "U073"
+    ],
+    "closureUnit": "U073",
+    "evidenceToken": "T-DB-SCOPE-RLS",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-DB-SCOPE-RLS"
+  },
+  {
+    "id": "AC-SEC-09",
+    "kind": "acceptance",
+    "title": "restricted export without permission",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "GOV-01",
+    "executionUnits": [
+      "U058"
+    ],
+    "closureUnit": "U058",
+    "evidenceToken": "T-GOV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-GOV"
+  },
+  {
+    "id": "AC-WF-01",
+    "kind": "acceptance",
+    "title": "Qualification 없이 Discovery 진행",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "QUAL-01",
+    "executionUnits": [
+      "U045"
+    ],
+    "closureUnit": "U045",
+    "evidenceToken": "T-QUAL",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-QUAL"
+  },
+  {
+    "id": "AC-WF-02",
+    "kind": "acceptance",
+    "title": "Solution Fit 실패 후 Proposal 생성",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "CAT-01",
+    "executionUnits": [
+      "U046"
+    ],
+    "closureUnit": "U046",
+    "evidenceToken": "T-CAT",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-CAT"
+  },
+  {
+    "id": "AC-WF-03",
+    "kind": "acceptance",
+    "title": "Commercial Gate 미승인 quote send",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "QTE-01",
+    "executionUnits": [
+      "U048"
+    ],
+    "closureUnit": "U048",
+    "evidenceToken": "T-QTE",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-QTE"
+  },
+  {
+    "id": "AC-WF-04",
+    "kind": "acceptance",
+    "title": "승인 후 artifact 수정",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "APR-01",
+    "executionUnits": [
+      "U022"
+    ],
+    "closureUnit": "U022",
+    "evidenceToken": "T-APR",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-APR"
+  },
+  {
+    "id": "AC-WF-05",
+    "kind": "acceptance",
+    "title": "active workflow 수정",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "WF-01",
+    "executionUnits": [
+      "U025",
+      "U050"
+    ],
+    "closureUnit": "U050",
+    "evidenceToken": "T-WF",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-WF"
+  },
+  {
+    "id": "AC-BIZ-01",
+    "kind": "acceptance",
+    "title": "Opportunity 생성",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "QUAL-01",
+    "executionUnits": [
+      "U045"
+    ],
+    "closureUnit": "U045",
+    "evidenceToken": "T-QUAL",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-QUAL"
+  },
+  {
+    "id": "AC-BIZ-02",
+    "kind": "acceptance",
+    "title": "SKU 기반 quote",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "QTE-01",
+    "executionUnits": [
+      "U047"
+    ],
+    "closureUnit": "U047",
+    "evidenceToken": "T-QTE",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-QTE"
+  },
+  {
+    "id": "AC-BIZ-03",
+    "kind": "acceptance",
+    "title": "서비스 원가 누락",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "QTE-01",
+    "executionUnits": [
+      "U047"
+    ],
+    "closureUnit": "U047",
+    "evidenceToken": "T-QTE",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-QTE"
+  },
+  {
+    "id": "AC-BIZ-04",
+    "kind": "acceptance",
+    "title": "margin threshold 미달",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "QTE-01",
+    "executionUnits": [
+      "U048",
+      "U055"
+    ],
+    "closureUnit": "U055",
+    "evidenceToken": "T-QTE",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-QTE"
+  },
+  {
+    "id": "AC-BIZ-05",
+    "kind": "acceptance",
+    "title": "Acceptance 완료",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "DLV-01",
+    "executionUnits": [
+      "U051"
+    ],
+    "closureUnit": "U051",
+    "evidenceToken": "T-DLV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-DLV"
+  },
+  {
+    "id": "AC-BIZ-06",
+    "kind": "acceptance",
+    "title": "subscription 만료",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "DLV-01",
+    "executionUnits": [
+      "U052"
+    ],
+    "closureUnit": "U052",
+    "evidenceToken": "T-DLV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-DLV"
+  },
+  {
+    "id": "AC-AI-01",
+    "kind": "acceptance",
+    "title": "prompt injection 문서 입력",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "AIQ-01",
+    "executionUnits": [
+      "U054",
+      "U055"
+    ],
+    "closureUnit": "U055",
+    "evidenceToken": "T-AIQ",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-AIQ"
+  },
+  {
+    "id": "AC-AI-02",
+    "kind": "acceptance",
+    "title": "근거 없는 제품 추천",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "AIQ-01",
+    "executionUnits": [
+      "U054",
+      "U055"
+    ],
+    "closureUnit": "U055",
+    "evidenceToken": "T-AIQ",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-AIQ"
+  },
+  {
+    "id": "AC-AI-03",
+    "kind": "acceptance",
+    "title": "AI proposal draft",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "AIQ-01",
+    "executionUnits": [
+      "U054",
+      "U055"
+    ],
+    "closureUnit": "U055",
+    "evidenceToken": "T-AIQ",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-AIQ"
+  },
+  {
+    "id": "AC-AI-04",
+    "kind": "acceptance",
+    "title": "quote draft",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "QTE-01",
+    "executionUnits": [
+      "U047",
+      "U055"
+    ],
+    "closureUnit": "U055",
+    "evidenceToken": "T-QTE",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-QTE"
+  },
+  {
+    "id": "AC-AI-05",
+    "kind": "acceptance",
+    "title": "RCA draft",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "SUP-01",
+    "executionUnits": [
+      "U057"
+    ],
+    "closureUnit": "U057",
+    "evidenceToken": "T-SUP",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SUP"
+  },
+  {
+    "id": "AC-UX-01",
+    "kind": "acceptance",
+    "title": "Sales",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "UX-01",
+    "executionUnits": [
+      "U060",
+      "U065",
+      "U066"
+    ],
+    "closureUnit": "U066",
+    "evidenceToken": "T-UX",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-UX"
+  },
+  {
+    "id": "AC-UX-02",
+    "kind": "acceptance",
+    "title": "Presales",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "UX-01",
+    "executionUnits": [
+      "U060",
+      "U065",
+      "U066"
+    ],
+    "closureUnit": "U066",
+    "evidenceToken": "T-UX",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-UX"
+  },
+  {
+    "id": "AC-UX-03",
+    "kind": "acceptance",
+    "title": "Finance",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "UX-01",
+    "executionUnits": [
+      "U060",
+      "U065",
+      "U066"
+    ],
+    "closureUnit": "U066",
+    "evidenceToken": "T-UX",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-UX"
+  },
+  {
+    "id": "AC-UX-04",
+    "kind": "acceptance",
+    "title": "CEO",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "UX-01",
+    "executionUnits": [
+      "U060",
+      "U065",
+      "U066"
+    ],
+    "closureUnit": "U066",
+    "evidenceToken": "T-UX",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-UX"
+  },
+  {
+    "id": "AC-UX-05",
+    "kind": "acceptance",
+    "title": "Operator",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "UX-01",
+    "executionUnits": [
+      "U060",
+      "U065",
+      "U066"
+    ],
+    "closureUnit": "U066",
+    "evidenceToken": "T-UX",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-UX"
+  },
+  {
+    "id": "AC-UX-06",
+    "kind": "acceptance",
+    "title": "Security",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "UX-01",
+    "executionUnits": [
+      "U060",
+      "U065",
+      "U066"
+    ],
+    "closureUnit": "U066",
+    "evidenceToken": "T-UX",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-UX"
+  },
+  {
+    "id": "AC-PERF-01",
+    "kind": "acceptance",
+    "title": "100 customers",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "PERF-01",
+    "executionUnits": [
+      "U075"
+    ],
+    "closureUnit": "U075",
+    "evidenceToken": "T-PERF",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-PERF"
+  },
+  {
+    "id": "AC-PERF-02",
+    "kind": "acceptance",
+    "title": "1,000 opportunities",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "PERF-01",
+    "executionUnits": [
+      "U075"
+    ],
+    "closureUnit": "U075",
+    "evidenceToken": "T-PERF",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-PERF"
+  },
+  {
+    "id": "AC-PERF-03",
+    "kind": "acceptance",
+    "title": "10,000 artifacts",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "PERF-01",
+    "executionUnits": [
+      "U075"
+    ],
+    "closureUnit": "U075",
+    "evidenceToken": "T-PERF",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-PERF"
+  },
+  {
+    "id": "AC-PERF-04",
+    "kind": "acceptance",
+    "title": "10 concurrent workflow runs",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "PERF-01",
+    "executionUnits": [
+      "U075"
+    ],
+    "closureUnit": "U075",
+    "evidenceToken": "T-PERF",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-PERF"
+  },
+  {
+    "id": "AC-PERF-05",
+    "kind": "acceptance",
+    "title": "quote calculation under target latency",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "PERF-01",
+    "executionUnits": [
+      "U075"
+    ],
+    "closureUnit": "U075",
+    "evidenceToken": "T-PERF",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-PERF"
+  },
+  {
+    "id": "AC-PERF-06",
+    "kind": "acceptance",
+    "title": "dashboard query paginated",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "PERF-01",
+    "executionUnits": [
+      "U075"
+    ],
+    "closureUnit": "U075",
+    "evidenceToken": "T-PERF",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-PERF"
+  },
+  {
+    "id": "AC-DOD-01",
+    "kind": "acceptance",
+    "title": "기능 구현",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "REL-01",
+    "executionUnits": [
+      "U007",
+      "U076"
+    ],
+    "closureUnit": "U076",
+    "evidenceToken": "T-REL",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-REL"
+  },
+  {
+    "id": "AC-DOD-02",
+    "kind": "acceptance",
+    "title": "단위 테스트",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "REL-01",
+    "executionUnits": [
+      "U005",
+      "U007",
+      "U076"
+    ],
+    "closureUnit": "U076",
+    "evidenceToken": "T-REL",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-REL"
+  },
+  {
+    "id": "AC-DOD-03",
+    "kind": "acceptance",
+    "title": "통합 테스트",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "REL-01",
+    "executionUnits": [
+      "U007",
+      "U076"
+    ],
+    "closureUnit": "U076",
+    "evidenceToken": "T-REL",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-REL"
+  },
+  {
+    "id": "AC-DOD-04",
+    "kind": "acceptance",
+    "title": "권한 테스트",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "REL-01",
+    "executionUnits": [
+      "U076"
+    ],
+    "closureUnit": "U076",
+    "evidenceToken": "T-REL",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-REL"
+  },
+  {
+    "id": "AC-DOD-05",
+    "kind": "acceptance",
+    "title": "RLS 테스트",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "REL-01",
+    "executionUnits": [
+      "U076"
+    ],
+    "closureUnit": "U076",
+    "evidenceToken": "T-REL",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-REL"
+  },
+  {
+    "id": "AC-DOD-06",
+    "kind": "acceptance",
+    "title": "audit 테스트",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "REL-01",
+    "executionUnits": [
+      "U076"
+    ],
+    "closureUnit": "U076",
+    "evidenceToken": "T-REL",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-REL"
+  },
+  {
+    "id": "AC-DOD-07",
+    "kind": "acceptance",
+    "title": "acceptance scenario 통과",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "REL-01",
+    "executionUnits": [
+      "U076"
+    ],
+    "closureUnit": "U076",
+    "evidenceToken": "T-REL",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-REL"
+  },
+  {
+    "id": "AC-DOD-08",
+    "kind": "acceptance",
+    "title": "문서 업데이트",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "DOC-01",
+    "executionUnits": [
+      "U001"
+    ],
+    "closureUnit": "U001",
+    "evidenceToken": "T-DOC",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-DOC"
+  },
+  {
+    "id": "AC-DOD-09",
+    "kind": "acceptance",
+    "title": "staging 배포 검증",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "REL-01",
+    "executionUnits": [
+      "U076"
+    ],
+    "closureUnit": "U076",
+    "evidenceToken": "T-REL",
+    "verificationState": "MANUAL_EXTERNAL_PENDING",
+    "primaryTest": "T-REL"
+  },
+  {
+    "id": "AC-V31-BIZOPS-01",
+    "kind": "acceptance",
+    "title": "special discount request 생성",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "VND-01",
+    "executionUnits": [
+      "U049"
+    ],
+    "closureUnit": "U049",
+    "evidenceToken": "T-VND",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-VND"
+  },
+  {
+    "id": "AC-V31-BIZOPS-02",
+    "kind": "acceptance",
+    "title": "demo license 요청",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "VND-01",
+    "executionUnits": [
+      "U049"
+    ],
+    "closureUnit": "U049",
+    "evidenceToken": "T-VND",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-VND"
+  },
+  {
+    "id": "AC-V31-BIZOPS-03",
+    "kind": "acceptance",
+    "title": "PoC success criteria 누락",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "WF-01",
+    "executionUnits": [
+      "U050"
+    ],
+    "closureUnit": "U050",
+    "evidenceToken": "T-WF",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-WF"
+  },
+  {
+    "id": "AC-V31-BIZOPS-04",
+    "kind": "acceptance",
+    "title": "Acceptance 완료",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "DLV-01",
+    "executionUnits": [
+      "U051"
+    ],
+    "closureUnit": "U051",
+    "evidenceToken": "T-DLV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-DLV"
+  },
+  {
+    "id": "AC-V31-BIZOPS-05",
+    "kind": "acceptance",
+    "title": "subscription 90일 전",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "DLV-01",
+    "executionUnits": [
+      "U052"
+    ],
+    "closureUnit": "U052",
+    "evidenceToken": "T-DLV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-DLV"
+  },
+  {
+    "id": "AC-V31-BIZOPS-06",
+    "kind": "acceptance",
+    "title": "support severity critical",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "SUP-01",
+    "executionUnits": [
+      "U056"
+    ],
+    "closureUnit": "U056",
+    "evidenceToken": "T-SUP",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SUP"
+  },
+  {
+    "id": "AC-V31-BIZOPS-07",
+    "kind": "acceptance",
+    "title": "vendor escalation 생성",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "SUP-01",
+    "executionUnits": [
+      "U056"
+    ],
+    "closureUnit": "U056",
+    "evidenceToken": "T-SUP",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SUP"
+  },
+  {
+    "id": "AC-V31-BIZOPS-08",
+    "kind": "acceptance",
+    "title": "engineer certification 등록",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "PPL-01",
+    "executionUnits": [
+      "U053"
+    ],
+    "closureUnit": "U053",
+    "evidenceToken": "T-PPL",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-PPL"
+  },
+  {
+    "id": "AC-V31-GOV-01",
+    "kind": "acceptance",
+    "title": "restricted artifact view",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "GOV-01",
+    "executionUnits": [
+      "U058"
+    ],
+    "closureUnit": "U058",
+    "evidenceToken": "T-GOV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-GOV"
+  },
+  {
+    "id": "AC-V31-GOV-02",
+    "kind": "acceptance",
+    "title": "restricted artifact copy 시도",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "GOV-01",
+    "executionUnits": [
+      "U058"
+    ],
+    "closureUnit": "U058",
+    "evidenceToken": "T-GOV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-GOV"
+  },
+  {
+    "id": "AC-V31-GOV-03",
+    "kind": "acceptance",
+    "title": "restricted artifact download",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "GOV-01",
+    "executionUnits": [
+      "U058"
+    ],
+    "closureUnit": "U058",
+    "evidenceToken": "T-GOV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-GOV"
+  },
+  {
+    "id": "AC-V31-GOV-04",
+    "kind": "acceptance",
+    "title": "export 승인 완료",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "GOV-01",
+    "executionUnits": [
+      "U058"
+    ],
+    "closureUnit": "U058",
+    "evidenceToken": "T-GOV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-GOV"
+  },
+  {
+    "id": "AC-V31-GOV-05",
+    "kind": "acceptance",
+    "title": "export link 만료",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "GOV-01",
+    "executionUnits": [
+      "U058"
+    ],
+    "closureUnit": "U058",
+    "evidenceToken": "T-GOV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-GOV"
+  },
+  {
+    "id": "AC-V31-GOV-06",
+    "kind": "acceptance",
+    "title": "퇴사자 role revoke",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "GOV-01",
+    "executionUnits": [
+      "U059"
+    ],
+    "closureUnit": "U059",
+    "evidenceToken": "T-GOV",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-GOV"
+  },
+  {
+    "id": "AC-V31-AIQ-01",
+    "kind": "acceptance",
+    "title": "Golden Answer Set score 84",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "AIQ-01",
+    "executionUnits": [
+      "U054",
+      "U055"
+    ],
+    "closureUnit": "U055",
+    "evidenceToken": "T-AIQ",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-AIQ"
+  },
+  {
+    "id": "AC-V31-AIQ-02",
+    "kind": "acceptance",
+    "title": "prompt injection block rate 94%",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "AIQ-01",
+    "executionUnits": [
+      "U054",
+      "U055"
+    ],
+    "closureUnit": "U055",
+    "evidenceToken": "T-AIQ",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-AIQ"
+  },
+  {
+    "id": "AC-V31-AIQ-03",
+    "kind": "acceptance",
+    "title": "restricted leakage 1건",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "AIQ-01",
+    "executionUnits": [
+      "U054",
+      "U055"
+    ],
+    "closureUnit": "U055",
+    "evidenceToken": "T-AIQ",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-AIQ"
+  },
+  {
+    "id": "AC-V31-AIQ-04",
+    "kind": "acceptance",
+    "title": "source coverage 낮음",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "AIQ-01",
+    "executionUnits": [
+      "U054",
+      "U055"
+    ],
+    "closureUnit": "U055",
+    "evidenceToken": "T-AIQ",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-AIQ"
+  },
+  {
+    "id": "AC-V31-AIQ-05",
+    "kind": "acceptance",
+    "title": "Quote Review AI가 서비스 원가 누락 탐지",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "AIQ-01",
+    "executionUnits": [
+      "U054",
+      "U055"
+    ],
+    "closureUnit": "U055",
+    "evidenceToken": "T-AIQ",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-AIQ"
+  },
+  {
+    "id": "AC-V31-AUTH-01",
+    "kind": "acceptance",
+    "title": "privileged role + MFA 미검증",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "SEC-01",
+    "executionUnits": [
+      "U014"
+    ],
+    "closureUnit": "U014",
+    "evidenceToken": "T-SEC-AUTH",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SEC-AUTH"
+  },
+  {
+    "id": "AC-V31-AUTH-02",
+    "kind": "acceptance",
+    "title": "unsigned JWT",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "SEC-01",
+    "executionUnits": [
+      "U013"
+    ],
+    "closureUnit": "U013",
+    "evidenceToken": "T-SEC-AUTH",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SEC-AUTH"
+  },
+  {
+    "id": "AC-V31-AUTH-03",
+    "kind": "acceptance",
+    "title": "wrong issuer/audience",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "SEC-01",
+    "executionUnits": [
+      "U013"
+    ],
+    "closureUnit": "U013",
+    "evidenceToken": "T-SEC-AUTH",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SEC-AUTH"
+  },
+  {
+    "id": "AC-V31-AUTH-04",
+    "kind": "acceptance",
+    "title": "disabled user",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "SEC-01",
+    "executionUnits": [
+      "U014"
+    ],
+    "closureUnit": "U014",
+    "evidenceToken": "T-SEC-AUTH",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SEC-AUTH"
+  },
+  {
+    "id": "AC-V31-AUTH-05",
+    "kind": "acceptance",
+    "title": "system_admin 자기 CEO 권한 부여",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "SEC-02",
+    "executionUnits": [
+      "U015"
+    ],
+    "closureUnit": "U015",
+    "evidenceToken": "T-SEC-RBAC",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-SEC-RBAC"
+  },
+  {
+    "id": "AC-V31-AUTH-06",
+    "kind": "acceptance",
+    "title": "role change high risk",
+    "source": "docs/08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md",
+    "primaryOwner": "APR-01",
+    "executionUnits": [
+      "U022",
+      "U024"
+    ],
+    "closureUnit": "U024",
+    "evidenceToken": "T-APR",
+    "verificationState": "AUTONOMOUS_LOCAL",
+    "primaryTest": "T-APR"
+  }
+]

@@ -72,7 +72,14 @@ function RowActions({ deal }: { deal: Deal }) {
     if (!confirm(`"${deal.title}" 딜을 보관하시겠습니까? 목록에서 숨겨지며 데이터는 삭제되지 않습니다.`)) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/opportunities/${deal.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/opportunities/${deal.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({ expectedUpdatedAt: deal.updatedAt }),
+      });
       if (!res.ok) {
         alert("딜을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.");
         return;
@@ -266,10 +273,16 @@ const columns: ColumnDef<Deal, unknown>[] = [
   },
 ];
 
-export function DealsTable({ deals }: { deals: Deal[] }) {
+export function DealsTable({
+  deals,
+  canWrite,
+}: {
+  deals: Deal[];
+  canWrite: boolean;
+}) {
   return (
     <DataView<Deal>
-      columns={columns}
+      columns={canWrite ? columns : columns.filter((column) => column.id !== "actions")}
       data={deals}
       rowHref={(deal) => `/deals/${deal.id}`}
       renderCard={(deal) => <DealMobileCard deal={deal} />}

@@ -1,4 +1,6 @@
 import { prisma } from '@sangfor/db';
+import type { AuthContext } from '@sangfor/auth';
+import { listEngagements } from '@sangfor/business';
 
 export class ProjectsService {
   list(filters: { status?: string; limit: number }) {
@@ -37,18 +39,15 @@ export class ProjectsService {
    * single "미배정" bucket so nothing is hidden. No schema change — aggregation
    * is done with groupBy + a single engagement lookup.
    */
-  async listDealPnl() {
+  async listDealPnl(ctx?: AuthContext) {
     const [invAgg, expAgg] = await Promise.all([
       prisma.invoice.groupBy({ by: ['engagementId'], _sum: { amount: true, depositAmount: true }, _count: true }),
       prisma.expense.groupBy({ by: ['engagementId'], _sum: { amount: true }, _count: true }),
     ]);
 
     const ids = [...new Set([...invAgg, ...expAgg].map((r) => r.engagementId).filter((x): x is string => !!x))];
-    const engagements = ids.length
-      ? await prisma.engagement.findMany({
-          where: { id: { in: ids } },
-          select: { id: true, name: true, opportunity: { select: { id: true, title: true, customer: { select: { name: true } } } } },
-        })
+    const engagements = ids.length > 0 && ctx
+      ? (await listEngagements(ctx)).filter((engagement) => ids.includes(engagement.id))
       : [];
     const engById = new Map(engagements.map((e) => [e.id, e]));
     const invByEng = new Map(invAgg.map((r) => [r.engagementId, r]));
@@ -69,7 +68,7 @@ export class ProjectsService {
       const eng = key ? engById.get(key) : null;
       return {
         engagementId: key,
-        opportunityId: eng?.opportunity?.id ?? null,
+        opportunityId: eng?.opportunityId ?? null,
         dealTitle: eng?.opportunity?.title ?? eng?.name ?? (key ? '(삭제된 딜)' : '미배정'),
         customer: eng?.opportunity?.customer?.name ?? null,
         revenue,

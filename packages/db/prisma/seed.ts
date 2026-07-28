@@ -69,26 +69,63 @@ async function seedDashboardRegistry() {
 }
 
 async function main() {
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: "demo-tenant" },
+    update: { name: "Demo Tenant", status: "active" },
+    create: { slug: "demo-tenant", name: "Demo Tenant", status: "active" },
+  });
+
+  const existingCompany = await prisma.company.findFirst({
+    where: { tenantId: tenant.id, slug: "demo-company" },
+  });
+  const company = existingCompany
+    ? await prisma.company.update({ where: { id: existingCompany.id }, data: { name: "Demo Company" } })
+    : await prisma.company.create({ data: { tenantId: tenant.id, slug: "demo-company", name: "Demo Company" } });
+
+  // company_id is assigned directly here as a known, explicit fact — never left null for the
+  // scope backfill classifier to guess at.
   const project = await prisma.project.upsert({
     where: { slug: "demo-project" },
     update: {
       name: "베를로",
       description: "Local demo project for SANGFOR Partner OS verification.",
+      companyId: company.id,
     },
     create: {
       slug: "demo-project",
       name: "베를로",
       description: "Local demo project for SANGFOR Partner OS verification.",
+      companyId: company.id,
     },
   });
 
-  await prisma.user.upsert({
+  // U014/SEC-01: the seed is one of the only two paths allowed to write status="active" (the
+  // other being an explicitly reviewed provisioning path), and it must do so explicitly, never by
+  // relying on the column's own DEFAULT (which is "legacy_pending", i.e. inactive).
+  const operator = await prisma.user.upsert({
     where: { email: "operator@sangfor-os.local" },
-    update: { name: "포털 운영자" },
+    update: { name: "포털 운영자", status: "active", disabledAt: null, disabledReason: null },
     create: {
       email: "operator@sangfor-os.local",
       name: "포털 운영자",
+      status: "active",
     },
+  });
+
+  // U015/SEC-02a: the seed writes status="active" explicitly (never relying on the column's own
+  // "legacy_pending" DEFAULT), same rule as User.status above, and uses one of the ten
+  // @sangfor/auth BusinessRole codes now that UserCompanyRole.role is constrained to them for any
+  // row created after the migration watermark.
+  await prisma.userCompanyRole.upsert({
+    where: { userId_companyId_role: { userId: operator.id, companyId: company.id, role: "system_admin" } },
+    update: { status: "active", validFrom: new Date(), revokedAt: null },
+    create: { userId: operator.id, companyId: company.id, role: "system_admin", status: "active", validFrom: new Date() },
+  });
+
+  await prisma.projectMember.upsert({
+    where: { projectId_userId: { projectId: project.id, userId: operator.id } },
+    update: { status: "active", validFrom: new Date(), revokedAt: null },
+    create: { projectId: project.id, userId: operator.id, role: "member", status: "active", validFrom: new Date() },
   });
 
   await upsertPolicyMemory(project.id, "internal_domain", "blro.co.kr", "BLRO internal domain");
@@ -98,9 +135,10 @@ async function main() {
 
   await prisma.supportSlaPolicy.upsert({
     where: { id: "sla-support-default" },
-    update: {},
+    update: { companyId: company.id },
     create: {
       id: "sla-support-default",
+      companyId: company.id,
       name: "기본 영업지원 SLA",
       responseTimeHrs: 24,
       resolutionTimeHrs: 48,
@@ -114,51 +152,6 @@ async function main() {
       where: { domain_decisionType: { domain, decisionType: "mail_candidate_approve" } },
       update: {},
       create: { domain, decisionType: "mail_candidate_approve", mode: "observe" },
-    });
-  }
-
-  const existingCustomer = await prisma.customer.findFirst({
-    where: { projectId: project.id, domain: "demo-customer.example.com" },
-  });
-  const customer = existingCustomer
-    ? await prisma.customer.update({
-        where: { id: existingCustomer.id },
-        data: {
-          name: "Demo Customer",
-          status: "active",
-          notes: "Synthetic W1-W2 demo customer. No private data.",
-          segment: "SMB",
-          riskScore: 0.3,
-        },
-      })
-    : await prisma.customer.create({
-        data: {
-          projectId: project.id,
-          name: "Demo Customer",
-          domain: "demo-customer.example.com",
-          status: "active",
-          notes: "Synthetic W1-W2 demo customer. No private data.",
-          segment: "SMB",
-          riskScore: 0.3,
-        },
-      });
-
-  const existingContact = await prisma.contact.findFirst({
-    where: { customerId: customer.id, email: "buyer@demo-customer.example.com" },
-  });
-  if (existingContact) {
-    await prisma.contact.update({
-      where: { id: existingContact.id },
-      data: { name: "Demo Buyer", role: "Business buyer" },
-    });
-  } else {
-    await prisma.contact.create({
-      data: {
-        customerId: customer.id,
-        name: "Demo Buyer",
-        email: "buyer@demo-customer.example.com",
-        role: "Business buyer",
-      },
     });
   }
 

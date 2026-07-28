@@ -1,90 +1,54 @@
-# DB 백업 복원 드릴 Runbook
+# DB 복원 드릴 Runbook (S9a, U009)
 
-목적: `~/Backups/sangfor-os/`의 pg_dump 백업이 실제로 복원 가능한지 임시 DB(`sangfor_os_drill`)에 복원해 무결성을 검증한다. 운영 DB(`sangfor_os`, :5434)는 절대 건드리지 않는다. 분기 1회 이상, 또는 백업 체계 변경 직후 실행한다.
+목적: 운영·사용자 데이터베이스와 완전히 분리된 임시 Postgres 16 소스/타깃 컨테이너 쌍에서 고정 fixture 데이터의 논리 백업/복원 왕복이 실제로 성립하는지 매주 자동 검증한다. 이 드릴은 운영 데이터베이스, 공유 Compose 스택, 사용자 백업 디렉터리를 절대 입력으로 사용하지 않는다.
 
-첫 드릴 실행 기록: `.agents/results/2026-07-10-restore-drill.md` (2026-07-10, 성공)
+## 권한과 소유
 
-## 전제
+이 드릴의 유일한 실행 권위는 다음 두 계층뿐이다.
 
-- `sangfor-postgres` 컨테이너 가동 중 (`docker ps | grep sangfor-postgres`)
-- `packages/db/.env`에 `DATABASE_URL` 존재 (user `sangfor`)
-- 모든 psql/pg_dump는 컨테이너 안에서 실행한다 — 호스트 Homebrew pg 클라이언트(v14)는 서버(v16)와 버전이 안 맞는다
+- 격리 컨테이너 수명주기(생성/네트워크/볼륨/정리, 이미지 provenance 고정, 루프백 포트, 자격증명 생성): 공용 격리 Postgres 헬퍼 모듈이 전담한다.
+- 시드/백업/복원/검증/영수증 작성: `restore:drill` 루트 스크립트가 전담한다.
 
-## 절차
+운영자는 이 두 계층을 개별 데이터베이스 도구로 직접 대체하거나 우회하지 않는다. 실행 중인 공유 스택의 컨테이너를 직접 조작하는 절차는 이 문서에 없으며, 있어서도 안 된다.
 
-### 0. 백업 건강 확인 (드릴 전 필수)
+구형 `backup-db.sh`/`restore-db.sh`/`cfo:restore` 진입점은 U031에서 폐기됐다. 이 드릴만이 자동화된 복원 검증 경로이며 실제 운영 복원은 별도 승인된 수동 절차다.
 
-```bash
-ls -lt ~/Backups/sangfor-os/sangfor_os-*.sql.gz | head -5
-```
+소스와 타깃 컨테이너·네트워크·볼륨에는 실행마다 고유한 소스/타깃 구분 라벨이 붙는다. 정리(clean-up) 단계는 오직 같은 실행의 같은 라벨을 가진 자원만 대상으로 하며, 다른 실행이나 다른 목적의 라벨이 붙은 자원은 절대 건드리지 않는다.
 
-**20바이트 파일은 빈 gzip = 실패한 백업이다.** 정상 덤프는 MB 단위. 최근 파일이 비었으면 `~/Backups/sangfor-os/backup.log`를 확인하라 — 2026-07-10 드릴에서 cron 환경의 docker PATH 부재로 7/4 이후 정기 백업 전량이 빈 파일이었던 사례가 있다. 유효 백업이 없으면 먼저 수동 백업:
+## 정기 실행 (주간 자동)
 
-```bash
-bash scripts/db-backup-local.sh
-```
-
-수동/정기 어느 쪽이든 **덤프 직후 크기 검증**까지가 백업이다 (100KB 미만이면 실패로 간주):
+주간 스케줄과 수동 트리거 모두 CI 워크플로가 담당하며, 사람이 직접 실행할 필요는 없다. 로컬에서 동일한 절차를 재현하려면 다음 한 줄만 사용한다.
 
 ```bash
-F=$(ls -t ~/Backups/sangfor-os/sangfor_os-*.sql.gz | head -1)
-test "$(stat -f%z "$F")" -gt 100000 && echo "OK: $F" || echo "FAIL: $F is too small — check backup.log"
+bash scripts/run-workspace-runtime.sh root -- corepack pnpm restore:drill -- --fixture --image-digest <잠금 매니페스트 digest> --run-id <임의의 run id> --evidence-dir <새로 생성되는 절대 경로>
 ```
 
-### 1. 원본 카운트 캡처
+- `<잠금 매니페스트 digest>`는 저장소에 커밋된 이미지 잠금 파일의 값을 그대로 사용한다 (직접 pull/조회하지 않는다).
+- `--evidence-dir`는 실행 시점에 아직 존재하지 않는 새 절대 경로여야 한다. 재사용하거나 기존 디렉터리를 덮어쓰지 않는다.
+- 소스/타깃 컨테이너 이름, 네트워크, 볼륨, 접속 정보는 실행마다 새로 생성되며 고정된 이름을 갖지 않는다. 운영자가 이름을 지정하는 옵션은 없다.
+- 위 명령 외에 어떤 데이터베이스 클라이언트나 컨테이너 조작 명령도 이 절차에 포함되지 않는다.
 
-```bash
-docker exec sangfor-postgres psql -U sangfor -d sangfor_os -t -A -c \
-  "SELECT 'customers', COUNT(*) FROM customers
-   UNION ALL SELECT 'opportunities', COUNT(*) FROM opportunities
-   UNION ALL SELECT 'mail_derived_candidates', COUNT(*) FROM mail_derived_candidates
-   UNION ALL SELECT 'finance_cashflows', COUNT(*) FROM finance_cashflows
-   UNION ALL SELECT 'partners', COUNT(*) FROM partners;"
-```
+## 절차가 하는 일 (설명, 실행 지시 아님)
 
-### 2. 임시 DB 생성
+1. 소스 컨테이너에 정식 마이그레이션을 적용하고, 저장소에 고정된 결정론적 fixture SQL을 정확히 한 번 적용한다.
+2. 소스에서 논리 백업 스트림을 생성해 해시와 함께 증거 디렉터리에 남긴다.
+3. 타깃의 빈 컨테이너에 그 스트림을 논리 복원한다.
+4. 스키마, 테이블 전체 행수·내용 해시, 시퀀스, 제약조건, 마이그레이션 재적용 무해성(idempotency)을 표본 없이 전량 비교한다.
+5. 목표 복구시점(RPO)과 목표 복구시간(RTO)을 잠정 임계값과 함께 영수증에 기록한다 — 실 아티팩트 드릴을 3회 누적하기 전까지는 잠정치임을 명시한다.
+6. 성공/실패와 무관하게 컨테이너/네트워크/볼륨을 정리하고, 같은 실행에 속한 자원이 0개로 수렴했는지 확인한 뒤에만 절차를 종료한다. 다른 실행/다른 목적의 자원은 건드리지 않는다.
 
-```bash
-docker exec sangfor-postgres psql -U sangfor -d postgres -c "CREATE DATABASE sangfor_os_drill;"
-```
+## 실패 시 확인 방법
 
-### 3. 복원
+명령의 종료 코드가 그 자체로 판정이다. 성공은 0, 그 외 코드는 각각 설정/안전성 거부, 백업 단계 실패, 복원 단계 실패, 검증 불일치, 정리 잔존 중 하나를 의미하며 증거 디렉터리의 영수증 파일에 사유가 구조화되어 남는다. 실패 시 영수증에는 성공 판정이 남지 않는다.
 
-```bash
-gunzip -c ~/Backups/sangfor-os/sangfor_os-<STAMP>.sql.gz \
-  | docker exec -i sangfor-postgres psql -U sangfor -d sangfor_os_drill -q 2>/tmp/drill-restore-errors.log
-echo "exit: $?" && wc -l < /tmp/drill-restore-errors.log
-```
+## 분기별 실 아티팩트 드릴 (사람이 승인)
 
-stderr 0줄 + exit 0이 정상. 에러가 있으면 `/tmp/drill-restore-errors.log`를 판독하고 드릴 실패로 기록한다.
-
-### 4. 무결성 검증
-
-1번 쿼리를 `-d sangfor_os_drill`로 재실행해 카운트가 원본과 전부 일치하는지 확인. 테이블 총수도 대조:
-
-```bash
-docker exec sangfor-postgres psql -U sangfor -d sangfor_os_drill -t -A -c \
-  "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';"
-```
-
-### 5. 임시 DB 정리 (필수)
-
-```bash
-docker exec sangfor-postgres psql -U sangfor -d postgres -c "DROP DATABASE sangfor_os_drill;"
-docker exec sangfor-postgres psql -U sangfor -d postgres -t -A -c \
-  "SELECT COUNT(*) FROM pg_database WHERE datname='sangfor_os_drill';"   # 0이어야 함
-```
-
-### 6. 운영 무변화 확인
-
-1번 쿼리를 원본(`sangfor_os`)에 재실행해 카운트 변화가 없음을 확인한다.
-
-## 결과 기록
-
-`.agents/results/YYYY-MM-DD-restore-drill.md`에 사용한 백업 파일명, 각 단계 출력, 판정(성공/실패)을 남긴다. `scripts/check-restore-counts.sh`는 앱 경유(Prisma) 카운트 재확인용 보조 수단으로 쓸 수 있다.
+실제 운영 백업 아티팩트를 대상으로 하는 드릴은 이 문서의 범위 밖이며 `MANUAL_EXTERNAL_PENDING` 상태로 남는다. 별도 승인 절차를 거쳐야 착수할 수 있고, 그 승인 자체는 실행 명령이나 실 아티팩트 경로, 자격증명을 포함하지 않는다.
 
 ## 금지 사항
 
-- 운영 `sangfor_os`에 대한 DROP/RESTORE/쓰기 — 어떤 경우에도 불가
-- 임시 DB 이름은 `sangfor_os_drill` 고정 (다른 이름 사용 시 정리 누락 위험)
-- 드릴 후 임시 DB를 남겨두는 것 (디스크·혼동 방지)
+- 공유 Compose 스택이나 그 컨테이너를 이 드릴의 소스/타깃으로 사용하는 것
+- 사용자 백업 보관소나 임의의 로컬 절대 경로를 입력으로 지정하는 것
+- 연결 정보를 환경변수나 파일로 직접 주입하는 것
+- 소스/타깃 컨테이너·데이터베이스·볼륨에 고정된 이름을 부여하는 것
+- 위에 정의된 한 줄 명령 이외의 방법으로 시드/백업/복원을 수행하는 것

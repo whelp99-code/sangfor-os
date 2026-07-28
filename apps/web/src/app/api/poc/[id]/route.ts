@@ -11,6 +11,7 @@ import {
 } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 import {
   isResourceInProject,
   relatedResourcesBelongToProject,
@@ -37,6 +38,8 @@ export async function GET(request: Request, context: RouteContext) {
 export async function PATCH(request: Request, context: RouteContext) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/poc/[id]/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   const projectScope = await resolveProjectScope(request);
   if (!projectScope.ok) return projectScope.response;
   const { id } = await context.params;
@@ -112,6 +115,8 @@ export async function PATCH(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/poc/[id]/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   const projectScope = await resolveProjectScope(request);
   if (!projectScope.ok) return projectScope.response;
   const { id } = await context.params;

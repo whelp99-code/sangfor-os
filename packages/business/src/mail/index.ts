@@ -2,7 +2,6 @@ export * from "./outlook/index";
 export * from "./ai-classify-batch";
 export * from "./mail-candidate-connections";
 export * from "./mail-candidates";
-export * from "./mail-candidates-batch";
 export * from "./mail-candidates-cleanup";
 export * from "./mail-candidates-convert";
 export * from "./mail-domain-registry";

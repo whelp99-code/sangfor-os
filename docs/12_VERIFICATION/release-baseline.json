@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "unit": "U003",
+  "baselineSha": "081a1c0c708104f7d0dd50667a261ea84e9ce85c",
+  "branch": "codex/system-refactor-w0-w6",
+  "workspaces": {
+    "root": {
+      "path": ".",
+      "packageName": "sangfor-agentic-os",
+      "nodeMajor": 20,
+      "nvmrc": "20",
+      "engines": ">=20 <21",
+      "packageManager": "pnpm@10.28.1",
+      "lockfile": {
+        "path": "pnpm-lock.yaml",
+        "sha256": "d25f6517b5ca6c6960d87dd8ba3e78bd9163048cb422bbce45986da5b7743a54"
+      },
+      "installEntry": "corepack pnpm install --lockfile-only",
+      "runtimeWrapper": "scripts/run-workspace-runtime.sh root -- <command...>"
+    },
+    "engineer": {
+      "path": "services/sangfor-engineer-mcp",
+      "packageName": "sangfor-engineer-mcp",
+      "nodeMajor": 20,
+      "nvmrc": "20",
+      "engines": ">=20 <21",
+      "packageManager": "pnpm@10.28.1",
+      "lockfile": {
+        "path": "services/sangfor-engineer-mcp/pnpm-lock.yaml",
+        "sha256": "8634e2dfc6e691855b67e61fb59151f8460f2933e72f90fb07d6746161e9e001"
+      },
+      "installEntry": "corepack pnpm install --lockfile-only",
+      "runtimeWrapper": "scripts/run-workspace-runtime.sh engineer -- <command...>"
+    },
+    "workflow": {
+      "path": "services/sangfor-mcp-workflow",
+      "packageName": "sangfor-mcp-workflow",
+      "nodeMajor": 22,
+      "nvmrc": "22",
+      "engines": ">=22 <23",
+      "packageManager": "pnpm@10.28.1",
+      "lockfile": {
+        "path": "services/sangfor-mcp-workflow/pnpm-lock.yaml",
+        "sha256": "ab7ef3a11eb5ff405617dd575011028e1fdfa862bbc45b1c14d12a006723a7bb"
+      },
+      "installEntry": "corepack pnpm install --lockfile-only",
+      "runtimeWrapper": "scripts/run-workspace-runtime.sh workflow -- <command...>"
+    }
+  },
+  "canonicalPortSource": "PORT-MAPPING.yaml",
+  "outputRoots": {
+    "root": "outputs/",
+    "engineer": "services/sangfor-engineer-mcp/outputs/",
+    "workflow": "services/sangfor-mcp-workflow/outputs/"
+  },
+  "evidenceRoot": ".omo/evidence/sangfor-system-refactor-2026-07-15/U003"
+}

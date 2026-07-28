@@ -1,28 +1,48 @@
-FROM node:22-alpine AS builder
+# syntax=docker/dockerfile:1.7
+FROM node:22-bookworm-slim AS builder
 
-WORKDIR /app
+WORKDIR /src
 
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages/*/package.json packages/*/
 COPY apps/mcp-server/package.json apps/mcp-server/
+COPY apps/operator-console/package.json apps/operator-console/
+COPY packages/shared/package.json packages/shared/
+COPY packages/workflow-core/package.json packages/workflow-core/
+COPY packages/workflow-engine/package.json packages/workflow-engine/
+COPY packages/health-checker/package.json packages/health-checker/
+COPY packages/wiki-sync/package.json packages/wiki-sync/
 
-RUN pnpm install --frozen-lockfile
+RUN corepack pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN pnpm run build --filter=mcp-server
+RUN corepack pnpm build \
+ && corepack pnpm --filter @sangfor/mcp-server-workflow deploy --prod --legacy /opt/runtime
 
-FROM node:22-alpine AS runner
+# Assemble exact runtime layout: nested app path + pruned production node_modules + bundle only.
+RUN mkdir -p /opt/image/apps/mcp-server/dist /opt/image/data/vendors \
+ && cp -a /opt/runtime/node_modules /opt/image/node_modules \
+ && cp /src/apps/mcp-server/dist/index.mjs /src/apps/mcp-server/dist/index.mjs.map /opt/image/apps/mcp-server/dist/ \
+ && cp /src/apps/mcp-server/package.json /opt/image/apps/mcp-server/package.json \
+ && if [ -f /src/data/vendors/vendor-database.json ]; then cp /src/data/vendors/vendor-database.json /opt/image/data/vendors/; fi \
+ && find /opt/image -type f \( -name '*.ts' -o -name '*.tsx' \) ! -path '*/node_modules/*' -delete \
+ && find /opt/image -type d \( -name src -o -name tests \) ! -path '*/node_modules/*' -prune -exec rm -rf {} + 2>/dev/null || true
+
+FROM node:22-bookworm-slim AS runner
 
 WORKDIR /app
 
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    WHELP99_ENFORCE_SAFE_TOOLS=true \
+    SANGFOR_DOCKER_LIVENESS=1 \
+    SANGFOR_API_KEY=u004-docker-companion-mcp-placeholder \
+    MCP_API_KEY=u004-docker-companion-mcp-placeholder \
+    SANGFOR_OPERATOR_PRINCIPAL_ID=u004-docker-companion-principal
 
-COPY --from=builder /app/apps/mcp-server/dist ./apps/mcp-server/dist
-COPY --from=builder /app/apps/mcp-server/package.json ./apps/mcp-server/
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages ./packages
+COPY --from=builder /opt/image /app
 
-CMD ["node", "apps/mcp-server/dist/index.js"]
+# Clear the base image entrypoint so Path=node and Config.Cmd is exact.
+ENTRYPOINT []
+CMD ["node", "apps/mcp-server/dist/index.mjs"]

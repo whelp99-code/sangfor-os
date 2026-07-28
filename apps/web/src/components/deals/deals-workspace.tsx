@@ -14,6 +14,7 @@ import { DealsBoard } from "@/components/deals/deals-board";
 import { DealsTable } from "@/components/deals/deals-table";
 import { STAGE_CHIP_GROUPS, formatKRWCompact } from "@/components/deals/stage-meta";
 import { stageTransitionMessage } from "@/components/deals/stage-error";
+import { toDeal, type SerializedOpportunityForDeal } from "@/components/deals/map-deal";
 import type { Deal } from "@/components/deals/types";
 import { cn } from "@/lib/utils";
 
@@ -43,10 +44,14 @@ export function DealsWorkspace({
   deals,
   customers,
   partners,
+  nextCursor: initialNextCursor,
+  canWrite,
 }: {
   deals: Deal[];
   customers: Option[];
   partners: Option[];
+  nextCursor: string | null;
+  canWrite: boolean;
 }) {
   const { view, setView, query } = useCollectionView("table");
   const router = useRouter();
@@ -54,6 +59,8 @@ export function DealsWorkspace({
   const [showCreate, setShowCreate] = useState(false);
   const [activeStage, setActiveStage] = useState<StageKey>("ALL");
   const [moveError, setMoveError] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState(initialNextCursor);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [, startTransition] = useTransition();
 
   // Re-sync optimistic state when the server re-renders with fresh data.
@@ -89,6 +96,7 @@ export function DealsWorkspace({
   );
 
   async function moveDeal(id: string, toStage: string) {
+    if (!canWrite) return;
     const previous = items;
     const expectedUpdatedAt = items.find((deal) => deal.id === id)?.updatedAt;
     setMoveError(null);
@@ -98,8 +106,14 @@ export function DealsWorkspace({
     try {
       const res = await fetch(`/api/opportunities/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stage: toStage, expectedUpdatedAt }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          expectedUpdatedAt,
+          changes: { stage: toStage },
+        }),
       });
       if (!res.ok) {
         // Surface the server's rejection reason (e.g. registration gate,
@@ -119,6 +133,33 @@ export function DealsWorkspace({
     } catch {
       setItems(previous);
       setMoveError(stageTransitionMessage("update_failed"));
+    }
+  }
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setMoveError(null);
+    try {
+      const response = await fetch(`/api/opportunities?first=50&cursor=${encodeURIComponent(nextCursor)}`);
+      const payload = await response.json() as {
+        opportunities?: SerializedOpportunityForDeal[];
+        nextCursor?: string | null;
+      };
+      if (!response.ok || !payload.opportunities) {
+        setMoveError("다음 딜 목록을 불러오지 못했습니다.");
+        return;
+      }
+      const incoming = payload.opportunities.map(toDeal);
+      setItems((current) => {
+        const known = new Set(current.map((deal) => deal.id));
+        return [...current, ...incoming.filter((deal) => !known.has(deal.id))];
+      });
+      setNextCursor(payload.nextCursor ?? null);
+    } catch {
+      setMoveError("다음 딜 목록을 불러오지 못했습니다.");
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -148,12 +189,12 @@ export function DealsWorkspace({
             <ViewSwitcher
               value={view}
               onChange={setView}
-              available={["table", "kanban"]}
+              available={canWrite ? ["table", "kanban"] : ["table"]}
             />
-            <Button size="sm" className="gap-1.5" onClick={() => setShowCreate((open) => !open)}>
+            {canWrite ? <Button size="sm" className="gap-1.5" onClick={() => setShowCreate((open) => !open)}>
               {showCreate ? <X className="size-3.5" /> : <Plus className="size-3.5" />}
               {showCreate ? "닫기" : "+ 새 딜"}
-            </Button>
+            </Button> : null}
           </div>
         </div>
 
@@ -210,7 +251,7 @@ export function DealsWorkspace({
       ) : null}
 
       {/* Create form (inline, shown when toggled) */}
-      {showCreate ? (
+      {canWrite && showCreate ? (
         <div className="border border-t-0 border-b-0 bg-card px-4 py-3">
           <p className="mb-3 text-sm font-medium">새 영업기회 등록</p>
           <CreateOpportunityForm customers={customers} partners={partners} />
@@ -220,11 +261,18 @@ export function DealsWorkspace({
       {/* Table / Board */}
       <div className="rounded-b-lg border border-t-0 bg-card overflow-x-auto">
         {view === "table" ? (
-          <DealsTable deals={filtered} />
+          <DealsTable deals={filtered} canWrite={canWrite} />
         ) : (
           <DealsBoard deals={filtered} onMove={moveDeal} />
         )}
       </div>
+      {nextCursor ? (
+        <div className="flex justify-center border-x border-b bg-card py-3">
+          <Button type="button" size="sm" variant="outline" disabled={loadingMore} onClick={loadMore}>
+            {loadingMore ? "불러오는 중..." : "다음 딜 불러오기"}
+          </Button>
+        </div>
+      ) : null}
 
       {/* Project ID note */}
       <div

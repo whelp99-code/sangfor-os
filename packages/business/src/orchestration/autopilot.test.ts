@@ -102,7 +102,7 @@ describe("runAutopilotPass", () => {
     expect(prisma.domainDecisionLog.findMany).not.toHaveBeenCalled();
   });
 
-  it("dryRun:true with auto candidate -> action=auto, no write-side calls", async () => {
+  it("dryRun:true with auto candidate -> review suggestion, no write-side calls", async () => {
     const prisma = buildFakePrisma();
     prisma.mailDerivedCandidate.findMany.mockResolvedValue([makeCandidate()]);
     prisma.domainDecisionLog.findMany.mockResolvedValue([]);
@@ -124,17 +124,18 @@ describe("runAutopilotPass", () => {
     );
 
     expect(result.scanned).toBe(1);
-    expect(result.autoApproved).toBe(1);
+    expect(result.autoApproved).toBe(0);
+    expect(result.suggested).toBe(1);
     expect(result.skipped).toBe(0);
-    expect(result.results[0]!.action).toBe("auto");
-    expect(result.results[0]!.reason).toBe("would_auto_approve (dryRun)");
+    expect(result.results[0]!.action).toBe("suggest");
+    expect(result.results[0]!.reason).toBe("would_persist_review_draft (dryRun)");
 
     expect(approve).not.toHaveBeenCalled();
     expect(recordDecisionFn).not.toHaveBeenCalled();
     expect(prisma.mailDerivedCandidate.update).not.toHaveBeenCalled();
   });
 
-  it("dryRun:false with auto candidate -> approve + recordDecision called", async () => {
+  it("dryRun:false with auto candidate -> persisted review draft without auto-approval", async () => {
     const prisma = buildFakePrisma();
     prisma.mailDerivedCandidate.findMany.mockResolvedValue([makeCandidate()]);
     prisma.domainDecisionLog.findMany.mockResolvedValue([]);
@@ -155,17 +156,25 @@ describe("runAutopilotPass", () => {
       },
     );
 
-    expect(result.autoApproved).toBe(1);
-    expect(result.results[0]!.action).toBe("auto");
-    expect(result.results[0]!.reason).toBe("auto_approved");
+    expect(result.autoApproved).toBe(0);
+    expect(result.suggested).toBe(1);
+    expect(result.results[0]!.action).toBe("suggest");
+    expect(result.results[0]!.reason).toBe("authenticated_crm_context_required");
 
-    expect(approve).toHaveBeenCalledWith("cand-1");
-    expect(recordDecisionFn).toHaveBeenCalledWith(
+    expect(approve).not.toHaveBeenCalled();
+    expect(recordDecisionFn).not.toHaveBeenCalled();
+    expect(prisma.mailDerivedCandidate.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        actor: "ai",
-        actionType: "autopilot_approve",
-        outcome: "approved",
-        caseRef: "mail_candidate:cand-1",
+        where: { id: "cand-1" },
+        data: {
+          metadata: expect.objectContaining({
+            autopilotReviewDraft: expect.objectContaining({
+              reviewRequired: true,
+              reason: "authenticated_crm_context_required",
+              policyId: "pol-1",
+            }),
+          }),
+        },
       }),
     );
   });
@@ -299,7 +308,7 @@ describe("runAutopilotPass", () => {
     expect(result.results[0]!.reason).toBe("observe");
   });
 
-  it("approve throws error -> candidate counted in skipped, pass continues", async () => {
+  it("never invokes a legacy approval dependency without AuthContext", async () => {
     const prisma = buildFakePrisma();
     prisma.mailDerivedCandidate.findMany.mockResolvedValue([makeCandidate()]);
     prisma.domainDecisionLog.findMany.mockResolvedValue([]);
@@ -319,9 +328,11 @@ describe("runAutopilotPass", () => {
     );
 
     expect(result.autoApproved).toBe(0);
-    expect(result.skipped).toBe(1);
-    expect(result.results[0]!.action).toBe("skipped");
-    expect(result.results[0]!.reason).toBe("candidate_rejected");
+    expect(result.suggested).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(result.results[0]!.action).toBe("suggest");
+    expect(result.results[0]!.reason).toBe("authenticated_crm_context_required");
+    expect(approve).not.toHaveBeenCalled();
   });
 
   it("respects limit: only N candidates scanned", async () => {

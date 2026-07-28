@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sangfor-release-state-receipts-v1",
+  "title": "ReleaseStateReceipts",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "receiptKind",
+        "phase",
+        "unit",
+        "runId",
+        "candidateSha",
+        "releaseManifestSha256",
+        "releaseSchemaSha256",
+        "detachedMirrorReceiptSha256",
+        "checks",
+        "runner_contract_status",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "receiptKind": { "const": "runner_contract" },
+        "phase": { "type": "string", "enum": ["pre_u030", "post_u030"] },
+        "unit": { "type": "string", "enum": ["U007", "U030"] },
+        "runId": { "type": "string", "minLength": 1 },
+        "candidateSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "releaseManifestSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "releaseSchemaSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "detachedMirrorReceiptSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "manifest15Lanes",
+            "strictResultParser",
+            "falseGreenFixtures",
+            "sanitizedEnv",
+            "scratchPostgres",
+            "apiProductionStart",
+            "playwrightCoreFlow",
+            "detachedMirrorCleanup"
+          ],
+          "properties": {
+            "manifest15Lanes": { "const": "PASS" },
+            "strictResultParser": { "const": "PASS" },
+            "falseGreenFixtures": { "const": "PASS" },
+            "sanitizedEnv": { "const": "PASS" },
+            "scratchPostgres": { "const": "PASS" },
+            "apiProductionStart": { "const": "PASS" },
+            "playwrightCoreFlow": { "const": "PASS" },
+            "detachedMirrorCleanup": { "const": "PASS" }
+          }
+        },
+        "runner_contract_status": { "const": "PASS" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "receiptKind",
+        "phase",
+        "unit",
+        "runId",
+        "candidateSha",
+        "runnerContractReceiptSha256",
+        "previousProductReleaseReceiptSha256",
+        "u008InventoryReceiptSha256",
+        "u029ReceiptSha256",
+        "releaseManifestSha256",
+        "releaseSchemaSha256",
+        "product_release_status",
+        "preflightBlockers",
+        "completedStepIds",
+        "failedStepIds",
+        "releaseExitCode",
+        "outerExitCode",
+        "releaseReportSha256",
+        "cleanupStatus",
+        "createdAt"
+      ],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "receiptKind": { "const": "product_release" },
+        "phase": { "type": "string", "enum": ["pre_u030", "post_u030"] },
+        "unit": { "type": "string", "enum": ["U007", "U030"] },
+        "runId": { "type": "string", "minLength": 1 },
+        "candidateSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "runnerContractReceiptSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "previousProductReleaseReceiptSha256": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          ]
+        },
+        "u008InventoryReceiptSha256": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          ]
+        },
+        "u029ReceiptSha256": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          ]
+        },
+        "releaseManifestSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "releaseSchemaSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "product_release_status": {
+          "type": "string",
+          "enum": ["RED_EXPECTED", "PASS"]
+        },
+        "preflightBlockers": { "type": "array" },
+        "completedStepIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "failedStepIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "releaseExitCode": { "type": "integer" },
+        "outerExitCode": { "type": "integer" },
+        "releaseReportSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "cleanupStatus": { "type": "string", "enum": ["PASS", "FAIL"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  ]
+}

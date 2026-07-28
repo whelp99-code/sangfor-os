@@ -3,6 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawn } from 'node:child_process';
 import {
   ToolRegistry,
   createDefaultToolDefinitions,
@@ -15,11 +19,19 @@ import {
   RollbackManager,
   createDefaultAutopilotPolicy,
   OperationOrchestrator,
+  PostVerifier,
+  DeviceVerifier,
   toPostVerifierSnapshot,
   IncidentDetector,
   RemediationPlanner,
   PlaybookRegistry,
 } from '@sangfor/workflow-engine';
+
+const OPERATOR_CONTEXT = {
+  principalId: 'workflow-test-operator',
+  role: 'operator',
+  source: 'api_key',
+} as const;
 
 describe('ToolRegistry', () => {
   let registry: ToolRegistry;
@@ -203,63 +215,36 @@ describe('ExecutionLogger', () => {
   });
 });
 
-describe('ApprovalManager', () => {
+describe('ApprovalManager authority removal', () => {
   let manager: ApprovalManager;
 
   beforeEach(() => {
     manager = new ApprovalManager();
   });
 
-  it('should request approval', () => {
+  it('moves approval creation to the canonical root', () => {
     const workflow = { id: 'wf-1', name: 'Test', status: 'draft' } as any;
-    const request = manager.requestApproval(workflow);
-
-    expect(request.workflowId).toBe('wf-1');
-    expect(request.status).toBe('pending');
-    expect(manager.isPending('wf-1')).toBe(true);
-  });
-
-  it('should approve workflow', () => {
-    const workflow = { id: 'wf-1', name: 'Test', status: 'draft' } as any;
-    manager.requestApproval(workflow);
-
-    const approved = manager.approve('wf-1', 'test-user');
-    expect(approved.status).toBe('approved');
-    expect(approved.approvedBy).toBe('test-user');
+    expect(() => manager.requestApproval(workflow)).toThrow(/authority_moved/);
     expect(manager.isPending('wf-1')).toBe(false);
   });
 
-  it('should reject workflow', () => {
-    const workflow = { id: 'wf-1', name: 'Test', status: 'draft' } as any;
-    manager.requestApproval(workflow);
-
-    const rejected = manager.reject('wf-1', 'Not enough info');
-    expect(rejected.status).toBe('rejected');
-    expect(manager.isPending('wf-1')).toBe(false);
+  it('does not self-approve a workflow', () => {
+    expect(() => manager.approve('wf-1', OPERATOR_CONTEXT)).toThrow(/authority_moved/);
   });
 
-  it('should list pending approvals', () => {
-    const workflow1 = { id: 'wf-1', name: 'Test 1', status: 'draft' } as any;
-    const workflow2 = { id: 'wf-2', name: 'Test 2', status: 'draft' } as any;
-
-    manager.requestApproval(workflow1);
-    manager.requestApproval(workflow2);
-
-    const pending = manager.listPendingApprovals();
-    expect(pending.length).toBe(2);
+  it('does not self-reject a workflow', () => {
+    expect(() => manager.reject('wf-1', 'Not enough info', OPERATOR_CONTEXT)).toThrow(/authority_moved/);
   });
 
-  it('should get stats', () => {
-    const workflow1 = { id: 'wf-1', name: 'Test 1', status: 'draft' } as any;
-    const workflow2 = { id: 'wf-2', name: 'Test 2', status: 'draft' } as any;
+  it('has no restart source of truth', () => {
+    expect(manager.listPendingApprovals()).toEqual([]);
+    expect(manager.getApprovalHistory()).toEqual([]);
+  });
 
-    manager.requestApproval(workflow1);
-    manager.requestApproval(workflow2);
-    manager.approve('wf-1', 'user');
-
+  it('reports no local approval statistics', () => {
     const stats = manager.getStats();
-    expect(stats.pending).toBe(1);
-    expect(stats.totalApproved).toBe(1);
+    expect(stats.pending).toBe(0);
+    expect(stats.totalApproved).toBe(0);
     expect(stats.totalRejected).toBe(0);
   });
 });
@@ -438,15 +423,15 @@ describe('WorkflowExecutor Safety', () => {
       metadata: {},
     };
 
-    const result = await executor.executeWorkflow(workflow);
-
-    expect(attempts).toBe(3);
-    expect(result.stepsFailed).toBe(1);
-    expect(result.status).toBe('failed');
+    await expect(executor.executeWorkflow(workflow)).rejects.toMatchObject({
+      code: 'MUTATION_CONTAINMENT_ACTIVE',
+    });
+    expect(attempts).toBe(0);
   });
 
   it('should block sensitive mutation step when workflow is not approved', async () => {
     const registry = new ToolRegistry();
+    let handlerCalls = 0;
     registry.register({
       name: 'apply_sensitive_config',
       description: 'mutation',
@@ -456,7 +441,10 @@ describe('WorkflowExecutor Safety', () => {
       estimatedDuration: '1s',
       riskLevel: 'high',
       requiresApproval: true,
-      handler: async () => ({ ok: true }),
+      handler: async () => {
+        handlerCalls += 1;
+        return { ok: true };
+      },
     });
     const executor = new WorkflowExecutor(registry, new ExecutionLogger(), new ErrorHandler());
     const workflow: any = {
@@ -484,9 +472,10 @@ describe('WorkflowExecutor Safety', () => {
       metadata: {},
     };
 
-    const result = await executor.executeWorkflow(workflow);
-    expect(result.stepsFailed).toBe(1);
-    expect(result.errors[0]?.error).toContain('Execution blocked');
+    await expect(executor.executeWorkflow(workflow)).rejects.toMatchObject({
+      code: 'MUTATION_CONTAINMENT_ACTIVE',
+    });
+    expect(handlerCalls).toBe(0);
   });
 });
 
@@ -577,8 +566,11 @@ describe('RollbackManager', () => {
 
 describe('OperationOrchestrator', () => {
   it('should run execute then post verification atomically', async () => {
-    const orchestrator = new OperationOrchestrator();
-    const before = toPostVerifierSnapshot({
+    const root = mkdtempSync(join(tmpdir(), 'u028-workflow-'));
+    const cleanup = () => rmSync(root, { recursive: true, force: true });
+    try {
+      const orchestrator = new OperationOrchestrator(new PostVerifier({ outputRoot: root, attemptRoot: root }));
+      const before = toPostVerifierSnapshot({
       product: 'EPP',
       version: '5.0.0',
       capturedAt: new Date().toISOString(),
@@ -587,7 +579,7 @@ describe('OperationOrchestrator', () => {
       },
     });
 
-    const result = await orchestrator.executeWithVerification({
+      const result = await orchestrator.executeWithVerification({
       executionId: 'exec-atomic-1',
       beforeSnapshot: before,
       collectAfterSnapshot: async () => ({
@@ -598,9 +590,77 @@ describe('OperationOrchestrator', () => {
       expectedChanges: [],
     });
 
-    expect(result.executionSuccess).toBe(true);
-    expect(result.verification.passed).toBe(true);
-    expect(result.evidencePath).toBeTruthy();
+      expect(result.executionSuccess).toBe(true);
+      expect(result.verification.passed).toBe(true);
+      expect(result.evidencePath).toBeTruthy();
+    } finally { cleanup(); }
+  });
+});
+
+function outputBoundarySnapshot(): Record<string, string[]> {
+  const root = join(process.env.INIT_CWD ?? process.cwd(), 'outputs');
+  return Object.fromEntries(['evidence', 'verification'].map((name) => {
+    const path = join(root, name);
+    return [name, existsSync(path) ? readdirSync(path).sort() : []];
+  }));
+}
+
+function waitForExit(child: ReturnType<typeof spawn>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('exit', (code, signal) => code === 0 && signal === null ? resolve() : reject(new Error(`child exit ${code}/${signal}`)));
+  });
+}
+
+async function waitForPath(path: string, timeoutMs = 2_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!existsSync(path)) {
+    if (Date.now() >= deadline) throw new Error(`path readiness timeout: ${path}`);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+describe('U028 explicit output roots and signal cleanup', () => {
+  it('rejects implicit, relative, in-repository, and out-of-attempt roots before writers construct', async () => {
+    const attempt = mkdtempSync(join(tmpdir(), 'u028-attempt-'));
+    const outside = mkdtempSync(join(tmpdir(), 'u028-outside-'));
+    const cleanup = () => { rmSync(attempt, { recursive: true, force: true }); rmSync(outside, { recursive: true, force: true }); };
+    try {
+      expect(() => new PostVerifier({ outputRoot: 'outputs/evidence' })).toThrow(/absolute/);
+      expect(() => new PostVerifier({ outputRoot: join(process.cwd(), 'outputs/evidence') })).toThrow(/outside the workflow workspace/);
+      expect(() => new PostVerifier({ outputRoot: outside, attemptRoot: attempt })).toThrow(/inside the declared attempt root/);
+      expect(() => new DeviceVerifier({ scenarioDB: {} as never, outputDir: './outputs/verification' })).toThrow(/explicit absolute/);
+      await expect(new OperationOrchestrator().executeWithVerification({} as never)).rejects.toThrow(/manual-gate/);
+    } finally { cleanup(); }
+  });
+
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    it(`removes an attempt-owned child output root after ${signal}`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'u028-signal-'));
+      const cleanup = () => rmSync(root, { recursive: true, force: true });
+      try {
+        const readyPath = join(root, 'task-created.txt');
+        const child = spawn(process.execPath, ['-e', `const fs=require('node:fs');const root=process.argv[1];const done=()=>{fs.rmSync(root,{recursive:true,force:true});process.exit(0)};process.on('SIGINT',done);process.on('SIGTERM',done);fs.writeFileSync(root+'/task-created.txt','x');setInterval(()=>{},1000)`, root]);
+        await waitForPath(readyPath);
+        child.kill(signal);
+        await waitForExit(child);
+        expect(existsSync(root)).toBe(false);
+      } finally { cleanup(); }
+    });
+  }
+
+  it('leaves repository output boundaries unchanged across success and forced failure', () => {
+    const before = outputBoundarySnapshot();
+    const root = mkdtempSync(join(tmpdir(), 'u028-output-'));
+    const cleanup = () => rmSync(root, { recursive: true, force: true });
+    try {
+      const verifier = new PostVerifier({ outputRoot: root, attemptRoot: root });
+      const snapshot = toPostVerifierSnapshot({ product: 'EPP', version: '1', capturedAt: new Date().toISOString(), sections: {} });
+      verifier.verifyPostExecution('success', snapshot, snapshot, []);
+      verifier.verifyPostExecution('failure', snapshot, snapshot, [{ section: 'missing', key: 'key', expectedValue: 'x', description: 'forced', critical: true }]);
+      expect(readdirSync(root).length).toBeGreaterThan(0);
+    } finally { cleanup(); }
+    expect(outputBoundarySnapshot()).toEqual(before);
   });
 });
 

@@ -145,6 +145,7 @@ export default async function InboxPage({
                   </div>
                   <SlipActions
                     candidateId={c.id}
+                    expectedUpdatedAt={c.updatedAt.toISOString()}
                     detailHref={`/approvals/mail-candidates/${c.id}`}
                     needsAiRevalidation={
                       ["task", "opportunity", "poc"].includes(c.candidateType) && !revalOf(c.metadata)

@@ -3,6 +3,12 @@
  */
 
 import { nowId, nowISO, createLogger } from '@sangfor/workflow-shared';
+import {
+  denyWorkflowMutation,
+  enforceServerIdentity,
+  requireOperatorPrincipal,
+  type AuthContext,
+} from '../../shared/src/mutation-policy.js';
 import type { AdapterBoundary, UIActionConstraint } from './types.js';
 
 const log = createLogger('device-access');
@@ -53,21 +59,30 @@ export class DeviceAccessManager {
   private approvedAccess: Map<string, DeviceAccess[]> = new Map();
 
   // 접근 정보 요청 생성
-  createRequest(template: AccessRequestTemplate): DeviceAccessRequest {
+  createRequest(template: AccessRequestTemplate, actor: AuthContext): DeviceAccessRequest {
+    enforceServerIdentity(actor, { requestedBy: template.requestedBy });
     const request: DeviceAccessRequest = {
       id: nowId('access'),
       customer: template.customer,
       projectId: template.projectId,
       requestedAt: nowISO(),
       status: 'pending',
-      devices: template.devices.map(d => ({
-        product: d.product as any,
-        ip: '',
-        port: 443,
-        username: '',
-        password: '',
-        protocol: 'https',
-      })),
+      devices: template.devices.map((device) => {
+        if (!['EPP', 'IAG', 'CC', 'SCP'].includes(device.product)) {
+          throw new TypeError(`Unsupported device product: ${device.product}`);
+        }
+        const product = device.product === 'EPP'
+          ? 'EPP'
+          : device.product === 'IAG' ? 'IAG' : device.product === 'CC' ? 'CC' : 'SCP';
+        return {
+          product,
+          ip: '',
+          port: 443,
+          username: '',
+          password: '',
+          protocol: 'https',
+        };
+      }),
     };
 
     this.requests.set(request.id, request);
@@ -79,8 +94,10 @@ export class DeviceAccessManager {
   // 접근 정보 제출 (고객이填写)
   submitAccessInfo(
     requestId: string,
-    devices: DeviceAccess[]
+    devices: DeviceAccess[],
+    _actor: AuthContext,
   ): DeviceAccessRequest {
+    requireOperatorPrincipal(_actor);
     const request = this.requests.get(requestId);
     if (!request) {
       throw new Error(`Request not found: ${requestId}`);
@@ -97,16 +114,17 @@ export class DeviceAccessManager {
   // 접근 정보 승인
   approveRequest(
     requestId: string,
-    approvedBy: string,
+    actor: AuthContext,
     expiresAt?: string
   ): DeviceAccessRequest {
+    const principalId = requireOperatorPrincipal(actor);
     const request = this.requests.get(requestId);
     if (!request) {
       throw new Error(`Request not found: ${requestId}`);
     }
 
     request.status = 'approved';
-    request.approvedBy = approvedBy;
+    request.approvedBy = principalId;
     request.approvedAt = nowISO();
     request.expiresAt = expiresAt;
 
@@ -114,7 +132,7 @@ export class DeviceAccessManager {
     this.approvedAccess.set(request.customer, request.devices);
 
     this.requests.set(requestId, request);
-    log.info(`Access request approved: ${requestId} by ${approvedBy}`);
+    log.info(`Access request approved: ${requestId} by ${principalId}`);
 
     return request;
   }
@@ -122,8 +140,10 @@ export class DeviceAccessManager {
   // 접근 정보 거절
   rejectRequest(
     requestId: string,
-    reason: string
+    reason: string,
+    actor: AuthContext,
   ): DeviceAccessRequest {
+    const principalId = requireOperatorPrincipal(actor);
     const request = this.requests.get(requestId);
     if (!request) {
       throw new Error(`Request not found: ${requestId}`);
@@ -133,7 +153,7 @@ export class DeviceAccessManager {
     request.notes = reason;
     this.requests.set(requestId, request);
 
-    log.info(`Access request rejected: ${requestId} - ${reason}`);
+    log.info(`Access request rejected: ${requestId} by ${principalId} - ${reason}`);
     return request;
   }
 
@@ -181,6 +201,7 @@ export class DeviceAccessManager {
 
   // 접근 정보 폐기
   revokeAccess(customer: string): void {
+    denyWorkflowMutation('device_access_revocation');
     this.approvedAccess.delete(customer);
     log.info(`Access revoked for customer: ${customer}`);
   }

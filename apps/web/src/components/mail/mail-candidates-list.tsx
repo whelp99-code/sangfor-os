@@ -1,6 +1,13 @@
 import Link from "next/link";
 
+import {
+  listCustomers,
+  listOpportunities,
+  resolveOpportunityAuthContext,
+} from "@sangfor/business";
 import { prisma } from "@sangfor/db";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import {
   GenerateMailCandidatesButton,
@@ -8,6 +15,7 @@ import {
 } from "@/components/development/mail-candidate-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 const entityHref: Record<string, string> = {
   customer: "/customers",
@@ -66,6 +74,21 @@ function statusBadges(candidate: { metadata: unknown; status: string; candidateT
 }
 
 export async function MailCandidatesList() {
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(new Request(
+    "http://sangfor.local/inbox",
+    { headers: { cookie: `session=${encodeURIComponent(token)}` } },
+  ));
+  if (!session.ok) redirect("/login");
+  const ctx = await resolveOpportunityAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  });
   const [candidates, allCandidateSummaries, threadCount, policyMemoryCount, businessCounts] = await Promise.all([
     prisma.mailDerivedCandidate.findMany({
       where: { status: { notIn: ["knowledge_only", "rejected"] } },
@@ -78,11 +101,11 @@ export async function MailCandidatesList() {
     prisma.mailInsightThread.count(),
     prisma.policyMemory.count({ where: { status: { in: ["active", "approved", "proposed"] } } }),
     Promise.all([
-      prisma.customer.count(),
-      prisma.partner.count(),
-      prisma.workTask.count(),
-      prisma.opportunity.count(),
-      prisma.pocProject.count(),
+      listCustomers(ctx, { first: 100 }).then((page) => page.items.length),
+      prisma.partner.count({ where: { projectId: ctx.projectId, status: { not: "archived" } } }),
+      prisma.workTask.count({ where: { projectId: ctx.projectId, archivedAt: null } }),
+      listOpportunities(ctx, { first: 100 }).then((page) => page.items.length),
+      prisma.pocProject.count({ where: { projectId: ctx.projectId } }),
     ]),
   ]);
   const needsRevalidation = allCandidateSummaries.filter((candidate) =>
@@ -101,7 +124,7 @@ export async function MailCandidatesList() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-normal">메일 후보 관리</h1>
+          <h2 className="text-2xl font-semibold tracking-normal">메일 후보 관리</h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
             Mail Intelligence 스레드 인사이트는 정책 메모리, 근거 검증, AIOS 재검증, 최종 사람 승인을
             거쳐 AIOS 후보로 전환됩니다.
@@ -182,6 +205,7 @@ export async function MailCandidatesList() {
                   <MailCandidateActions
                     candidateId={candidate.id}
                     status={candidate.status}
+                    expectedUpdatedAt={candidate.updatedAt.toISOString()}
                     requiresAiCheck={isProjectCandidate(candidate.candidateType) && !hasAiRevalidation(candidate.metadata)}
                   />
                 </CardHeader>

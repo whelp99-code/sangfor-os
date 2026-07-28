@@ -238,7 +238,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
                           </Link>
                         </CardTitle>
                       </div>
-                      <MailCandidateActions candidateId={candidate.id} status={candidate.status} />
+                      <MailCandidateActions
+                        candidateId={candidate.id}
+                        status={candidate.status}
+                        expectedUpdatedAt={candidate.updatedAt.toISOString()}
+                      />
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm">
                       <p className="line-clamp-3 break-words text-muted-foreground">

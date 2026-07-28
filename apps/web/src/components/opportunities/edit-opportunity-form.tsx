@@ -62,17 +62,22 @@ export function EditOpportunityForm({
     try {
       const res = await fetch(`/api/opportunities/${opportunityId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
         body: JSON.stringify({
-          title,
-          stage,
-          amount: amount ? Number(amount) : undefined,
-          probability: Number(probability),
-          closeDate: toIsoDate(closeDate),
-          nextAction: nextAction || null,
-          customerId: customerId || null,
-          partnerId: partnerId || null,
           expectedUpdatedAt: new Date(initial.updatedAt).toISOString(),
+          changes: {
+            title,
+            stage,
+            amount: amount ? Number(amount) : null,
+            probability: Number(probability),
+            closeDate: toIsoDate(closeDate),
+            nextAction: nextAction || null,
+            customerId: customerId || null,
+            partnerId: partnerId || null,
+          },
         }),
       });
       if (!res.ok) {

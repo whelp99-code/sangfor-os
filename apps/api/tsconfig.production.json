@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "noEmit": true,
+    "rootDir": "../..",
+    "baseUrl": "../..",
+    "paths": {
+      "@sangfor/api-utils": ["packages/api-utils/src/index.ts"],
+      "@sangfor/auth": ["packages/auth/src/index.ts"],
+      "@sangfor/business": ["packages/business/src/index.ts"],
+      "@sangfor/business/openai-config": ["packages/business/src/platform/openai-config.ts"],
+      "@sangfor/config": ["packages/config/src/index.ts"],
+      "@sangfor/db": ["packages/db/src/index.ts"],
+      "@sangfor/infra": ["packages/infra/src/index.ts"],
+      "@sangfor/persona": ["packages/persona/src/index.ts"],
+      "@sangfor/shared": ["packages/shared/src/index.ts"],
+      "@sangfor/shared/modes": ["packages/shared/src/modes.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
+}

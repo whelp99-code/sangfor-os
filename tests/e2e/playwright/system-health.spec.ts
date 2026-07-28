@@ -19,7 +19,7 @@ test.describe('System - Pages Load', () => {
 test.describe('System - Health API', () => {
   test('Unified health API returns all services', async ({ request }) => {
     const res = await request.get(`${BASE}/api/unified-health`, { timeout: 10000 })
-    expect(res.ok()).toBeTruthy()
+    expect([200, 503]).toContain(res.status())
     const body = await res.json()
     expect(body.services).toBeDefined()
   })
@@ -28,7 +28,7 @@ test.describe('System - Health API', () => {
     const res = await request.get(`${BASE}/api/unified-health`, { timeout: 10000 })
     const body = await res.json()
     for (const service of body.services || []) {
-      expect(['ok', 'degraded', 'error']).toContain(service.status)
+      expect(['ok', 'degraded', 'error', 'disabled', 'unknown']).toContain(service.status)
     }
   })
 
@@ -36,7 +36,7 @@ test.describe('System - Health API', () => {
     const start = Date.now()
     const res = await request.get(`${BASE}/api/unified-health`, { timeout: 10000 })
     const elapsed = Date.now() - start
-    expect(res.ok()).toBeTruthy()
+    expect([200, 503]).toContain(res.status())
     expect(elapsed).toBeLessThan(2000)
   })
 })

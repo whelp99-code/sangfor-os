@@ -20,9 +20,6 @@ const openApiDocument = {
       get: { summary: 'Get a mail candidate', tags: ['mail-candidates'] },
       patch: { summary: 'Update a mail candidate', tags: ['mail-candidates'] },
     },
-    '/mail-candidates/batch': {
-      post: { summary: 'Batch-update mail candidates', tags: ['mail-candidates'] },
-    },
     '/mail-candidates/convert': {
       post: { summary: 'Convert a mail candidate into an entity', tags: ['mail-candidates'] },
     },

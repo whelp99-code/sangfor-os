@@ -1,51 +1,97 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useToast } from "@sangfor/ui";
+import React, { useState } from "react";
 
-const STATUSES = [
-  ["pending", "대상 감지"],
-  ["notified", "안내 발송"],
-  ["quote_requested", "견적 요청"],
-  ["vendor_quote", "총판 견적"],
-  ["delivered", "고객 전달"],
-  ["po", "PO·구매"],
-  ["renewed", "갱신 완료"],
-  ["lost", "갱신 실패"],
-] as const;
+export type RenewalStatusControlProps = {
+  renewalOpportunityId: string;
+  status: string;
+  updatedAt: string;
+  onStatusUpdated?: () => void;
+};
 
-export function RenewalStatusControl({ id, status }: { id: string; status: string }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
+const NEXT_STATUS_MAP: Record<string, string> = {
+  pending: "notified",
+  notified: "quote_requested",
+  quote_requested: "vendor_quote",
+  vendor_quote: "delivered",
+  delivered: "po",
+  po: "renewed",
+};
 
-  async function update(next: string) {
-    if (next === status) return;
-    if ((next === "renewed" || next === "lost") && !window.confirm("리뉴얼을 종료 상태로 변경할까요?")) return;
-    setBusy(true);
+export function RenewalStatusControl({
+  renewalOpportunityId,
+  status,
+  updatedAt,
+  onStatusUpdated,
+}: RenewalStatusControlProps) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const nextStatus = NEXT_STATUS_MAP[status];
+
+  const handleTransition = async (targetStatus: string) => {
+    setSubmitting(true);
+    setError(null);
     try {
-      const response = await fetch(`/api/renewals/${id}`, {
+      const idempotencyKey = `ren-upd-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const res = await fetch(`/api/renewals/${renewalOpportunityId}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: next }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: JSON.stringify({
+          expectedStatus: status,
+          expectedUpdatedAt: updatedAt,
+          nextStatus: targetStatus,
+        }),
       });
-      if (!response.ok) {
-        toast.error("리뉴얼 상태를 변경하지 못했습니다.");
-        return;
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || json.code || "Failed to update renewal status");
       }
-      toast.success("리뉴얼 상태를 변경했습니다.");
-      router.refresh();
-    } catch {
-      toast.error("네트워크 오류가 발생했습니다.");
+
+      onStatusUpdated?.();
+    } catch (err: any) {
+      setError(err.message);
     } finally {
-      setBusy(false);
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
-    <select aria-label="리뉴얼 상태" disabled={busy} value={status} onChange={(event) => void update(event.target.value)} className="h-8 rounded-md border bg-background px-2 text-xs">
-      {STATUSES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-    </select>
+    <div className="p-4 border rounded-lg bg-zinc-900 text-zinc-100 space-y-4" data-testid="renewal-status-control">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-base text-amber-400">Renewal Lifecycle Control</h3>
+          <p className="text-xs text-zinc-400 font-mono mt-1">
+            Current Status: <span className="text-zinc-200 uppercase font-semibold">{status}</span>
+          </p>
+        </div>
+        {nextStatus && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleTransition(nextStatus)}
+              disabled={submitting}
+              className="py-1.5 px-3 text-xs bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-medium rounded transition"
+              data-testid="btn-advance-status"
+            >
+              Advance to {nextStatus}
+            </button>
+            <button
+              onClick={() => handleTransition("lost")}
+              disabled={submitting}
+              className="py-1.5 px-3 text-xs bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-medium rounded transition"
+              data-testid="btn-mark-lost"
+            >
+              Mark Lost
+            </button>
+          </div>
+        )}
+      </div>
+
+      {error && <p className="text-xs text-rose-400" data-testid="renewal-error">{error}</p>}
+    </div>
   );
 }

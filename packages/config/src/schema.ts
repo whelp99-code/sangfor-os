@@ -27,6 +27,9 @@ export function maskSecrets(obj: Record<string, unknown>): Record<string, unknow
 export const RequiredSecretsSchema = z.object({
   // Core
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid PostgreSQL URL'),
+  // U013/SEC-01: no longer used to sign/verify the session JWT (see
+  // packages/config/src/user-jwt.ts's USER_JWT_* boundary) — kept mandatory
+  // here only for existing non-session consumers/back-compat.
   NEXTAUTH_SECRET: z.string().min(32, 'NEXTAUTH_SECRET must be at least 32 chars'),
   NEXTAUTH_URL: z.string().url('NEXTAUTH_URL must be a valid URL'),
 
@@ -48,6 +51,19 @@ export const RequiredSecretsSchema = z.object({
 
 /** 선택적/기능별 시크릿 - 명시적 opt-in */
 export const OptionalSecretsSchema = z.object({
+  // U026/OPS-01 — parsed strictly by getInternalPrincipalConfig(); optional
+  // here because a generic config consumer need not host every signer/verifier.
+  INTERNAL_PRINCIPAL_TTL_SECONDS: z.string().optional(),
+  INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS: z.string().optional(),
+  INTERNAL_PRINCIPAL_ROTATION_OWNER: z.string().optional(),
+  INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID: z.string().optional(),
+  INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON: z.string().optional(),
+  INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID: z.string().optional(),
+  INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON: z.string().optional(),
+  INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID: z.string().optional(),
+  INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON: z.string().optional(),
+  INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID: z.string().optional(),
+  INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON: z.string().optional(),
   // AIOS v1
   AIOS_V1_URL: z.string().url().default('http://localhost:3101'),
   AIOS_V1_API_KEY: z.string().optional(),
@@ -75,9 +91,11 @@ export const OptionalSecretsSchema = z.object({
 
 /** 공통 설정 스키마 */
 export const CommonConfigSchema = z.object({
-  PORT: z.coerce.number().int().positive().default(PORT_REGISTRY.PORTAL),
+  PORT: z.coerce.number().int().positive().default(PORT_REGISTRY.SANGFOR_WEB),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  /** U006 process profile (local | test | production). Optional; inferred from NODE_ENV when unset. */
+  SANGFOR_PROCESS_PROFILE: z.enum(['local', 'test', 'production']).optional(),
 });
 
 /** 전체 통합 스키마 */

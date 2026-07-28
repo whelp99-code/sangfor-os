@@ -1,4 +1,5 @@
-import { prisma } from "@sangfor/db";
+import type { AuthContext } from "@sangfor/auth";
+import { withRlsTransaction } from "@sangfor/db";
 import { z } from "zod";
 
 import { getCustomerDetail, getPartnerDetail } from "../crm/customer-partner";
@@ -13,7 +14,6 @@ import {
 } from "../skills/portal-binding-summaries";
 import type { ContextPack, ContextPackSection, ContextPackSectionKey } from "./context-pack-types";
 import { buildContextPackSchema, type TemplateKey } from "./context-pack-types";
-import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 function emptySection(key: ContextPackSectionKey, title: string): ContextPackSection {
   return { key, title, empty: true, content: "(no data)" };
@@ -33,16 +33,26 @@ function filledSection(
   };
 }
 
-async function listLinkedTasksForEntity(entityType: string, entityId: string) {
-  const links = await prisma.taskLink.findMany({
-    where: { entityType, entityId },
-    include: {
-      workTask: { include: { customer: true, partner: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 20,
+async function listLinkedTasksForEntity(
+  ctx: AuthContext,
+  entityType: string,
+  entityId: string,
+) {
+  return withRlsTransaction(ctx, async (tx) => {
+    const links = await tx.taskLink.findMany({
+      where: {
+        entityType,
+        entityId,
+        workTask: { projectId: ctx.projectId, archivedAt: null },
+      },
+      include: {
+        workTask: { include: { customer: true, partner: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+    return links.map((link) => link.workTask);
   });
-  return links.map((link) => link.workTask);
 }
 
 function formatLinkedTasks(
@@ -100,10 +110,21 @@ export function inferTemplateKeyFromSource(
 }
 
 export async function buildOrchestratorContextPack(
+  ctx: AuthContext,
   input: z.infer<typeof buildContextPackSchema>,
 ): Promise<ContextPack> {
   const parsed = buildContextPackSchema.parse(input);
-  const projectSlug = parsed.projectSlug ?? (await resolveDefaultProjectSlug());
+  if (parsed.projectSlug) {
+    throw new Error("caller_selected_project_scope_forbidden");
+  }
+  const projectSlug = await withRlsTransaction(ctx, async (tx) => {
+    const project = await tx.project.findFirst({
+      where: { id: ctx.projectId, companyId: ctx.companyId },
+      select: { slug: true },
+    });
+    if (!project) throw new Error("authenticated_project_not_found");
+    return project.slug;
+  });
   const sections: ContextPackSection[] = [];
 
   let customerId: string | undefined;
@@ -111,7 +132,7 @@ export async function buildOrchestratorContextPack(
   let knowledgeQuery = parsed.knowledgeQuery;
 
   if (parsed.sourceEntityType === "opportunity" && parsed.sourceEntityId) {
-    const opportunity = await getOpportunityDetail(parsed.sourceEntityId);
+    const opportunity = await getOpportunityDetail(ctx, parsed.sourceEntityId);
     if (opportunity) {
       sections.push(
         filledSection(
@@ -166,7 +187,7 @@ export async function buildOrchestratorContextPack(
   }
 
   if (customerId) {
-    const customer = await getCustomerDetail(customerId);
+    const customer = await getCustomerDetail(ctx, customerId);
     if (customer) {
       sections.push(
         filledSection(
@@ -213,6 +234,7 @@ export async function buildOrchestratorContextPack(
 
   if (parsed.sourceEntityType && parsed.sourceEntityId) {
     const tasks = await listLinkedTasksForEntity(
+      ctx,
       parsed.sourceEntityType,
       parsed.sourceEntityId,
     );

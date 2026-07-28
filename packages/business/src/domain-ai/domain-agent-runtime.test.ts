@@ -20,6 +20,10 @@ vi.mock("./domain-memory", async (importOriginal) => {
   };
 });
 
+vi.mock("../infrastructure/default-project", () => ({
+  resolveDefaultProjectSlug: vi.fn(async () => "unit-test-project"),
+}));
+
 const sampleCase: DomainCase = {
   id: "c1",
   subject: "Sangfor 방화벽 문의",

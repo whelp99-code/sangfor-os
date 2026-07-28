@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
-import { listOpportunities } from "@sangfor/business";
+import { listOpportunities, resolveOpportunityAuthContext } from "@sangfor/business";
 import {
   isActiveOpportunity,
   isRecognizedStage,
@@ -16,6 +16,9 @@ import { formatKRWCompact, stageDisplay } from "@/components/deals/stage-meta";
 import { regStatusMeta } from "@/components/deals/reg-status";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
 import { cn } from "@/lib/utils";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 // ---------------------------------------------------------------------------
 // Stage funnel buckets — ③결과 / ⑤수주 / ⑥딜리버리 had no enum mapping and
@@ -49,6 +52,7 @@ function StagePips({ idx, isLost }: StagePipsProps) {
   return (
     <div
       className={cn("flex items-center gap-2", isLost && "opacity-60")}
+      role="img"
       aria-label={`단계 ${idx} / ${TOTAL_PIPS}`}
     >
       <div className="flex items-center gap-0.5" aria-hidden>
@@ -77,8 +81,23 @@ function StagePips({ idx, isLost }: StagePipsProps) {
 // Page
 // ---------------------------------------------------------------------------
 export default async function HomePage() {
-  const opportunitiesRaw = await listOpportunities();
-  const opportunities = serializeDecimalAtBoundary(opportunitiesRaw);
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(new Request(
+    "http://sangfor.local/home",
+    { headers: { cookie: `session=${encodeURIComponent(token)}` } },
+  ));
+  if (!session.ok) redirect("/login");
+  const ctx = await resolveOpportunityAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  });
+  const opportunityPage = await listOpportunities(ctx, { first: 100 });
+  const opportunities = serializeDecimalAtBoundary(opportunityPage.items);
 
   // -- KPI derivations -------------------------------------------------------
   const openDeals = opportunities.filter((opp) => isActiveOpportunity(opp.stage));
@@ -227,7 +246,6 @@ export default async function HomePage() {
                     <div
                       className="w-full rounded-t-md bg-primary/15 ring-1 ring-primary/20"
                       style={{ height: `${heightPct}%`, minHeight: count > 0 ? "8px" : "2px" }}
-                      aria-label={`${s.label}: ${count}건`}
                     />
                   </div>
                 );
@@ -260,7 +278,7 @@ export default async function HomePage() {
                 </Link>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} aria-label="최근 딜 표">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/40">
@@ -346,7 +364,7 @@ export default async function HomePage() {
             aria-label="즉시 대응이 필요한 위험 목록"
           >
             {riskItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground" role="none">
+              <p className="text-sm text-muted-foreground" role="listitem">
                 현재 즉시 대응이 필요한 위험이 없습니다.
               </p>
             ) : (

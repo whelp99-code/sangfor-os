@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 import {
   executeWorkflow,
   getWorkflowStatus,
@@ -47,6 +48,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/aios-v3/workflow/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   try {
     const body = (await request.json()) as WorkflowExecutionRequest;
 

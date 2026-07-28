@@ -2,6 +2,7 @@ import { resolveDefaultProjectId, resolveDefaultProjectSlug } from "@sangfor/bus
 import { prisma } from "@sangfor/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { PersistedProjectAssignment } from "@sangfor/auth";
 
 import { isAuthBypassEnabled } from "@/lib/api-auth";
 import {
@@ -135,34 +136,20 @@ async function relatedResourceExists(
 
   switch (reference.entityType) {
     case "customer":
-      return Boolean(await prisma.customer.findFirst({ where, select: { id: true } }));
+      // CRM authority requires an AuthContext-first canonical service. ProjectScope contains no
+      // actor assignment, so this legacy helper must fail closed instead of querying by bare ID.
+      return false;
     case "partner":
       return Boolean(await prisma.partner.findFirst({ where, select: { id: true } }));
     case "opportunity":
-      return Boolean(await prisma.opportunity.findFirst({ where, select: { id: true } }));
+      return false;
     case "poc":
     case "poc_project":
       return Boolean(await prisma.pocProject.findFirst({ where, select: { id: true } }));
     case "proposal":
-      return Boolean(
-        await prisma.generatedDocument.findFirst({
-          where: { id: reference.entityId, template: { projectId: scope.projectId } },
-          select: { id: true },
-        }),
-      );
+      return false;
     case "engagement":
-      return Boolean(
-        await prisma.engagement.findFirst({
-          where: {
-            id: reference.entityId,
-            OR: [
-              { projectId: scope.projectId },
-              { projectId: null, opportunity: { projectId: scope.projectId } },
-            ],
-          },
-          select: { id: true },
-        }),
-      );
+      return false;
     case "mail_message":
       return Boolean(
         await prisma.mailMessage.findFirst({
@@ -186,4 +173,21 @@ export async function relatedResourcesBelongToProject(
     references.map((reference) => relatedResourceExists(scope, reference)),
   );
   return results.every(Boolean);
+}
+
+/**
+ * U015/SEC-02a — the ProjectMember counterpart of the project-existence check above: fetches the
+ * caller's own membership row for one (userId, projectId) pair (never a broader listing), for
+ * capability checks that require an active project assignment. Returns the raw row (or null) —
+ * lifecycle evaluation is @sangfor/auth's `isActiveProjectAssignment`, kept in one place so web and
+ * API never diverge on what "active" means.
+ */
+export async function findProjectMembership(
+  userId: string,
+  projectId: string,
+): Promise<PersistedProjectAssignment | null> {
+  return prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+    select: { id: true, userId: true, projectId: true, status: true, validFrom: true, expiresAt: true, revokedAt: true },
+  });
 }

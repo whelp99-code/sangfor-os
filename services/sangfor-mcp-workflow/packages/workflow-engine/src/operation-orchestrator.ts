@@ -29,10 +29,23 @@ export interface AtomicExecutionResult {
 }
 
 export class OperationOrchestrator {
-  private postVerifier: PostVerifier;
+  private static defaultVerifierOptions: { outputRoot: string; attemptRoot?: string } | null = null;
+  private postVerifier: PostVerifier | undefined;
+
+  static configureTaskOutputRoot(options: { outputRoot: string; attemptRoot?: string }): void {
+    // Constructing validates absolute, outside-workspace, and attempt ownership
+    // before any context can later write evidence.
+    new PostVerifier(options);
+    OperationOrchestrator.defaultVerifierOptions = { ...options };
+  }
 
   constructor(postVerifier?: PostVerifier) {
-    this.postVerifier = postVerifier ?? new PostVerifier();
+    // A context which cannot supply a caller-owned output root is deliberately
+    // non-executing; it must not create ./outputs/evidence as a fallback.
+    this.postVerifier = postVerifier
+      ?? (OperationOrchestrator.defaultVerifierOptions
+        ? new PostVerifier(OperationOrchestrator.defaultVerifierOptions)
+        : undefined);
   }
 
   /**
@@ -41,6 +54,7 @@ export class OperationOrchestrator {
   async executeWithVerification(
     request: AtomicExecutionRequest,
   ): Promise<AtomicExecutionResult> {
+    if (!this.postVerifier) throw new Error('manual-gate: explicit PostVerifier output root is required');
     log.info(`Atomic execution start: ${request.executionId}`);
 
     const execResult = await request.execute();

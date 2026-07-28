@@ -1,14 +1,11 @@
-import { getOpportunityDetail } from "@sangfor/business";
+import { getOpportunityDetail, resolveOpportunityAuthContext } from "@sangfor/business";
 import { getDealRegistration, upsertDealRegistration } from "@sangfor/business/deal-registration";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { serializeDecimalAtBoundary } from "@/lib/serialize-decimal";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
-import {
-  isResourceInProject,
-  relatedResourcesBelongToProject,
-  resolveProjectScope,
-} from "@/lib/project-scope";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
+import { relatedResourcesBelongToProject } from "@/lib/project-scope";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -31,13 +28,43 @@ const dealRegistrationInputSchema = z.object({
   conflictNote: z.string().nullable().optional(),
 });
 
+async function resolveContext(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return { ok: false as const, response: denied };
+  const session = await evaluatePersistedSessionFromRequest(request);
+  if (!session.ok) {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ error: "unauthorized" }, { status: 401 }),
+    };
+  }
+  try {
+    return {
+      ok: true as const,
+      ctx: await resolveOpportunityAuthContext({
+        userId: session.userId,
+        sessionId: null,
+        tenantId: session.tenantId,
+        companyId: session.companyId,
+        projectId: session.projectId,
+        product: "portal",
+      }),
+    };
+  } catch {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ error: "forbidden" }, { status: 403 }),
+    };
+  }
+}
+
 export async function GET(request: Request, context: RouteContext) {
-  const project = await resolveProjectScope(request);
-  if (!project.ok) return project.response;
+  const auth = await resolveContext(request);
+  if (!auth.ok) return auth.response;
   const { id } = await context.params;
   try {
-    const opportunity = await getOpportunityDetail(id);
-    if (!isResourceInProject(opportunity, project.scope)) {
+    const opportunity = await getOpportunityDetail(auth.ctx, id);
+    if (!opportunity) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
     const registration = await getDealRegistration(id);
@@ -49,19 +76,23 @@ export async function GET(request: Request, context: RouteContext) {
 }
 
 export async function PUT(request: Request, context: RouteContext) {
-  const denied = assertApiAccess(request);
-  if (denied) return denied;
-  const project = await resolveProjectScope(request);
-  if (!project.ok) return project.response;
+  const auth = await resolveContext(request);
+  if (!auth.ok) return auth.response;
+  if (!auth.ctx.permissions.includes("opportunity.write")) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
   const { id } = await context.params;
   try {
-    const opportunity = await getOpportunityDetail(id);
-    if (!isResourceInProject(opportunity, project.scope)) {
+    const opportunity = await getOpportunityDetail(auth.ctx, id);
+    if (!opportunity) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
     const body = await request.json();
     const parsed = dealRegistrationInputSchema.parse(body);
-    const distributorAllowed = await relatedResourcesBelongToProject(project.scope, [
+    const distributorAllowed = await relatedResourcesBelongToProject({
+      projectId: auth.ctx.projectId,
+      projectSlug: "",
+    }, [
       { entityType: "partner", entityId: parsed.distributorId },
     ]);
     if (!distributorAllowed) {

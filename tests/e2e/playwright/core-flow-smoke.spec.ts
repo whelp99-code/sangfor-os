@@ -22,6 +22,7 @@ import { test, expect, type APIRequestContext } from '@playwright/test'
 const BASE = process.env.BASE_URL ?? 'http://localhost:3101'
 
 async function login(request: APIRequestContext): Promise<string | null> {
+  if (process.env.UX_AUTH_STORAGE_STATE_DIR?.trim()) return null
   const password = process.env.AUTH_DEMO_PASSWORD?.trim()
   const res = await request.post(`${BASE}/api/auth/login`, {
     data: password ? { password } : {},

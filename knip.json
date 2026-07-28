@@ -1,0 +1,346 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreWorkspaces": [
+    "services/*"
+  ],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/**/*.{mjs,cjs,ts}",
+        "playwright.config.ts",
+        "playwright.acceptance.config.ts"
+      ],
+      "project": [
+        "scripts/**/*.{mjs,cjs,ts}",
+        "playwright.config.ts",
+        "playwright.acceptance.config.ts"
+      ]
+    },
+    "apps/web": {},
+    "apps/api": {
+      "entry": [
+        "src/index.ts"
+      ]
+    },
+    "packages/db": {
+      "entry": [
+        "prisma/seed.ts",
+        "scripts/*.ts"
+      ]
+    },
+    "packages/*": {}
+  },
+  "ignore": [
+    "apps/api/src/services/finance/hometax-securemail/vendor/aes.js",
+    "apps/api/src/services/finance/hometax-securemail/vendor/seed.js",
+    "apps/web/src/components/customers/customers-data-table.tsx",
+    "apps/web/src/components/dashboard/charts/activity-chart.tsx",
+    "apps/web/src/components/dashboard/charts/health-donut.tsx",
+    "apps/web/src/components/dashboard/charts/kpi-sparkline.tsx",
+    "apps/web/src/components/dashboard/charts/pipeline-chart.tsx",
+    "apps/web/src/components/dashboard/role-dashboard.tsx",
+    "apps/web/src/components/opportunities/edit-opportunity-form.tsx",
+    "apps/web/src/components/ui/data-table.tsx",
+    "packages/business/scripts/apply-invoice-answers.ts",
+    "packages/business/scripts/apply-owner-corrections.ts",
+    "packages/business/scripts/backfill-customer-domains.ts",
+    "packages/business/scripts/backfill-deal-chain.ts",
+    "packages/business/scripts/backfill-domain-embeddings.ts",
+    "packages/business/scripts/backfill-mail-bodies.ts",
+    "packages/business/scripts/build-reply-pairs.ts",
+    "packages/business/scripts/build-work-transcripts.ts",
+    "packages/business/scripts/cleanup-entities.ts",
+    "packages/business/scripts/cleanup-polluted-customers.ts",
+    "packages/business/scripts/domain-llm-e2e.ts",
+    "packages/business/scripts/domain-pipeline-demo.ts",
+    "packages/business/scripts/domain-structured-e2e.ts",
+    "packages/business/scripts/eval-recall.ts",
+    "packages/business/scripts/extract-work-patterns.ts",
+    "packages/business/scripts/fill-uninvoiced-deals.ts",
+    "packages/business/scripts/fix-purchase-price-deals.ts",
+    "packages/business/scripts/persist-entity-policies.ts",
+    "packages/business/scripts/persist-learning.ts",
+    "packages/business/scripts/persist-reply-examples.ts",
+    "packages/business/scripts/reclassify-candidates.ts",
+    "packages/business/scripts/reconcile-bank-deposits.ts",
+    "packages/business/scripts/reconcile-deal-amounts.ts",
+    "packages/business/scripts/reconcile-purchase-orders.ts",
+    "packages/business/scripts/regroup-chosun-deals.ts",
+    "packages/business/scripts/regroup-gsitm-deals.ts",
+    "packages/business/scripts/replay-generate-documents.ts",
+    "packages/business/scripts/replay-mail-timeline.ts",
+    "packages/business/scripts/report-domain-pollution.ts",
+    "packages/business/scripts/revalidate-batch.ts",
+    "packages/business/scripts/seed-ai-models.ts",
+    "packages/business/scripts/seed-partners-from-ground-truth.ts",
+    "packages/business/scripts/split-installment-invoices.ts",
+    "packages/business/scripts/suppress-artifact-candidates.ts",
+    "packages/business/scripts/verify-polish.ts",
+    "packages/business/src/mail/ground-truth-registry.ts",
+    "packages/db/prisma/scripts/backfill-migrations.ts"
+  ],
+  "ignoreDependencies": [
+    "@dnd-kit/sortable",
+    "@dnd-kit/utilities",
+    "@sangfor/mail-intelligence",
+    "@sangfor/shared",
+    "@vitest/coverage-v8",
+    "class-variance-authority",
+    "clsx",
+    "jose",
+    "lucide-react",
+    "postcss",
+    "tailwind-merge",
+    "turbo",
+    "zod",
+    "zod-openapi"
+  ],
+  "ignoreIssues": {
+    "apps/web/src/components/ui/card.tsx": [
+      "exports"
+    ],
+    "apps/web/src/components/ui/badge.tsx": [
+      "exports"
+    ],
+    "apps/web/src/components/ui/scroll-area.tsx": [
+      "exports"
+    ],
+    "apps/web/src/lib/cockpit.ts": [
+      "exports",
+      "types"
+    ],
+    "apps/web/src/components/ui/metric-card.tsx": [
+      "exports",
+      "types"
+    ],
+    "apps/web/src/components/deals/stage-meta.ts": [
+      "exports",
+      "types"
+    ],
+    "apps/web/src/components/ui/dialog.tsx": [
+      "exports"
+    ],
+    "apps/web/src/lib/ux-labels.ts": [
+      "exports"
+    ],
+    "apps/web/src/lib/proposal-template-labels.ts": [
+      "exports"
+    ],
+    "apps/web/src/components/deals/activity-labels.ts": [
+      "exports"
+    ],
+    "apps/web/src/components/ui/tabs.tsx": [
+      "exports"
+    ],
+    "apps/web/src/components/tasks/task-meta.ts": [
+      "exports",
+      "types"
+    ],
+    "apps/web/src/lib/aios-v3-bridge.ts": [
+      "exports",
+      "types"
+    ],
+    "apps/web/src/lib/agent/workflow-run-store.ts": [
+      "exports"
+    ],
+    "apps/web/src/lib/env.ts": [
+      "exports",
+      "types"
+    ],
+    "apps/web/src/lib/registry/service.ts": [
+      "exports"
+    ],
+    "apps/web/src/lib/action-error-labels.ts": [
+      "exports"
+    ],
+    "apps/web/src/components/ui/table.tsx": [
+      "exports"
+    ],
+    "apps/web/src/components/ui/color-review-badge.tsx": [
+      "exports"
+    ],
+    "apps/web/src/components/deals/deal-title-display.tsx": [
+      "exports"
+    ],
+    "apps/web/src/components/ui/dropdown-menu.tsx": [
+      "exports"
+    ],
+    "apps/web/src/components/ui/select.tsx": [
+      "exports"
+    ],
+    "apps/web/src/components/ui/sidebar.tsx": [
+      "exports"
+    ],
+    "apps/web/src/components/ui/states.tsx": [
+      "exports",
+      "types"
+    ],
+    "apps/api/esbuild.config.mjs": [
+      "duplicates",
+      "exports"
+    ],
+    "apps/api/src/middleware/auth.ts": [
+      "exports",
+      "types"
+    ],
+    "apps/api/src/services/finance/cashflows.service.ts": [
+      "exports"
+    ],
+    "apps/api/src/services/finance/codef.service.ts": [
+      "exports",
+      "types"
+    ],
+    "apps/api/src/services/finance/finance-amounts.ts": [
+      "exports",
+      "types"
+    ],
+    "apps/api/src/services/finance/expenses.service.ts": [
+      "exports"
+    ],
+    "apps/api/src/middleware/error-handler.ts": [
+      "exports"
+    ],
+    "apps/api/src/middleware/finance-access.ts": [
+      "exports"
+    ],
+    "apps/api/src/middleware/rbac.ts": [
+      "exports"
+    ],
+    "apps/api/src/services/finance/index.ts": [
+      "exports",
+      "types"
+    ],
+    "apps/api/src/services/finance/invoices.service.ts": [
+      "exports"
+    ],
+    "packages/business/src/governance/external-mutation-containment.ts": [
+      "exports",
+      "types"
+    ],
+    "packages/business/src/domain-ai/domain-charter.ts": [
+      "exports",
+      "types"
+    ],
+    "packages/infra/src/mcp-client.ts": [
+      "exports"
+    ],
+    "apps/web/src/components/deals/reg-status.ts": [
+      "types"
+    ],
+    "apps/web/src/components/tasks/create-task-form.tsx": [
+      "types"
+    ],
+    "apps/web/src/lib/api-auth.ts": [
+      "types"
+    ],
+    "apps/web/src/lib/project-scope.ts": [
+      "types"
+    ],
+    "apps/web/src/lib/infra-health.ts": [
+      "types"
+    ],
+    "apps/web/src/lib/knowledge/lightrag-client.ts": [
+      "types"
+    ],
+    "apps/web/src/components/deals/deal-detail.tsx": [
+      "types"
+    ],
+    "apps/web/src/components/deals/deal-work-tab.tsx": [
+      "types"
+    ],
+    "apps/web/src/components/deals/registration-panel.tsx": [
+      "types"
+    ],
+    "apps/web/src/components/phase13/portal-orchestrator-run-panel.tsx": [
+      "types"
+    ],
+    "apps/web/src/lib/proposal-action-guards.ts": [
+      "types"
+    ],
+    "apps/web/src/lib/agent/playbook-store.ts": [
+      "types"
+    ],
+    "apps/web/src/lib/auth/rbac.ts": [
+      "types"
+    ],
+    "apps/web/src/lib/health/history-store.ts": [
+      "types"
+    ],
+    "apps/web/src/lib/health/alerts.ts": [
+      "types"
+    ],
+    "apps/web/src/components/deals/inline-field.tsx": [
+      "types"
+    ],
+    "apps/web/src/lib/agent/use-agent-run.ts": [
+      "types"
+    ],
+    "apps/web/src/lib/agent/use-workflow-run.ts": [
+      "types"
+    ],
+    "apps/web/src/components/views/data-view.tsx": [
+      "types"
+    ],
+    "apps/web/src/components/phase13/context-pack-summary-card.tsx": [
+      "types"
+    ],
+    "apps/web/src/components/deals/stage-guide-data.ts": [
+      "types"
+    ],
+    "apps/web/src/components/deals/work-panels/bid-work-panel.tsx": [
+      "types"
+    ],
+    "apps/web/src/components/deals/work-panels/win-work-panel.tsx": [
+      "types"
+    ],
+    "apps/web/src/components/views/kanban-board.tsx": [
+      "types"
+    ],
+    "packages/agent/src/tool-schema.ts": [
+      "types"
+    ],
+    "apps/api/src/services/finance/tax-invoice-inbound.service.ts": [
+      "types"
+    ],
+    "apps/api/src/services/finance/popbill.service.ts": [
+      "types"
+    ],
+    "apps/api/src/services/finance/ledger.service.ts": [
+      "types"
+    ],
+    "apps/api/src/services/finance/subscriptions.service.ts": [
+      "types"
+    ],
+    "apps/api/src/services/finance/tax-invoice-issue.service.ts": [
+      "types"
+    ],
+    "apps/api/src/services/finance/vat.service.ts": [
+      "types"
+    ],
+    "apps/api/src/services/finance/hometax-securemail/header.ts": [
+      "types"
+    ],
+    "apps/api/src/middleware/rate-limiter.ts": [
+      "types"
+    ],
+    "apps/api/src/services/finance/chatbot.service.ts": [
+      "types"
+    ],
+    "packages/business/src/crm/deal-title.ts": [
+      "types"
+    ],
+    "packages/business/src/mail/outlook/mail-body.ts": [
+      "types"
+    ],
+    "packages/business/src/governance/approval-db.ts": [
+      "types"
+    ],
+    "packages/db/src/index.ts": [
+      "duplicates"
+    ]
+  },
+  "ignoreUnresolved": [
+    "../packages/automation/src/openai-config.ts",
+    "../packages/automation/src/skills/skill-runner.ts"
+  ]
+}

@@ -13,6 +13,19 @@ const TAG = "__t13_deal_code__";
 const integration = process.env.CI_INTEGRATION === "1";
 let opportunityId: string | undefined;
 
+import type { AuthContext } from "@sangfor/auth";
+
+const mockCtx: AuthContext = {
+  userId: "user-sales",
+  sessionId: "session-sales",
+  tenantId: "tenant-a",
+  companyId: "company-a",
+  projectId: "project-a",
+  businessRole: "sales_manager",
+  permissions: ["customer.read", "customer.write", "opportunity.read", "opportunity.write"],
+  product: "portal",
+};
+
 describe.skipIf(!integration)("createOpportunity assigns a deal code", () => {
   afterAll(async () => {
     if (opportunityId) {
@@ -22,7 +35,7 @@ describe.skipIf(!integration)("createOpportunity assigns a deal code", () => {
   });
 
   it("returns a PRJ-YYYY-NNNN code", async () => {
-    const opp = await createOpportunity({ title: TAG, projectSlug: "demo-project" });
+    const opp = (await createOpportunity(mockCtx, { title: TAG, idempotencyKey: "ik-deal-code-1" })) as { id: string; code?: string };
     opportunityId = opp.id;
     expect(opp.code).toMatch(/^PRJ-\d{4}-\d{4,}$/);
   });

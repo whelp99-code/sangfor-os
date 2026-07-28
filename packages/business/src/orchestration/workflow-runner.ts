@@ -4,6 +4,10 @@ import { logStateTransition, processPendingOutboxEvents } from "../governance/au
 import { ensureApprovalForRun } from "../governance/approval-gate";
 
 /**
+ * @deprecated Legacy command-simulation runner only. It operates the pre-U019 Workflow /
+ * WorkflowStep records and is deliberately not an authority for canonical persisted workflow
+ * definitions, approvals, or external execution. U025 callers use workflow-runtime.ts instead.
+ *
  * Purpose: Phase 5 mock workflow runner — advance steps, agent messages, tool dry-runs.
  * Failure Points: Step order gaps; tool call failures without retry metadata.
  * Observability: automation.workflow_steps, audit.state_transition_logs, audit.outbox_events

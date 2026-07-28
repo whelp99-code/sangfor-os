@@ -27,6 +27,14 @@ afterAll(() => {
 });
 
 describe("POST /api/agent/workflow/run", () => {
+  it("is visibly deprecated and rejects an attempt to use canonical authority", async () => {
+    const res = await POST(req({ requirements: "x", workflowDefinitionId: "canonical-def", status: "running" }));
+    expect(res.status).toBe(410);
+    expect(res.headers.get("Deprecation")).toBe("true");
+    expect(res.headers.get("X-Workflow-Authority")).toBe("legacy-simulation");
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
   it("rejects missing requirements", async () => {
     const res = await POST(req({}));
     expect(res.status).toBe(400);
@@ -42,6 +50,7 @@ describe("POST /api/agent/workflow/run", () => {
 
     const res = await POST(req({ requirements: "branch office NGAF" }));
     expect(res.headers.get("content-type")).toContain("text/event-stream");
+    expect(res.headers.get("Deprecation")).toBe("true");
     const text = await res.text();
     expect(text).toContain("event: run");
     expect(text).toContain("event: stage");

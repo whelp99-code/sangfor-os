@@ -1,6 +1,24 @@
 import { NextResponse } from "next/server";
 
-import { verifySessionToken } from "@/lib/auth/session";
+import { getVerifiedSessionFromRequest } from "@/lib/auth/session";
+import { isLocalTestRuntime } from "@/lib/auth/runtime-profile";
+import { INTERNAL_CONTEXT_HEADER, verifyInternalContextHeader } from "@/lib/auth/persisted-session";
+
+const CALLER_IDENTITY_FIELDS: ReadonlySet<string> = new Set([
+  "approvedBy",
+  "actorId",
+  "requestedBy",
+  "requester",
+  "approver",
+  "approverId",
+  "approverPersonaId",
+  "personaId",
+]);
+
+export type WebOperatorContext = {
+  readonly principalId: string;
+  readonly businessRole: "system_admin";
+};
 
 /**
  * Purpose:
@@ -8,8 +26,9 @@ import { verifySessionToken } from "@/lib/auth/session";
  *
  * Policy:
  * - A request with a valid session (cookie or Bearer token, verified against
- *   JWT_SECRET) may proceed — without this, a logged-in user is still 401'd
- *   by every guarded route even though the outer proxy admitted them.
+ *   the USER_JWT_* keyring — see @sangfor/config's user-jwt boundary) may
+ *   proceed — without this, a logged-in user is still 401'd by every guarded
+ *   route even though the outer proxy admitted them.
  * - Otherwise mutating routes are blocked unless authentication bypass is
  *   *explicitly* enabled for dev/demo via `AUTH_BYPASS_ENABLED=1`. This
  *   mirrors the API server's `apiKeyMiddleware` / `authMiddleware` flag
@@ -20,6 +39,16 @@ import { verifySessionToken } from "@/lib/auth/session";
  *   const denied = assertApiAccess(request);
  *   if (denied) return denied; // 401 JSON, short-circuits the handler
  *
+ * U014/SEC-01: for a safe (GET/HEAD/OPTIONS) request, a valid signed internal-context header
+ * (apps/web/src/lib/auth/persisted-session.ts) — set only by the Web Proxy after it already ran
+ * the DB-backed persisted-session check — is accepted as a synchronous fast path. It is strictly
+ * stronger than the JWT-only check below (producing it required JWT verification to succeed
+ * first), so trusting it can never admit anything the JWT-only path would have refused. Mutating
+ * methods always fall through to the full check below regardless, because the internal context
+ * carries no role claim and cannot reproduce the viewer-mutation gate. When the header is absent
+ * (every direct-call unit test; any request that reached a handler without crossing the Proxy),
+ * behavior is byte-identical to before this unit.
+ *
  * Tests:
  * - src/lib/api-auth.test.ts
  */
@@ -28,7 +57,7 @@ import { verifySessionToken } from "@/lib/auth/session";
 export function isAuthBypassEnabled(
   source: Record<string, string | undefined> = process.env,
 ): boolean {
-  return source.AUTH_BYPASS_ENABLED?.trim() === "1";
+  return source.AUTH_BYPASS_ENABLED?.trim() === "1" && isLocalTestRuntime(source);
 }
 
 /**
@@ -42,11 +71,11 @@ export function assertApiAccess(request: Request): NextResponse | null {
   if (isAuthBypassEnabled()) {
     return null;
   }
-  const cookie = request.headers.get("cookie") ?? "";
-  const token =
-    cookie.match(/(?:^|;\s*)session=([^;]+)/)?.[1] ??
-    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  const session = verifySessionToken(token);
+  const isSafeMethod = ["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase());
+  if (isSafeMethod && verifyInternalContextHeader(request.headers.get(INTERNAL_CONTEXT_HEADER))) {
+    return null;
+  }
+  const session = getVerifiedSessionFromRequest(request);
   if (session) {
     if (
       session.role === "viewer" &&
@@ -56,6 +85,68 @@ export function assertApiAccess(request: Request): NextResponse | null {
     }
     return null;
   }
+  return unauthorizedResponse();
+}
+
+export function authorizeOperatorRequest(
+  request: Request,
+): WebOperatorContext | NextResponse {
+  const session = getVerifiedSessionFromRequest(request);
+  if (!session) return unauthorizedResponse();
+  if (session.role !== "admin") {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  return { principalId: session.id, businessRole: "system_admin" };
+}
+
+export function findCallerIdentityConflicts(
+  input: unknown,
+  principalId: string,
+): string[] {
+  return findCallerIdentityConflictsInValue(input, principalId);
+}
+
+export function stripCallerIdentityFields(
+  input: Readonly<Record<string, unknown>>,
+): Record<string, unknown>;
+export function stripCallerIdentityFields(input: unknown): unknown;
+export function stripCallerIdentityFields(input: unknown): unknown {
+  if (Array.isArray(input)) return input.map(stripCallerIdentityFields);
+  if (!isUnknownRecord(input)) return input;
+  return Object.fromEntries(
+    Object.entries(input)
+      .filter(([key]) => !CALLER_IDENTITY_FIELDS.has(key))
+      .map(([key, value]) => [key, stripCallerIdentityFields(value)]),
+  );
+}
+
+function findCallerIdentityConflictsInValue(
+  input: unknown,
+  principalId: string,
+  path = "",
+): string[] {
+  if (Array.isArray(input)) {
+    return input.flatMap((entry, index) =>
+      findCallerIdentityConflictsInValue(entry, principalId, `${path}[${index}]`),
+    );
+  }
+  if (!isUnknownRecord(input)) return [];
+  return Object.entries(input).flatMap(([key, value]) => {
+    const fieldPath = path ? `${path}.${key}` : key;
+    const ownConflict =
+      CALLER_IDENTITY_FIELDS.has(key) && value !== principalId ? [fieldPath] : [];
+    return [
+      ...ownConflict,
+      ...findCallerIdentityConflictsInValue(value, principalId, fieldPath),
+    ];
+  });
+}
+
+function isUnknownRecord(input: unknown): input is Record<string, unknown> {
+  return input !== null && typeof input === "object";
+}
+
+function unauthorizedResponse(): NextResponse {
   return NextResponse.json(
     { error: "unauthorized", message: "Authentication required" },
     { status: 401 },
@@ -115,6 +206,9 @@ export function checkRateLimit(
 /** Best-effort client IP from standard proxy headers. */
 export function clientIp(request: Request): string {
   const fwd = request.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim();
+  if (fwd) {
+    const [firstForwardedIp] = fwd.split(",");
+    return firstForwardedIp?.trim() || "unknown";
+  }
   return request.headers.get("x-real-ip")?.trim() || "unknown";
 }

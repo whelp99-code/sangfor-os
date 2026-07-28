@@ -1,4 +1,3 @@
-import { config as loadEnv } from "dotenv";
 import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,9 +7,9 @@ const monorepoRoot = path.resolve(
   "../..",
 );
 
-// Load repo-root .env so `pnpm dev` / `next start` from apps/web see DATABASE_URL.
-loadEnv({ path: path.join(monorepoRoot, ".env") });
-loadEnv({ path: path.join(monorepoRoot, ".env.local"), override: true });
+// U007: do not load monorepoRoot/.env or .env.local here (no dotenv override).
+// Next still loads project-dir env via its own loadEnvConfig; isolation owner is
+// the detached release mirror, not this config file.
 
 const requestedDistDir = process.env.NEXT_DIST_DIR;
 const distDir = requestedDistDir === undefined ? ".next" : path.normalize(requestedDistDir.trim());
@@ -29,7 +28,7 @@ const nextConfig: NextConfig = {
   distDir,
   allowedDevOrigins: ["127.0.0.1"],
   output: "standalone",
-  transpilePackages: ["@sangfor/agent", "@sangfor/business", "@sangfor/db", "@sangfor/infra", "@sangfor/shared"],
+  transpilePackages: ["@sangfor/agent", "@sangfor/business", "@sangfor/db", "@sangfor/health", "@sangfor/infra", "@sangfor/shared"],
   turbopack: {
     root: monorepoRoot,
   },

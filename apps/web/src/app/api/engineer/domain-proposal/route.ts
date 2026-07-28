@@ -2,12 +2,15 @@ import { prisma } from "@sangfor/db";
 import { engineerConsole, type RagHit } from "@sangfor/infra";
 import { assembleRagContext, runDomainStage, type DomainCase, type RagContextHit } from "@sangfor/business";
 import { assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/engineer/domain-proposal/route.ts");
+  if (capabilityDenied) return capabilityDenied;
 
   let body: { caseId?: unknown; product?: unknown };
   try {

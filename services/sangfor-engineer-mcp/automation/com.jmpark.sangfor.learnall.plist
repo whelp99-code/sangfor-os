@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"\>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
     <key>Label</key>
@@ -13,11 +13,11 @@
 
     <key>ProgramArguments</key>
     <array>
-      <string>/Users/jmpark/Documents/Playground/whelp99-code-sangfor-engineer-mcp/automation/scripts/run-learnall.sh</string>
+      <string>__SERVICE_ROOT__/automation/scripts/run-learnall.sh</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/jmpark/Documents/Playground/whelp99-code-sangfor-engineer-mcp</string>
+    <string>__SERVICE_ROOT__</string>
 
     <key>RunAtLoad</key>
     <false/>

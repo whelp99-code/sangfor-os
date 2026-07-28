@@ -42,3 +42,4 @@ export * from "./knowledge-search";
 export * from "./project-decision";
 export * from "./project-hub";
 export * from "./rag-context";
+export * from "./governed-domain-proposal";

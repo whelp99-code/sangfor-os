@@ -1,15 +1,32 @@
 import { NextResponse } from "next/server";
 import { callMcpTool, listMcpTools } from "@sangfor/infra";
-import { apiError, assertApiAccess } from "@/lib/api-auth";
+import { z } from "zod";
+
+import {
+  apiError,
+  authorizeOperatorRequest,
+  findCallerIdentityConflicts,
+  stripCallerIdentityFields,
+} from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 
 export const dynamic = "force-dynamic";
 
+const toolArgumentsSchema = z.object({}).catchall(z.unknown());
+
 /** GET /api/mcp/tools — list the MCP tools exposed by the whelp99 bridge. */
-export async function GET() {
+export function GET(): Promise<NextResponse>;
+export function GET(request: Request): Promise<NextResponse>;
+export async function GET(request?: Request) {
+  const resolvedRequest = request ?? new Request("http://localhost/api/mcp/tools");
+  const authorization = authorizeOperatorRequest(resolvedRequest);
+  if (authorization instanceof NextResponse) return authorization;
+  const capabilityDenied = await assertBusinessCapability(resolvedRequest, "apps/web/src/app/api/mcp/tools/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   try {
     const tools = await listMcpTools();
     return NextResponse.json({ tools, timestamp: new Date().toISOString() });
-  } catch (error) {
+  } catch (error) { // no-excuse-ok: catch
     return apiError("mcp_tools_unreachable", error, {
       status: 502,
       extra: { tools: [] },
@@ -24,8 +41,10 @@ export async function GET() {
  * as { error, allowedTools } with a 403-equivalent envelope.
  */
 export async function POST(request: Request) {
-  const denied = assertApiAccess(request);
-  if (denied) return denied;
+  const authorization = authorizeOperatorRequest(request);
+  if (authorization instanceof NextResponse) return authorization;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/mcp/tools/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   let body: { name?: unknown; arguments?: unknown; args?: unknown };
   try {
     body = await request.json();
@@ -39,13 +58,16 @@ export async function POST(request: Request) {
   }
 
   const rawArgs = body.arguments ?? body.args ?? {};
-  const args =
-    rawArgs && typeof rawArgs === "object" ? (rawArgs as Record<string, unknown>) : {};
+  const parsedArgs = toolArgumentsSchema.safeParse(rawArgs);
+  const args = parsedArgs.success ? parsedArgs.data : {};
+  if (findCallerIdentityConflicts(args, authorization.principalId).length > 0) {
+    return NextResponse.json({ error: "IDENTITY_CONFLICT" }, { status: 400 });
+  }
 
   try {
-    const result = await callMcpTool(name, args);
+    const result = await callMcpTool(name, stripCallerIdentityFields(args));
     return NextResponse.json(result, { status: result.error ? 502 : 200 });
-  } catch (error) {
+  } catch (error) { // no-excuse-ok: catch
     return apiError("mcp_call_failed", error, { status: 500 });
   }
 }

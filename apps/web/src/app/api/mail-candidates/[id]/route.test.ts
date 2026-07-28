@@ -1,116 +1,216 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthContext } from "@sangfor/auth";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  CandidateConversionInProgressError,
-  mockApprove,
-  mockGet,
-  mockRevalidate,
-  mockReject,
-  mockSetCandidateType,
-} = vi.hoisted(() => ({
-  CandidateConversionInProgressError: class extends Error {},
-  mockApprove: vi.fn(),
-  mockGet: vi.fn(),
-  mockRevalidate: vi.fn(),
-  mockReject: vi.fn(),
-  mockSetCandidateType: vi.fn(),
+const mocks = vi.hoisted(() => ({
+  assertApiAccess: vi.fn(() => null),
+  evaluateSession: vi.fn(),
+  resolveContext: vi.fn(),
+  approve: vi.fn(),
+  executeManual: vi.fn(),
+  getScoped: vi.fn(),
+  revalidate: vi.fn(),
 }));
 
+vi.mock("@/lib/api-auth", () => ({
+  assertApiAccess: mocks.assertApiAccess,
+  apiError: vi.fn((code: string, _error: unknown, options?: { status?: number }) =>
+    Response.json({ error: code }, { status: options?.status ?? 500 }),
+  ),
+}));
+vi.mock("@/lib/auth/persisted-session", () => ({
+  evaluatePersistedSessionFromRequest: mocks.evaluateSession,
+}));
+vi.mock("@sangfor/business", () => ({
+  resolveCrmAuthContext: mocks.resolveContext,
+}));
 vi.mock("@sangfor/business/mail-candidates", () => ({
-  approveMailDerivedCandidate: mockApprove,
-  CandidateConversionInProgressError,
-  getMailDerivedCandidate: mockGet,
-  revalidateMailDerivedCandidate: mockRevalidate,
-  rejectMailDerivedCandidate: mockReject,
-  setCandidateType: mockSetCandidateType,
+  approveMailDerivedCandidate: mocks.approve,
+  executeScopedMailCandidateManualCommand: mocks.executeManual,
+  getScopedMailDerivedCandidate: mocks.getScoped,
+  revalidateMailDerivedCandidate: mocks.revalidate,
 }));
 
-import { PATCH } from "./route";
+import { GET, PATCH } from "./route";
 
-function req(body: unknown) {
-  return new Request("http://localhost/api/mail-candidates/cand-1", {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+const SALES: AuthContext = {
+  userId: "user-sales",
+  sessionId: "session-sales",
+  tenantId: "tenant-a",
+  companyId: "company-a",
+  projectId: "project-a",
+  businessRole: "sales_manager",
+  permissions: ["customer.read", "customer.write", "opportunity.read", "opportunity.write"],
+  product: "portal",
+};
+
+function request(
+  body?: unknown,
+  key = "mail-candidate-command-1",
+  method = "PATCH",
+) {
+  const headers = new Headers();
+  if (body !== undefined) headers.set("content-type", "application/json");
+  if (key) headers.set("idempotency-key", key);
+  return new Request("http://localhost/api/mail-candidates/candidate-1", {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
 }
-function params(id = "cand-1") {
+
+function params(id = "candidate-1") {
   return { params: Promise.resolve({ id }) };
 }
 
 beforeEach(() => {
-  mockApprove.mockReset();
-  mockGet.mockReset();
-  mockRevalidate.mockReset();
-  mockReject.mockReset();
-  mockSetCandidateType.mockReset();
+  vi.clearAllMocks();
+  mocks.evaluateSession.mockResolvedValue({
+    ok: true,
+    userId: SALES.userId,
+    tenantId: SALES.tenantId,
+    companyId: SALES.companyId,
+    projectId: SALES.projectId,
+    mfaVerifiedAt: null,
+  });
+  mocks.resolveContext.mockResolvedValue(SALES);
+  mocks.getScoped.mockResolvedValue({
+    id: "candidate-1",
+    status: "approved",
+    updatedAt: new Date("2026-07-24T00:00:00.000Z"),
+  });
+  mocks.approve.mockResolvedValue({
+    items: [{ candidateId: "candidate-1", entityId: "customer-1" }],
+  });
+  mocks.revalidate.mockResolvedValue({
+    candidate: { id: "candidate-1" },
+    revalidation: { decision: "needs_human_review" },
+  });
+  mocks.executeManual.mockResolvedValue({
+    id: "candidate-1",
+    status: "rejected",
+    updatedAt: new Date("2026-07-24T00:00:01.000Z"),
+  });
 });
 
-const prevBypass = process.env.AUTH_BYPASS_ENABLED;
-beforeAll(() => {
-  process.env.AUTH_BYPASS_ENABLED = "1";
-});
-afterAll(() => {
-  process.env.AUTH_BYPASS_ENABLED = prevBypass;
-});
+describe("GET/PATCH /api/mail-candidates/[id]", () => {
+  it("reads one candidate through authenticated scoped authority", async () => {
+    const response = await GET(request(undefined, "", "GET"), params());
 
-describe("PATCH /api/mail-candidates/[id]", () => {
-  it("routes action=set_candidate_type to setCandidateType with the target type", async () => {
-    mockSetCandidateType.mockResolvedValue({ id: "cand-1", candidateType: "partner" });
-
-    const res = await PATCH(req({ action: "set_candidate_type", candidateType: "partner" }), params());
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(mockSetCandidateType).toHaveBeenCalledWith("cand-1", { candidateType: "partner" });
-    expect(body.candidate).toEqual({ id: "cand-1", candidateType: "partner" });
+    expect(response.status).toBe(200);
+    expect(mocks.getScoped).toHaveBeenCalledWith(SALES, "candidate-1");
   });
 
-  it("returns a sanitized 400 when setCandidateType rejects an uncorrectable type", async () => {
-    mockSetCandidateType.mockRejectedValue(new Error("candidate_type_not_correctable"));
+  it("returns an opaque 404 for a candidate outside the scoped read", async () => {
+    mocks.getScoped.mockResolvedValueOnce(null);
 
-    const res = await PATCH(req({ action: "set_candidate_type", candidateType: "partner" }), params());
-    const body = await res.json();
+    const response = await GET(request(undefined, "", "GET"), params("foreign"));
 
-    expect(res.status).toBe(400);
-    expect(body.error).toBe("patch_failed");
-    expect(JSON.stringify(body)).not.toContain("candidate_type_not_correctable");
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: "not_found" });
   });
 
-  it("still routes action=approve to approveMailDerivedCandidate", async () => {
-    mockApprove.mockResolvedValue({ candidate: { id: "cand-1" }, created: { id: "x" } });
+  it("delegates exact approve version and header idempotency with AuthContext", async () => {
+    const response = await PATCH(
+      request({
+        action: "approve",
+        expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+      }),
+      params(),
+    );
 
-    const res = await PATCH(req({ action: "approve" }), params());
-
-    expect(res.status).toBe(200);
-    expect(mockApprove).toHaveBeenCalledWith("cand-1");
+    expect(response.status).toBe(200);
+    expect(mocks.approve).toHaveBeenCalledWith(SALES, "candidate-1", {
+      expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+      idempotencyKey: "mail-candidate-command-1",
+    });
   });
 
-  it("returns 409 while another approval is converting the candidate", async () => {
-    mockApprove.mockRejectedValueOnce(new CandidateConversionInProgressError());
+  it("delegates revalidation with the same strict CAS/idempotency contract", async () => {
+    const response = await PATCH(
+      request({
+        action: "revalidate",
+        expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+      }),
+      params(),
+    );
 
-    const res = await PATCH(req({ action: "approve" }), params());
-    const body = await res.json();
-
-    expect(res.status).toBe(409);
-    expect(body.error).toBe("candidate_conversion_in_progress");
+    expect(response.status).toBe(200);
+    expect(mocks.revalidate).toHaveBeenCalledWith(SALES, "candidate-1", {
+      expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+      idempotencyKey: "mail-candidate-command-1",
+    });
   });
 
-  it("still routes action=reject to rejectMailDerivedCandidate with reasonCode", async () => {
-    mockReject.mockResolvedValue({ id: "cand-1", status: "rejected" });
+  it.each([
+    {
+      body: {
+        action: "reject",
+        expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+        reasonCode: "weak_evidence",
+      },
+    },
+    {
+      body: {
+        action: "set_candidate_type",
+        expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+        candidateType: "partner",
+      },
+    },
+  ])("delegates $body.action through the scoped manual command", async ({ body }) => {
+    const response = await PATCH(request(body), params());
 
-    const res = await PATCH(req({ action: "reject", reasonCode: "wrong_entity_role" }), params());
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(mockReject).toHaveBeenCalledWith("cand-1", { reasonCode: "wrong_entity_role", note: undefined });
-    expect(body.candidate).toEqual({ id: "cand-1", status: "rejected" });
+    expect(response.status).toBe(200);
+    expect(mocks.executeManual).toHaveBeenCalledWith(SALES, "candidate-1", {
+      ...body,
+      idempotencyKey: "mail-candidate-command-1",
+    });
   });
 
-  it("returns 400 unsupported_action for an unknown action", async () => {
-    const res = await PATCH(req({ action: "bogus" }), params());
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error).toBe("unsupported_action");
+  it.each([
+    "tenantId",
+    "companyId",
+    "projectId",
+    "projectSlug",
+    "actor",
+    "assignmentId",
+    "role",
+  ])("rejects caller-selected %s before a command", async (field) => {
+    const response = await PATCH(
+      request({
+        action: "approve",
+        expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+        [field]: "caller-value",
+      }),
+      params(),
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.approve).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing key, unknown action, and missing expected version", async () => {
+    const missingKey = await PATCH(
+      request(
+        {
+          action: "approve",
+          expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+        },
+        "",
+      ),
+      params(),
+    );
+    const unknownAction = await PATCH(
+      request({ action: "delete", expectedUpdatedAt: "2026-07-24T00:00:00.000Z" }),
+      params(),
+    );
+    const missingVersion = await PATCH(
+      request({ action: "set_candidate_type", candidateType: "partner" }),
+      params(),
+    );
+
+    expect(missingKey.status).toBe(422);
+    expect(unknownAction.status).toBe(422);
+    expect(missingVersion.status).toBe(422);
+    expect(mocks.approve).not.toHaveBeenCalled();
   });
 });

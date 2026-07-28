@@ -10,9 +10,12 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3500
+      - HOST=0.0.0.0
+      - SANGFOR_DOCKER_LIVENESS=1
+      - WHELP99_ENFORCE_SAFE_TOOLS=true
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3500/api/system/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3500/api/system/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -24,7 +27,9 @@ services:
       dockerfile: apps/mcp-server/Dockerfile
     environment:
       - NODE_ENV=production
+      - WHELP99_ENFORCE_SAFE_TOOLS=true
     restart: unless-stopped
+    stdin_open: true
 
 networks:
   default:

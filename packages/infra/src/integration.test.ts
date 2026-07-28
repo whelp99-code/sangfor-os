@@ -39,6 +39,38 @@ describe('getIntegrationTarget', () => {
       ]),
     );
   });
+
+  it('honors env URL overrides for every target (U006 surface/fixtures)', () => {
+    const prev = {
+      WHELP99_MCP_HTTP_URL: process.env.WHELP99_MCP_HTTP_URL,
+      SANGFOR_MCP_URL: process.env.SANGFOR_MCP_URL,
+      WHELP99_OPERATOR_CONSOLE_URL: process.env.WHELP99_OPERATOR_CONSOLE_URL,
+      SANGFOR_MOCK_CONSOLE_URL: process.env.SANGFOR_MOCK_CONSOLE_URL,
+    };
+    try {
+      process.env.WHELP99_MCP_HTTP_URL = 'http://127.0.0.1:45999';
+      process.env.SANGFOR_MCP_URL = 'http://127.0.0.1:45999';
+      process.env.WHELP99_OPERATOR_CONSOLE_URL = 'http://127.0.0.1:45999';
+      process.env.SANGFOR_MOCK_CONSOLE_URL = 'http://127.0.0.1:45999';
+      expect(getIntegrationTarget('whelp99-code-sangfor-engineer-mcp').upstream).toBe(
+        'http://127.0.0.1:45999/health',
+      );
+      expect(getIntegrationTarget('sangfor-mcp-workflow').upstream).toBe(
+        'http://127.0.0.1:45999/api/system/health',
+      );
+      expect(getIntegrationTarget('sangfor-engineer-operator-console').upstream).toBe(
+        'http://127.0.0.1:45999/api/health/store',
+      );
+      expect(getIntegrationTarget('sangfor-mock-console').upstream).toBe(
+        'http://127.0.0.1:45999/',
+      );
+    } finally {
+      for (const [key, value] of Object.entries(prev)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
 });
 
 describe('probeIntegrationTarget', () => {

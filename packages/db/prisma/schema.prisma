@@ -19,11 +19,24 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // U014/SEC-01: nullable lifecycle status, additive. NULL/"legacy_pending" are treated
+  // identically as inactive by every runtime — the migration that introduced this column never
+  // blanket-activates a pre-existing row. Only an explicitly reviewed provisioning path or the
+  // synthetic local seed (packages/db/prisma/seed.ts) may write "active", and does so explicitly.
+  // The named CHECK `users_status_lifecycle_check` (migration 20260715140000) enforces the
+  // allowed value set plus the disabledAt/status coupling below at the DB layer; Prisma
+  // optionality here is an ORM convenience, not the enforcement — the DB check is.
+  status         String?   @default("legacy_pending") @map("status")
+  disabledAt     DateTime? @map("disabled_at")
+  disabledReason String?   @map("disabled_reason")
+
   projectMembers     ProjectMember[]
   commandRuns        CommandRun[]    @relation("CommandRunRequestedBy")
   userCompanyRoles   UserCompanyRole[]
+  assignedCompanyRoles UserCompanyRole[] @relation("UserCompanyRoleAssignedBy")
   // TODO(oma-deferred): owner will expand to Actor union (User | TeamAgent) in a future migration
   ownedOpportunities Opportunity[]
+  authSessions       AuthSession[]
 
   @@map("users")
 }
@@ -33,9 +46,11 @@ model Project {
   slug        String   @unique
   name        String
   description String?
+  companyId   String?  @map("company_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  company     Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
   members     ProjectMember[]
   commandRuns CommandRun[]
   mailInsightThreads MailInsightThread[]
@@ -43,21 +58,50 @@ model Project {
   policyDecisionLogs PolicyDecisionLog[]
   domainMemories     DomainMemory[]
   domainDecisionLogs DomainDecisionLog[]
+  authSessions       AuthSession[]
+  artifacts          Artifact[]
+  approvalRequests   ApprovalRequest[]
+  workflowDefinitions WorkflowDefinition[]
+  workflowRuns        WorkflowRun[]
+  auditLogs           AuditLog[]
+  retentionRunItems RetentionRunItem[]
+  aiExecutions AiExecution[]
 
+
+  // U012: companyId stays optional here (full NOT NULL is deferred to U073 — see
+  // packages/db/src/scope-closure.ts) because a live legacy-null Project can be a genuinely
+  // pending U011 quarantine decision, not a defect. The DB layer still forbids new unscoped rows
+  // via the named, validated CHECK `projects_company_id_required_for_new_rows_check` added in
+  // migration 20260715120000 (a row created before that migration's watermark is grandfathered;
+  // any row created at or after it must carry a companyId). Prisma optionality is therefore an
+  // ORM-level convenience, not the closure guarantee — the DB check is.
+  @@unique([companyId, id], map: "projects_company_id_id_key")
+  @@index([companyId])
   @@map("projects")
 }
 
+// U015/SEC-02a: the project-assignment counterpart of UserCompanyRole's lifecycle columns, same
+// fail-closed rules — NULL/"legacy_pending" rows confer no project authority and are never
+// bulk-promoted by the migration that adds them. Company role and project assignment stay distinct
+// concepts (no FK between this model and UserCompanyRole); `role` here keeps its pre-existing,
+// unconstrained project-tier meaning (e.g. "member") and is not restricted to the ten BusinessRole
+// codes.
 model ProjectMember {
-  id        String   @id @default(cuid())
-  projectId String   @map("project_id")
-  userId    String   @map("user_id")
-  role      String   @default("member")
-  createdAt DateTime @default(now()) @map("created_at")
+  id        String    @id @default(cuid())
+  projectId String    @map("project_id")
+  userId    String    @map("user_id")
+  role      String    @default("member")
+  status    String?   @default("legacy_pending") @map("status")
+  validFrom DateTime? @map("valid_from")
+  expiresAt DateTime? @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
+  @@index([userId, status])
   @@map("project_members")
 }
 
@@ -305,8 +349,145 @@ model ApprovalRequest {
   reason        String?
   createdAt     DateTime @default(now()) @map("created_at")
 
+  // U018/APR-01a: nullable-for-expand scope + version-bound approval fields. Canonical
+  // (legacyUnbound=false) rows require every field below non-null and mutually consistent — see
+  // the named approval_requests_canonical_shape_guard trigger (migration 20260715180000). Legacy
+  // (legacyUnbound=true, the DB default) rows — the unchanged pre-U022 approval-db.ts insert
+  // shape — leave every one of these NULL and confer zero canonical authority.
+  tenantId  String? @map("tenant_id")
+  companyId String? @map("company_id")
+  projectId String? @map("project_id")
+
+  artifactVersionId    String? @map("artifact_version_id")
+  action               String?
+  artifactHashSnapshot String? @map("artifact_hash_snapshot")
+
+  // Immutable after insert (guard trigger enforces this — never Prisma optionality alone).
+  requestedByAssignmentId String? @map("requested_by_assignment_id")
+  requestedSessionId      String? @map("requested_session_id")
+
+  // Mutable CAS pair: U059's compare-and-swap target. The guard trigger requires
+  // ownershipRevision to increment by exactly 1 whenever ownerAssignmentId changes, and to stay
+  // unchanged otherwise — same rule as Artifact's owner CAS (migration 20260715170000).
+  ownerAssignmentId String? @map("owner_assignment_id")
+  ownershipRevision Int     @default(0) @map("ownership_revision")
+
+  policyKey     String? @map("policy_key")
+  policyVersion String? @map("policy_version")
+  policyHash    String? @map("policy_hash")
+
+  // DB-generated-compatible: the named BEFORE INSERT/UPDATE trigger
+  // approval_request_validation_snapshot_guard fills validationSnapshotHash from
+  // validationSnapshot via sangfor_validation_snapshot_sha256() when omitted, requires equality
+  // when the caller supplies it, and denies any UPDATE that changes either field.
+  validationSnapshot     Json?   @map("validation_snapshot")
+  validationSnapshotHash String? @map("validation_snapshot_hash")
+
+  requiredQuorum Int? @map("required_quorum")
+
+  // Decision/state CAS counter — separate from and semantically independent of
+  // ownershipRevision. No forced-increment rule exists at this unit (U022 owns that runtime).
+  revision Int @default(0)
+
+  expiresAt  DateTime? @map("expires_at")
+  resolvedAt DateTime? @map("resolved_at")
+
+  // Required, DB default TRUE. The unchanged pre-U022 approval-db.ts insert omits this column
+  // entirely, so every legacy row keeps the DB default of true. U022 is the only card allowed to
+  // insert a legacyUnbound=false row (never upgrades an existing legacy-unbound row in place).
+  legacyUnbound Boolean  @default(true) @map("legacy_unbound")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "approval_requests_tenant_id_fkey")
+  // U012-compatible composite scope-closure FKs (companies_tenant_id_id_key /
+  // projects_company_id_id_key), same pattern as AuthSession/Artifact.
+  company Company? @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "approval_requests_company_id_fkey")
+  project Project? @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "approval_requests_project_id_fkey")
+
+  artifactVersion ArtifactVersion? @relation(fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "approval_requests_artifact_version_id_fkey")
+
+  // Distinct exact U012 composite assignment relations (user_company_roles_id_company_id_key) —
+  // never an ID-only assignment FK, same pattern as Artifact's createdByAssignment/ownerAssignment.
+  requestedByAssignment UserCompanyRole? @relation("ApprovalRequestedByAssignment", fields: [requestedByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "approval_requests_requested_by_assignment_id_fkey")
+  ownerAssignment       UserCompanyRole? @relation("ApprovalOwnerAssignment", fields: [ownerAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "approval_requests_owner_assignment_id_fkey")
+
+  decisions       ApprovalDecision[]
+  currentValidity ApprovalCurrentValidity?
+  roleChangeRequest RoleChangeRequest?
+  discountRequests DiscountRequest[]
+  aiReleaseEvaluations AiReleaseEvaluation[]
+  retentionRuns RetentionRun[] @relation("RetentionRunApprovalRequest")
+  dataExportRequests DataExportRequest[] @relation("DataExportRequestApprovalRequest")
+  metricBenchmarkVersions MetricBenchmarkVersion[] @relation("MetricBenchmarkVersionApprovalRequest")
+
+
   @@index([status])
   @@map("approval_requests")
+}
+
+// Append-only: UPDATE/DELETE denied by sangfor_approval_decisions_deny_update_trg /
+// sangfor_approval_decisions_deny_delete_trg (reusing the existing sangfor_deny_mutation()
+// function from migration 20260715170000). CHILD_VIA_FK through mandatory approvalRequestId only
+// — no redundant companyId column; the named sangfor_approval_decision_guard_trg insert trigger
+// joins approvalRequestId -> approval_requests.company_id and rejects an actorAssignmentId
+// outside that company, and also rejects any decision recorded against a legacyUnbound=true
+// parent (that request has no canonical scope/version/hash to record against).
+model ApprovalDecision {
+  id                String @id @default(cuid())
+  approvalRequestId String @map("approval_request_id")
+
+  sequence        Int
+  requestRevision Int @map("request_revision")
+
+  artifactVersionId    String @map("artifact_version_id")
+  artifactHashSnapshot String @map("artifact_hash_snapshot")
+
+  decision String
+
+  actorAssignmentId  String  @map("actor_assignment_id")
+  actorSessionId     String  @map("actor_session_id")
+  actorRoleSnapshot  String  @map("actor_role_snapshot")
+  policyHashSnapshot String  @map("policy_hash_snapshot")
+  reason             String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "approval_decisions_approval_request_id_fkey")
+
+  @@unique([approvalRequestId, sequence], map: "approval_decisions_approval_request_id_sequence_key")
+  @@unique([approvalRequestId, actorAssignmentId], map: "approval_decisions_approval_request_id_actor_assignment_id_key")
+  @@map("approval_decisions")
+}
+
+// One-to-one MUTABLE projection, deliberately separate from the append-only ApprovalDecision
+// history above. Migration/backfill creates no row here at all (let alone state=valid); U022 is
+// the only runtime allowed to execute the pending -> valid|invalid|stale|expired,
+// valid -> stale|expired|revoked transitions — the named guard trigger enforces the graph plus
+// the valid/invalid/expired structural preconditions regardless of which unit writes it.
+model ApprovalCurrentValidity {
+  approvalRequestId String @id @map("approval_request_id")
+
+  requestRevision      Int    @map("request_revision")
+  artifactVersionId    String @map("artifact_version_id")
+  artifactHashSnapshot String @map("artifact_hash_snapshot")
+  policyHashSnapshot   String @map("policy_hash_snapshot")
+
+  requiredQuorum       Int @map("required_quorum")
+  satisfiedQuorum      Int @map("satisfied_quorum")
+  lastDecisionSequence Int @map("last_decision_sequence")
+
+  state String
+
+  evaluatedAt   DateTime? @map("evaluated_at")
+  validUntil    DateTime? @map("valid_until")
+  invalidatedAt DateTime? @map("invalidated_at")
+  reasonCode    String?   @map("reason_code")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "approval_current_validity_approval_request_id_fkey")
+
+  @@map("approval_current_validity")
 }
 
 // --- dev ---
@@ -513,21 +694,57 @@ model OutboxEvent {
   @@map("outbox_events")
 }
 
+// U021/AUD-01b: scoped, concurrency-safe, append-only audit chain. Extends the pre-existing
+// AuditLog model only — no AuditChainHead/AuditScopeHead/sequence model (forbidden by the U021
+// contract). `tenantId` is always mandatory; `companyId`/`projectId` narrow the chain per
+// `scopeLevel`'s exact nullability matrix (TENANT: both null; COMPANY: companyId set, projectId
+// null; PROJECT: both set) — enforced by the named `audit_logs_scope_nullability_check` CHECK and
+// independently re-derived/verified by the `sangfor_audit_logs_scope_guard_trg` trigger (migration
+// 20260715210000), which also derives/verifies `chainScopeKey`. `previousHash`/`eventHash` are
+// required (non-null) 64-lowercase-hex once that migration's guarded legacy backfill completes;
+// `sequence` is a positive per-chain (`chainScopeKey`) counter, unique together with
+// `chainScopeKey`. `idempotencyKey` is an optional caller-supplied dedup key, unique together with
+// `chainScopeKey` when non-null via a partial index (not representable in this DSL — see the
+// migration). Append-only: UPDATE/DELETE are denied by
+// `sangfor_audit_logs_deny_update_trg`/`sangfor_audit_logs_deny_delete_trg` (reusing the existing
+// `sangfor_deny_mutation()` function from migration 20260715170000).
 model AuditLog {
-  id           String   @id @default(cuid())
+  id            String @id @default(cuid())
+  tenantId      String @map("tenant_id")
+  scopeLevel    String @map("scope_level")
+  companyId     String? @map("company_id")
+  projectId     String? @map("project_id")
+  chainScopeKey String @map("chain_scope_key")
+  sequence      Int
+
   eventType    String   @map("event_type")
   actorId      String?  @map("actor_id")
   resourceType String   @map("resource_type")
   resourceId   String?  @map("resource_id")
   details      Json?
-  previousHash String?  @map("previous_hash")
-  eventHash    String?  @map("event_hash")
-  timestamp    DateTime @default(now())
-  createdAt    DateTime @default(now()) @map("created_at")
 
+  previousHash   String  @map("previous_hash")
+  eventHash      String  @map("event_hash")
+  idempotencyKey String? @map("idempotency_key")
+
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "audit_logs_tenant_id_fkey")
+  // U012-compatible composite scope-closure FKs (companies_tenant_id_id_key /
+  // projects_company_id_id_key), same pattern as ApprovalRequest/Artifact/AuthSession.
+  company Company? @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "audit_logs_company_id_fkey")
+  project Project? @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "audit_logs_project_id_fkey")
+  retentionRuns RetentionRun[] @relation("RetentionRunAuditLog")
+  dataExportRequests DataExportRequest[] @relation("DataExportRequestAuditLog")
+  ownershipTransfersAsPreview OwnershipTransfer[] @relation("OwnershipTransferPreviewAuditLog")
+  ownershipTransfersAsCompletion OwnershipTransfer[] @relation("OwnershipTransferCompletionAuditLog")
+
+  @@unique([chainScopeKey, sequence])
   @@index([eventType, createdAt])
   @@index([actorId])
   @@index([resourceType, resourceId])
+  @@index([tenantId])
   @@map("audit_logs")
 }
 
@@ -651,6 +868,7 @@ model PortalTask {
 model Customer {
   id        String   @id @default(cuid())
   projectId String   @map("project_id")
+  archivedAt DateTime? @map("archived_at")
   name      String
   domain    String?
   industry  String?
@@ -671,8 +889,11 @@ model Customer {
   customerAssets       CustomerAsset[]
   renewalOpportunities RenewalOpportunity[]
   supportCases         SupportCase[]
+  vendorRequests       VendorRequest[]
+  demoLicenses         DemoLicense[]
 
   @@index([projectId, name])
+  @@index([projectId, archivedAt, updatedAt, id])
   @@index([segment, riskScore])
   @@map("customers")
 }
@@ -762,6 +983,8 @@ model WorkTask {
   customerId   String?   @map("customer_id")
   partnerId    String?   @map("partner_id")
   assigneeName String?   @map("assignee_name")
+  ownerAssignmentId String? @map("owner_assignment_id")
+  ownershipRevision Int @default(0) @map("ownership_revision")
   engagementId String?   @map("engagement_id")
   source       String    @default("manual")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -769,10 +992,14 @@ model WorkTask {
 
   customer Customer? @relation(fields: [customerId], references: [id])
   partner  Partner?  @relation(fields: [partnerId], references: [id])
+  ownerAssignment UserCompanyRole? @relation("WorkTaskOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: SetNull)
   links    TaskLink[]
   statusEvents TaskStatusEvent[]
+  renewalReminderEvents RenewalReminderEvent[] @relation("RenewalReminderEventWorkTask")
 
   @@index([projectId, status])
+  @@index([projectId, archivedAt, updatedAt, id])
+  @@index([ownerAssignmentId, ownershipRevision])
   @@index([projectId, dueAt])
   @@index([engagementId])
   @@map("work_tasks")
@@ -925,6 +1152,8 @@ model Opportunity {
   lostReason    String?    @map("lost_reason")
   dealType      String?    @default("NEW_BUILD") @map("deal_type")
   ownerId       String?    @map("owner_id")
+  ownerAssignmentId String? @map("owner_assignment_id")
+  ownershipRevision Int @default(0) @map("ownership_revision")
   amount      Decimal?  @db.Decimal(12, 2)
   probability Int       @default(20)
   closeDate   DateTime? @map("close_date")
@@ -938,6 +1167,7 @@ model Opportunity {
   customer       Customer? @relation(fields: [customerId], references: [id])
   partner        Partner?  @relation(fields: [partnerId], references: [id])
   owner          User?     @relation(fields: [ownerId], references: [id])
+  ownerAssignment UserCompanyRole? @relation("OpportunityOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: SetNull)
   distributor    Partner?  @relation("OpportunityDistributor", fields: [distributorId], references: [id])
   stageEvents    OpportunityStageEvent[]
   links          OpportunityLink[]
@@ -946,8 +1176,11 @@ model Opportunity {
   vendorRequests  VendorRequest[]
   engagement      Engagement?
   dealRegistration DealRegistration?
+  renewalOpportunities RenewalOpportunity[] @relation("RenewalOpportunityOpportunity")
 
   @@index([projectId, stage])
+  @@index([projectId, archivedAt, updatedAt, id])
+  @@index([ownerAssignmentId, ownershipRevision])
   @@index([ownerId])
   @@index([dealStatus])
   @@index([customerId, stage])
@@ -956,26 +1189,36 @@ model Opportunity {
 }
 
 model DealQualification {
-  id               String            @id @default(cuid())
-  opportunityId    String            @unique @map("opportunity_id")
-  budgetScore      Int               @map("budget_score")
-  authorityScore   Int               @map("authority_score")
-  needScore        Int               @map("need_score")
-  timelineScore    Int               @map("timeline_score")
-  weightedScore    Float             @map("weighted_score")
-  passed           Boolean           @default(false)
-  qualifiedAt      DateTime          @default(now()) @map("qualified_at")
-  qualifiedBy      String?           @map("qualified_by")
-  notes            String?
-  economicBuyerId  String?           @map("economic_buyer_id")
-  championId       String?           @map("champion_id")
+  id                     String            @id @default(cuid())
+  opportunityId          String            @unique @map("opportunity_id")
+  budgetScore            Int               @map("budget_score")
+  authorityScore         Int               @map("authority_score")
+  needScore              Int               @map("need_score")
+  timelineScore          Int               @map("timeline_score")
+  weightedScore          Float             @map("weighted_score")
+  passed                 Boolean           @default(false)
+  qualifiedAt            DateTime          @default(now()) @map("qualified_at")
+  qualifiedBy            String?           @map("qualified_by")
+  notes                  String?
+  economicBuyerId        String?           @map("economic_buyer_id")
+  championId             String?           @map("champion_id")
+  technicalFitScore      Int?              @map("technical_fit_score")
+  scoreTotal             Int?              @map("score_total")
+  scoringVersion         String?           @map("scoring_version")
+  revision               Int?              @map("revision")
+  assessedByAssignmentId String?           @map("assessed_by_assignment_id")
+  assessedAt             DateTime?         @map("assessed_at")
+  updatedAt              DateTime?         @map("updated_at")
+  snapshotHash           String?           @map("snapshot_hash")
 
-  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  economicBuyer Contact?    @relation("DealEconomicBuyer", fields: [economicBuyerId], references: [id])
-  champion      Contact?    @relation("DealChampion", fields: [championId], references: [id])
+  opportunity          Opportunity      @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  economicBuyer        Contact?         @relation("DealEconomicBuyer", fields: [economicBuyerId], references: [id])
+  champion             Contact?         @relation("DealChampion", fields: [championId], references: [id])
+  assessedByAssignment UserCompanyRole? @relation("DealQualificationAssessedByAssignment", fields: [assessedByAssignmentId], references: [id], onDelete: SetNull)
 
   @@index([economicBuyerId])
   @@index([championId])
+  @@index([assessedByAssignmentId])
   @@map("deal_qualifications")
 }
 
@@ -1020,6 +1263,7 @@ model KnowledgeDocument {
 
   chunks KnowledgeChunk[]
   mailInsightThreads MailInsightThread[]
+  retentionRunItems RetentionRunItem[]
 
   @@index([projectId])
   @@map("knowledge_documents")
@@ -1132,6 +1376,387 @@ model DocumentVersion {
 
   @@unique([generatedDocumentId, version])
   @@map("document_versions")
+}
+
+// --- Artifact identity (U017/ART-01a) ---
+// Generic, scoped Artifact identity and immutable ArtifactVersion content envelope. Schema only:
+// no legacy backfill (U020), no current-pointer assignment/CAS (U023), no approval/release
+// runtime. Every row this migration can produce leaves ownershipRevision=0, currentVersionId=NULL,
+// currentRevision=0 — U023 is the first unit allowed to assign/CAS the version pointer and U059
+// is the first owner-transfer runtime. Content hashing follows RFC 8785 JCS exclusively; see
+// packages/db/src/canonical-content-hash.ts (the sole JS producer/verifier) and the
+// sangfor_rfc8785_jcs_v1/sangfor_sha256_utf8 PostgreSQL functions this unit's migration installs
+// (packages/db/prisma/migrations/20260715170000_artifact_identity).
+//
+// `origin`'s allowed vocabulary (human|ai|legacy_import) is a U017 judgment call: the dispatch
+// requires a DB-enforced allowed set for `origin`, matching classification/status, but does not
+// enumerate one. It mirrors the ai_draft/human_draft/legacy_unreviewed authorship split already
+// used by ArtifactVersion.status below.
+model Artifact {
+  id        String @id @default(cuid())
+  tenantId  String @map("tenant_id")
+  companyId String @map("company_id")
+  projectId String @map("project_id")
+
+  artifactType   String @map("artifact_type")
+  classification String
+  origin         String
+  title          String
+
+  // Immutable: enforced by the sangfor_artifacts_guard trigger (BEFORE UPDATE), never by Prisma
+  // optionality alone.
+  createdByAssignmentId String @map("created_by_assignment_id")
+  // Mutable, required: U059's compare-and-swap target. The same trigger requires
+  // ownershipRevision to increment by exactly 1 whenever ownerAssignmentId changes, and to stay
+  // unchanged otherwise.
+  ownerAssignmentId String @map("owner_assignment_id")
+  ownershipRevision Int    @default(0) @map("ownership_revision")
+
+  // Nullable inactive pointer + revision. This migration never assigns either (see U023 above).
+  currentVersionId String? @unique @map("current_version_id")
+  currentRevision  Int     @default(0) @map("current_revision")
+
+  legacySourceType String? @map("legacy_source_type")
+  legacySourceId   String? @map("legacy_source_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "artifacts_tenant_id_fkey")
+  // U012-compatible composite scope-closure FKs (companies_tenant_id_id_key / projects_company_id_id_key
+  // from migration 20260715120000), same pattern as AuthSession: a forged/mismatched
+  // tenant/company/project combination is rejected by Postgres itself.
+  company Company @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "artifacts_company_id_fkey")
+  project Project @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "artifacts_project_id_fkey")
+
+  // Distinct exact U012 composite assignment relations (user_company_roles_id_company_id_key from
+  // migration 20260715120000) — never an ID-only assignment FK.
+  createdByAssignment UserCompanyRole @relation("ArtifactCreatedByAssignment", fields: [createdByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "artifacts_created_by_assignment_id_fkey")
+  ownerAssignment     UserCompanyRole @relation("ArtifactOwnerAssignment", fields: [ownerAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "artifacts_owner_assignment_id_fkey")
+
+  currentVersion ArtifactVersion?  @relation("ArtifactCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict, map: "artifacts_current_version_id_fkey")
+  versions       ArtifactVersion[] @relation("ArtifactVersions")
+  sizingTemplates      SizingTemplate[]      @relation("SizingTemplateArtifact")
+  compatibilityRules   CompatibilityRule[]   @relation("CompatibilityRuleArtifact")
+
+  @@unique([legacySourceType, legacySourceId], map: "artifacts_legacy_source_key")
+  @@index([companyId, projectId, artifactType])
+  @@map("artifacts")
+}
+
+// Append-only: UPDATE/DELETE denied by the sangfor_artifact_versions_deny_update_trg /
+// sangfor_artifact_versions_deny_delete_trg triggers. CHILD_VIA_FK through mandatory artifactId
+// only — no redundant companyId column here; the sangfor_artifact_versions_creator_company_guard_trg
+// insert trigger joins artifactId -> artifacts.company_id and rejects a createdByAssignmentId
+// outside that company at the DB layer (no Prisma-level FK on that column — see the U017 dispatch
+// file boundary: ArtifactVersion "remains CHILD_VIA_FK without a redundant companyId").
+model ArtifactVersion {
+  id         String @id @default(cuid())
+  artifactId String @map("artifact_id")
+  version    Int
+
+  // Fixed literal, RFC 8785 JCS envelope/hash — see packages/db/src/canonical-content-hash.ts.
+  contentHashVersion       String  @map("content_hash_version")
+  canonicalContentEnvelope String  @map("canonical_content_envelope")
+  contentHash              String  @map("content_hash")
+  contentJson              Json    @map("content_json")
+  sanitizedText            String? @map("sanitized_text")
+
+  status String
+
+  createdByAssignmentId String  @map("created_by_assignment_id")
+  legacySourceType      String? @map("legacy_source_type")
+  legacySourceId        String? @map("legacy_source_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  artifact                 Artifact              @relation("ArtifactVersions", fields: [artifactId], references: [id], onDelete: Restrict, map: "artifact_versions_artifact_id_fkey")
+  currentForArtifact       Artifact?             @relation("ArtifactCurrentVersion")
+  // U018/APR-01a: required Prisma back-relation for ApprovalRequest.artifactVersionId — same
+  // plumbing precedent as Tenant/Company/Project's authSessions/artifacts fields above, added by
+  // the unit that introduces the forward FK, not a semantic change to ArtifactVersion itself.
+  approvalRequests         ApprovalRequest[]
+  roleChangeRequests       RoleChangeRequest[]
+  // U019/WF-01a: required Prisma back-relations for WorkflowDefinition.definitionArtifactVersionId
+  // and WorkflowRunArtifact.artifactVersionId — same plumbing precedent as approvalRequests above.
+  workflowDefinitions      WorkflowDefinition[]
+  workflowRunArtifacts     WorkflowRunArtifact[]
+  activeSizingTemplates    SizingTemplate[]      @relation("SizingTemplateActiveArtifactVersion")
+  activeCompatibilityRules CompatibilityRule[]   @relation("CompatibilityRuleActiveArtifactVersion")
+  provenanceQuotes         Quote[]               @relation("QuoteArtifactVersion")
+  sizingQuoteLineItems     QuoteLineItem[]       @relation("QuoteLineSizingArtifactVersion")
+  submissionEvidenceVendorRequests VendorRequest[] @relation("VendorRequestSubmissionEvidenceArtifactVersion")
+  rcaSupportCases          SupportCase[]          @relation("SupportCaseRcaArtifactVersion")
+  submissionEvidenceVendorEscalations VendorEscalation[] @relation("VendorEscalationSubmissionEvidenceArtifactVersion")
+  deliveryAcceptances      DeliveryAcceptance[]  @relation("DeliveryAcceptanceArtifactVersion")
+  certificationEvidence    CertificationEvidence[] @relation("CertificationEvidenceArtifactVersion")
+  engineerSkills           EngineerSkill[] @relation("EngineerSkillSourceArtifactVersion")
+  aiQualityAssessments     AiQualityAssessment[]   @relation("AiQualityAssessmentArtifactVersion")
+  aiQualityEvidenceSources AiQualityEvidence[]     @relation("AiQualityEvidenceSourceArtifactVersion")
+  aiQualityReviews         AiQualityReview[]       @relation("AiQualityReviewArtifactVersion")
+  aiReleaseEvaluations     AiReleaseEvaluation[]   @relation("AiReleaseEvaluationArtifactVersion")
+  dataExportRequests DataExportRequest[] @relation("DataExportRequestArtifactVersion")
+  artifactAccessEvents ArtifactAccessEvent[] @relation("ArtifactAccessEventArtifactVersion")
+  legalHoldScopes LegalHoldScope[] @relation("LegalHoldScopeArtifactVersion")
+  retentionRunsAsManifest RetentionRun[] @relation("RetentionRunApprovalManifestArtifactVersion")
+  exportCapabilities ExportCapability[] @relation("ExportCapabilityArtifactVersion")
+  metricBenchmarkVersions MetricBenchmarkVersion[] @relation("MetricBenchmarkVersionArtifactVersion")
+  aiExecutions AiExecution[] @relation("AiExecutionArtifactVersion")
+
+  @@unique([artifactId, version], map: "artifact_versions_artifact_id_version_key")
+  @@unique([artifactId, contentHashVersion, contentHash], map: "artifact_versions_content_hash_key")
+  @@unique([legacySourceType, legacySourceId], map: "artifact_versions_legacy_source_key")
+  @@index([artifactId, version])
+  @@map("artifact_versions")
+}
+
+// --- Workflow persistence (U019/WF-01a) ---
+// Canonical, versioned M6 workflow schema. Schema only: no definition activates and no workflow
+// executes here — U025 is the first runtime consumer (activation/start/step execution/approval
+// validity evaluation), U020 is the first unit to write a legacy_disabled definition /
+// legacy_imported run and the restricted legacy_unreviewed ArtifactVersion they require. This unit
+// installs the named status/CHECK/transition guards as DB triggers/CHECK constraints but performs
+// zero transition of its own. Every WorkflowDefinition's own content-hash envelope reuses U017's
+// canonical-content-hash.ts / sangfor_rfc8785_jcs_v1 / sangfor_sha256_utf8 exclusively — never a
+// second serializer/hash envelope. The pre-existing command-simulation `Workflow`/`WorkflowStep`
+// and placeholder `WorkflowTemplate` models above remain untouched and non-authoritative.
+//
+// `WorkflowDefinition`/`WorkflowRun` carry mandatory tenantId/companyId/projectId simultaneously
+// (same AMBIGUOUS_ROOT reasoning as Artifact/AuthSession — see packages/db/src/scope-inventory.ts)
+// and are therefore registered PROJECT_ROOT, not CHILD_VIA_FK, even though WorkflowRun also carries
+// a mandatory workflowDefinitionId FK to another PROJECT_ROOT.
+model WorkflowDefinition {
+  id        String @id @default(cuid())
+  tenantId  String @map("tenant_id")
+  companyId String @map("company_id")
+  projectId String @map("project_id")
+
+  workflowKey String @map("workflow_key")
+  name        String
+  version     Int
+
+  // Optimistic CAS counter — U025 activation uses it for compare-and-set. The named guard trigger
+  // requires it to start at 0 and increment by exactly 1 on every UPDATE (never decrement, skip, or
+  // stay put).
+  revision Int    @default(0)
+  status   String @default("draft")
+
+  // Immutable once the row leaves `draft` (guard trigger). The linked ArtifactVersion must share
+  // this row's own scope, carry artifactType='workflow-definition', and have
+  // contentHashVersion=definitionHashVersion="artifact-content/rfc8785-jcs-sha256/v1",
+  // contentHash=definitionHash, contentJson=definitionJson (guard trigger, checked at INSERT and on
+  // any subsequent change to definitionArtifactVersionId while still draft).
+  definitionArtifactVersionId String @map("definition_artifact_version_id")
+  definitionHashVersion       String @map("definition_hash_version")
+  definitionHash              String @map("definition_hash")
+  definitionJson              Json   @map("definition_json")
+
+  // Immutable (guard trigger enforces this, never Prisma optionality alone). Exact U012 composite
+  // same-company assignment relation below — never an ID-only assignment FK.
+  createdByAssignmentId String @map("created_by_assignment_id")
+
+  // Nullable, all-or-none activation-approval snapshot (CHECK constraints below enforce the
+  // all-or-none shape, that an `active` row's snapshot is complete, and that
+  // activationApprovalArtifactVersionId/activationApprovalArtifactHash byte-match this row's own
+  // definitionArtifactVersionId/definitionHash — all same-row, no subquery needed). The named guard
+  // trigger additionally requires an `active` row's activationApprovalRequestId/
+  // activationApprovalRequestRevision to correlate to a real ApprovalCurrentValidity row at that
+  // exact revision — a STRUCTURAL existence check only; it never asserts state=valid (U025 does).
+  // Once written (row leaves draft), this whole snapshot is immutable — see the guard trigger.
+  activationApprovalRequestId         String?   @map("activation_approval_request_id")
+  activationApprovalRequestRevision   Int?      @map("activation_approval_request_revision")
+  activationApprovalArtifactVersionId String?   @map("activation_approval_artifact_version_id")
+  activationApprovalArtifactHash      String?   @map("activation_approval_artifact_hash")
+  activationApprovalPolicyHash        String?   @map("activation_approval_policy_hash")
+  activationApprovedAt                DateTime? @map("activation_approved_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "workflow_definitions_tenant_id_fkey")
+  // U012-compatible composite scope-closure FKs, same pattern as Artifact/ApprovalRequest.
+  company Company @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "workflow_definitions_company_id_fkey")
+  project Project @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "workflow_definitions_project_id_fkey")
+
+  definitionArtifactVersion ArtifactVersion @relation(fields: [definitionArtifactVersionId], references: [id], onDelete: Restrict, map: "workflow_definitions_definition_artifact_version_id_fkey")
+
+  // Exact U012 composite same-company assignment relation (user_company_roles_id_company_id_key)
+  // — never an ID-only assignment FK, same pattern as Artifact.createdByAssignment.
+  createdByAssignment UserCompanyRole @relation("WorkflowDefinitionCreatedByAssignment", fields: [createdByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "workflow_definitions_created_by_assignment_id_fkey")
+
+  runs WorkflowRun[]
+
+  @@unique([projectId, workflowKey, version], map: "workflow_definitions_project_id_workflow_key_version_key")
+  @@index([companyId, projectId, workflowKey])
+  @@map("workflow_definitions")
+}
+
+// WorkflowRun status vocabulary is exactly pending|running|blocked|succeeded|failed|cancelled|
+// legacy_imported (CHECK + named graph-guard trigger below). Graph: pending -> running|cancelled;
+// running -> blocked|succeeded|failed|cancelled; blocked -> running|failed|cancelled.
+// succeeded|failed|cancelled|legacy_imported are terminal; blocked is never terminal.
+// legacy_imported has no inbound canonical transition — it is only ever the value a row is
+// INSERTED with (U020's historical-import path), never reached via UPDATE.
+model WorkflowRun {
+  id        String @id @default(cuid())
+  tenantId  String @map("tenant_id")
+  companyId String @map("company_id")
+  projectId String @map("project_id")
+
+  workflowDefinitionId String @map("workflow_definition_id")
+
+  // Exact snapshot of the parent WorkflowDefinition's own version/artifact identity at
+  // run-creation time. The named guard trigger requires byte-for-byte equality with the CURRENT
+  // parent row at INSERT, and full immutability thereafter — a FK alone never implies this.
+  definitionVersion             Int    @map("definition_version")
+  definitionArtifactVersionId   String @map("definition_artifact_version_id")
+  definitionArtifactHashVersion String @map("definition_artifact_hash_version")
+  definitionArtifactHash        String @map("definition_artifact_hash")
+
+  // Copied BYTE-FOR-BYTE from the parent WorkflowDefinition's own activation snapshot at
+  // run-creation time (named guard trigger) for every non-legacy_imported run; a legacy_imported
+  // row may leave every field below NULL. Immutable thereafter. A FK or copied snapshot never by
+  // itself implies current validity — U025 re-evaluates U022 validity at run start.
+  activationApprovalRequestId         String?   @map("activation_approval_request_id")
+  activationApprovalRequestRevision   Int?      @map("activation_approval_request_revision")
+  activationApprovalArtifactVersionId String?   @map("activation_approval_artifact_version_id")
+  activationApprovalArtifactHash      String?   @map("activation_approval_artifact_hash")
+  activationApprovalPolicyHash        String?   @map("activation_approval_policy_hash")
+  activationApprovedAt                DateTime? @map("activation_approved_at")
+
+  // Nullable, all-or-none run-gate snapshot: when policy requires a run gate, these bind the exact
+  // ApprovalRequest revision/version/hash/policy the run itself was approved against (distinct from
+  // the activation snapshot above, and against the LIVE ApprovalRequest row, not a validity
+  // projection). Never asserted valid by this schema alone.
+  runApprovalRequestId         String?   @map("run_approval_request_id")
+  runApprovalRequestRevision   Int?      @map("run_approval_request_revision")
+  runApprovalArtifactVersionId String?   @map("run_approval_artifact_version_id")
+  runApprovalArtifactHash      String?   @map("run_approval_artifact_hash")
+  runApprovalPolicyHash        String?   @map("run_approval_policy_hash")
+  runApprovedAt                DateTime? @map("run_approved_at")
+
+  // Immutable (guard trigger). Exact U012 composite same-company assignment relation below.
+  requestedByAssignmentId String @map("requested_by_assignment_id")
+  requestedSessionId      String @map("requested_session_id")
+  idempotencyKey          String @map("idempotency_key")
+
+  status    String @default("pending")
+  inputJson Json?  @map("input_json")
+  // Optimistic CAS counter, same +1-per-UPDATE contract as WorkflowDefinition.revision above.
+  revision  Int    @default(0)
+
+  legacySourceType String? @map("legacy_source_type")
+  legacySourceId   String? @map("legacy_source_id")
+
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "workflow_runs_tenant_id_fkey")
+  company Company @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "workflow_runs_company_id_fkey")
+  project Project @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "workflow_runs_project_id_fkey")
+
+  workflowDefinition WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id], onDelete: Restrict, map: "workflow_runs_workflow_definition_id_fkey")
+
+  // Exact U012 composite same-company assignment relation — never an ID-only assignment FK.
+  requestedByAssignment UserCompanyRole @relation("WorkflowRunRequestedByAssignment", fields: [requestedByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "workflow_runs_requested_by_assignment_id_fkey")
+
+  steps     WorkflowRunStep[]
+  artifacts WorkflowRunArtifact[]
+  events    WorkflowRunEvent[]
+  aiExecutions AiExecution[]
+
+
+  @@unique([projectId, idempotencyKey], map: "workflow_runs_project_id_idempotency_key_key")
+  @@unique([legacySourceType, legacySourceId], map: "workflow_runs_legacy_source_key")
+  @@index([companyId, projectId, workflowDefinitionId])
+  @@index([workflowDefinitionId, status])
+  @@map("workflow_runs")
+}
+
+// CHILD_VIA_FK through the mandatory run FK only. Status vocabulary is exactly pending|running|
+// blocked|succeeded|failed|skipped|cancelled (CHECK + named graph-guard trigger below). Graph:
+// pending -> running|skipped|cancelled; running -> blocked|succeeded|failed|cancelled;
+// blocked -> running|failed|cancelled. succeeded|failed|skipped|cancelled are terminal; blocked is
+// never terminal. The parent WorkflowRun's own guard trigger enforces the aggregate rules (run
+// succeeded requires every step succeeded|skipped; run failed requires >=1 failed step) and
+// atomically CAS-cancels every nonterminal step when the run itself is cancelled.
+model WorkflowRunStep {
+  id            String @id @default(cuid())
+  workflowRunId String @map("workflow_run_id")
+
+  // Immutable (guard trigger).
+  stepKey   String @map("step_key")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  status String @default("pending")
+
+  definitionJson Json? @map("definition_json")
+  inputJson      Json? @map("input_json")
+  outputJson     Json? @map("output_json")
+
+  // Optimistic CAS counter, same +1-per-UPDATE contract as WorkflowRun.revision above.
+  revision Int @default(0)
+
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  run WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Restrict, map: "workflow_run_steps_workflow_run_id_fkey")
+
+  @@unique([workflowRunId, stepKey], map: "workflow_run_steps_workflow_run_id_step_key_key")
+  @@index([workflowRunId, sortOrder])
+  @@map("workflow_run_steps")
+}
+
+// CHILD_VIA_FK through the mandatory run FK only. `artifactVersion` is a genuine Prisma FK (unlike
+// the plain snapshot scalars on WorkflowDefinition/WorkflowRun above) — this row exists purely to
+// link an already-produced/consumed ArtifactVersion to a run. The named guard trigger requires the
+// referenced ArtifactVersion's own scope to match the parent WorkflowRun's scope (cross-scope link
+// rejection).
+model WorkflowRunArtifact {
+  id                String @id @default(cuid())
+  workflowRunId     String @map("workflow_run_id")
+  artifactVersionId String @map("artifact_version_id")
+
+  role      String
+  direction String
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  run             WorkflowRun     @relation(fields: [workflowRunId], references: [id], onDelete: Restrict, map: "workflow_run_artifacts_workflow_run_id_fkey")
+  artifactVersion ArtifactVersion @relation(fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "workflow_run_artifacts_artifact_version_id_fkey")
+
+  @@unique([workflowRunId, artifactVersionId, role], map: "workflow_run_artifacts_run_id_artifact_version_role_key")
+  @@map("workflow_run_artifacts")
+}
+
+// CHILD_VIA_FK through the mandatory run FK only. Append-only: UPDATE/DELETE denied by
+// sangfor_workflow_run_events_deny_update_trg / sangfor_workflow_run_events_deny_delete_trg,
+// REUSING the existing sangfor_deny_mutation() function from migration 20260715170000 (U017) — no
+// redefinition, same reuse pattern as every other append-only child table in this campaign.
+model WorkflowRunEvent {
+  id            String @id @default(cuid())
+  workflowRunId String @map("workflow_run_id")
+
+  sequence  Int
+  eventType String @map("event_type")
+
+  actorAssignmentId String? @map("actor_assignment_id")
+  actorSessionId    String? @map("actor_session_id")
+
+  payloadJson Json? @map("payload_json")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  run WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Restrict, map: "workflow_run_events_workflow_run_id_fkey")
+
+  @@unique([workflowRunId, sequence], map: "workflow_run_events_workflow_run_id_sequence_key")
+  @@map("workflow_run_events")
 }
 
 // --- schema placeholders (expanded in later phases) ---
@@ -1812,18 +2437,19 @@ model HandoffEvent {
 // --- Quote Engine models ---
 
 model QuoteServiceLineItem {
-  id          String   @id @default(cuid())
-  opportunityId String @map("opportunity_id")
-  serviceName String   @map("service_name")
-  description String?
-  quantity    Int      @default(1)
-  unitPrice   Decimal  @db.Decimal(12, 2) @map("unit_price")
-  currency    String   @default("USD")
-  sortOrder   Int      @default(0) @map("sort_order")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(cuid())
+  opportunityId String   @map("opportunity_id")
+  serviceName   String   @map("service_name")
+  description   String?
+  quantity      Int      @default(1)
+  unitPrice     Decimal  @map("unit_price") @db.Decimal(12, 2)
+  currency      String   @default("USD")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunity             Opportunity     @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  canonicalQuoteLineItems QuoteLineItem[]
 
   @@index([opportunityId])
   @@map("quote_service_line_items")
@@ -1841,64 +2467,316 @@ model CustomerAsset {
   purchaseDate DateTime? @map("purchase_date")
   warrantyEnd DateTime? @map("warranty_end")
   metadata    Json?
+  deliveryAcceptanceId  String?   @map("delivery_acceptance_id")
+  sourceQuoteLineItemId String?   @map("source_quote_line_item_id")
+  productFamilyId       String?   @map("product_family_id")
+  productSkuId          String?   @map("product_sku_id")
+  installedAt           DateTime? @map("installed_at")
+  activationReference   String?   @map("activation_reference")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deliveryAcceptance DeliveryAcceptance? @relation("CustomerAssetDeliveryAcceptance", fields: [deliveryAcceptanceId], references: [id], onDelete: Restrict, map: "customer_assets_delivery_acceptance_id_fkey")
+  sourceQuoteLineItem QuoteLineItem? @relation("CustomerAssetSourceQuoteLineItem", fields: [sourceQuoteLineItemId], references: [id], onDelete: Restrict, map: "customer_assets_source_quote_line_item_id_fkey")
+  productFamily ProductFamily? @relation("CustomerAssetProductFamily", fields: [productFamilyId], references: [id], onDelete: Restrict, map: "customer_assets_product_family_id_fkey")
+  productSku ProductSku? @relation("CustomerAssetProductSku", fields: [productSkuId], references: [id], onDelete: Restrict, map: "customer_assets_product_sku_id_fkey")
 
   assetLicenses        AssetLicense[]
   subscriptions        Subscription[]
   maintenanceContracts MaintenanceContract[]
+  renewalOpportunities RenewalOpportunity[] @relation("RenewalOpportunityAsset")
+  supportCases         SupportCase[] @relation("SupportCaseAsset")
 
   @@index([customerId])
+  @@index([deliveryAcceptanceId], map: "customer_assets_delivery_acceptance_id_idx")
+  @@index([sourceQuoteLineItemId], map: "customer_assets_source_quote_line_item_id_idx")
   @@map("customer_assets")
 }
 
 model SupportSlaPolicy {
-  id              String   @id @default(cuid())
-  name            String
-  responseTimeHrs Int?
+  id               String   @id @default(cuid())
+  name             String
+  responseTimeHrs  Int?
   resolutionTimeHrs Int?
-  severity        String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  severity         String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  companyId        String?  @map("company_id")
+  policyKey        String?  @map("policy_key")
+  currentVersionId String?  @map("current_version_id")
+  archivedAt       DateTime? @map("archived_at")
 
+  // U039 keeps the legacy policy record unscoped in the inventory until U040 proves every
+  // historic row can be assigned a canonical company. New writes are DB-guarded instead.
+  company        Company?                @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "support_sla_policies_company_id_fkey")
+  currentVersion SupportSlaPolicyVersion? @relation("SupportSlaPolicyCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict, map: "support_sla_policies_current_version_id_fkey")
+  versions       SupportSlaPolicyVersion[] @relation("SupportSlaPolicyVersions")
+
+  @@unique([id, companyId], map: "support_sla_policies_id_company_id_key")
+  @@index([companyId], map: "support_sla_policies_company_id_idx")
+  @@index([currentVersionId], map: "support_sla_policies_current_version_id_idx")
   @@map("support_sla_policies")
 }
 
+// U039 policy versions carry the direct company anchor intentionally. It is a transitional
+// canonical boundary, not a redundant child scope: the parent policy remains legacy-unscoped
+// until U040's zero-null/zero-ambiguity proof.
+model SupportSlaPolicyVersion {
+  id                      String   @id @default(cuid())
+  companyId               String   @map("company_id")
+  policyId                String   @map("policy_id")
+  version                 Int
+  severity                String
+  responseMinutes         Int      @map("response_minutes")
+  resolutionMinutes       Int      @map("resolution_minutes")
+  vendorEscalationMinutes Int?     @map("vendor_escalation_minutes")
+  customerUpdateMinutes   Int?     @map("customer_update_minutes")
+  clockKind               String   @default("elapsed_24x7") @map("clock_kind")
+  contentHash             String   @map("content_hash")
+  effectiveAt             DateTime @map("effective_at")
+  retiredAt               DateTime? @map("retired_at")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  company             Company                  @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "support_sla_policy_versions_company_id_fkey")
+  policy              SupportSlaPolicy         @relation("SupportSlaPolicyVersions", fields: [policyId, companyId], references: [id, companyId], onDelete: Restrict, map: "support_sla_policy_versions_policy_company_fkey")
+  currentForPolicies  SupportSlaPolicy[]       @relation("SupportSlaPolicyCurrentVersion")
+  caseSlaSnapshots    SupportCaseSlaSnapshot[]
+
+  @@unique([id, companyId], map: "support_sla_policy_versions_id_company_id_key")
+  @@unique([policyId, version], map: "support_sla_policy_versions_policy_id_version_key")
+  @@index([companyId, policyId], map: "support_sla_policy_versions_company_id_policy_id_idx")
+  @@map("support_sla_policy_versions")
+}
+
 model EngineerCertification {
-  id           String   @id @default(cuid())
-  engineerId   String
-  productName  String
-  level        String?
-  issuedAt     DateTime?
-  expiresAt    DateTime?
-  isValid      Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  engineerId           String
+  productName          String
+  level                String?
+  issuedAt             DateTime?
+  expiresAt            DateTime?
+  isValid              Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  definitionId         String?  @map("definition_id")
+  engineerMembershipId String?  @map("engineer_membership_id")
+  status               String?
+  revokedAt            DateTime? @map("revoked_at")
+  revocationReason     String?  @map("revocation_reason")
+  revision             Int?
+
+  definition         CertificationDefinition? @relation("EngineerCertificationDefinition", fields: [definitionId], references: [id], onDelete: Restrict, map: "engineer_certifications_definition_id_fkey")
+  engineerMembership UserCompanyRole?         @relation("EngineerCertificationMembership", fields: [engineerMembershipId], references: [id], onDelete: Restrict, map: "engineer_certifications_engineer_membership_id_fkey")
+  evidence           CertificationEvidence[]
+
+  @@index([definitionId], map: "engineer_certifications_definition_id_idx")
+  @@index([engineerMembershipId], map: "engineer_certifications_engineer_membership_id_idx")
 
   @@map("engineer_certifications")
+}
+
+// U038 is schema-only. Eligibility evaluation and all assignment runtime remain deferred to U053.
+// Certification/evidence history is guarded in the formal migration; these types only expose the
+// durable relations without granting competence through an auth role.
+model CertificationDefinition {
+  id              String    @id @default(cuid())
+  companyId       String    @map("company_id")
+  key             String
+  name            String
+  vendorKey       String    @map("vendor_key")
+  productFamilyId String?   @map("product_family_id")
+  level           String?
+  issuer          String
+  validityDays    Int?      @map("validity_days")
+  status          String
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  company         Company        @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "certification_definitions_company_id_fkey")
+  productFamily   ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "certification_definitions_product_family_id_fkey")
+  certifications  EngineerCertification[] @relation("EngineerCertificationDefinition")
+  eligibilityPolicies EngineerEligibilityPolicy[] @relation("EligibilityPolicyCertificationDefinition")
+  capabilityRequirements EngagementCapabilityRequirement[] @relation("CapabilityRequirementCertificationDefinition")
+
+  @@unique([companyId, key], map: "certification_definitions_company_id_key_key")
+  @@index([productFamilyId], map: "certification_definitions_product_family_id_idx")
+  @@map("certification_definitions")
+}
+
+model CertificationEvidence {
+  id                     String   @id @default(cuid())
+  certificationId        String   @map("certification_id")
+  artifactVersionId      String   @map("artifact_version_id")
+  issuer                 String
+  externalReference      String?  @map("external_reference")
+  verifiedAt             DateTime @map("verified_at")
+  verifiedByAssignmentId String   @map("verified_by_assignment_id")
+  revokedAt              DateTime? @map("revoked_at")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  certification        EngineerCertification @relation(fields: [certificationId], references: [id], onDelete: Restrict, map: "certification_evidence_certification_id_fkey")
+  artifactVersion      ArtifactVersion       @relation("CertificationEvidenceArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "certification_evidence_artifact_version_id_fkey")
+  verifiedByAssignment UserCompanyRole       @relation("CertificationEvidenceVerifiedByAssignment", fields: [verifiedByAssignmentId], references: [id], onDelete: Restrict, map: "certification_evidence_verified_by_assignment_id_fkey")
+
+  @@index([certificationId], map: "certification_evidence_certification_id_idx")
+  @@index([artifactVersionId], map: "certification_evidence_artifact_version_id_idx")
+  @@index([verifiedByAssignmentId], map: "certification_evidence_verified_by_assignment_id_idx")
+  @@map("certification_evidence")
+}
+
+model EngineerSkill {
+  id                      String    @id @default(cuid())
+  companyId               String    @map("company_id")
+  engineerMembershipId    String    @map("engineer_membership_id")
+  productFamilyId         String    @map("product_family_id")
+  capabilityKey           String    @map("capability_key")
+  level                   Int
+  status                  String
+  sourceArtifactVersionId String?   @map("source_artifact_version_id")
+  verifiedAt              DateTime? @map("verified_at")
+  verifiedByAssignmentId  String?   @map("verified_by_assignment_id")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  company                Company          @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "engineer_skills_company_id_fkey")
+  engineerMembership     UserCompanyRole  @relation("EngineerSkillMembership", fields: [engineerMembershipId], references: [id], onDelete: Restrict, map: "engineer_skills_engineer_membership_id_fkey")
+  productFamily          ProductFamily    @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "engineer_skills_product_family_id_fkey")
+  sourceArtifactVersion  ArtifactVersion? @relation("EngineerSkillSourceArtifactVersion", fields: [sourceArtifactVersionId], references: [id], onDelete: Restrict, map: "engineer_skills_source_artifact_version_id_fkey")
+  verifiedByAssignment   UserCompanyRole? @relation("EngineerSkillVerifiedByAssignment", fields: [verifiedByAssignmentId], references: [id], onDelete: Restrict, map: "engineer_skills_verified_by_assignment_id_fkey")
+
+  @@index([companyId, engineerMembershipId], map: "engineer_skills_company_id_engineer_membership_id_idx")
+  @@index([productFamilyId], map: "engineer_skills_product_family_id_idx")
+  @@index([sourceArtifactVersionId], map: "engineer_skills_source_artifact_version_id_idx")
+  @@index([verifiedByAssignmentId], map: "engineer_skills_verified_by_assignment_id_idx")
+  @@map("engineer_skills")
+}
+
+model EngineerEligibilityPolicy {
+  id                        String    @id @default(cuid())
+  companyId                 String    @map("company_id")
+  key                       String
+  version                   Int
+  productFamilyId           String?   @map("product_family_id")
+  capabilityKey             String    @map("capability_key")
+  minimumSkillLevel         Int       @map("minimum_skill_level")
+  certificationDefinitionId String?   @map("certification_definition_id")
+  status                    String
+  contentHash               String    @map("content_hash")
+  effectiveAt               DateTime  @map("effective_at")
+  createdAt                 DateTime  @default(now()) @map("created_at")
+
+  company                 Company                  @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "engineer_eligibility_policies_company_id_fkey")
+  productFamily           ProductFamily?           @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "engineer_eligibility_policies_product_family_id_fkey")
+  certificationDefinition CertificationDefinition? @relation("EligibilityPolicyCertificationDefinition", fields: [certificationDefinitionId], references: [id], onDelete: Restrict, map: "engineer_eligibility_policies_certification_definition_id_fkey")
+  capabilityRequirements  EngagementCapabilityRequirement[]
+
+  @@unique([companyId, key, version], map: "engineer_eligibility_policies_company_id_key_version_key")
+  @@index([productFamilyId], map: "engineer_eligibility_policies_product_family_id_idx")
+  @@index([certificationDefinitionId], map: "engineer_eligibility_policies_certification_definition_id_idx")
+  @@map("engineer_eligibility_policies")
+}
+
+model EngagementCapabilityRequirement {
+  id                        String    @id @default(cuid())
+  engagementId              String    @map("engagement_id")
+  eligibilityPolicyId       String?   @map("eligibility_policy_id")
+  productFamilyId           String    @map("product_family_id")
+  capabilityKey             String    @map("capability_key")
+  minimumSkillLevel         Int       @map("minimum_skill_level")
+  certificationDefinitionId String?   @map("certification_definition_id")
+  headcount                 Int
+  createdAt                 DateTime  @default(now()) @map("created_at")
+
+  engagement              Engagement                 @relation("EngagementCapabilityRequirementEngagement", fields: [engagementId], references: [id], onDelete: Restrict, map: "engagement_capability_requirements_engagement_id_fkey")
+  eligibilityPolicy       EngineerEligibilityPolicy? @relation(fields: [eligibilityPolicyId], references: [id], onDelete: Restrict, map: "engagement_capability_requirements_eligibility_policy_id_fkey")
+  productFamily           ProductFamily              @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "engagement_capability_requirements_product_family_id_fkey")
+  certificationDefinition CertificationDefinition?   @relation("CapabilityRequirementCertificationDefinition", fields: [certificationDefinitionId], references: [id], onDelete: Restrict, map: "engagement_capability_requirements_cert_definition_id_fkey")
+  assignments             EngineerAssignment[]
+
+  @@index([engagementId], map: "engagement_capability_requirements_engagement_id_idx")
+  @@index([eligibilityPolicyId], map: "engagement_capability_requirements_eligibility_policy_id_idx")
+  @@index([productFamilyId], map: "engagement_capability_requirements_product_family_id_idx")
+  @@index([certificationDefinitionId], map: "engagement_capability_requirements_cert_definition_id_idx")
+  @@map("engagement_capability_requirements")
+}
+
+model EngineerAssignment {
+  id                      String    @id @default(cuid())
+  requirementId           String    @map("requirement_id")
+  engineerMembershipId    String    @map("engineer_membership_id")
+  status                  String
+  eligibilitySnapshotJson Json      @map("eligibility_snapshot_json")
+  eligibilitySnapshotHash String    @map("eligibility_snapshot_hash")
+  assignedByAssignmentId  String    @map("assigned_by_assignment_id")
+  assignedAt              DateTime  @map("assigned_at")
+  endedAt                 DateTime? @map("ended_at")
+  createdAt               DateTime  @default(now()) @map("created_at")
+
+  requirement          EngagementCapabilityRequirement @relation(fields: [requirementId], references: [id], onDelete: Restrict, map: "engineer_assignments_requirement_id_fkey")
+  engineerMembership   UserCompanyRole                 @relation("EngineerAssignmentMembership", fields: [engineerMembershipId], references: [id], onDelete: Restrict, map: "engineer_assignments_engineer_membership_id_fkey")
+  assignedByAssignment UserCompanyRole                 @relation("EngineerAssignmentAssignedByAssignment", fields: [assignedByAssignmentId], references: [id], onDelete: Restrict, map: "engineer_assignments_assigned_by_assignment_id_fkey")
+
+  @@unique([requirementId, engineerMembershipId], map: "engineer_assignments_requirement_id_engineer_membership_id_key")
+  @@index([engineerMembershipId], map: "engineer_assignments_engineer_membership_id_idx")
+  @@index([assignedByAssignmentId], map: "engineer_assignments_assigned_by_assignment_id_idx")
+  @@map("engineer_assignments")
 }
 
 model RenewalOpportunity {
   id          String    @id @default(cuid())
   customerId  String    @map("customer_id")
   assetId     String?   @map("asset_id")
+  subscriptionId String? @unique(map: "renewal_opportunities_subscription_id_key") @map("subscription_id")
+  opportunityId String?  @map("opportunity_id")
   renewalType String    @map("renewal_type")
   amount      Decimal?  @db.Decimal(12, 2)
   status      String    @default("pending")
   expiresAt   DateTime? @map("expires_at")
+  renewalDueAt DateTime? @map("renewal_due_at")
   renewedAt   DateTime? @map("renewed_at")
   notes       String?
+  ownerAssignmentId String? @map("owner_assignment_id")
+  ownershipRevision Int @default(0) @map("ownership_revision")
+  idempotencyKey String? @map("idempotency_key")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict, map: "renewal_opportunities_customer_id_fkey")
+  asset CustomerAsset? @relation("RenewalOpportunityAsset", fields: [assetId], references: [id], onDelete: Restrict, map: "renewal_opportunities_asset_id_fkey")
+  subscription Subscription? @relation("RenewalOpportunitySubscription", fields: [subscriptionId], references: [id], onDelete: Restrict, map: "renewal_opportunities_subscription_id_fkey")
+  opportunity Opportunity? @relation("RenewalOpportunityOpportunity", fields: [opportunityId], references: [id], onDelete: Restrict, map: "renewal_opportunities_opportunity_id_fkey")
+  ownerAssignment UserCompanyRole? @relation("RenewalOpportunityOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: Restrict, map: "renewal_opportunities_owner_assignment_id_fkey")
+  reminderEvents RenewalReminderEvent[] @relation("RenewalReminderEventOpportunity")
 
   @@index([customerId])
   @@index([status])
+  @@index([assetId], map: "renewal_opportunities_asset_id_idx")
+  @@index([subscriptionId], map: "renewal_opportunities_subscription_id_idx")
+  @@index([opportunityId], map: "renewal_opportunities_opportunity_id_idx")
+  @@index([ownerAssignmentId, ownershipRevision], map: "renewal_opportunities_owner_assignment_revision_idx")
+  @@index([idempotencyKey], map: "renewal_opportunities_idempotency_key_idx")
   @@map("renewal_opportunities")
+}
+
+model RenewalReminderEvent {
+  id                    String   @id @default(cuid())
+  renewalOpportunityId  String   @map("renewal_opportunity_id")
+  thresholdDays         Int      @map("threshold_days")
+  idempotencyKey        String   @map("idempotency_key")
+  workTaskId            String?  @map("work_task_id")
+  notificationEventId   String?  @map("notification_event_id")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  renewalOpportunity RenewalOpportunity @relation("RenewalReminderEventOpportunity", fields: [renewalOpportunityId], references: [id], onDelete: Restrict, map: "renewal_reminder_events_renewal_opportunity_id_fkey")
+  workTask           WorkTask?          @relation("RenewalReminderEventWorkTask", fields: [workTaskId], references: [id], onDelete: Restrict, map: "renewal_reminder_events_work_task_id_fkey")
+  notificationEvent  NotificationEvent? @relation("RenewalReminderEventNotification", fields: [notificationEventId], references: [id], onDelete: Restrict, map: "renewal_reminder_events_notification_event_id_fkey")
+
+  @@unique([renewalOpportunityId, thresholdDays], map: "renewal_reminder_events_opportunity_threshold_key")
+  @@index([workTaskId], map: "renewal_reminder_events_work_task_id_idx")
+  @@index([notificationEventId], map: "renewal_reminder_events_notification_event_id_idx")
+  @@map("renewal_reminder_events")
 }
 
 // --- AI Quality Gate models ---
@@ -1936,6 +2814,163 @@ model AiQualityResult {
   @@map("ai_quality_results")
 }
 
+// U041/AIQ-01: completed, immutable evaluator receipts. `qualityPassed` is only readiness for
+// human review, never approval or release authority. The formal migration makes all six tables
+// INSERT-only history and rejects every UPDATE/DELETE, including no-op rewrites.
+model AiQualityAssessment {
+  id                     String   @id @default(cuid())
+  artifactVersionId      String   @map("artifact_version_id")
+  artifactContentHash    String   @map("artifact_content_hash")
+  resultHash             String   @map("result_hash")
+  policyKey              String   @map("policy_key")
+  policyVersion          String   @map("policy_version")
+  evaluatorKey           String   @map("evaluator_key")
+  evaluatorVersion       String   @map("evaluator_version")
+  status                 String   @default("completed")
+  score                  Float
+  sourceCoverage         Float    @map("source_coverage")
+  confidenceBasis        Json     @map("confidence_basis")
+  missingInfo            Json     @map("missing_info")
+  knownGaps              Json     @map("known_gaps")
+  riskFlags              Json     @map("risk_flags")
+  injectionDetected      Boolean  @map("injection_detected")
+  leakageDetected        Boolean  @map("leakage_detected")
+  qualityPassed          Boolean  @map("quality_passed")
+  assessedByAssignmentId String   @map("assessed_by_assignment_id")
+  idempotencyKey         String   @map("idempotency_key")
+  assessmentInputHash    String   @map("assessment_input_hash")
+  assessedAt             DateTime @map("assessed_at")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  artifactVersion      ArtifactVersion @relation("AiQualityAssessmentArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "ai_quality_assessments_artifact_version_id_fkey")
+  assessedByAssignment UserCompanyRole @relation("AiQualityAssessmentAssessedByAssignment", fields: [assessedByAssignmentId], references: [id], onDelete: Restrict, map: "ai_quality_assessments_assessed_by_assignment_id_fkey")
+  evidence             AiQualityEvidence[]
+  reviews              AiQualityReview[]
+  releaseEvaluations   AiReleaseEvaluation[]
+  promptSnapshots      AiPromptSnapshot[]
+  modelSnapshots       AiModelSnapshot[]
+
+  @@unique([artifactVersionId, assessedByAssignmentId, idempotencyKey], map: "ai_quality_assessments_artifact_assignment_idempotency_key")
+  @@index([artifactVersionId, artifactContentHash])
+  @@map("ai_quality_assessments")
+}
+
+model AiQualityEvidence {
+  id                      String   @id @default(cuid())
+  assessmentId            String   @map("assessment_id")
+  sourceKind              String   @map("source_kind")
+  sourceReference         String   @map("source_reference")
+  sourceHash              String   @map("source_hash")
+  sourceArtifactVersionId String?  @map("source_artifact_version_id")
+  citation                Json
+  coverage                Json
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  assessment            AiQualityAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict, map: "ai_quality_evidence_assessment_id_fkey")
+  sourceArtifactVersion ArtifactVersion?    @relation("AiQualityEvidenceSourceArtifactVersion", fields: [sourceArtifactVersionId], references: [id], onDelete: Restrict, map: "ai_quality_evidence_source_artifact_version_id_fkey")
+
+  @@index([assessmentId])
+  @@index([sourceArtifactVersionId])
+  @@map("ai_quality_evidence")
+}
+
+model AiQualityReview {
+  id                   String   @id @default(cuid())
+  assessmentId         String   @map("assessment_id")
+  artifactVersionId    String   @map("artifact_version_id")
+  artifactContentHash  String   @map("artifact_content_hash")
+  assessmentResultHash String   @map("assessment_result_hash")
+  reviewSlotKey        String   @map("review_slot_key")
+  reviewerAssignmentId String   @map("reviewer_assignment_id")
+  reviewerRoleSnapshot String   @map("reviewer_role_snapshot")
+  decision             String
+  comment              String?
+  idempotencyKey       String   @map("idempotency_key")
+  reviewInputHash      String   @map("review_input_hash")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  assessment         AiQualityAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict, map: "ai_quality_reviews_assessment_id_fkey")
+  artifactVersion    ArtifactVersion     @relation("AiQualityReviewArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "ai_quality_reviews_artifact_version_id_fkey")
+  reviewerAssignment UserCompanyRole     @relation("AiQualityReviewReviewerAssignment", fields: [reviewerAssignmentId], references: [id], onDelete: Restrict, map: "ai_quality_reviews_reviewer_assignment_id_fkey")
+
+  @@unique([assessmentId, reviewSlotKey], map: "ai_quality_reviews_assessment_slot_key")
+  @@unique([assessmentId, reviewerAssignmentId, idempotencyKey], map: "ai_quality_reviews_assessment_reviewer_idempotency_key")
+  @@index([artifactVersionId, artifactContentHash])
+  @@map("ai_quality_reviews")
+}
+
+// This row records an eligibility decision only. A later current-authority lookup must revalidate
+// every exact receipt component and active ownership; a stale eligible row remains evidence.
+model AiReleaseEvaluation {
+  id                           String   @id @default(cuid())
+  evaluationKey                String   @unique @map("evaluation_key")
+  evaluationInputHash          String   @map("evaluation_input_hash")
+  reviewSetHash                String   @map("review_set_hash")
+  artifactVersionId            String   @map("artifact_version_id")
+  artifactContentHash          String   @map("artifact_content_hash")
+  assessmentId                 String   @map("assessment_id")
+  action                       String
+  policyKey                    String   @map("policy_key")
+  policyVersion                String   @map("policy_version")
+  policyHash                   String   @map("policy_hash")
+  approvalRequestId            String?  @map("approval_request_id")
+  approvalRequestRevision      Int?     @map("approval_request_revision")
+  approvalArtifactHashSnapshot String?  @map("approval_artifact_hash_snapshot")
+  approvalPolicyHashSnapshot   String?  @map("approval_policy_hash_snapshot")
+  eligible                     Boolean
+  blockers                     Json
+  evaluatedAt                  DateTime @map("evaluated_at")
+  createdAt                    DateTime @default(now()) @map("created_at")
+
+  assessment      AiQualityAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict, map: "ai_release_evaluations_assessment_id_fkey")
+  artifactVersion ArtifactVersion     @relation("AiReleaseEvaluationArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "ai_release_evaluations_artifact_version_id_fkey")
+  approvalRequest ApprovalRequest?    @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "ai_release_evaluations_approval_request_id_fkey")
+
+  @@unique([action, assessmentId, artifactVersionId, artifactContentHash, evaluationInputHash], map: "ai_release_evaluations_action_assessment_artifact_input_key")
+  @@index([action, artifactVersionId, artifactContentHash, evaluatedAt])
+  @@map("ai_release_evaluations")
+}
+
+model AiPromptSnapshot {
+  id                String   @id @default(cuid())
+  assessmentId      String   @map("assessment_id")
+  promptKey         String   @map("prompt_key")
+  promptVersion     String   @map("prompt_version")
+  promptHash        String   @map("prompt_hash")
+  toolKey           String   @map("tool_key")
+  toolVersion       String   @map("tool_version")
+  toolHash          String   @map("tool_hash")
+  classification    String
+  approvalReference String?  @map("approval_reference")
+  releaseReference  String?  @map("release_reference")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  assessment AiQualityAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict, map: "ai_prompt_snapshots_assessment_id_fkey")
+
+  @@index([assessmentId])
+  @@map("ai_prompt_snapshots")
+}
+
+model AiModelSnapshot {
+  id                String   @id @default(cuid())
+  assessmentId      String   @map("assessment_id")
+  modelKey          String   @map("model_key")
+  modelVersion      String   @map("model_version")
+  modelHash         String   @map("model_hash")
+  toolKey           String   @map("tool_key")
+  toolVersion       String   @map("tool_version")
+  toolHash          String   @map("tool_hash")
+  classification    String
+  approvalReference String?  @map("approval_reference")
+  releaseReference  String?  @map("release_reference")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  assessment AiQualityAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict, map: "ai_model_snapshots_assessment_id_fkey")
+
+  @@index([assessmentId])
+  @@map("ai_model_snapshots")
+}
+
 // --- Tenant / Multi-tenancy ---
 
 model Tenant {
@@ -1945,7 +2980,14 @@ model Tenant {
   status    String   @default("active")
   createdAt DateTime @default(now()) @map("created_at")
 
-  companies Company[]
+  companies        Company[]
+  authSessions     AuthSession[]
+  artifacts        Artifact[]
+  approvalRequests ApprovalRequest[]
+  roleChangeRequests RoleChangeRequest[]
+  workflowDefinitions WorkflowDefinition[]
+  workflowRuns        WorkflowRun[]
+  auditLogs           AuditLog[]
 
   @@map("tenants")
 }
@@ -1960,36 +3002,195 @@ model Company {
   tenant          Tenant            @relation(fields: [tenantId], references: [id])
   userCompanyRoles UserCompanyRole[]
   personas        Persona[]
+  projects        Project[]
+  roleChangeRequests RoleChangeRequest[]
+  authSessions    AuthSession[]
+  artifacts       Artifact[]
+  approvalRequests ApprovalRequest[]
+  workflowDefinitions WorkflowDefinition[]
+  workflowRuns        WorkflowRun[]
+  auditLogs           AuditLog[]
+  productFamilies     ProductFamily[]
+  certificationDefinitions CertificationDefinition[]
+  engineerSkills      EngineerSkill[]
+  engineerEligibilityPolicies EngineerEligibilityPolicy[]
+  supportSlaPolicies SupportSlaPolicy[]
+  supportSlaPolicyVersions SupportSlaPolicyVersion[]
+  retentionPolicies RetentionPolicy[] @relation("RetentionPolicyCompany")
+  legalHolds LegalHold[] @relation("LegalHoldCompany")
+  legalHoldScopes LegalHoldScope[] @relation("LegalHoldScopeCompany")
+  retentionRuns RetentionRun[] @relation("RetentionRunCompany")
+  dataExportRequests DataExportRequest[] @relation("DataExportRequestCompany")
+  artifactAccessEvents ArtifactAccessEvent[] @relation("ArtifactAccessEventCompany")
+  metricDefinitions MetricDefinition[]
+  aiExecutions AiExecution[]
 
+  @@unique([tenantId, id], map: "companies_tenant_id_id_key")
   @@index([tenantId])
   @@map("companies")
 }
 
-model UserCompanyRole {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  companyId String   @map("company_id")
-  role      String
-  createdAt DateTime @default(now()) @map("created_at")
+// U014/SEC-01: persisted principal/session lifecycle. `id` IS the JWT `jti` (never a separate
+// surrogate key) — the whole point is that a cryptographically valid session-JWT is no longer
+// sufficient on its own; Web Proxy / API middleware resolve `jti` to exactly this row. No raw JWT
+// is ever stored (only identity/scope/lifecycle metadata). Registered once in
+// packages/db/src/scope-inventory.ts as PROJECT_ROOT (U014) — tenant/company/project are all
+// mandatory trusted scope roots on the session simultaneously, which would be an AMBIGUOUS_ROOT
+// CHILD_VIA_FK chain; declaring it a root itself is the correct, structurally-checked category.
+model AuthSession {
+  id            String    @id
+  userId        String    @map("user_id")
+  tenantId      String    @map("tenant_id")
+  companyId     String    @map("company_id")
+  projectId     String    @map("project_id")
+  issuedAt      DateTime  @map("issued_at")
+  expiresAt     DateTime  @map("expires_at")
+  revokedAt     DateTime? @map("revoked_at")
+  mfaVerifiedAt DateTime? @map("mfa_verified_at")
+  mfaMethod     String?   @map("mfa_method")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict, map: "auth_sessions_user_id_fkey")
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "auth_sessions_tenant_id_fkey")
+  // Composite FKs follow U012's scope-closure constraints (companies_tenant_id_id_key /
+  // projects_company_id_id_key): companyId must actually belong to tenantId, and projectId must
+  // actually belong to companyId — a forged/mismatched scope combination is rejected by Postgres
+  // itself, not only by the application-level scope-mismatch check in evaluateSession().
+  company Company @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict, map: "auth_sessions_company_id_fkey")
+  project Project @relation(fields: [companyId, projectId], references: [companyId, id], onDelete: Restrict, map: "auth_sessions_project_id_fkey")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+// U015/SEC-02a: nullable lifecycle columns, additive (same pattern as U014's users_status_lifecycle_check).
+// NULL/"legacy_pending" rows are inactive and are never bulk-promoted by the migration that adds
+// these columns. The named CHECK `user_company_roles_status_lifecycle_check` (migration
+// 20260715150000) enforces the allowed value set; `user_company_roles_role_ten_codes_for_new_rows_check`
+// constrains `role` to the ten @sangfor/auth BusinessRole codes for any row created at/after that
+// migration's watermark, grandfathering pre-existing rows (including the campaign's own synthetic
+// `role: "member"` fixtures) rather than retroactively rejecting them.
+model UserCompanyRole {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  companyId    String    @map("company_id")
+  role         String
+  status       String?   @default("legacy_pending") @map("status")
+  validFrom    DateTime? @map("valid_from")
+  expiresAt    DateTime? @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  assignedById String?   @map("assigned_by_id")
+  revision     Int       @default(0) @map("revision")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assignedBy User?   @relation("UserCompanyRoleAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  // U017: the two distinct Artifact composite-assignment relations, using this row's own
+  // (id, companyId) composite unique key below — never an ID-only assignment FK.
+  createdArtifacts Artifact[] @relation("ArtifactCreatedByAssignment")
+  ownedArtifacts   Artifact[] @relation("ArtifactOwnerAssignment")
+  // U018/APR-01a: the two distinct ApprovalRequest composite-assignment relations, same
+  // (id, companyId) composite unique key — never an ID-only assignment FK.
+  requestedApprovalRequests ApprovalRequest[] @relation("ApprovalRequestedByAssignment")
+  ownedApprovalRequests     ApprovalRequest[] @relation("ApprovalOwnerAssignment")
+  targetRoleChangeRequests    RoleChangeRequest[] @relation("RoleChangeTargetMembership")
+  requestedRoleChangeRequests RoleChangeRequest[] @relation("RoleChangeRequestedByAssignment")
+  appliedRoleChangeRequests   RoleChangeRequest[] @relation("RoleChangeAppliedByAssignment")
+  // U019/WF-01a: the two distinct WorkflowDefinition/WorkflowRun composite-assignment relations,
+  // same (id, companyId) composite unique key — never an ID-only assignment FK.
+  createdWorkflowDefinitions WorkflowDefinition[] @relation("WorkflowDefinitionCreatedByAssignment")
+  requestedWorkflowRuns      WorkflowRun[]        @relation("WorkflowRunRequestedByAssignment")
+  ownedOpportunities         Opportunity[]        @relation("OpportunityOwnerAssignment")
+  ownedWorkTasks             WorkTask[]           @relation("WorkTaskOwnerAssignment")
+  assessedDealQualifications DealQualification[]  @relation("DealQualificationAssessedByAssignment")
+  requestedDiscountRequests  DiscountRequest[]    @relation("DiscountRequestRequestedByAssignment")
+  requestedVendorRequests    VendorRequest[]      @relation("VendorRequestRequestedByAssignment")
+  ownedVendorRequests        VendorRequest[]      @relation("VendorRequestOwnerAssignment")
+  vendorRequestEvents        VendorRequestEvent[] @relation("VendorRequestEventActorAssignment")
+  acceptedDeliveryAcceptances DeliveryAcceptance[] @relation("DeliveryAcceptanceAcceptedByAssignment")
+  ownedRenewalOpportunities   RenewalOpportunity[] @relation("RenewalOpportunityOwnerAssignment")
+  ownedSupportCases           SupportCase[] @relation("SupportCaseOwnerAssignment")
+  engineerCertifications      EngineerCertification[] @relation("EngineerCertificationMembership")
+  verifiedCertificationEvidence CertificationEvidence[] @relation("CertificationEvidenceVerifiedByAssignment")
+  engineerSkills              EngineerSkill[] @relation("EngineerSkillMembership")
+  verifiedEngineerSkills      EngineerSkill[] @relation("EngineerSkillVerifiedByAssignment")
+  engineerAssignments         EngineerAssignment[] @relation("EngineerAssignmentMembership")
+  assignedEngineerAssignments EngineerAssignment[] @relation("EngineerAssignmentAssignedByAssignment")
+  assessedAiQualityAssessments AiQualityAssessment[] @relation("AiQualityAssessmentAssessedByAssignment")
+  reviewedAiQualityReviews     AiQualityReview[]     @relation("AiQualityReviewReviewerAssignment")
+  legalHoldsAsCustodian LegalHold[] @relation("LegalHoldCustodianAssignment")
+  retentionRunsAsActor RetentionRun[] @relation("RetentionRunActorAssignment")
+  requestedDataExportRequests DataExportRequest[] @relation("DataExportRequestRequestedByAssignment")
+  artifactAccessEvents ArtifactAccessEvent[] @relation("ArtifactAccessEventActorAssignment")
+  exportCapabilities ExportCapability[] @relation("ExportCapabilityRequesterAssignment")
+  ownershipTransfersAsSource OwnershipTransfer[] @relation("OwnershipTransferSourceAssignment")
+  ownershipTransfersAsSuccessor OwnershipTransfer[] @relation("OwnershipTransferSuccessorAssignment")
+  ownershipTransfersAsRequester OwnershipTransfer[] @relation("OwnershipTransferRequestedByAssignment")
+  ownershipTransfersAsApprover OwnershipTransfer[] @relation("OwnershipTransferApprovedByAssignment")
+  ownershipTransferItemsBefore OwnershipTransferItem[] @relation("OwnershipTransferItemOwnerAssignment")
+  ownershipTransferItemsAfter OwnershipTransferItem[] @relation("OwnershipTransferItemAfterOwnerAssignment")
+  createdMetricDefinitions MetricDefinition[]
+  createdAiExecutions AiExecution[]
 
   @@unique([userId, companyId, role])
+  @@unique([id, companyId], map: "user_company_roles_id_company_id_key")
+  @@index([userId, companyId, status])
   @@map("user_company_roles")
 }
 
+// U012: companyId is required (backed by the U011 reviewed backfill's zero-live-null proof — see
+// packages/db/src/scope-closure.ts) with a validated FK; the model is now classified CHILD_VIA_FK
+// of Company in packages/db/src/scope-inventory.ts (RECLASSIFIED_MODELS).
 model RoleChangeRequest {
   id          String   @id @default(cuid())
+  // These original fields remain query-compatible snapshots; approvedBy is never authority.
   userId      String   @map("user_id")
   fromRole    String   @map("from_role")
   toRole      String   @map("to_role")
-  status      String   @default("pending")
+  status      String   @default("legacy_unbound")
   requestedBy String   @map("requested_by")
   approvedBy  String?  @map("approved_by")
+  companyId   String   @map("company_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
+  legacyUnbound              Boolean   @default(true) @map("legacy_unbound")
+  legacyStatus               String?   @map("legacy_status")
+  tenantId                   String?   @map("tenant_id")
+  targetMembershipId         String?   @map("target_membership_id")
+  requestedByAssignmentId    String?   @map("requested_by_assignment_id")
+  expectedMembershipRevision Int?      @map("expected_membership_revision")
+  artifactVersionId          String?   @unique @map("artifact_version_id")
+  approvalRequestId          String?   @unique @map("approval_request_id")
+  snapshotHash               String?   @map("snapshot_hash")
+  policyVersion              String?   @map("policy_version")
+  expiresAt                  DateTime? @map("expires_at")
+  revision                   Int       @default(0)
+  requestIdempotencyKey      String?   @map("request_idempotency_key")
+  requestInputHash           String?   @map("request_input_hash")
+  terminalAt                 DateTime? @map("terminal_at")
+  terminalReasonCode         String?   @map("terminal_reason_code")
+  appliedAt                  DateTime? @map("applied_at")
+  appliedByAssignmentId      String?   @map("applied_by_assignment_id")
+  appliedMembershipRevision  Int?      @map("applied_membership_revision")
+  appliedApprovalRevision    Int?      @map("applied_approval_revision")
+  appliedDecisionSequence    Int?      @map("applied_decision_sequence")
+  // Lifecycle CAS is the only writer; this intentionally is not @updatedAt.
+  updatedAt                  DateTime  @default(now()) @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict, map: "role_change_requests_tenant_id_fkey")
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  targetMembership UserCompanyRole? @relation("RoleChangeTargetMembership", fields: [targetMembershipId, companyId], references: [id, companyId], onDelete: Restrict, map: "role_change_requests_target_membership_id_fkey")
+  requestedByAssignment UserCompanyRole? @relation("RoleChangeRequestedByAssignment", fields: [requestedByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "role_change_requests_requested_by_assignment_id_fkey")
+  appliedByAssignment UserCompanyRole? @relation("RoleChangeAppliedByAssignment", fields: [appliedByAssignmentId, companyId], references: [id, companyId], onDelete: Restrict, map: "role_change_requests_applied_by_assignment_id_fkey")
+  artifactVersion ArtifactVersion? @relation(fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "role_change_requests_artifact_version_id_fkey")
+  approvalRequest ApprovalRequest? @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "role_change_requests_approval_request_id_fkey")
+  ownershipTransfer OwnershipTransfer?
+
   @@index([userId, status])
+  @@index([companyId])
   @@map("role_change_requests")
 }
 
@@ -2009,83 +3210,157 @@ model Persona {
 // --- Product Catalog ---
 
 model ProductFamily {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
+  companyId   String    @map("company_id")
+  familyKey   String?   @map("family_key")
+  vendorKey   String?   @map("vendor_key")
   vendor      String
   name        String
   description String?
+  category    String?
+  status      String?
+  archivedAt  DateTime? @map("archived_at")
+  createdAt   DateTime? @map("created_at")
+  updatedAt   DateTime? @map("updated_at")
 
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "product_families_company_id_fkey")
   editions        ProductEdition[]
+  licenseMetrics  LicenseMetric[]
   sizingTemplates SizingTemplate[]
+  quoteLineItems  QuoteLineItem[]
+  customerAssets  CustomerAsset[] @relation("CustomerAssetProductFamily")
+  certificationDefinitions CertificationDefinition[]
+  engineerSkills EngineerSkill[]
+  engineerEligibilityPolicies EngineerEligibilityPolicy[]
+  engagementCapabilityRequirements EngagementCapabilityRequirement[]
 
+  @@unique([id, companyId], map: "product_families_id_company_id_key")
+  @@index([companyId, status, archivedAt, updatedAt, id])
+  @@index([companyId, vendorKey, familyKey])
   @@map("product_families")
 }
 
 model ProductEdition {
-  id       String @id @default(cuid())
-  familyId String @map("family_id")
-  name     String
-  version  String
+  id         String    @id @default(cuid())
+  familyId   String    @map("family_id")
+  editionKey String?   @map("edition_key")
+  name       String
+  version    String
+  status     String?
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime? @map("created_at")
+  updatedAt  DateTime? @map("updated_at")
 
-  family ProductFamily @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  skus   ProductSku[]
+  family         ProductFamily   @relation(fields: [familyId], references: [id], onDelete: Restrict, map: "product_editions_family_id_fkey")
+  skus           ProductSku[]
+  quoteLineItems QuoteLineItem[]
 
   @@index([familyId])
+  @@index([familyId, status, archivedAt, updatedAt, id])
+  @@index([familyId, editionKey])
   @@map("product_editions")
 }
 
 model ProductSku {
-  id            String   @id @default(cuid())
-  editionId     String   @map("edition_id")
-  skuCode       String   @unique @map("sku_code")
-  name          String
-  unitPrice     Decimal?  @db.Decimal(12, 2) @map("unit_price")
-  unitCost      Decimal?  @db.Decimal(12, 2) @map("unit_cost")
-  licenseMetric String?  @map("license_metric")
+  id                    String    @id @default(cuid())
+  editionId             String    @map("edition_id")
+  licenseMetricId       String?   @map("license_metric_id")
+  skuCode               String    @unique @map("sku_code")
+  name                  String
+  unitPrice             Decimal?  @db.Decimal(12, 2) @map("unit_price")
+  unitCost              Decimal?  @db.Decimal(12, 2) @map("unit_cost")
+  licenseMetric         String?   @map("license_metric")
+  currency              String?
+  termMonths            Int?      @map("term_months")
+  deploymentType        String?   @map("deployment_type")
+  supportLevel          String?   @map("support_level")
+  status                String?
+  archivedAt            DateTime? @map("archived_at")
+  createdAt             DateTime? @map("created_at")
+  updatedAt             DateTime? @map("updated_at")
 
   edition                  ProductEdition       @relation(fields: [editionId], references: [id])
+  canonicalLicenseMetric   LicenseMetric?       @relation("ProductSkuLicenseMetric", fields: [licenseMetricId], references: [id], onDelete: Restrict, map: "product_skus_license_metric_id_fkey")
   quoteLineItems           QuoteLineItem[]
   sourceCompatibilityRules CompatibilityRule[]  @relation("SourceSku")
   targetCompatibilityRules CompatibilityRule[]  @relation("TargetSku")
   assetLicenses            AssetLicense[]
   subscriptions            Subscription[]
+  demoLicenses             DemoLicense[]
+  customerAssets           CustomerAsset[]       @relation("CustomerAssetProductSku")
 
   @@index([editionId])
+  @@index([editionId, status, archivedAt, updatedAt, id])
+  @@index([licenseMetricId])
   @@map("product_skus")
 }
 
 model LicenseMetric {
-  id   String @id @default(cuid())
-  key  String @unique
-  name String
-  unit String
+  id              String    @id @default(cuid())
+  productFamilyId String    @map("product_family_id")
+  key             String    @unique
+  name            String
+  unit            String
+  description     String?
+  status          String?
+  createdAt       DateTime? @map("created_at")
+  updatedAt       DateTime? @map("updated_at")
 
+  productFamily  ProductFamily   @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "license_metrics_product_family_id_fkey")
+  productSkus    ProductSku[]    @relation("ProductSkuLicenseMetric")
+  quoteLineItems QuoteLineItem[]
+
+  @@index([productFamilyId, status, updatedAt, id])
   @@map("license_metrics")
 }
 
 model SizingTemplate {
-  id              String @id @default(cuid())
-  productFamilyId String @map("product_family_id")
-  name            String
-  configJson      Json   @map("config_json")
+  id                      String    @id @default(cuid())
+  productFamilyId         String    @map("product_family_id")
+  templateKey             String?   @map("template_key")
+  artifactId              String?   @map("artifact_id")
+  activeArtifactVersionId String?   @map("active_artifact_version_id")
+  name                    String
+  configJson              Json      @map("config_json")
+  status                  String?
+  createdAt               DateTime? @map("created_at")
+  updatedAt               DateTime? @map("updated_at")
 
-  family ProductFamily @relation(fields: [productFamilyId], references: [id], onDelete: Cascade)
+  family                ProductFamily   @relation(fields: [productFamilyId], references: [id], onDelete: Cascade)
+  artifact              Artifact?       @relation("SizingTemplateArtifact", fields: [artifactId], references: [id], onDelete: Restrict, map: "sizing_templates_artifact_id_fkey")
+  activeArtifactVersion ArtifactVersion? @relation("SizingTemplateActiveArtifactVersion", fields: [activeArtifactVersionId], references: [id], onDelete: Restrict, map: "sizing_templates_active_artifact_version_id_fkey")
 
   @@index([productFamilyId])
+  @@index([productFamilyId, status, updatedAt, id])
+  @@index([productFamilyId, templateKey])
+  @@index([artifactId, activeArtifactVersionId])
   @@map("sizing_templates")
 }
 
 model CompatibilityRule {
-  id          String @id @default(cuid())
-  sourceSkuId String @map("source_sku_id")
-  targetSkuId String @map("target_sku_id")
-  ruleType    String @map("rule_type")
-  configJson  Json   @map("config_json")
+  id                      String    @id @default(cuid())
+  sourceSkuId             String    @map("source_sku_id")
+  targetSkuId             String    @map("target_sku_id")
+  ruleKey                 String?   @map("rule_key")
+  artifactId              String?   @map("artifact_id")
+  activeArtifactVersionId String?   @map("active_artifact_version_id")
+  ruleType                String    @map("rule_type")
+  configJson              Json      @map("config_json")
+  severity                String?
+  status                  String?
+  createdAt               DateTime? @map("created_at")
+  updatedAt               DateTime? @map("updated_at")
 
-  sourceSku ProductSku @relation("SourceSku", fields: [sourceSkuId], references: [id], onDelete: Cascade)
-  targetSku ProductSku @relation("TargetSku", fields: [targetSkuId], references: [id], onDelete: Cascade)
+  sourceSku             ProductSku      @relation("SourceSku", fields: [sourceSkuId], references: [id], onDelete: Cascade)
+  targetSku             ProductSku      @relation("TargetSku", fields: [targetSkuId], references: [id], onDelete: Cascade)
+  artifact              Artifact?       @relation("CompatibilityRuleArtifact", fields: [artifactId], references: [id], onDelete: Restrict, map: "compatibility_rules_artifact_id_fkey")
+  activeArtifactVersion ArtifactVersion? @relation("CompatibilityRuleActiveArtifactVersion", fields: [activeArtifactVersionId], references: [id], onDelete: Restrict, map: "compatibility_rules_active_artifact_version_id_fkey")
 
   @@index([sourceSkuId])
   @@index([targetSkuId])
+  @@index([sourceSkuId, status, updatedAt, id])
+  @@index([sourceSkuId, ruleKey])
+  @@index([artifactId, activeArtifactVersionId])
   @@map("compatibility_rules")
 }
 
@@ -2169,89 +3444,234 @@ enum RegStatus {
 // --- Quotes & Commerce ---
 
 model Quote {
-  id            String   @id @default(cuid())
-  opportunityId String   @map("opportunity_id")
-  companyId     String   @map("company_id")
-  status        String   @default("draft")
-  version       Int      @default(1)
-  totalRevenue  Decimal  @db.Decimal(14, 2) @map("total_revenue")
-  totalCost     Decimal  @db.Decimal(14, 2) @map("total_cost")
-  marginPct     Decimal  @db.Decimal(8, 2) @map("margin_pct")
-  createdBy     String   @map("created_by")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id                String    @id @default(cuid())
+  opportunityId     String    @map("opportunity_id")
+  companyId         String    @map("company_id")
+  status            String    @default("draft")
+  version           Int       @default(1)
+  totalRevenue      Decimal   @map("total_revenue") @db.Decimal(14, 2)
+  totalCost         Decimal   @map("total_cost") @db.Decimal(14, 2)
+  marginPct         Decimal   @map("margin_pct") @db.Decimal(8, 2)
+  createdBy         String    @map("created_by")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  supersedesQuoteId String?   @map("supersedes_quote_id")
+  contentHash       String?   @map("content_hash")
+  currency          String?
+  validUntil        DateTime? @map("valid_until")
+  artifactVersionId String?   @map("artifact_version_id")
 
-  opportunity      Opportunity      @relation(fields: [opportunityId], references: [id])
-  lineItems        QuoteLineItem[]
-  discountRequests DiscountRequest[]
+  opportunity        Opportunity              @relation(fields: [opportunityId], references: [id], onDelete: Restrict, map: "quotes_opportunity_id_fkey")
+  supersedesQuote    Quote?                   @relation("QuoteSupersession", fields: [supersedesQuoteId], references: [id], onDelete: Restrict, map: "quotes_supersedes_quote_id_fkey")
+  supersededQuotes   Quote[]                  @relation("QuoteSupersession")
+  artifactVersion    ArtifactVersion?         @relation("QuoteArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "quotes_artifact_version_id_fkey")
+  lineItems          QuoteLineItem[]
+  commercialSnapshot QuoteCommercialSnapshot?
+  discountRequests   DiscountRequest[]
+  vendorRequests     VendorRequest[]
+  deliveryAcceptances DeliveryAcceptance[] @relation("DeliveryAcceptanceQuote")
 
   @@index([opportunityId])
   @@index([companyId, status])
+  @@index([supersedesQuoteId])
+  @@index([artifactVersionId])
   @@map("quotes")
 }
 
 model QuoteLineItem {
-  id          String  @id @default(cuid())
-  quoteId     String  @map("quote_id")
-  skuId       String  @map("sku_id")
-  quantity    Int
-  unitPrice   Decimal @db.Decimal(12, 2) @map("unit_price")
-  costPrice   Decimal @db.Decimal(12, 2) @map("cost_price")
-  discountPct Decimal @db.Decimal(5, 2) @default(0) @map("discount_pct")
-  revenue     Decimal @db.Decimal(14, 2)
-  cost        Decimal @db.Decimal(14, 2)
-  marginPct   Decimal @db.Decimal(8, 2) @map("margin_pct")
+  id                                        String    @id @default(cuid())
+  quoteId                                   String    @map("quote_id")
+  skuId                                     String?   @map("sku_id")
+  quantity                                  Int
+  unitPrice                                 Decimal   @map("unit_price") @db.Decimal(12, 2)
+  costPrice                                 Decimal   @map("cost_price") @db.Decimal(12, 2)
+  discountPct                               Decimal   @default(0) @map("discount_pct") @db.Decimal(5, 2)
+  revenue                                   Decimal   @db.Decimal(14, 2)
+  cost                                      Decimal   @db.Decimal(14, 2)
+  marginPct                                 Decimal   @map("margin_pct") @db.Decimal(8, 2)
+  lineType                                  String?   @map("line_type")
+  description                               String?
+  quantityDecimal                           Decimal?  @map("quantity_decimal") @db.Decimal(20, 6)
+  currency                                  String?
+  sourceServiceLineItemId                   String?   @map("source_service_line_item_id")
+  sourceCostStatus                          String?   @map("source_cost_status")
+  createdAt                                 DateTime? @map("created_at")
+  sortOrder                                 Int?      @map("sort_order")
+  productFamilyId                           String?   @map("product_family_id")
+  productFamilyKey                          String?   @map("product_family_key")
+  productEditionId                          String?   @map("product_edition_id")
+  productEditionKey                         String?   @map("product_edition_key")
+  skuCode                                   String?   @map("sku_code")
+  termMonths                                Int?      @map("term_months")
+  licenseMetricId                           String?   @map("license_metric_id")
+  licenseMetricKey                          String?   @map("license_metric_key")
+  licenseMetricSnapshotHash                 String?   @map("license_metric_snapshot_hash")
+  deploymentType                            String?   @map("deployment_type")
+  supportLevel                              String?   @map("support_level")
+  fulfillmentKind                           String?   @map("fulfillment_kind")
+  catalogSnapshotVersion                    String?   @map("catalog_snapshot_version")
+  catalogSnapshotHash                       String?   @map("catalog_snapshot_hash")
+  sizingArtifactVersionId                   String?   @map("sizing_artifact_version_id")
+  sizingArtifactVersionContentHash          String?   @map("sizing_artifact_version_content_hash")
+  compatibilityArtifactVersionIds           Json?     @map("compatibility_artifact_version_ids")
+  compatibilityArtifactVersionContentHashes Json?     @map("compatibility_artifact_version_content_hashes")
+  fulfillmentSnapshot                       Json?     @map("fulfillment_snapshot")
+  fulfillmentSnapshotHash                   String?   @map("fulfillment_snapshot_hash")
 
-  quote Quote      @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  sku   ProductSku @relation(fields: [skuId], references: [id])
+  quote                 Quote                 @relation(fields: [quoteId], references: [id], onDelete: Restrict, map: "quote_line_items_quote_id_fkey")
+  sku                   ProductSku?           @relation(fields: [skuId], references: [id], onDelete: Restrict, map: "quote_line_items_sku_id_fkey")
+  sourceServiceLineItem QuoteServiceLineItem? @relation(fields: [sourceServiceLineItemId], references: [id], onDelete: Restrict, map: "quote_line_items_source_service_line_item_id_fkey")
+  productFamily         ProductFamily?        @relation(fields: [productFamilyId], references: [id], onDelete: Restrict, map: "quote_line_items_product_family_id_fkey")
+  productEdition        ProductEdition?       @relation(fields: [productEditionId], references: [id], onDelete: Restrict, map: "quote_line_items_product_edition_id_fkey")
+  licenseMetric         LicenseMetric?        @relation(fields: [licenseMetricId], references: [id], onDelete: Restrict, map: "quote_line_items_license_metric_id_fkey")
+  sizingArtifactVersion ArtifactVersion?      @relation("QuoteLineSizingArtifactVersion", fields: [sizingArtifactVersionId], references: [id], onDelete: Restrict, map: "quote_line_items_sizing_artifact_version_id_fkey")
+  customerAssets        CustomerAsset[]       @relation("CustomerAssetSourceQuoteLineItem")
+  assetLicenses         AssetLicense[]        @relation("AssetLicenseSourceQuoteLineItem")
+  subscriptions         Subscription[]        @relation("SubscriptionSourceQuoteLineItem")
 
   @@index([quoteId])
+  @@index([skuId])
+  @@index([sourceServiceLineItemId])
+  @@index([productFamilyId])
+  @@index([productEditionId])
+  @@index([licenseMetricId])
+  @@index([sizingArtifactVersionId])
   @@map("quote_line_items")
 }
 
-model DiscountRequest {
-  id                String   @id @default(cuid())
-  quoteId           String   @map("quote_id")
-  requestedDiscount Decimal  @db.Decimal(5, 2) @map("requested_discount")
-  reason            String
-  status            String   @default("pending")
-  approvedBy        String?  @map("approved_by")
+model QuoteCommercialSnapshot {
+  id                  String   @id @default(cuid())
+  quoteId             String   @unique @map("quote_id")
+  policyVersion       String   @map("policy_version")
+  thresholdMarginPct  Decimal  @map("threshold_margin_pct") @db.Decimal(8, 2)
+  calculatedRevenue   Decimal  @map("calculated_revenue") @db.Decimal(14, 2)
+  calculatedCost      Decimal  @map("calculated_cost") @db.Decimal(14, 2)
+  calculatedMarginPct Decimal  @map("calculated_margin_pct") @db.Decimal(8, 2)
+  costCoverageStatus  String   @map("cost_coverage_status")
+  requiresApproval    Boolean  @map("requires_approval")
+  snapshotHash        String   @map("snapshot_hash")
+  createdAt           DateTime @default(now()) @map("created_at")
 
-  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Restrict, map: "quote_commercial_snapshots_quote_id_fkey")
+
+  @@map("quote_commercial_snapshots")
+}
+
+model DiscountRequest {
+  id                    String   @id @default(cuid())
+  quoteId               String   @map("quote_id")
+  requestedDiscount     Decimal  @db.Decimal(5, 2) @map("requested_discount")
+  reason                String
+  status                String   @default("pending")
+  approvedBy            String?  @map("approved_by")
+  vendorRequired        Boolean? @map("vendor_required")
+  approvalRequestId     String?  @map("approval_request_id")
+  requestedByAssignmentId String? @map("requested_by_assignment_id")
+  idempotencyKey        String?  @map("idempotency_key")
+  createdAt             DateTime? @map("created_at")
+  decidedAt             DateTime? @map("decided_at")
+
+  quote                  Quote            @relation(fields: [quoteId], references: [id], onDelete: Restrict, map: "discount_requests_quote_id_fkey")
+  approvalRequest        ApprovalRequest? @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "discount_requests_approval_request_id_fkey")
+  requestedByAssignment  UserCompanyRole? @relation("DiscountRequestRequestedByAssignment", fields: [requestedByAssignmentId], references: [id], onDelete: Restrict, map: "discount_requests_requested_by_assignment_id_fkey")
+  vendorRequests         VendorRequest[]  @relation("DiscountRequestVendorRequest")
 
   @@index([quoteId])
+  @@index([approvalRequestId], map: "discount_requests_approval_request_id_idx")
+  @@index([requestedByAssignmentId], map: "discount_requests_requested_by_assignment_id_idx")
+  @@index([idempotencyKey], map: "discount_requests_idempotency_key_idx")
+  @@index([status, createdAt], map: "discount_requests_status_created_at_idx")
   @@map("discount_requests")
 }
 
 // --- Vendor ---
 
 model VendorRequest {
-  id            String   @id @default(cuid())
-  opportunityId String?  @map("opportunity_id")
-  requestType   String   @map("request_type")
-  vendorName    String   @map("vendor_name")
-  detailsJson   Json     @map("details_json")
-  status        String   @default("draft")
-  createdBy     String   @map("created_by")
+  id                                  String   @id @default(cuid())
+  opportunityId                       String?  @map("opportunity_id")
+  requestType                         String   @map("request_type")
+  vendorName                          String   @map("vendor_name")
+  detailsJson                         Json     @map("details_json")
+  status                              String   @default("draft")
+  createdBy                           String   @map("created_by")
+  quoteId                             String?  @map("quote_id")
+  discountRequestId                   String?  @map("discount_request_id")
+  customerId                          String?  @map("customer_id")
+  requestedByAssignmentId             String?  @map("requested_by_assignment_id")
+  ownerAssignmentId                   String?  @map("owner_assignment_id")
+  ownershipRevision                   Int      @default(0) @map("ownership_revision")
+  revision                            Int      @default(0)
+  idempotencyKey                      String?  @map("idempotency_key")
+  externalReference                   String?  @map("external_reference")
+  submittedAt                         DateTime? @map("submitted_at")
+  submissionEvidenceArtifactVersionId String?  @map("submission_evidence_artifact_version_id")
+  createdAt                           DateTime? @map("created_at")
+  updatedAt                           DateTime? @map("updated_at")
 
-  opportunity Opportunity?         @relation(fields: [opportunityId], references: [id])
-  events      VendorRequestEvent[]
+  opportunity                       Opportunity?     @relation(fields: [opportunityId], references: [id])
+  quote                             Quote?           @relation(fields: [quoteId], references: [id], onDelete: Restrict, map: "vendor_requests_quote_id_fkey")
+  discountRequest                   DiscountRequest? @relation("DiscountRequestVendorRequest", fields: [discountRequestId], references: [id], onDelete: Restrict, map: "vendor_requests_discount_request_id_fkey")
+  customer                          Customer?        @relation(fields: [customerId], references: [id], onDelete: Restrict, map: "vendor_requests_customer_id_fkey")
+  requestedByAssignment             UserCompanyRole? @relation("VendorRequestRequestedByAssignment", fields: [requestedByAssignmentId], references: [id], onDelete: Restrict, map: "vendor_requests_requested_by_assignment_id_fkey")
+  ownerAssignment                   UserCompanyRole? @relation("VendorRequestOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: Restrict, map: "vendor_requests_owner_assignment_id_fkey")
+  submissionEvidenceArtifactVersion ArtifactVersion? @relation("VendorRequestSubmissionEvidenceArtifactVersion", fields: [submissionEvidenceArtifactVersionId], references: [id], onDelete: Restrict, map: "vendor_requests_submission_evidence_artifact_version_id_fkey")
+  events                            VendorRequestEvent[]
+  demoLicenses                      DemoLicense[]
+  vendorEscalation                  VendorEscalation? @relation("VendorRequestEscalation")
 
   @@index([opportunityId])
   @@index([status])
+  @@index([quoteId], map: "vendor_requests_quote_id_idx")
+  @@index([discountRequestId], map: "vendor_requests_discount_request_id_idx")
+  @@index([customerId], map: "vendor_requests_customer_id_idx")
+  @@index([requestedByAssignmentId], map: "vendor_requests_requested_by_assignment_id_idx")
+  @@index([ownerAssignmentId, ownershipRevision], map: "vendor_requests_owner_assignment_id_ownership_revision_idx")
+  @@index([idempotencyKey], map: "vendor_requests_idempotency_key_idx")
+  @@index([submissionEvidenceArtifactVersionId], map: "vendor_requests_submission_evidence_artifact_version_id_idx")
+  @@index([status, updatedAt], map: "vendor_requests_status_updated_at_idx")
   @@map("vendor_requests")
 }
 
 model VendorRequestEvent {
-  id          String   @id @default(cuid())
-  requestId   String   @map("request_id")
-  eventType   String   @map("event_type")
-  description String?
-  createdBy   String?  @map("created_by")
+  id                String   @id @default(cuid())
+  requestId         String   @map("request_id")
+  eventType         String   @map("event_type")
+  description       String?
+  createdBy         String?  @map("created_by")
+  actorAssignmentId String?  @map("actor_assignment_id")
+  payload           Json?
+  createdAt         DateTime? @map("created_at")
 
-  request VendorRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  request          VendorRequest    @relation(fields: [requestId], references: [id], onDelete: Restrict, map: "vendor_request_events_request_id_fkey")
+  actorAssignment  UserCompanyRole? @relation("VendorRequestEventActorAssignment", fields: [actorAssignmentId], references: [id], onDelete: Restrict, map: "vendor_request_events_actor_assignment_id_fkey")
 
   @@index([requestId])
+  @@index([actorAssignmentId], map: "vendor_request_events_actor_assignment_id_idx")
+  @@index([requestId, createdAt], map: "vendor_request_events_request_id_created_at_idx")
   @@map("vendor_request_events")
+}
+
+model DemoLicense {
+  id              String   @id @default(cuid())
+  vendorRequestId String   @map("vendor_request_id")
+  productSkuId    String   @map("product_sku_id")
+  customerId      String   @map("customer_id")
+  status          String
+  secretRef       String?  @map("secret_ref")
+  issuedAt        DateTime? @map("issued_at")
+  startsAt        DateTime? @map("starts_at")
+  expiresAt       DateTime? @map("expires_at")
+  revokedAt       DateTime? @map("revoked_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  vendorRequest VendorRequest @relation(fields: [vendorRequestId], references: [id], onDelete: Restrict, map: "demo_licenses_vendor_request_id_fkey")
+  productSku    ProductSku    @relation(fields: [productSkuId], references: [id], onDelete: Restrict, map: "demo_licenses_product_sku_id_fkey")
+  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict, map: "demo_licenses_customer_id_fkey")
+
+  @@index([vendorRequestId], map: "demo_licenses_vendor_request_id_idx")
+  @@index([productSkuId], map: "demo_licenses_product_sku_id_idx")
+  @@index([customerId, status, expiresAt], map: "demo_licenses_customer_id_status_expires_at_idx")
+  @@map("demo_licenses")
 }
 
 // --- Delivery ---
@@ -2282,8 +3702,37 @@ model Engagement {
   invoices           Invoice[]
   expenses           Expense[]
   taxInvoices        TaxInvoice[]
+  deliveryAcceptances DeliveryAcceptance[] @relation("DeliveryAcceptanceEngagement")
+  capabilityRequirements EngagementCapabilityRequirement[] @relation("EngagementCapabilityRequirementEngagement")
 
   @@map("delivery_projects")
+}
+
+// Immutable, idempotent acceptance evidence. Runtime projection is intentionally deferred to U051.
+model DeliveryAcceptance {
+  id                     String   @id @default(cuid())
+  engagementId           String   @unique(map: "delivery_acceptances_engagement_id_key") @map("engagement_id")
+  quoteId                String   @map("quote_id")
+  artifactVersionId      String   @map("artifact_version_id")
+  acceptedByAssignmentId String   @map("accepted_by_assignment_id")
+  acceptedAt             DateTime @map("accepted_at")
+  acceptanceHash         String   @map("acceptance_hash")
+  snapshotJson           Json     @map("snapshot_json")
+  idempotencyKey         String   @unique(map: "delivery_acceptances_idempotency_key_key") @map("idempotency_key")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  engagement           Engagement      @relation("DeliveryAcceptanceEngagement", fields: [engagementId], references: [id], onDelete: Restrict, map: "delivery_acceptances_engagement_id_fkey")
+  quote                Quote           @relation("DeliveryAcceptanceQuote", fields: [quoteId], references: [id], onDelete: Restrict, map: "delivery_acceptances_quote_id_fkey")
+  artifactVersion      ArtifactVersion @relation("DeliveryAcceptanceArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "delivery_acceptances_artifact_version_id_fkey")
+  acceptedByAssignment UserCompanyRole @relation("DeliveryAcceptanceAcceptedByAssignment", fields: [acceptedByAssignmentId], references: [id], onDelete: Restrict, map: "delivery_acceptances_accepted_by_assignment_id_fkey")
+  customerAssets       CustomerAsset[] @relation("CustomerAssetDeliveryAcceptance")
+  assetLicenses        AssetLicense[]  @relation("AssetLicenseDeliveryAcceptance")
+  subscriptions        Subscription[]  @relation("SubscriptionDeliveryAcceptance")
+
+  @@index([quoteId], map: "delivery_acceptances_quote_id_idx")
+  @@index([artifactVersionId], map: "delivery_acceptances_artifact_version_id_idx")
+  @@index([acceptedByAssignmentId], map: "delivery_acceptances_accepted_by_assignment_id_idx")
+  @@map("delivery_acceptances")
 }
 
 model DeliveryChecklistItem {
@@ -2326,33 +3775,86 @@ model MeetingNote {
 // --- Support ---
 
 model SupportCase {
-  id          String    @id @default(cuid())
-  customerId  String    @map("customer_id")
-  subject     String
-  severity    String    @default("medium")
-  status      String    @default("open")
-  slaDeadline DateTime? @map("sla_deadline")
-  assignedTo  String?   @map("assigned_to")
+  id                    String    @id @default(cuid())
+  customerId            String    @map("customer_id")
+  subject               String
+  severity              String    @default("medium")
+  status                String    @default("open")
+  slaDeadline           DateTime? @map("sla_deadline")
+  assignedTo            String?   @map("assigned_to")
+  assetId               String?   @map("asset_id")
+  ownerAssignmentId     String?   @map("owner_assignment_id")
+  ownershipRevision     Int       @default(0) @map("ownership_revision")
+  revision              Int       @default(0)
+  respondedAt           DateTime? @map("responded_at")
+  resolvedAt            DateTime? @map("resolved_at")
+  closedAt              DateTime? @map("closed_at")
+  rcaArtifactVersionId  String?   @map("rca_artifact_version_id")
+  rcaRequiredAt         DateTime? @map("rca_required_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
-  customer          Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  vendorEscalations VendorEscalation[]
+  customer           Customer                @relation(fields: [customerId], references: [id], onDelete: Restrict, map: "support_cases_customer_id_fkey")
+  asset              CustomerAsset?          @relation("SupportCaseAsset", fields: [assetId], references: [id], onDelete: Restrict, map: "support_cases_asset_id_fkey")
+  ownerAssignment    UserCompanyRole?        @relation("SupportCaseOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: Restrict, map: "support_cases_owner_assignment_id_fkey")
+  rcaArtifactVersion ArtifactVersion?        @relation("SupportCaseRcaArtifactVersion", fields: [rcaArtifactVersionId], references: [id], onDelete: Restrict, map: "support_cases_rca_artifact_version_id_fkey")
+  slaSnapshot        SupportCaseSlaSnapshot?
+  vendorEscalations  VendorEscalation[]
 
-  @@index([customerId])
+  @@index([customerId], map: "support_cases_customer_id_idx")
   @@index([status, severity])
+  @@index([assetId], map: "support_cases_asset_id_idx")
+  @@index([ownerAssignmentId, ownershipRevision], map: "support_cases_owner_assignment_id_ownership_revision_idx")
+  @@index([rcaArtifactVersionId], map: "support_cases_rca_artifact_version_id_idx")
   @@map("support_cases")
 }
 
+model SupportCaseSlaSnapshot {
+  id                      String   @id @default(cuid())
+  supportCaseId           String   @unique @map("support_case_id")
+  policyVersionId         String   @map("policy_version_id")
+  severity                String
+  responseMinutes         Int      @map("response_minutes")
+  resolutionMinutes       Int      @map("resolution_minutes")
+  vendorEscalationMinutes Int?     @map("vendor_escalation_minutes")
+  customerUpdateMinutes   Int?     @map("customer_update_minutes")
+  clockKind               String   @map("clock_kind")
+  startedAt               DateTime @map("started_at")
+  responseDueAt           DateTime @map("response_due_at")
+  resolutionDueAt         DateTime @map("resolution_due_at")
+  snapshotHash            String   @map("snapshot_hash")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  supportCase   SupportCase             @relation(fields: [supportCaseId], references: [id], onDelete: Restrict, map: "support_case_sla_snapshots_support_case_id_fkey")
+  policyVersion SupportSlaPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict, map: "support_case_sla_snapshots_policy_version_id_fkey")
+
+  @@index([policyVersionId], map: "support_case_sla_snapshots_policy_version_id_idx")
+  @@map("support_case_sla_snapshots")
+}
+
 model VendorEscalation {
-  id         String  @id @default(cuid())
-  caseId     String  @map("case_id")
-  vendor     String
-  reason     String
-  status     String  @default("draft")
-  resolution String?
+  id                                  String    @id @default(cuid())
+  caseId                              String    @map("case_id")
+  vendor                              String
+  reason                              String
+  status                              String    @default("draft")
+  resolution                          String?
+  vendorRequestId                     String?   @unique @map("vendor_request_id")
+  revision                            Int       @default(0)
+  externalReference                   String?   @map("external_reference")
+  submittedAt                         DateTime? @map("submitted_at")
+  resolvedAt                          DateTime? @map("resolved_at")
+  submissionEvidenceArtifactVersionId String?   @map("submission_evidence_artifact_version_id")
+  createdAt                           DateTime  @default(now()) @map("created_at")
+  updatedAt                           DateTime  @updatedAt @map("updated_at")
 
-  supportCase SupportCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  supportCase                      SupportCase     @relation(fields: [caseId], references: [id], onDelete: Restrict, map: "vendor_escalations_case_id_fkey")
+  vendorRequest                    VendorRequest?  @relation("VendorRequestEscalation", fields: [vendorRequestId], references: [id], onDelete: Restrict, map: "vendor_escalations_vendor_request_id_fkey")
+  submissionEvidenceArtifactVersion ArtifactVersion? @relation("VendorEscalationSubmissionEvidenceArtifactVersion", fields: [submissionEvidenceArtifactVersionId], references: [id], onDelete: Restrict, map: "vendor_escalations_submission_evidence_artifact_version_id_fkey")
 
-  @@index([caseId])
+  @@index([caseId], map: "vendor_escalations_case_id_idx")
+  @@index([submissionEvidenceArtifactVersionId], map: "vendor_escalations_submission_evidence_artifact_version_id_idx")
+  @@index([status, updatedAt], map: "vendor_escalations_status_updated_at_idx")
   @@map("vendor_escalations")
 }
 
@@ -2366,11 +3868,23 @@ model AssetLicense {
   status      String    @default("active")
   activatedAt DateTime? @map("activated_at")
   expiresAt   DateTime? @map("expires_at")
+  deliveryAcceptanceId  String?   @map("delivery_acceptance_id")
+  sourceQuoteLineItemId String?   @map("source_quote_line_item_id")
+  secretRef             String?   @map("secret_ref")
+  licenseMetricKey      String?   @map("license_metric_key")
+  licensedQuantity      Decimal?  @map("licensed_quantity") @db.Decimal(20, 6)
+  createdAt             DateTime? @map("created_at")
+  updatedAt             DateTime? @map("updated_at")
 
   asset CustomerAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
   sku   ProductSku    @relation(fields: [skuId], references: [id])
+  deliveryAcceptance DeliveryAcceptance? @relation("AssetLicenseDeliveryAcceptance", fields: [deliveryAcceptanceId], references: [id], onDelete: Restrict, map: "asset_licenses_delivery_acceptance_id_fkey")
+  sourceQuoteLineItem QuoteLineItem? @relation("AssetLicenseSourceQuoteLineItem", fields: [sourceQuoteLineItemId], references: [id], onDelete: Restrict, map: "asset_licenses_source_quote_line_item_id_fkey")
+  subscriptions Subscription[] @relation("SubscriptionAssetLicense")
 
   @@index([assetId])
+  @@index([deliveryAcceptanceId], map: "asset_licenses_delivery_acceptance_id_idx")
+  @@index([sourceQuoteLineItemId], map: "asset_licenses_source_quote_line_item_id_idx")
   @@map("asset_licenses")
 }
 
@@ -2382,12 +3896,23 @@ model Subscription {
   endDate   DateTime  @map("end_date")
   status    String    @default("active")
   autoRenew Boolean   @default(false) @map("auto_renew")
+  deliveryAcceptanceId  String?   @map("delivery_acceptance_id")
+  assetLicenseId        String?   @map("asset_license_id")
+  sourceQuoteLineItemId String?   @map("source_quote_line_item_id")
+  createdAt             DateTime? @map("created_at")
+  updatedAt             DateTime? @map("updated_at")
 
   asset CustomerAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
   sku   ProductSku    @relation(fields: [skuId], references: [id])
+  deliveryAcceptance DeliveryAcceptance? @relation("SubscriptionDeliveryAcceptance", fields: [deliveryAcceptanceId], references: [id], onDelete: Restrict, map: "subscriptions_delivery_acceptance_id_fkey")
+  assetLicense AssetLicense? @relation("SubscriptionAssetLicense", fields: [assetLicenseId], references: [id], onDelete: Restrict, map: "subscriptions_asset_license_id_fkey")
+  sourceQuoteLineItem QuoteLineItem? @relation("SubscriptionSourceQuoteLineItem", fields: [sourceQuoteLineItemId], references: [id], onDelete: Restrict, map: "subscriptions_source_quote_line_item_id_fkey")
+  renewalOpportunities RenewalOpportunity[] @relation("RenewalOpportunitySubscription")
 
   @@index([assetId])
   @@index([endDate, status])
+  @@index([deliveryAcceptanceId], map: "subscriptions_delivery_acceptance_id_idx")
+  @@index([sourceQuoteLineItemId], map: "subscriptions_source_quote_line_item_id_idx")
   @@map("subscriptions")
 }
 
@@ -2474,25 +3999,310 @@ model AgentPlaybook {
 // --- Security & Audit ---
 
 model DataExportRequest {
-  id          String  @id @default(cuid())
-  artifactId  String  @map("artifact_id")
-  requestedBy String  @map("requested_by")
-  reason      String
-  status      String  @default("pending")
-  approvedBy  String? @map("approved_by")
+  id                    String    @id @default(cuid())
+  legacyArtifactId      String?   @map("artifact_id")
+  legacyRequestedBy     String?   @map("requested_by")
+  legacyReason          String?   @map("reason")
+  legacyStatus          String?   @map("status")
+  legacyApprovedBy      String?   @map("approved_by")
+  canonicalActivatedAt  DateTime? @map("canonical_activated_at")
+  companyId             String?   @map("company_id")
+  artifactVersionId     String?   @map("artifact_version_id")
+  artifactContentHash   String?   @map("artifact_content_hash")
+  classification        String?
+  format                String?
+  requestedByAssignmentId String? @map("requested_by_assignment_id")
+  approvalRequestId     String?   @map("approval_request_id")
+  purpose               String?
+  canonicalStatus       String?   @map("canonical_status")
+  issuedAt              DateTime? @map("issued_at")
+  expiresAt             DateTime? @map("expires_at")
+  completedAt           DateTime? @map("completed_at")
+  idempotencyKey        String?   @map("idempotency_key")
+  requestInputHash      String?   @map("request_input_hash")
+  auditLogId            String?   @map("audit_log_id")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
+  company Company? @relation("DataExportRequestCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  artifactVersion ArtifactVersion? @relation("DataExportRequestArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict)
+  requestedByAssignment UserCompanyRole? @relation("DataExportRequestRequestedByAssignment", fields: [requestedByAssignmentId], references: [id], onDelete: Restrict)
+  approvalRequest ApprovalRequest? @relation("DataExportRequestApprovalRequest", fields: [approvalRequestId], references: [id], onDelete: Restrict)
+  auditLog AuditLog? @relation("DataExportRequestAuditLog", fields: [auditLogId], references: [id], onDelete: Restrict)
+  exportCapabilities ExportCapability[]
+
+  @@unique([requestedByAssignmentId, idempotencyKey], map: "data_export_requests_requested_assignment_idempotency_key")
+  @@index([companyId, canonicalActivatedAt])
   @@map("data_export_requests")
 }
 
 model ArtifactAccessEvent {
-  id         String   @id @default(cuid())
-  artifactId String   @map("artifact_id")
-  userId     String   @map("user_id")
-  accessType String   @map("access_type")
-  timestamp  DateTime @default(now())
+  id                  String    @id @default(cuid())
+  legacyArtifactId    String?   @map("artifact_id")
+  legacyUserId        String?   @map("user_id")
+  legacyAccessType    String?   @map("access_type")
+  legacyTimestamp     DateTime? @map("timestamp")
+  canonicalActivatedAt DateTime? @map("canonical_activated_at")
+  companyId           String?   @map("company_id")
+  artifactVersionId   String?   @map("artifact_version_id")
+  actorAssignmentId   String?   @map("actor_assignment_id")
+  accessType          String?   @map("canonical_access_type")
+  requestId           String?
+  policyResult        String?   @map("policy_result")
+  watermarkApplied    Boolean?  @map("watermark_applied")
+  redactionApplied    Boolean?  @map("redaction_applied")
+  requestMetadata     Json?     @map("request_metadata")
+  denialReason        String?   @map("denial_reason")
+  createdAt           DateTime? @map("canonical_created_at")
 
-  @@index([artifactId])
+  company Company? @relation("ArtifactAccessEventCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  artifactVersion ArtifactVersion? @relation("ArtifactAccessEventArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict)
+  actorAssignment UserCompanyRole? @relation("ArtifactAccessEventActorAssignment", fields: [actorAssignmentId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, canonicalActivatedAt])
   @@map("artifact_access_events")
+}
+
+// --- Governance lifecycle receipts (U042 / GOV-01) ---
+model RetentionPolicy {
+  id String @id @default(cuid())
+  companyId String @map("company_id")
+  key String
+  status String
+  currentVersionId String? @unique @map("current_version_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  company Company @relation("RetentionPolicyCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  versions RetentionPolicyVersion[] @relation("RetentionPolicyVersions")
+  currentVersion RetentionPolicyVersion? @relation("RetentionPolicyCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  legalHolds LegalHold[]
+  @@unique([companyId, key])
+  @@map("retention_policies")
+}
+
+model RetentionPolicyVersion {
+  id String @id @default(cuid())
+  policyId String @map("policy_id")
+  version Int
+  durationDays Int @map("duration_days")
+  action String
+  legalBasis String @map("legal_basis")
+  contentHash String @map("content_hash")
+  supersedesVersionId String? @map("supersedes_version_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  policy RetentionPolicy @relation("RetentionPolicyVersions", fields: [policyId], references: [id], onDelete: Restrict)
+  supersedesVersion RetentionPolicyVersion? @relation("RetentionPolicySupersession", fields: [supersedesVersionId], references: [id], onDelete: Restrict)
+  supersededBy RetentionPolicyVersion[] @relation("RetentionPolicySupersession")
+  currentForPolicy RetentionPolicy? @relation("RetentionPolicyCurrentVersion")
+  assignments RetentionAssignment[]
+  retentionRuns RetentionRun[]
+  retentionRunItems RetentionRunItem[]
+  @@unique([policyId, version])
+  @@map("retention_policy_versions")
+}
+
+model RetentionAssignment {
+  id String @id @default(cuid())
+  policyVersionId String @map("policy_version_id")
+  artifactClassification String @map("artifact_classification")
+  resourceKind String @map("resource_kind")
+  dueAt DateTime? @map("due_at")
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  policyVersion RetentionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  retentionRuns RetentionRun[]
+  @@unique([policyVersionId, artifactClassification, resourceKind])
+  @@index([active, dueAt])
+  @@map("retention_assignments")
+}
+
+model LegalHold {
+  id String @id @default(cuid())
+  companyId String @map("company_id")
+  policyId String? @map("policy_id")
+  custodianAssignmentId String @map("custodian_assignment_id")
+  status String
+  reason String
+  startedAt DateTime @map("started_at")
+  releasedAt DateTime? @map("released_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  company Company @relation("LegalHoldCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  policy RetentionPolicy? @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  custodianAssignment UserCompanyRole @relation("LegalHoldCustodianAssignment", fields: [custodianAssignmentId], references: [id], onDelete: Restrict)
+  scopes LegalHoldScope[]
+  @@index([companyId, status, releasedAt])
+  @@map("legal_holds")
+}
+
+model LegalHoldScope {
+  id String @id @default(cuid())
+  legalHoldId String @map("legal_hold_id")
+  companyId String @map("company_id")
+  artifactVersionId String? @map("artifact_version_id")
+  resourceKind String @map("resource_kind")
+  resourceId String? @map("resource_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  legalHold LegalHold @relation(fields: [legalHoldId], references: [id], onDelete: Restrict)
+  company Company @relation("LegalHoldScopeCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  artifactVersion ArtifactVersion? @relation("LegalHoldScopeArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict)
+  @@unique([legalHoldId, resourceKind, resourceId])
+  @@index([companyId, resourceKind, resourceId])
+  @@map("legal_hold_scopes")
+}
+
+model RetentionRun {
+  id String @id @default(cuid())
+  companyId String @map("company_id")
+  phase String
+  status String
+  revision Int
+  retentionAssignmentId String @map("retention_assignment_id")
+  policyVersionId String @map("policy_version_id")
+  policyContentHash String @map("policy_content_hash")
+  resourceKind String @map("resource_kind")
+  action String
+  cutoffAt DateTime @map("cutoff_at")
+  maxItems Int @map("max_items")
+  previewHash String @map("preview_hash")
+  itemCount Int @map("item_count")
+  candidateCount Int @map("candidate_count")
+  heldCount Int @map("held_count")
+  ineligibleCount Int @map("ineligible_count")
+  actorAssignmentId String @map("actor_assignment_id")
+  idempotencyKey String @map("idempotency_key")
+  inputHash String @map("input_hash")
+  auditLogId String @map("audit_log_id")
+  previewRunId String? @map("preview_run_id")
+  executionMode String? @map("execution_mode")
+  revalidationHash String? @map("revalidation_hash")
+  approvalRequestId String? @map("approval_request_id")
+  approvalRequestRevision Int? @map("approval_request_revision")
+  approvalManifestArtifactVersionId String? @map("approval_manifest_artifact_version_id")
+  approvalManifestContentHash String? @map("approval_manifest_content_hash")
+  approvalPolicyHash String? @map("approval_policy_hash")
+  wouldPurgeCount Int @default(0) @map("would_purge_count")
+  purgedCount Int @default(0) @map("purged_count")
+  blockedCount Int @default(0) @map("blocked_count")
+  failedCount Int @default(0) @map("failed_count")
+  createdAt DateTime @default(now()) @map("created_at")
+  company Company @relation("RetentionRunCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  retentionAssignment RetentionAssignment @relation(fields: [retentionAssignmentId], references: [id], onDelete: Restrict)
+  policyVersion RetentionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  actorAssignment UserCompanyRole @relation("RetentionRunActorAssignment", fields: [actorAssignmentId], references: [id], onDelete: Restrict)
+  auditLog AuditLog @relation("RetentionRunAuditLog", fields: [auditLogId], references: [id], onDelete: Restrict)
+  previewRun RetentionRun? @relation("RetentionRunPreview", fields: [previewRunId], references: [id], onDelete: Restrict)
+  executionRuns RetentionRun[] @relation("RetentionRunPreview")
+  approvalRequest ApprovalRequest? @relation("RetentionRunApprovalRequest", fields: [approvalRequestId], references: [id], onDelete: Restrict)
+  approvalManifestArtifactVersion ArtifactVersion? @relation("RetentionRunApprovalManifestArtifactVersion", fields: [approvalManifestArtifactVersionId], references: [id], onDelete: Restrict)
+  items RetentionRunItem[]
+  @@unique([id, phase], map: "retention_runs_id_phase_key")
+  @@unique([retentionAssignmentId, phase, actorAssignmentId, idempotencyKey], map: "retention_runs_assignment_phase_actor_idempotency_key")
+  @@unique([previewRunId, phase, actorAssignmentId, idempotencyKey], map: "retention_runs_preview_phase_actor_idempotency_key")
+  @@map("retention_runs")
+}
+
+model RetentionRunItem {
+  id String @id @default(cuid())
+  retentionRunId String @map("retention_run_id")
+  phase String
+  ordinal Int
+  resourceKind String @map("resource_kind")
+  resourceId String @map("resource_id")
+  documentId String @map("document_id")
+  projectId String @map("project_id")
+  policyVersionId String @map("policy_version_id")
+  policyContentHash String @map("policy_content_hash")
+  preActionHash String @map("pre_action_hash")
+  holdSetHash String @map("hold_set_hash")
+  decision String
+  outcome String
+  reasonCode String? @map("reason_code")
+  createdAt DateTime @default(now()) @map("created_at")
+  retentionRun RetentionRun @relation(fields: [retentionRunId, phase], references: [id, phase], onDelete: Restrict)
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  policyVersion RetentionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  @@unique([retentionRunId, resourceKind, resourceId], map: "retention_run_items_run_resource_key")
+  @@unique([retentionRunId, ordinal], map: "retention_run_items_run_ordinal_key")
+  @@map("retention_run_items")
+}
+
+model ExportCapability {
+  id String @id @default(cuid())
+  exportRequestId String @map("export_request_id")
+  artifactVersionId String @map("artifact_version_id")
+  artifactContentHash String @map("artifact_content_hash")
+  requesterAssignmentId String @map("requester_assignment_id")
+  tokenDigest String @map("token_digest")
+  expiresAt DateTime @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  exportRequest DataExportRequest @relation(fields: [exportRequestId], references: [id], onDelete: Restrict)
+  artifactVersion ArtifactVersion @relation("ExportCapabilityArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict)
+  requesterAssignment UserCompanyRole @relation("ExportCapabilityRequesterAssignment", fields: [requesterAssignmentId], references: [id], onDelete: Restrict)
+  @@unique([tokenDigest])
+  @@index([expiresAt, consumedAt, revokedAt])
+  @@map("export_capabilities")
+}
+
+model OwnershipTransfer {
+  id String @id @default(cuid())
+  roleChangeRequestId String @unique @map("role_change_request_id")
+  sourceAssignmentId String @map("source_assignment_id")
+  successorAssignmentId String @map("successor_assignment_id")
+  requestedByAssignmentId String @map("requested_by_assignment_id")
+  approvedByAssignmentId String? @map("approved_by_assignment_id")
+  previewSchemaVersion String @map("preview_schema_version")
+  previewHash String @map("preview_hash")
+  itemCount Int @map("item_count")
+  status String
+  revision Int
+  previewIdempotencyKey String @map("preview_idempotency_key")
+  previewInputHash String @map("preview_input_hash")
+  executeIdempotencyKey String? @map("execute_idempotency_key")
+  executeInputHash String? @map("execute_input_hash")
+  previewAuditLogId String @map("preview_audit_log_id")
+  completionAuditLogId String? @map("completion_audit_log_id")
+  blockedReason String? @map("blocked_reason")
+  requestedAt DateTime? @map("requested_at")
+  approvedAt DateTime? @map("approved_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  roleChangeRequest RoleChangeRequest @relation(fields: [roleChangeRequestId], references: [id], onDelete: Restrict)
+  sourceAssignment UserCompanyRole @relation("OwnershipTransferSourceAssignment", fields: [sourceAssignmentId], references: [id], onDelete: Restrict)
+  successorAssignment UserCompanyRole @relation("OwnershipTransferSuccessorAssignment", fields: [successorAssignmentId], references: [id], onDelete: Restrict)
+  requestedByAssignment UserCompanyRole @relation("OwnershipTransferRequestedByAssignment", fields: [requestedByAssignmentId], references: [id], onDelete: Restrict)
+  approvedByAssignment UserCompanyRole? @relation("OwnershipTransferApprovedByAssignment", fields: [approvedByAssignmentId], references: [id], onDelete: Restrict)
+  previewAuditLog AuditLog @relation("OwnershipTransferPreviewAuditLog", fields: [previewAuditLogId], references: [id], onDelete: Restrict)
+  completionAuditLog AuditLog? @relation("OwnershipTransferCompletionAuditLog", fields: [completionAuditLogId], references: [id], onDelete: Restrict)
+  items OwnershipTransferItem[]
+  @@unique([sourceAssignmentId, previewIdempotencyKey], map: "ownership_transfers_source_preview_idempotency_key")
+  @@unique([id, executeIdempotencyKey], map: "ownership_transfers_id_execute_idempotency_key")
+  @@index([sourceAssignmentId, successorAssignmentId, status])
+  @@map("ownership_transfers")
+}
+
+model OwnershipTransferItem {
+  id String @id @default(cuid())
+  ownershipTransferId String @map("ownership_transfer_id")
+  ordinal Int
+  entityType String @map("entity_type")
+  entityId String @map("entity_id")
+  ownerAssignmentId String @map("owner_assignment_id")
+  ownershipRevision Int @map("ownership_revision")
+  afterOwnerAssignmentId String @map("after_owner_assignment_id")
+  afterOwnershipRevision Int @map("after_ownership_revision")
+  createdAt DateTime @default(now()) @map("created_at")
+  ownershipTransfer OwnershipTransfer @relation(fields: [ownershipTransferId], references: [id], onDelete: Restrict)
+  ownerAssignment UserCompanyRole @relation("OwnershipTransferItemOwnerAssignment", fields: [ownerAssignmentId], references: [id], onDelete: Restrict)
+  afterOwnerAssignment UserCompanyRole @relation("OwnershipTransferItemAfterOwnerAssignment", fields: [afterOwnerAssignmentId], references: [id], onDelete: Restrict)
+  @@unique([ownershipTransferId, entityType, entityId], map: "ownership_transfer_items_transfer_entity_key")
+  @@unique([ownershipTransferId, ordinal], map: "ownership_transfer_items_transfer_ordinal_key")
+  @@map("ownership_transfer_items")
 }
 
 model NotificationEvent {
@@ -2503,6 +4313,7 @@ model NotificationEvent {
   payloadJson Json     @map("payload_json")
   status      String   @default("pending")
   sentAt      DateTime? @map("sent_at")
+  renewalReminderEvents RenewalReminderEvent[] @relation("RenewalReminderEventNotification")
 
   @@index([companyId, eventType])
   @@map("notification_events")
@@ -2552,4 +4363,324 @@ model AutonomyPolicy {
 
   @@unique([domain, decisionType])
   @@map("autonomy_policies")
+}
+
+// --- Scope backfill (U011) ---
+
+model ScopeBackfillQuarantine {
+  id                 String    @id @default(cuid())
+  sourceModel        String    @map("source_model")
+  sourceId           String    @map("source_id")
+  reasonCode         String    @map("reason_code")
+  sourceRowJson      Json      @map("source_row_json")
+  sourceRowHash      String    @map("source_row_hash")
+  candidateScopeJson Json      @map("candidate_scope_json")
+  reviewDigest       String?   @map("review_digest")
+  quarantinedAt      DateTime  @default(now()) @map("quarantined_at")
+  resolvedAt         DateTime? @map("resolved_at")
+  resolvedBy         String?   @map("resolved_by")
+  resolutionJson     Json?     @map("resolution_json")
+  firstSeenAt        DateTime  @default(now()) @map("first_seen_at")
+  lastSeenAt         DateTime  @default(now()) @map("last_seen_at")
+
+  @@unique([sourceModel, sourceId])
+  @@map("scope_backfill_quarantine")
+}
+
+// --- Durable Scheduler Runtime (U068) ---
+
+enum SchedulerJobKind {
+  interval
+  cron
+  manual
+}
+
+enum SchedulerRunStatus {
+  QUEUED
+  CLAIMED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  RETRY_WAIT
+  SKIPPED
+  CANCELLED
+}
+
+model SchedulerJob {
+  id                 String           @id @default(cuid())
+  companyId          String           @map("company_id")
+  projectId          String?          @map("project_id")
+  scopeKey           String           @map("scope_key")
+  jobKey             String           @map("job_key")
+  handlerKey         String           @map("handler_key")
+  scheduleKind       SchedulerJobKind @map("schedule_kind")
+  scheduleExpression String           @map("schedule_expression")
+  payloadJson        Json?            @map("payload_json")
+  enabled            Boolean          @default(true)
+  nextRunAt          DateTime?        @map("next_run_at")
+  lastRunAt          DateTime?        @map("last_run_at")
+  maxAttempts        Int              @default(3) @map("max_attempts")
+  backoffSeconds     Int              @default(60) @map("backoff_seconds")
+  timeoutSeconds     Int              @default(300) @map("timeout_seconds")
+  version            Int              @default(1)
+  createdBy          String           @map("created_by")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  runs SchedulerRun[]
+
+  @@unique([companyId, scopeKey, jobKey])
+  @@index([enabled, nextRunAt])
+  @@index([companyId, projectId])
+  @@index([handlerKey])
+  @@map("scheduler_jobs")
+}
+
+model SchedulerRun {
+  id             String             @id @default(cuid())
+  jobId          String             @map("job_id")
+  scheduledFor   DateTime           @map("scheduled_for")
+  idempotencyKey String             @unique @map("idempotency_key")
+  status         SchedulerRunStatus @default(QUEUED)
+  attemptCount   Int                @default(0) @map("attempt_count")
+  leaseOwner     String?            @map("lease_owner")
+  leaseExpiresAt DateTime?          @map("lease_expires_at")
+  startedAt      DateTime?          @map("started_at")
+  finishedAt     DateTime?          @map("finished_at")
+  nextAttemptAt  DateTime?          @map("next_attempt_at")
+  resultJson     Json?              @map("result_json")
+  errorCode      String?            @map("error_code")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  job      SchedulerJob          @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  attempts SchedulerRunAttempt[]
+
+  @@unique([jobId, scheduledFor])
+  @@index([status, scheduledFor])
+  @@index([jobId])
+  @@map("scheduler_runs")
+}
+
+model SchedulerRunAttempt {
+  id            String   @id @default(cuid())
+  runId         String   @map("run_id")
+  attemptNumber Int      @map("attempt_number")
+  workerId      String   @map("worker_id")
+  status        String
+  startedAt     DateTime @default(now()) @map("started_at")
+  finishedAt    DateTime? @map("finished_at")
+  errorCode     String?  @map("error_code")
+  receiptJson   Json?    @map("receipt_json")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  run SchedulerRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, attemptNumber])
+  @@index([runId])
+  @@map("scheduler_run_attempts")
+}
+
+// --- ROI Evidence-Backed Metrics (U072) ---
+
+enum MetricDefinitionStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum MetricEvidenceState {
+  MEASURED
+  PARTIAL
+  UNKNOWN
+  COLLECTING
+  SOURCE_UNAVAILABLE
+}
+
+enum AiExecutionStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum AiProviderAttemptStatus {
+  STARTED
+  SUCCEEDED
+  FAILED
+  AMBIGUOUS
+}
+
+enum AiCostKind {
+  ESTIMATE
+  INVOICE
+}
+
+model MetricDefinition {
+  id                    String                 @id @default(cuid())
+  companyId             String                 @map("company_id")
+  metricKey             String                 @map("metric_key")
+  displayName           String                 @map("display_name")
+  unit                  String
+  sourceKind            String                 @map("source_kind")
+  sourceContractVersion String                 @map("source_contract_version")
+  provenanceContract    Json                   @map("provenance_contract")
+  freshnessSeconds      Int                    @map("freshness_seconds")
+  status                MetricDefinitionStatus @default(DRAFT)
+  revision              Int                    @default(1)
+  definitionHash        String                 @map("definition_hash")
+  createdByAssignmentId String                 @map("created_by_assignment_id")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+
+  company               Company                 @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "metric_definitions_company_id_fkey")
+  createdByAssignment   UserCompanyRole         @relation(fields: [createdByAssignmentId], references: [id], onDelete: Restrict, map: "metric_definitions_created_by_assignment_id_fkey")
+
+  benchmarks            MetricBenchmarkVersion[]
+  snapshots             MetricDailySnapshot[]
+
+  @@unique([companyId, metricKey, revision])
+  @@unique([companyId, metricKey, definitionHash])
+  @@index([companyId, status])
+  @@index([sourceKind])
+  @@map("metric_definitions")
+}
+
+model MetricBenchmarkVersion {
+  id                          String    @id @default(cuid())
+  metricDefinitionId          String    @map("metric_definition_id")
+  version                     Int
+  definitionRevision          Int       @map("definition_revision")
+  baselineValue               Decimal   @map("baseline_value") @db.Decimal(30, 8)
+  artifactVersionId           String    @map("artifact_version_id")
+  approvalRequestId           String    @map("approval_request_id")
+  approvalRequestRevision     Int       @map("approval_request_revision")
+  artifactHashSnapshot        String    @map("artifact_hash_snapshot")
+  policyHashSnapshot          String    @map("policy_hash_snapshot")
+  effectiveFrom               DateTime  @map("effective_from")
+  approvedAt                  DateTime  @map("approved_at")
+  supersedesBenchmarkVersionId String?   @map("supersedes_benchmark_version_id")
+  createdAt                   DateTime  @default(now()) @map("created_at")
+
+  definition                  MetricDefinition       @relation(fields: [metricDefinitionId], references: [id], onDelete: Restrict)
+  artifactVersion             ArtifactVersion        @relation("MetricBenchmarkVersionArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "metric_benchmark_versions_artifact_version_id_fkey")
+  approvalRequest             ApprovalRequest        @relation("MetricBenchmarkVersionApprovalRequest", fields: [approvalRequestId], references: [id], onDelete: Restrict, map: "metric_benchmark_versions_approval_request_id_fkey")
+  supersedes                  MetricBenchmarkVersion? @relation("BenchmarkSupersedes", fields: [supersedesBenchmarkVersionId], references: [id], onDelete: Restrict)
+
+  successors                  MetricBenchmarkVersion[] @relation("BenchmarkSupersedes")
+  snapshots                   MetricDailySnapshot[]
+
+  @@unique([metricDefinitionId, version])
+  @@unique([id, metricDefinitionId])
+  @@unique([supersedesBenchmarkVersionId])
+  @@index([metricDefinitionId, effectiveFrom, approvedAt, version, id], map: "metric_benchmark_versions_metric_definition_id_effective_f_idx")
+  @@index([approvalRequestId, approvalRequestRevision])
+  @@map("metric_benchmark_versions")
+}
+
+model MetricDailySnapshot {
+  id                 String              @id @default(cuid())
+  metricDefinitionId String              @map("metric_definition_id")
+  benchmarkVersionId String?             @map("benchmark_version_id")
+  definitionRevision Int                 @map("definition_revision")
+  snapshotDate       DateTime            @map("snapshot_date") @db.Date
+  state              MetricEvidenceState
+  value              Decimal?            @db.Decimal(30, 8)
+  sampleCount        Int                 @default(0) @map("sample_count")
+  sourceCount        Int                 @default(0) @map("source_count")
+  sourceIdsHash      String              @map("source_ids_hash")
+  provenanceHash     String              @map("provenance_hash")
+  provenance         Json
+  asOf               DateTime            @map("as_of")
+  freshUntil         DateTime            @map("fresh_until")
+  createdAt          DateTime            @default(now()) @map("created_at")
+
+  definition         MetricDefinition        @relation(fields: [metricDefinitionId], references: [id], onDelete: Restrict)
+  benchmarkVersion   MetricBenchmarkVersion? @relation(fields: [benchmarkVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([metricDefinitionId, snapshotDate])
+  @@index([metricDefinitionId, asOf])
+  @@index([state, asOf])
+  @@map("metric_daily_snapshots")
+}
+
+model AiExecution {
+  id                    String            @id @default(cuid())
+  companyId             String            @map("company_id")
+  projectId             String            @map("project_id")
+  artifactVersionId     String            @map("artifact_version_id")
+  idempotencyKey        String            @map("idempotency_key")
+  purpose               String
+  status                AiExecutionStatus @default(QUEUED)
+  pricingContractVersion String           @map("pricing_contract_version")
+  createdByAssignmentId String            @map("created_by_assignment_id")
+  workflowRunId         String?           @map("workflow_run_id")
+  startedAt             DateTime          @default(now()) @map("started_at")
+  completedAt           DateTime?         @map("completed_at")
+  createdAt             DateTime          @default(now()) @map("created_at")
+
+  company               Company           @relation(fields: [companyId], references: [id], onDelete: Restrict, map: "ai_executions_company_id_fkey")
+  project               Project           @relation(fields: [projectId], references: [id], onDelete: Restrict, map: "ai_executions_project_id_fkey")
+  artifactVersion       ArtifactVersion   @relation("AiExecutionArtifactVersion", fields: [artifactVersionId], references: [id], onDelete: Restrict, map: "ai_executions_artifact_version_id_fkey")
+  createdByAssignment   UserCompanyRole   @relation(fields: [createdByAssignmentId], references: [id], onDelete: Restrict, map: "ai_executions_created_by_assignment_id_fkey")
+  workflowRun           WorkflowRun?      @relation(fields: [workflowRunId], references: [id], onDelete: Restrict, map: "ai_executions_workflow_run_id_fkey")
+
+
+  attempts              AiProviderAttempt[]
+  costs                 AiExecutionCost[]
+
+  @@unique([projectId, idempotencyKey])
+  @@index([companyId, projectId, status, startedAt])
+  @@index([artifactVersionId])
+  @@index([workflowRunId])
+  @@map("ai_executions")
+}
+
+model AiProviderAttempt {
+  id                    String                  @id @default(cuid())
+  aiExecutionId         String                  @map("ai_execution_id")
+  attemptNumber         Int                     @map("attempt_number")
+  provider              String
+  model                 String
+  requestDigest         String                  @map("request_digest")
+  providerRequestIdDigest String?               @map("provider_request_id_digest")
+  inputTokens           Int                     @default(0) @map("input_tokens")
+  outputTokens          Int                     @default(0) @map("output_tokens")
+  latencyMs             Int?                    @map("latency_ms")
+  status                AiProviderAttemptStatus @default(STARTED)
+  safeErrorCode         String?                 @map("safe_error_code")
+  startedAt             DateTime                @default(now()) @map("started_at")
+  finishedAt            DateTime?               @map("finished_at")
+  createdAt             DateTime                @default(now()) @map("created_at")
+
+  execution             AiExecution             @relation(fields: [aiExecutionId], references: [id], onDelete: Restrict)
+  costs                 AiExecutionCost[]
+
+  @@unique([aiExecutionId, attemptNumber])
+  @@unique([id, aiExecutionId])
+  @@index([aiExecutionId, status])
+  @@index([provider, model, startedAt])
+  @@map("ai_provider_attempts")
+}
+
+model AiExecutionCost {
+  id                String            @id @default(cuid())
+  aiExecutionId     String            @map("ai_execution_id")
+  providerAttemptId String            @map("provider_attempt_id")
+  kind              AiCostKind        @default(ESTIMATE)
+  amount            Decimal           @db.Decimal(30, 8)
+  currency          String            @default("USD")
+  pricingVersion    String            @map("pricing_version")
+  sourceKeyDigest   String            @map("source_key_digest")
+  occurredAt        DateTime          @default(now()) @map("occurred_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  execution         AiExecution       @relation(fields: [aiExecutionId], references: [id], onDelete: Restrict)
+  providerAttempt   AiProviderAttempt @relation(fields: [providerAttemptId], references: [id], onDelete: Restrict)
+
+  @@unique([providerAttemptId, kind, sourceKeyDigest])
+  @@index([aiExecutionId, occurredAt])
+  @@index([providerAttemptId, kind])
+  @@map("ai_execution_costs")
 }

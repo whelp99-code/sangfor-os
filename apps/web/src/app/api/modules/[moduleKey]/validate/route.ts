@@ -7,6 +7,7 @@ import {
 import { listActionDefinitions } from "@sangfor/business/action-connector-runtime";
 import { resolveModuleDependencyStatus } from "@sangfor/business";
 import { assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 import { createApiResponse, createApiErrorResponse } from "../../../_lib/api-response";
 import { API_ERRORS } from "../../../_lib/api-error";
 
@@ -15,6 +16,8 @@ type RouteContext = { params: Promise<{ moduleKey: string }> };
 export async function POST(request: Request, context: RouteContext) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/modules/[moduleKey]/validate/route.ts");
+  if (capabilityDenied) return capabilityDenied;
   try {
     const { moduleKey } = await context.params;
     const body = await request.json().catch(() => ({}));

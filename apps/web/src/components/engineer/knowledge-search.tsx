@@ -38,6 +38,7 @@ export function KnowledgeSearch() {
 
   // ── Knowledge browse ──
   const [products, setProducts] = useState<ProductInfo[]>([]);
+  const [productsError, setProductsError] = useState<string | null>(null);
   const [product, setProduct] = useState("HCI");
   const [type, setType] = useState("manual");
   const [items, setItems] = useState<KnowledgeItem[] | null>(null);
@@ -47,8 +48,11 @@ export function KnowledgeSearch() {
   useEffect(() => {
     fetch("/api/engineer/products", { cache: "no-store" })
       .then((r) => r.json())
-      .then((j) => setProducts(j.products ?? []))
-      .catch(() => undefined);
+      .then((j) => {
+        setProducts(j.products ?? []);
+        setProductsError(j.error === "products_unavailable" ? "제품 목록 연동이 일시적으로 중단되어 기본 제품을 표시합니다." : null);
+      })
+      .catch(() => setProductsError("제품 목록을 불러오지 못해 기본 제품을 표시합니다."));
   }, []);
 
   const loadKnowledge = useCallback(async () => {
@@ -170,6 +174,11 @@ export function KnowledgeSearch() {
                 {kbLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : "조회"}
               </Button>
             </div>
+            {productsError && (
+              <p role="status" className="flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-300">
+                <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" /> {productsError}
+              </p>
+            )}
             {kbError && (
               <p role="alert" className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
                 <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" /> {kbError}

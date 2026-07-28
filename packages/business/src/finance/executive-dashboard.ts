@@ -1,8 +1,12 @@
-import { prisma } from "@sangfor/db";
+import type { AuthContext } from "@sangfor/auth";
+import { prisma, withRlsTransaction } from "@sangfor/db";
 
-import { getOpportunityPipelineSummary } from "../crm/opportunity-center";
+import { listCustomers } from "../crm/customer-partner";
+import {
+  getOpportunityPipelineSummary,
+  listOpportunities,
+} from "../crm/opportunity-center";
 import { listTodayTasks, listWorkTasks } from "../orchestration/task-center";
-import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 export type ExecutiveSummary = {
   customers: number;
@@ -57,11 +61,23 @@ function isProjectMailCandidate(candidateType: string) {
 }
 
 export async function getExecutiveSummary(
-  projectSlug?: string,
+  ctx?: AuthContext,
 ): Promise<ExecutiveSummary> {
-  const project = await prisma.project.findUniqueOrThrow({
-    where: { slug: projectSlug ?? (await resolveDefaultProjectSlug()) },
-  });
+  if (!ctx) {
+    return {
+      customers: 0,
+      partners: 0,
+      openTasks: 0,
+      todayTasks: 0,
+      activePocs: 0,
+      opportunities: { total: 0, byStage: {} },
+      commandRuns: { total: 0, running: 0 },
+      approvals: { mailCandidates: 0, automation: 0 },
+    };
+  }
+  const project = await withRlsTransaction(ctx, (tx) => tx.project.findFirstOrThrow({
+    where: { id: ctx.projectId, companyId: ctx.companyId },
+  }));
 
   const [
     customers,
@@ -75,7 +91,7 @@ export async function getExecutiveSummary(
     rawMailCandidateApprovals,
     automationApprovals,
   ] = await Promise.all([
-    prisma.customer.count({ where: { projectId: project.id } }),
+    listCustomers(ctx, { first: 100 }).then((page) => page.items.length),
     prisma.partner.count({ where: { projectId: project.id } }),
     prisma.workTask.count({
       where: { projectId: project.id, status: { not: "done" } },
@@ -87,8 +103,8 @@ export async function getExecutiveSummary(
     prisma.commandRun.count({
       where: { projectId: project.id, status: "running" },
     }),
-    getOpportunityPipelineSummary(projectSlug),
-    listTodayTasks(projectSlug),
+    getOpportunityPipelineSummary(ctx),
+    listTodayTasks(project.slug),
     prisma.mailDerivedCandidate.findMany({
       where: { status: "proposed" },
       select: { candidateType: true, metadata: true },
@@ -116,12 +132,27 @@ export async function getExecutiveSummary(
 }
 
 export async function getDashboardWidgets(
-  projectSlug?: string,
+  ctx?: AuthContext,
 ): Promise<DashboardWidgets> {
-  const slug = projectSlug ?? (await resolveDefaultProjectSlug());
-  const project = await prisma.project.findUniqueOrThrow({
-    where: { slug },
-  });
+  if (!ctx) {
+    return {
+      todayTasks: [],
+      urgentTasks: [],
+      activePocs: [],
+      topOpportunities: [],
+      recentProposals: [],
+      devStatus: {
+        latestRuns: [],
+        codexTasks: 0,
+        cursorSessions: 0,
+        validationFailures: 0,
+      },
+    };
+  }
+  const project = await withRlsTransaction(ctx, (tx) => tx.project.findFirstOrThrow({
+    where: { id: ctx.projectId, companyId: ctx.companyId },
+  }));
+  const slug = project.slug;
   const projectId = project.id;
 
   const [
@@ -143,12 +174,11 @@ export async function getDashboardWidgets(
       take: 8,
       include: { customer: true },
     }),
-    prisma.opportunity.findMany({
-      where: { projectId, archivedAt: null, stage: { notIn: ["WON", "LOST"] as const } },
-      orderBy: { probability: "desc" },
-      take: 8,
-      include: { customer: true },
-    }),
+    listOpportunities(ctx, { first: 100 }).then((page) =>
+      page.items
+        .filter((opportunity) => opportunity.stage !== "WON" && opportunity.stage !== "LOST")
+        .sort((left, right) => right.probability - left.probability)
+        .slice(0, 8)),
     prisma.generatedDocument.findMany({
       where: { template: { projectId } },
       orderBy: { createdAt: "desc" },

@@ -40,9 +40,9 @@
 # Start infrastructure
 docker compose up -d postgres redis
 
-# Install and sync database
+# Install and apply formal database migrations
 pnpm install
-pnpm db:push
+pnpm db:migrate:deploy
 
 # Start all development servers
 pnpm dev
@@ -165,7 +165,7 @@ The entire codebase is a single pnpm workspace managed by Turborepo. This means:
 - `pnpm -r <command>` runs across all packages
 - `pnpm --filter <package>` targets a specific package
 - Dependencies are hoisted to the root `node_modules/`
-- **Key scripts**: `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm db:push`
+- **Key scripts**: `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm db:migrate:deploy`, `pnpm verify:operational-entrypoints`
 
 ### Model Context Protocol (MCP)
 
@@ -214,7 +214,7 @@ The following 12 steps are the recommended learning path for new team members.
 | 8 | **MCP Services (AI Integration)** | `services/sangfor-engineer-mcp/`, `services/sangfor-mcp-workflow/` |
 | 9 | **Infrastructure & Deployment** | Dockerfiles, `.github/workflows/`, Grafana/Prometheus configs |
 | 10 | **Database Schema Details** | `packages/db/prisma/schema.prisma`, migration files |
-| 11 | **Shared Libraries & UI Components** | `packages/ui/`, `packages/shared/`, `packages/shared/src/status.ts` |
+| 11 | **Shared Libraries & UI Components** | `apps/web/src/components/ui/`, `packages/shared/`, `packages/shared/src/status.ts` |
 | 12 | **Testing & Quality** | `playwright.config.ts`, test files across all packages |
 
 ### Step-by-Step Walkthrough
@@ -239,7 +239,7 @@ The following 12 steps are the recommended learning path for new team members.
 
 10. **Review the schema in detail** — Beyond the main Prisma schema, each MCP service has its own schema for agent state and knowledge storage.
 
-11. **Understand shared components** — `packages/ui/` has reusable shadcn/ui components. `packages/shared/` has common types and constants.
+11. **Understand shared components** — `apps/web/src/components/ui/` has the app-local shadcn/ui components. `packages/shared/` has common types and constants.
 
 12. **Run the tests** — Vitest for unit tests, Playwright for E2E. Test patterns are documented in `playwright.config.ts`.
 
@@ -373,7 +373,7 @@ The following 12 steps are the recommended learning path for new team members.
 
 | Package | Files | Purpose |
 |---------|-------|---------|
-| `packages/ui/` | `Button.tsx`, `Input.tsx`, `index.ts` | Shared shadcn/ui React components |
+| `apps/web/src/components/ui/` | `button.tsx`, `input.tsx`, `card.tsx` | App-local shadcn/ui React components |
 | `packages/shared/` | `status.ts` | Common types, constants, status enums |
 | `packages/api-utils/` | `index.ts` | Shared API utility functions |
 | `packages/agent/` | `types.ts` | Agent type definitions |

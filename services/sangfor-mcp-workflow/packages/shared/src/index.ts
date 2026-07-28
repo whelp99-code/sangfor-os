@@ -2,6 +2,8 @@
  * @sangfor/workflow-shared — 공통 타입 및 유틸리티
  */
 
+import { existsSync, mkdirSync } from 'node:fs';
+
 // ─── ID 생성 ────────────────────────────────────────────────────────────────
 
 export function nowId(prefix: string): string {
@@ -49,12 +51,10 @@ export function formatDateTime(date: Date | string): string {
 // ─── 파일 경로 유틸리티 ─────────────────────────────────────────────────────
 
 export function ensureDir(path: string): void {
-  const { mkdirSync } = require('node:fs');
   mkdirSync(path, { recursive: true });
 }
 
 export function fileExists(path: string): boolean {
-  const { existsSync } = require('node:fs');
   return existsSync(path);
 }
 
@@ -63,10 +63,10 @@ export function fileExists(path: string): boolean {
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export interface Logger {
-  debug(message: string, ...args: any[]): void;
-  info(message: string, ...args: any[]): void;
-  warn(message: string, ...args: any[]): void;
-  error(message: string, ...args: any[]): void;
+  debug(message: string, ...args: unknown[]): void;
+  info(message: string, ...args: unknown[]): void;
+  warn(message: string, ...args: unknown[]): void;
+  error(message: string, ...args: unknown[]): void;
 }
 
 export function createLogger(prefix: string, level: LogLevel = 'info'): Logger {

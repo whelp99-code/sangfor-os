@@ -20,6 +20,41 @@ jobs:
           ! grep -rn "sk-[a-zA-Z0-9]" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.mjs" apps/ packages/ | grep -v "\.test\." | grep -v "example\|placeholder\|your_"
           echo "No secrets detected in source code"
 
+  # U007: same release-gate manifest + strict acceptance wrapper.
+  # Full detached-mirror acceptance is dispatcher-owned with leases.
+  # CI runs the tracked unit-lane contract + false-green scan + strict parser.
+  release-gate-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - name: Assert runtime matrix
+        run: '[ "$(node -p ''process.versions.node.split(".")[0]'')" = "20" ] && [ "$(corepack pnpm --version)" = "10.28.1" ]'
+      - run: pnpm install --frozen-lockfile
+      - name: Root unit lane (release-gate manifest argv)
+        run: |
+          bash scripts/run-workspace-runtime.sh root -- node --test \
+            scripts/verify-release.test.mjs \
+            scripts/check-no-false-green-tests.test.mjs \
+            scripts/release-state-receipt.test.mjs \
+            scripts/lib/strict-command-result.test.mjs \
+            scripts/lib/resource-lease.test.mjs \
+            scripts/lib/sanitized-process-env.test.mjs \
+            scripts/lib/detached-release-mirror.test.mjs \
+            scripts/run-detached-release-mirror.test.mjs \
+            scripts/lib/isolated-postgres.test.mjs \
+            scripts/run-with-isolated-postgres.test.mjs \
+            scripts/run-playwright-acceptance.test.mjs \
+            scripts/run-final-acceptance.test.mjs \
+            scripts/verify-acceptance.test.mjs \
+            scripts/verify-staging-equivalent.test.mjs
+      - name: False-green scan
+        run: bash scripts/run-workspace-runtime.sh root -- node scripts/check-no-false-green-tests.mjs
+
   static-checks:
     runs-on: ubuntu-latest
     services:
@@ -39,13 +74,11 @@ jobs:
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
           cache: 'pnpm'
+      - name: Assert runtime matrix
+        run: '[ "$(node -p ''process.versions.node.split(".")[0]'')" = "20" ] && [ "$(corepack pnpm --version)" = "10.28.1" ]'
       - run: pnpm install --frozen-lockfile
-      # apps/web lint runs `eslint . && tsc --noEmit`, which needs the generated
-      # Prisma client and the workspace *library* packages' built dist/types —
-      # not a full `pnpm build` (that would also run `next build` and apps/api's
-      # tsc build, which lint doesn't need).
       - run: pnpm db:generate
       - run: pnpm --filter "./packages/**" build
       - run: pnpm lint
@@ -54,9 +87,15 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: postgresql://aios:aios_password@localhost:5432/aios_v2
       REDIS_URL: redis://localhost:6379
-      CI_INTEGRATION: '1'
+      CI_INTEGRATION: '0'
+      USER_JWT_ACTIVE_KID: ci-coverage-key
+      USER_JWT_AUDIENCE: sangfor-os-runtime
+      USER_JWT_CLOCK_SKEW_SECONDS: '30'
+      USER_JWT_ISSUER: sangfor-os
+      USER_JWT_KEYRING_JSON: '{"version":"sangfor.user-jwt-keyring/v1","keys":[{"kid":"ci-coverage-key","state":"active","secretBase64Url":"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc","activatedAt":"2026-01-01T00:00:00Z","demotedAt":null,"verifyUntil":null,"retiredAt":null}]}'
+      USER_JWT_ROTATION_OWNER: security-auth
+      USER_JWT_TTL_SECONDS: '900'
     services:
       postgres:
         image: postgres:16-alpine
@@ -82,15 +121,23 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
           cache: 'pnpm'
+      - name: Assert runtime matrix
+        run: '[ "$(node -p ''process.versions.node.split(".")[0]'')" = "20" ] && [ "$(corepack pnpm --version)" = "10.28.1" ]'
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
       - run: pnpm db:migrate:deploy
+        env:
+          DATABASE_URL: postgresql://aios:aios_password@localhost:5432/aios_v2
       - run: pnpm db:seed
+        env:
+          DATABASE_URL: postgresql://aios:aios_password@localhost:5432/aios_v2
       - run: pnpm --filter "./packages/**" build
       - run: pnpm test:coverage
       - name: Upload coverage report
@@ -112,23 +159,57 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    needs: [static-checks, test]
+    needs: [static-checks, test, release-gate-unit]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
           cache: 'pnpm'
+      - name: Assert runtime matrix
+        run: '[ "$(node -p ''process.versions.node.split(".")[0]'')" = "20" ] && [ "$(corepack pnpm --version)" = "10.28.1" ]'
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
+      - run: pnpm --filter "./packages/**" build
       - run: pnpm build
 
   e2e:
     runs-on: ubuntu-latest
     needs: [build]
     env:
-      DATABASE_URL: postgresql://aios:aios_password@localhost:5432/aios_v2
+      DATABASE_URL: postgresql://aios:aios_password@localhost:5432/sangfor_task_ci_e2e
+      TASK_OWNED_DATABASE_URL: postgresql://aios:aios_password@localhost:5432/sangfor_task_ci_e2e
+      TASK_POSTGRES_RECEIPT_FILE: /tmp/sangfor-e2e/postgres-receipt.json
+      TASK_OWNER_UNIT: U066
+      TASK_RUN_ID: ci-e2e
+      UX_FIXTURE_OUTPUT_DIR: /tmp/sangfor-e2e/ux-fixtures
+      SANGFOR_APP_DATABASE_URL: postgresql://sangfor_app_login:ci-e2e-app-password@localhost:5432/sangfor_task_ci_e2e
+      API_KEY: ci-e2e-operator-api-key-000000000
+      FINANCE_API_KEY: ci-e2e-finance-api-key-000000000
+      SANGFOR_API_KEY: ci-e2e-mcp-api-key-0000000000000
+      MCP_API_KEY: ci-e2e-workflow-api-key-0000000000
+      SANGFOR_OPERATOR_PRINCIPAL_ID: ci-e2e-operator
+      WHELP99_ENFORCE_SAFE_TOOLS: 'true'
+      INTERNAL_PRINCIPAL_TTL_SECONDS: '60'
+      INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS: '5'
+      INTERNAL_PRINCIPAL_ROTATION_OWNER: security-auth
+      INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID: finance
+      INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON: '{"version":"sangfor.internal-principal-keyring/v1","keys":[{"kid":"finance","state":"active","secretBase64Url":"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE","activatedAt":"2026-01-01T00:00:00Z","demotedAt":null,"verificationCutoff":null,"retiredAt":null}]}'
+      INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID: scheduler
+      INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON: '{"version":"sangfor.internal-principal-keyring/v1","keys":[{"kid":"scheduler","state":"active","secretBase64Url":"AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI","activatedAt":"2026-01-01T00:00:00Z","demotedAt":null,"verificationCutoff":null,"retiredAt":null}]}'
+      INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID: workflow
+      INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON: '{"version":"sangfor.internal-principal-keyring/v1","keys":[{"kid":"workflow","state":"active","secretBase64Url":"AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM","activatedAt":"2026-01-01T00:00:00Z","demotedAt":null,"verificationCutoff":null,"retiredAt":null}]}'
+      INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID: engineer
+      INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON: '{"version":"sangfor.internal-principal-keyring/v1","keys":[{"kid":"engineer","state":"active","secretBase64Url":"BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ","activatedAt":"2026-01-01T00:00:00Z","demotedAt":null,"verificationCutoff":null,"retiredAt":null}]}'
+      AUTH_DEMO_PASSWORD: ci-e2e-password
+      USER_JWT_ACTIVE_KID: ci-e2e-key
+      USER_JWT_AUDIENCE: sangfor-os-runtime
+      USER_JWT_CLOCK_SKEW_SECONDS: '30'
+      USER_JWT_ISSUER: sangfor-os
+      USER_JWT_KEYRING_JSON: '{"version":"sangfor.user-jwt-keyring/v1","keys":[{"kid":"ci-e2e-key","state":"active","secretBase64Url":"CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg","activatedAt":"2026-01-01T00:00:00Z","demotedAt":null,"verifyUntil":null,"retiredAt":null}]}'
+      USER_JWT_ROTATION_OWNER: security-auth
+      USER_JWT_TTL_SECONDS: '900'
       CI_INTEGRATION: '1'
     services:
       postgres:
@@ -136,7 +217,7 @@ jobs:
         env:
           POSTGRES_USER: aios
           POSTGRES_PASSWORD: aios_password
-          POSTGRES_DB: aios_v2
+          POSTGRES_DB: sangfor_task_ci_e2e
         ports:
           - 5432:5432
         options: >-
@@ -149,12 +230,53 @@ jobs:
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
           cache: 'pnpm'
+      - name: Assert runtime matrix
+        run: '[ "$(node -p ''process.versions.node.split(".")[0]'')" = "20" ] && [ "$(corepack pnpm --version)" = "10.28.1" ]'
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
       - run: pnpm db:migrate:deploy
+      - name: Configure E2E application role
+        run: |
+          printf "%s\n" "ALTER ROLE sangfor_app_login WITH PASSWORD 'ci-e2e-app-password';" | \
+            pnpm --filter @sangfor/db exec prisma db execute --stdin --schema prisma/schema.prisma
       - run: pnpm db:seed
+      - run: pnpm --filter "./packages/**" build
+      - name: Prepare authenticated E2E fixtures
+        run: |
+          mkdir -p "$(dirname "$TASK_POSTGRES_RECEIPT_FILE")"
+          POSTGRES_CONTAINER_ID="$(docker ps --filter ancestor=postgres:16-alpine --format '{{.ID}}' | head -n 1)"
+          test -n "$POSTGRES_CONTAINER_ID"
+          export POSTGRES_IMAGE_DIGEST="$(docker inspect --format '{{.Image}}' "$POSTGRES_CONTAINER_ID")"
+          export POSTGRES_SENTINEL="$(node -e 'process.stdout.write(JSON.stringify({schemaVersion:1,runId:process.env.TASK_RUN_ID,ownerUnit:process.env.TASK_OWNER_UNIT,purpose:"ci-e2e",imageDigest:process.env.POSTGRES_IMAGE_DIGEST}))')"
+          docker exec -e PGPASSWORD=aios_password "$POSTGRES_CONTAINER_ID" \
+            psql -v ON_ERROR_STOP=1 -U aios -d sangfor_task_ci_e2e \
+            -c "COMMENT ON DATABASE sangfor_task_ci_e2e IS '$POSTGRES_SENTINEL';"
+          test "$(docker exec -e PGPASSWORD=aios_password "$POSTGRES_CONTAINER_ID" \
+            psql -U aios -d sangfor_task_ci_e2e -tAc \
+            "SELECT shobj_description(oid, 'pg_database') FROM pg_database WHERE datname = 'sangfor_task_ci_e2e';")" = "$POSTGRES_SENTINEL"
+          node <<'NODE'
+          const { writeFileSync } = require("node:fs");
+          const sentinel = JSON.parse(process.env.POSTGRES_SENTINEL);
+          const receipt = {
+            schemaVersion: 1,
+            runId: process.env.TASK_RUN_ID,
+            ownerUnit: process.env.TASK_OWNER_UNIT,
+            purpose: "ci-e2e",
+            host: "127.0.0.1",
+            port: 5432,
+            databaseName: "sangfor_task_ci_e2e",
+            imageDigest: process.env.POSTGRES_IMAGE_DIGEST,
+            migrate: true,
+            cleanupState: "open",
+            sentinel
+          };
+          writeFileSync(process.env.TASK_POSTGRES_RECEIPT_FILE, JSON.stringify(receipt, null, 2));
+          NODE
+          pnpm prepare:ux-fixtures
+          jq -r '.env | to_entries[] | "\(.key)=\(.value)"' \
+            "$UX_FIXTURE_OUTPUT_DIR/ux-fixtures-receipt.json" >> "$GITHUB_ENV"
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium
       - name: Run e2e

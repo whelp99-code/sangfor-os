@@ -5,6 +5,7 @@ import {
   createAuthContextFromTokenPayload,
   findUntrustedScopeFields,
 } from './auth-context';
+import * as authContextModule from './auth-context';
 import type { TokenPayload } from './token-manager';
 
 const basePayload: TokenPayload = {
@@ -22,6 +23,7 @@ describe('AuthContext foundation helpers', () => {
       ...basePayload,
       tenantId: 'tenant-1',
       companyId: 'company-1',
+      projectId: 'project-1',
       personaId: 'persona-1',
       businessRole: 'finance_manager',
     });
@@ -30,6 +32,7 @@ describe('AuthContext foundation helpers', () => {
       userId: 'user-1',
       tenantId: 'tenant-1',
       companyId: 'company-1',
+      projectId: 'project-1',
       personaId: 'persona-1',
       businessRole: 'finance_manager',
     });
@@ -40,16 +43,56 @@ describe('AuthContext foundation helpers', () => {
     expect(createAuthContextFromTokenPayload(basePayload)).toBeNull();
   });
 
+  it('returns null when tenant/company/businessRole scope is present but no projectId is available from payload or fallback (U016: never defaults project scope)', () => {
+    expect(
+      createAuthContextFromTokenPayload({
+        ...basePayload,
+        tenantId: 'tenant-1',
+        companyId: 'company-1',
+        businessRole: 'finance_manager',
+      }),
+    ).toBeNull();
+    expect(
+      createAuthContextFromTokenPayload(
+        { ...basePayload, tenantId: 'tenant-1', companyId: 'company-1', businessRole: 'finance_manager' },
+        { tenantId: 'server-tenant', companyId: 'server-company', businessRole: 'finance_manager' },
+      ),
+    ).toBeNull();
+  });
+
+  it('resolves projectId from a server fallback when the token payload omits it', () => {
+    const context = createAuthContextFromTokenPayload(
+      { ...basePayload, tenantId: 'tenant-1', companyId: 'company-1', businessRole: 'finance_manager' },
+      { tenantId: 'tenant-1', companyId: 'company-1', projectId: 'server-project', businessRole: 'finance_manager' },
+    );
+
+    expect(context).toMatchObject({ projectId: 'server-project' });
+  });
+
+  it('returns null when tenant/company scope is present but no businessRole is available from payload or fallback (U015: never defaults to account_manager)', () => {
+    expect(
+      createAuthContextFromTokenPayload({ ...basePayload, tenantId: 'tenant-1', companyId: 'company-1' }),
+    ).toBeNull();
+    expect(
+      createAuthContextFromTokenPayload(
+        { ...basePayload, tenantId: 'tenant-1', companyId: 'company-1' },
+        { tenantId: 'server-tenant', companyId: 'server-company' },
+      ),
+    ).toBeNull();
+  });
+
   it('uses server fallback scope without reading request body scope fields', () => {
     const context = createAuthContextFromTokenPayload(basePayload, {
       tenantId: 'server-tenant',
       companyId: 'server-company',
+      projectId: 'server-project',
       businessRole: 'sales_manager',
     });
 
     expect(context).toMatchObject({
       tenantId: 'server-tenant',
       companyId: 'server-company',
+      projectId: 'server-project',
       businessRole: 'sales_manager',
     });
     expect(context?.permissions).toContain('quote.approve_discount');
@@ -80,5 +123,82 @@ describe('AuthContext foundation helpers', () => {
     expect(() => assertNoUntrustedScopeFields({ companyId: 'forged-company' })).toThrow(
       'Do not accept scoped identity fields from request body: companyId',
     );
+  });
+});
+
+describe('caller identity conflict containment', () => {
+  it('reports only caller identity fields that differ from the authenticated principal', () => {
+    // Given
+    const findCallerIdentityConflicts: unknown = Reflect.get(
+      authContextModule,
+      'findCallerIdentityConflicts',
+    );
+    const input = {
+      equal: {
+        approvedBy: 'principal-1',
+        actorId: 'principal-1',
+        requestedBy: 'principal-1',
+        requester: 'principal-1',
+        approver: 'principal-1',
+        approverId: 'principal-1',
+        approverPersonaId: 'principal-1',
+        personaId: 'principal-1',
+      },
+      conflicting: {
+        approvedBy: 'spoofed-principal',
+        actorId: 'spoofed-principal',
+        requestedBy: 'spoofed-principal',
+        requester: 'spoofed-principal',
+        approver: 'spoofed-principal',
+        approverId: 'spoofed-principal',
+        approverPersonaId: 'spoofed-principal',
+        personaId: 'spoofed-principal',
+      },
+    };
+
+    // When
+    expect(findCallerIdentityConflicts).toBeTypeOf('function');
+    if (typeof findCallerIdentityConflicts !== 'function') return;
+    const conflicts: unknown = findCallerIdentityConflicts(input, 'principal-1');
+
+    // Then
+    expect(conflicts).toEqual([
+      'conflicting.approvedBy',
+      'conflicting.actorId',
+      'conflicting.requestedBy',
+      'conflicting.requester',
+      'conflicting.approver',
+      'conflicting.approverId',
+      'conflicting.approverPersonaId',
+      'conflicting.personaId',
+    ]);
+  });
+
+  it('strips every recursive caller identity field while preserving other values', () => {
+    // Given
+    const stripCallerIdentityFields: unknown = Reflect.get(
+      authContextModule,
+      'stripCallerIdentityFields',
+    );
+    const input = {
+      keep: 'value',
+      approvedBy: 'principal-1',
+      nested: {
+        actorId: 'principal-1',
+        requestedBy: 'principal-1',
+        items: [
+          { requester: 'principal-1', approver: 'principal-1' },
+          { approverId: 'principal-1', approverPersonaId: 'principal-1', personaId: 'principal-1' },
+        ],
+      },
+    };
+
+    // When
+    expect(stripCallerIdentityFields).toBeTypeOf('function');
+    if (typeof stripCallerIdentityFields !== 'function') return;
+    const sanitized: unknown = stripCallerIdentityFields(input);
+
+    // Then
+    expect(sanitized).toEqual({ keep: 'value', nested: { items: [{}, {}] } });
   });
 });

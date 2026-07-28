@@ -3,13 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { useDefaultProject } from "@/hooks/use-default-project";
 import { actionErrorMessage } from "@/lib/action-error-labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export function CreateCustomerForm() {
-  const { project } = useDefaultProject();
   const router = useRouter();
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
@@ -23,8 +21,11 @@ export function CreateCustomerForm() {
     try {
       const res = await fetch("/api/customers", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, domain, projectSlug: project!.slug }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({ name, ...(domain.trim() ? { domain: domain.trim() } : {}) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -44,9 +45,9 @@ export function CreateCustomerForm() {
     <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSubmit}>
       <Input aria-label="고객사명" placeholder="고객사명" value={name} onChange={(e) => setName(e.target.value)} required />
       <Input aria-label="도메인 (선택)" placeholder="도메인 (선택)" value={domain} onChange={(e) => setDomain(e.target.value)} />
-      <Button type="submit" disabled={loading || !project}>{loading ? "저장 중..." : "고객사 추가"}</Button>
+      <Button type="submit" disabled={loading}>{loading ? "저장 중..." : "고객사 추가"}</Button>
       {error && (
-        <p className="w-full text-xs text-destructive sm:basis-full" role="alert">
+        <p className="w-full text-xs text-destructive sm:basis-full" aria-live="polite">
           {error}
         </p>
       )}

@@ -1,6 +1,12 @@
-import { getPocDetail, listCustomers, listPartners } from "@sangfor/business";
+import {
+  getPocDetail,
+  listCustomers,
+  listPartners,
+  resolveCrmAuthContext,
+} from "@sangfor/business";
 import { buildPocOrchestratorSummary } from "@sangfor/business/skills";
-import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 
 import { PortalOrchestratorRunPanel } from "@/components/phase13/portal-orchestrator-run-panel";
 import { GeneratePocReportButton, PocEventForm, PocRequirementForm } from "@/components/poc/poc-detail-actions";
@@ -9,18 +15,35 @@ import { EditPocForm } from "@/components/poc/edit-poc-form";
 import { PocIssueForm, PocIssueRow } from "@/components/poc/poc-issue-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 type PageProps = { params: Promise<{ id: string }> };
 
 export default async function PocDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const [project, customers, partners] = await Promise.all([
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(new Request(
+    `http://sangfor.local/poc/${encodeURIComponent(id)}`,
+    { headers: { cookie: `session=${encodeURIComponent(token)}` } },
+  ));
+  if (!session.ok) redirect("/login");
+  const ctx = await resolveCrmAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  });
+  const [project, customerPage, partners] = await Promise.all([
     getPocDetail(id),
-    listCustomers(),
+    listCustomers(ctx, { first: 100 }),
     listPartners(),
   ]);
   if (!project) notFound();
 
+  const customers = customerPage.items;
   const customerOptions = customers.map((c) => ({ id: c.id, label: c.name }));
   const partnerOptions = partners.map((p) => ({ id: p.id, label: p.name }));
 

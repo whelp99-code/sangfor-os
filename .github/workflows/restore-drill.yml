@@ -1,0 +1,38 @@
+name: Restore Drill (S9a, U009)
+
+# Trigger surface is intentionally schedule + workflow_dispatch only: this
+# job must never gain a push/pull_request trigger or a secret/DATABASE_URL
+# input, since it only runs the fixture-only isolated restore:drill CLI.
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch: {}
+
+jobs:
+  restore-drill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - name: Assert runtime matrix
+        run: '[ "$(node -p ''process.versions.node.split(".")[0]'')" = "20" ] && [ "$(corepack pnpm --version)" = "10.28.1" ]'
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Runbook safety contract
+        run: bash scripts/run-workspace-runtime.sh root -- node --test tests/restore-drill/runbook-contract.test.mjs
+      - name: Restore-drill owned-file and CLI contract
+        run: bash scripts/run-workspace-runtime.sh root -- node --test tests/restore-drill/restore-drill-contract.test.mjs
+      - name: Failure-matrix (real PG16 containers per scenario)
+        run: bash scripts/run-workspace-runtime.sh root -- node --test tests/restore-drill/failure-matrix.test.mjs
+      - name: Positive fixture restore drill
+        run: |
+          set -euo pipefail
+          POSTGRES16_DIGEST="$(bash scripts/run-workspace-runtime.sh root -- node -p "require('./scripts/fixtures/restore-drill/postgres16-image.lock.json').manifestListDigest")"
+          RUN_ID="restore-drill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          EVIDENCE_DIR="${RUNNER_TEMP}/restore-drill-evidence/${RUN_ID}"
+          bash scripts/run-workspace-runtime.sh root -- corepack pnpm restore:drill -- \
+            --fixture --image-digest "${POSTGRES16_DIGEST}" --run-id "${RUN_ID}" --evidence-dir "${EVIDENCE_DIR}"

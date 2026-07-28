@@ -1,11 +1,14 @@
 import { prisma } from "@sangfor/db";
 import { Octokit } from "@octokit/rest";
+import { denyExternalMutation } from "../governance/external-mutation-containment";
 
 /**
  * Purpose: Phase 7 GitHub PR automation (uses GITHUB_TOKEN or gh credential when set).
  * Failure Points: Missing token returns mock PR; branch already exists on remote.
  */
 export async function createPullRequestForRun(commandRunId: string, title: string) {
+  denyExternalMutation("github");
+
   const repo = await prisma.repository.upsert({
     where: { slug: "ai-automation-work-portal" },
     update: {},
@@ -74,6 +77,8 @@ async function nextMockPullRequestNumber(repositoryId: string) {
 }
 
 export async function syncPullRequestCi(pullRequestId: string) {
+  denyExternalMutation("github");
+
   const pr = await prisma.pullRequest.findUniqueOrThrow({ where: { id: pullRequestId } });
   const token = process.env.GITHUB_TOKEN;
   if (!token || !pr.url) {

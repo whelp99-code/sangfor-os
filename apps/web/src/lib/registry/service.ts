@@ -1,4 +1,5 @@
 import { prisma } from "@sangfor/db";
+import type { AuthContext } from "@sangfor/auth";
 
 export type RegistryCounts = {
   modules: number;
@@ -37,6 +38,7 @@ export type PageBlock = {
  */
 export async function runQueryHandler(
   queryKey: string,
+  ctx?: AuthContext,
 ): Promise<unknown> {
   const query = await prisma.queryRegistry.findUnique({
     where: { queryKey },
@@ -57,8 +59,9 @@ export async function runQueryHandler(
         },
       });
     case "customer_list": {
+      if (!ctx) return [];
       const { listCustomers } = await import("@sangfor/business");
-      return listCustomers();
+      return (await listCustomers(ctx, { first: 50 })).items;
     }
     case "task_board": {
       const { listWorkTasks } = await import("@sangfor/business");
@@ -69,9 +72,10 @@ export async function runQueryHandler(
       return listTodayTasks();
     }
     case "customer_detail": {
+      if (!ctx) return null;
       const { listCustomers } = await import("@sangfor/business");
-      const rows = await listCustomers();
-      return rows[0] ?? null;
+      const page = await listCustomers(ctx, { first: 1 });
+      return page.items[0] ?? null;
     }
     case "partner_list": {
       const { listPartners } = await import("@sangfor/business");
@@ -117,17 +121,20 @@ export async function runQueryHandler(
       return db.pocResultReport.findMany({ take: 5, orderBy: { createdAt: "desc" } });
     }
     case "opportunity_list": {
+      if (!ctx) return [];
       const { listOpportunities } = await import("@sangfor/business");
-      return listOpportunities();
+      return (await listOpportunities(ctx, { first: 50 })).items;
     }
     case "opportunity_pipeline": {
+      if (!ctx) return [];
       const { getOpportunityPipelineSummary } = await import("@sangfor/business");
-      return getOpportunityPipelineSummary();
+      return getOpportunityPipelineSummary(ctx);
     }
     case "opportunity_detail": {
+      if (!ctx) return null;
       const { listOpportunities, getOpportunityDetail } = await import("@sangfor/business");
-      const rows = await listOpportunities();
-      return rows[0] ? getOpportunityDetail(rows[0].id) : null;
+      const page = await listOpportunities(ctx, { first: 1 });
+      return page.items[0] ? getOpportunityDetail(ctx, page.items[0].id) : null;
     }
     case "proposal_list": {
       const { listGeneratedDocuments } = await import("@sangfor/business");
@@ -138,17 +145,20 @@ export async function runQueryHandler(
       return listKnowledgeDocuments();
     }
     case "dashboard_today_summary": {
+      if (!ctx) return { todayTasks: [], urgentCount: 0 };
       const { getDashboardWidgets } = await import("@sangfor/business");
-      const w = await getDashboardWidgets();
+      const w = await getDashboardWidgets(ctx);
       return { todayTasks: w.todayTasks, urgentCount: w.urgentTasks.length };
     }
     case "dashboard_urgent_tasks": {
+      if (!ctx) return [];
       const { getDashboardWidgets } = await import("@sangfor/business");
-      return (await getDashboardWidgets()).urgentTasks;
+      return (await getDashboardWidgets(ctx)).urgentTasks;
     }
     case "dashboard_dev_status": {
+      if (!ctx) return { latestRuns: [], codexTasks: 0, cursorSessions: 0, validationFailures: 0 };
       const { getDashboardWidgets } = await import("@sangfor/business");
-      return (await getDashboardWidgets()).devStatus;
+      return (await getDashboardWidgets(ctx)).devStatus;
     }
     default:
       return null;
@@ -178,7 +188,7 @@ export async function getCommandRunStats(): Promise<CommandRunStats> {
   return { total, running, pending };
 }
 
-export async function loadPageBlocks(pageKey: string): Promise<PageBlock[]> {
+export async function loadPageBlocks(pageKey: string, ctx?: AuthContext): Promise<PageBlock[]> {
   const slots = await prisma.layoutSlot.findMany({
     where: { pageKey },
     orderBy: { sortOrder: "asc" },
@@ -191,7 +201,7 @@ export async function loadPageBlocks(pageKey: string): Promise<PageBlock[]> {
     if (!slot.block) continue;
     const config = (slot.block.configJson ?? {}) as { queryKey?: string };
     const data = config.queryKey
-      ? await runQueryHandler(config.queryKey)
+      ? await runQueryHandler(config.queryKey, ctx)
       : null;
 
     blocks.push({

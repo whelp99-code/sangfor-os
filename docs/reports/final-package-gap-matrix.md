@@ -2,6 +2,8 @@
 
 Date: 2026-06-26
 
+> **Legacy mapping warning**: 이 보고서의 M1–M15는 canonical registry가 생기기 전 2026-06-26 당시의 독립 분류(`legacy-gap:M1`–`legacy-gap:M15`)이며 현재 `M1`–`M15`/`REQ-M1`–`REQ-M15`와 같은 의미가 아니다. 과거 판정과 행은 그대로 보존한다. 현재 ID와 alias는 [Canonical Requirement & Acceptance ID Registry](../01_SPEC/Requirement_ID_Registry.md)를 따른다.
+
 ## Status Legend
 
 | Status | Meaning |

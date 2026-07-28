@@ -14,7 +14,9 @@ export function getVisibleNavItems(role: string = MOCK_USER.role): NavItem[] {
 }
 
 export function canAccessRoute(pathname: string, role: string = MOCK_USER.role): boolean {
-  const item = PORTAL_NAV.find((nav) => pathname.startsWith(nav.href));
+  const item = PORTAL_NAV.find((nav) => (
+    pathname === nav.href || (nav.href !== "/" && pathname.startsWith(`${nav.href}/`))
+  ));
   if (!item) return true;
   return !item.roles?.length || item.roles.includes(role);
 }

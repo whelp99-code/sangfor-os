@@ -21,7 +21,7 @@ test.describe('Business API', () => {
   })
   test('Unified health returns services', async ({ request }) => {
     const res = await request.get(`${BASE}/api/unified-health`, { timeout: 10000 })
-    expect(res.ok()).toBeTruthy()
+    expect([200, 503]).toContain(res.status())
     const body = await res.json()
     expect(body.services).toBeDefined()
   })

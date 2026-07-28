@@ -1,0 +1,7 @@
+[
+  { "scenario": "corrupt-dump", "exitCode": 66, "stage": "restore" },
+  { "scenario": "target-restore-failure", "exitCode": 66, "stage": "restore" },
+  { "scenario": "content-hash-mismatch", "exitCode": 67, "stage": "validation" },
+  { "scenario": "sequence-mismatch", "exitCode": 67, "stage": "validation" },
+  { "scenario": "validation-timeout", "exitCode": 67, "stage": "validation" }
+]

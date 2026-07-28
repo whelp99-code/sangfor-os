@@ -7,8 +7,7 @@ export async function GET() {
   try {
     return Response.json(await engineerConsole.products());
   } catch (error) {
-    // Sanitize: log server-side, return a stable code (no raw error.message).
-    console.error("[api] products_failed:", error);
-    return Response.json({ products: [], error: "products_failed" }, { status: 502 });
+    console.warn("[api] products_unavailable:", error);
+    return Response.json({ products: [], error: "products_unavailable", degraded: true });
   }
 }

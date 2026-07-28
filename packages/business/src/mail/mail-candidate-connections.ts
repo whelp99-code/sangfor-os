@@ -1,56 +1,16 @@
+import type { AuthContext } from "@sangfor/auth";
 import { Prisma, prisma } from "@sangfor/db";
 import { PROPOSAL_TEMPLATE_KEYS } from "@sangfor/shared";
 import { z } from "zod";
 
-import { createContact, createCustomer } from "../crm/customer-partner";
 import { mailCandidateNextAction, normalizeDealTitle, withTag } from "../crm/deal-title";
-import { addOpportunityLink, createOpportunity, updateOpportunity } from "../crm/opportunity-center";
-import { generateProposal } from "../crm/proposal-generator";
+import { convertApprovedMailCandidates } from "./mail-candidates-convert";
 
-export const approveAndConnectMailCandidateSchema = z
-  .object({
-    candidateId: z.string().min(1),
-    customer: z.discriminatedUnion("mode", [
-      z.object({ mode: z.literal("existing"), id: z.string().min(1) }),
-      z.object({ mode: z.literal("create"), name: z.string().min(2), domain: z.string().optional() }),
-    ]),
-    contact: z.discriminatedUnion("mode", [
-      z.object({ mode: z.literal("skip") }),
-      z.object({ mode: z.literal("existing"), id: z.string().min(1) }),
-      z.object({
-        mode: z.literal("create"),
-        name: z.string().min(2),
-        email: z.string().email().optional(),
-        role: z.string().optional(),
-      }),
-    ]),
-    opportunity: z.discriminatedUnion("mode", [
-      z.object({ mode: z.literal("skip") }),
-      z.object({ mode: z.literal("existing"), id: z.string().min(1) }),
-      z.object({
-        mode: z.literal("create"),
-        title: z.string().min(2),
-        nextAction: z.string().optional(),
-      }),
-    ]),
-    proposal: z.discriminatedUnion("mode", [
-      z.object({ mode: z.literal("skip") }),
-      z.object({
-        mode: z.literal("create"),
-        title: z.string().min(2),
-        templateKey: z.enum(PROPOSAL_TEMPLATE_KEYS).default("standard-proposal"),
-      }),
-    ]),
-  })
-  .superRefine((value, ctx) => {
-    if (value.proposal.mode === "create" && value.opportunity.mode === "skip") {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["proposal"],
-        message: "proposal_requires_opportunity",
-      });
-    }
-  });
+export const approveAndConnectMailCandidateSchema = z.object({
+  candidateId: z.string().trim().min(1).max(200),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
+  idempotencyKey: z.string().trim().min(1).max(128),
+}).strict();
 
 type MailCandidateForConnection = {
   id: string;
@@ -290,161 +250,16 @@ export function buildMailCandidateConnectionDefaults(candidate: MailCandidateFor
 }
 
 export async function approveAndConnectMailCandidate(
+  ctx: AuthContext,
   input: z.input<typeof approveAndConnectMailCandidateSchema>,
 ) {
   const parsed = approveAndConnectMailCandidateSchema.parse(input);
-  const candidate = await prisma.mailDerivedCandidate.findUniqueOrThrow({
-    where: { id: parsed.candidateId },
+  return convertApprovedMailCandidates(ctx, {
+    candidates: [{
+      id: parsed.candidateId,
+      expectedUpdatedAt: parsed.expectedUpdatedAt,
+    }],
+    idempotencyKey: parsed.idempotencyKey,
+    approveProposed: true,
   });
-  assertCandidateApprovable(candidate);
-
-  if (candidate.status === "converted") {
-    const ids = getConnectionResultIds(candidate);
-    if (!ids.customerId || !ids.opportunityId) {
-      throw new Error("converted_candidate_missing_connection_result");
-    }
-    return {
-      candidate,
-      customer: await prisma.customer.findUniqueOrThrow({ where: { id: ids.customerId } }),
-      contact: ids.contactId
-        ? await prisma.contact.findUniqueOrThrow({ where: { id: ids.contactId } })
-        : null,
-      opportunity: await prisma.opportunity.findUniqueOrThrow({ where: { id: ids.opportunityId } }),
-      proposal: ids.proposalId
-        ? await prisma.generatedDocument.findUniqueOrThrow({ where: { id: ids.proposalId } })
-        : null,
-    };
-  }
-
-  const defaults = buildMailCandidateConnectionDefaults(candidate);
-  const existingContact = parsed.contact.mode === "existing"
-    ? await prisma.contact.findUniqueOrThrow({ where: { id: parsed.contact.id } })
-    : null;
-  const existingOpportunity = parsed.opportunity.mode === "existing"
-    ? await prisma.opportunity.findUniqueOrThrow({ where: { id: parsed.opportunity.id } })
-    : null;
-
-  if (existingContact?.customerId) {
-    if (parsed.customer.mode === "create" || existingContact.customerId !== parsed.customer.id) {
-      throw new Error("contact_customer_mismatch");
-    }
-  }
-  if (existingOpportunity?.customerId) {
-    if (parsed.customer.mode === "create" || existingOpportunity.customerId !== parsed.customer.id) {
-      throw new Error("customer_mismatch");
-    }
-  }
-
-  const customer = parsed.customer.mode === "existing"
-    ? await prisma.customer.findUniqueOrThrow({ where: { id: parsed.customer.id } })
-    : await createCustomer({
-        name: parsed.customer.name,
-        domain: parsed.customer.domain ?? defaults.customer.domain,
-        notes: defaults.customer.notes,
-      });
-
-  const contact = parsed.contact.mode === "skip"
-    ? null
-    : parsed.contact.mode === "existing"
-      ? existingContact
-      : await createContact({
-          customerId: customer.id,
-          name: parsed.contact.name,
-          email: parsed.contact.email,
-          role: parsed.contact.role ?? "Mail requester",
-        });
-
-  if (contact?.customerId && contact.customerId !== customer.id) {
-    throw new Error("contact_customer_mismatch");
-  }
-
-  const opportunity = parsed.opportunity.mode === "skip"
-    ? await createOpportunity({
-        title: defaults.opportunity.title,
-        customerId: customer.id,
-        probability: defaults.opportunity.probability,
-        nextAction: defaults.opportunity.nextAction,
-      })
-    : parsed.opportunity.mode === "existing"
-      ? existingOpportunity!
-      : await createOpportunity({
-          title: parsed.opportunity.title,
-          customerId: customer.id,
-          probability: defaults.opportunity.probability,
-          nextAction: parsed.opportunity.nextAction ?? defaults.opportunity.nextAction,
-        });
-
-  if (opportunity.customerId && opportunity.customerId !== customer.id) {
-    throw new Error("customer_mismatch");
-  }
-  const connectedOpportunity = opportunity.customerId
-    ? opportunity
-    : await updateOpportunity(opportunity.id, { customerId: customer.id });
-
-  const proposal = parsed.proposal.mode === "create"
-    ? await generateProposal({
-        title: parsed.proposal.title,
-        templateKey: parsed.proposal.templateKey,
-        customerId: customer.id,
-        opportunityId: connectedOpportunity.id,
-        sourceMailCandidateId: candidate.id,
-        variables: {
-          scope: defaults.evidence.summary,
-          timeline: defaults.evidence.items[0] ?? "TBD",
-          amount: "TBD",
-        },
-      })
-    : null;
-
-  if (proposal) {
-    await addOpportunityLink(connectedOpportunity.id, {
-      entityType: "proposal",
-      entityId: proposal.id,
-      linkType: "draft",
-    });
-  }
-
-  const linkInputs = buildMailEvidenceLinkInputs(candidate.id, {
-    customerId: customer.id,
-    contactId: contact?.id,
-    opportunityId: connectedOpportunity.id,
-    proposalId: proposal?.id,
-  });
-  for (const link of linkInputs) {
-    await prisma.mailEvidenceLink.upsert({
-      where: {
-        mailDerivedCandidateId_targetEntityType_targetEntityId_linkType: link,
-      },
-      update: {},
-      create: link,
-    });
-  }
-
-  const candidateMetadata = metadataRecord(candidate.metadata);
-  const updatedCandidate = await prisma.mailDerivedCandidate.update({
-    where: { id: candidate.id },
-    data: {
-      status: "converted",
-      createdEntityType: "opportunity",
-      createdEntityId: connectedOpportunity.id,
-      metadata: toPrismaJson({
-        ...candidateMetadata,
-        connectionResult: {
-          customerId: customer.id,
-          contactId: contact?.id,
-          opportunityId: connectedOpportunity.id,
-          proposalId: proposal?.id,
-          mode: "mvp_b",
-        },
-      }),
-    },
-  });
-
-  return {
-    candidate: updatedCandidate,
-    customer,
-    contact,
-    opportunity: connectedOpportunity,
-    proposal,
-  };
 }

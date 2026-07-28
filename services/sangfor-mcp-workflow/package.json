@@ -2,16 +2,19 @@
   "name": "sangfor-mcp-workflow",
   "version": "0.1.0",
   "private": true,
-  "description": "Sangfor Engineer MCP Workflow Automation — 3대 핵심 워크플로우 자동화",
+  "description": "Sangfor Engineer MCP Workflow Automation \u2014 3\ub300 \ud575\uc2ec \uc6cc\ud06c\ud50c\ub85c\uc6b0 \uc790\ub3d9\ud654",
   "packageManager": "pnpm@10.28.1",
   "scripts": {
     "dev:mcp": "tsx apps/mcp-server/src/index.ts",
     "dev:web": "tsx -r dotenv/config apps/operator-console/src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:production": "node --test scripts/build-production.test.mjs",
     "lint": "eslint .",
     "audit:console": "node scripts/audit-operator-console.mjs",
-    "build": "tsc -b",
+    "build:types": "tsc -b",
+    "build:production": "node scripts/build-production.mjs",
+    "build": "pnpm build:types && pnpm build:production",
     "health:check": "tsx scripts/run-health-check.ts",
     "e2e:sangfor": "tsx scripts/run-sangfor-readonly-e2e.ts",
     "e2e:auto-ops": "tsx scripts/run-auto-ops-device-e2e.ts",
@@ -22,23 +25,27 @@
     "iag:learn": "tsx scripts/run-device-learn.ts -- --product IAG",
     "pipeline:run": "tsx scripts/run-project-pipeline.ts",
     "gen:sample-excel": "node scripts/generate-sample-checklist.mjs",
-    "wiki:sync": "tsx scripts/run-wiki-sync.ts"
+    "wiki:sync": "tsx scripts/run-wiki-sync.ts",
+    "knip": "knip",
+    "knip:baseline": "knip --no-exit-code",
+    "knip:check": "knip"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/node": "^22.0.0",
+    "esbuild": "0.28.0",
     "eslint": "^9.0.0",
     "globals": "^17.6.0",
+    "knip": "5.88.1",
     "tsx": "^4.19.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.61.1",
     "vitest": "^3.2.4"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22 <23"
   },
   "dependencies": {
-    "@sangfor/chrome": "file:../sangfor-engineer-mcp/packages/sangfor-chrome",
     "@sangfor/health-checker": "workspace:*",
     "@sangfor/wiki-sync": "workspace:*",
     "@types/multer": "^2.1.0",

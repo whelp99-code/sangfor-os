@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sangfor.local/schemas/acceptance-evidence.schema.json",
+  "title": "Acceptance evidence receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "manifestId",
+    "baselineSha",
+    "workSha",
+    "primaryOwner",
+    "executionUnit",
+    "closureUnit",
+    "evidenceToken",
+    "commands",
+    "artifactHashes",
+    "verificationState"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "manifestId": {
+      "type": "string",
+      "pattern": "^(?:REQ-(?:M(?:[1-9]|1[0-8])|S(?:[1-9]|10))|AC-(?:SEC-(?:0[1-9])|WF-(?:0[1-5])|BIZ-(?:0[1-6])|AI-(?:0[1-5])|UX-(?:0[1-6])|PERF-(?:0[1-6])|DOD-(?:0[1-9])|V31-BIZOPS-(?:0[1-8])|V31-GOV-(?:0[1-6])|V31-AIQ-(?:0[1-5])|V31-AUTH-(?:0[1-6])))$"
+    },
+    "baselineSha": {
+      "$ref": "#/$defs/gitSha"
+    },
+    "workSha": {
+      "$ref": "#/$defs/gitSha"
+    },
+    "primaryOwner": {
+      "type": "string",
+      "pattern": "^[A-Z]{2,4}-[0-9]{2}$"
+    },
+    "executionUnit": {
+      "$ref": "#/$defs/unit"
+    },
+    "closureUnit": {
+      "$ref": "#/$defs/unit"
+    },
+    "evidenceToken": {
+      "type": "string",
+      "pattern": "^T-[A-Z0-9-]+$"
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["argv", "exitCode", "testCount"],
+        "properties": {
+          "argv": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "exitCode": {
+            "const": 0
+          },
+          "testCount": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "artifactHashes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "bytes"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "verificationState": {
+      "enum": [
+        "AUTONOMOUS_LOCAL",
+        "MANUAL_EXTERNAL_PENDING",
+        "MANUAL_EXTERNAL_PASS"
+      ]
+    }
+  },
+  "$defs": {
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "unit": {
+      "type": "string",
+      "pattern": "^U(?:00[1-9]|0[1-6][0-9]|07[0-6])$"
+    }
+  }
+}

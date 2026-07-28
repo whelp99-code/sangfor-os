@@ -1,9 +1,13 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { DashboardService, InvoicesService, ExpensesService, CashflowsService, SubscriptionsService, LedgerService, ProjectsService, MonthCloseService, VatService, PopbillService, CodefService, ChatbotService, NotionSyncService, HealthService } from '../services/finance';
 import { ingestSecureMailHtml } from '../services/finance/tax-invoice-inbound.service';
-import { issueSalesTaxInvoice, markTransmitted } from '../services/finance/tax-invoice-issue.service';
+import { markTransmitted } from '../services/finance/tax-invoice-issue.service';
 import { setCompanySettings } from '../services/finance/company-settings.service';
 import { prisma } from '@sangfor/db';
+import {
+  findCallerIdentityConflicts,
+  stripCallerIdentityFields,
+} from '@sangfor/auth';
 
 const router = Router();
 const healthRouter = Router();
@@ -17,11 +21,43 @@ const ledger = new LedgerService();
 const projects = new ProjectsService();
 const monthClose = new MonthCloseService();
 const vat = new VatService();
-const popbill = new PopbillService();
-const codef = new CodefService();
 const chatbot = new ChatbotService();
 const notion = new NotionSyncService();
 const health = new HealthService();
+
+const sanitizeCallerIdentityBody: RequestHandler = (req, res, next) => {
+  const isKnownRoute = router.stack.some(
+    (layer: any) => layer.route?._handles_method(req.method) === true && layer.match(req.path),
+  );
+  if (!isKnownRoute) {
+    next();
+    return;
+  }
+
+  const principalId = req.authContext?.userId;
+  if (!principalId) {
+    res.status(403).json({ error: 'FORBIDDEN' });
+    return;
+  }
+  if (findCallerIdentityConflicts(req.body, principalId).length > 0) {
+    res.status(400).json({ error: 'IDENTITY_CONFLICT' });
+    return;
+  }
+  req.body = stripCallerIdentityFields(req.body);
+  next();
+};
+
+const containExternalFinanceMutation: RequestHandler = (req, res) => {
+  const principalId = req.authContext?.userId;
+  if (!principalId || req.authContext?.businessRole !== 'system_admin') {
+    res.status(403).json({ error: 'FORBIDDEN' });
+    return;
+  }
+
+  res.status(403).json({ error: 'EXTERNAL_MUTATION_CONTAINED' });
+};
+
+router.use(sanitizeCallerIdentityBody);
 
 function ok(handler: (...args: any[]) => any) {
   return async (req: any, res: any) => {
@@ -180,18 +216,18 @@ router.post('/vat/income-tax', ok((req: any) => vat.calculateIncomeTax(req.body?
 router.get('/vat/periods', ok((req: any) => vat.getPeriodBounds(requireYear(q(req, 'year')), requireHalf(q(req, 'half')))));
 
 // Popbill
-router.get('/popbill/status', ok(() => popbill.checkStatus()));
-router.post('/popbill/issue', ok((req: any) => popbill.issue({ ...req.body, issueDate: new Date(req.body.issueDate) })));
-router.post('/popbill/collect-purchase', ok((req: any) => popbill.collectPurchaseTaxInvoices(req.body.year, req.body.month)));
-router.get('/popbill/history', ok((req: any) => popbill.listHistory({ direction: q(req, 'direction'), status: q(req, 'status'), limit: num(q(req, 'limit')) })));
-router.get('/popbill/biz-check/:corpNum', ok((req: any) => popbill.checkBizInfo(req.params.corpNum)));
+router.get('/popbill/status', ok(() => new PopbillService().checkStatus()));
+router.post('/popbill/issue', containExternalFinanceMutation);
+router.post('/popbill/collect-purchase', containExternalFinanceMutation);
+router.get('/popbill/history', ok((req: any) => new PopbillService().listHistory({ direction: q(req, 'direction'), status: q(req, 'status'), limit: num(q(req, 'limit')) })));
+router.get('/popbill/biz-check/:corpNum', ok((req: any) => new PopbillService().checkBizInfo(req.params.corpNum)));
 
 // CODEF
-router.get('/codef/status', ok(() => ({ enabled: codef.isEnabled() })));
-router.get('/codef/accounts', ok((req: any) => codef.listAccounts(q(req, 'type'))));
-router.post('/codef/accounts/connect', ok((req: any) => codef.connectAccount(req.body)));
-router.post('/codef/accounts/:id/sync', ok((req: any) => codef.syncTransactions(req.params.id, new Date(q(req, 'fromDate')), new Date(q(req, 'toDate')))));
-router.get('/codef/expiring', ok((req: any) => codef.getExpiringSoon(num(q(req, 'days')) ?? 7)));
+router.get('/codef/status', ok(() => ({ enabled: new CodefService().isEnabled() })));
+router.get('/codef/accounts', ok((req: any) => new CodefService().listAccounts(q(req, 'type'))));
+router.post('/codef/accounts/connect', containExternalFinanceMutation);
+router.post('/codef/accounts/:id/sync', containExternalFinanceMutation);
+router.get('/codef/expiring', ok((req: any) => new CodefService().getExpiringSoon(num(q(req, 'days')) ?? 7)));
 
 // Chatbot
 router.get('/chatbot/tools', ok(() => chatbot.listTools()));
@@ -218,7 +254,7 @@ router.get('/tax-invoices', ok((req: any) => {
   });
 }));
 router.post('/tax-invoices/upload-html', ok((req: any) => ingestSecureMailHtml(req.body.html, req.body.sourceMessageId)));
-router.post('/tax-invoices/issue', ok((req: any) => issueSalesTaxInvoice(req.body)));
+router.post('/tax-invoices/issue', containExternalFinanceMutation);
 router.post('/tax-invoices/:id/transmitted', ok((req: any) => markTransmitted(req.params.id)));
 
 // Company Settings

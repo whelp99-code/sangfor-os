@@ -11,6 +11,7 @@ type Status = {
   keyMasked?: string;
   baseUrl?: string;
   model?: string;
+  availability?: "available" | "unavailable";
 };
 
 export function LlmSettingsCard() {
@@ -75,7 +76,9 @@ export function LlmSettingsCard() {
             className={`inline-block h-2.5 w-2.5 rounded-full ${status?.configured ? "bg-green-500" : "bg-red-500"}`}
           />
           <span>
-            {status?.configured
+            {status?.availability === "unavailable"
+              ? "설정 상태를 확인할 수 없습니다 — 규칙 기반 분류를 유지합니다"
+              : status?.configured
               ? `설정됨 (${status.source === "env" ? ".env" : "웹 저장"}) · 키 ${status.keyMasked ?? "•••"}`
               : "미설정 — 규칙 기반 분류 사용 중"}
           </span>

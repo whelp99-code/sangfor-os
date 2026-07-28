@@ -13,22 +13,33 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "test:e2e": "playwright test",
+    "test:acceptance": "node scripts/run-playwright-acceptance.mjs",
     "test:coverage": "pnpm -r --if-present test:coverage",
     "typecheck": "pnpm -r typecheck",
+    "verify:release": "node scripts/verify-release.mjs --manifest scripts/release-gate.manifest.json",
+    "verify:acceptance": "node scripts/verify-acceptance.mjs",
+    "verify:staging-equivalent": "node scripts/verify-staging-equivalent.mjs",
+    "verify:final-acceptance": "node scripts/run-final-acceptance.mjs",
+    "verify:operational-entrypoints": "node scripts/verify-operational-entrypoints.mjs",
     "db:generate": "pnpm --filter @sangfor/db db:generate",
-    "db:push": "pnpm --filter @sangfor/db db:push",
     "db:migrate": "pnpm --filter @sangfor/db db:migrate",
     "db:migrate:deploy": "pnpm --filter @sangfor/db db:migrate:deploy",
     "db:seed": "pnpm --filter @sangfor/db db:seed",
     "db:studio": "pnpm --filter @sangfor/db db:studio",
     "health:check": "bash scripts/health-check.sh",
     "mock:upstreams": "node scripts/mock-upstreams.mjs",
+    "knip": "knip",
+    "knip:baseline": "knip --no-exit-code",
+    "knip:check": "knip && node scripts/check-u030-structural.mjs",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:dev": "docker compose -f docker-compose.yml up -d postgres redis",
     "cfo:snapshot": "pnpm --filter @sangfor/db cfo:snapshot",
-    "cfo:restore": "pnpm --filter @sangfor/db cfo:restore",
-    "db:push:safe": "pnpm --filter @sangfor/db cfo:snapshot || true; pnpm --filter @sangfor/db db:push"
+    "restore:drill": "node scripts/restore-drill.mjs",
+    "perf:contracts": "tsx tests/performance/contracts.ts",
+    "perf:smoke": "node scripts/perf-smoke.mjs",
+    "prepare:ux-fixtures": "tsx scripts/qa/prepare-ux-fixtures.mjs",
+    "test:ux": "node scripts/run-playwright-acceptance.mjs -- tests/e2e/playwright/ux-checkpoint.spec.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -40,12 +51,19 @@
     }
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.60.0",
+    "@sangfor/auth": "workspace:*",
+    "@sangfor/business": "workspace:*",
+    "@sangfor/config": "workspace:*",
+    "@sangfor/db": "workspace:*",
     "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^3.2.6",
     "eslint": "^9.39.4",
+    "knip": "5.88.1",
     "playwright": "^1.60.0",
+    "tsx": "4.22.4",
     "turbo": "^2.5.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.62.0",
@@ -55,5 +73,8 @@
     "@prisma/client": "^6.19.3",
     "prisma": "^6.19.3",
     "zod": "^3.23.8"
+  },
+  "engines": {
+    "node": ">=20 <21"
   }
 }

@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // same pattern as orchestration/task-center.test.ts.
 vi.mock("@sangfor/db", () => {
   const state = {
+    subscriptions: [] as unknown[],
     renewals: [] as unknown[],
     supportCases: [] as unknown[],
     domainDecisionLogs: [] as unknown[],
@@ -14,6 +15,14 @@ vi.mock("@sangfor/db", () => {
 
   const renewalOpportunity = {
     findMany: vi.fn(async () => state.renewals),
+    findFirst: vi.fn(async (args: { where: { subscriptionId?: string } }) =>
+      state.renewals.find((r: any) => !args?.where?.subscriptionId || r.subscriptionId === args.where.subscriptionId) ?? null,
+    ),
+    create: vi.fn(async (args: { data: Record<string, unknown> }) => {
+      const created = { id: "ren-new", ...args.data };
+      state.renewals.push(created);
+      return created;
+    }),
   };
   const supportCase = {
     findMany: vi.fn(async () => state.supportCases),
@@ -40,10 +49,32 @@ vi.mock("@sangfor/db", () => {
   const taskStatusEvent = { create: vi.fn(async () => ({})) };
   const taskLink = { upsert: vi.fn(async () => ({})) };
 
+  const subscription = {
+    findMany: vi.fn(async () => state.subscriptions),
+  };
+  const renewalReminderEvent = {
+    findFirst: vi.fn(async () => null),
+    create: vi.fn(async () => ({ id: "rre-1" })),
+  };
+  const notificationEvent = {
+    create: vi.fn(async () => ({ id: "ne-1" })),
+  };
+  const userCompanyRole = {
+    findFirst: vi.fn(async () => ({ id: "ucr-1" })),
+  };
+  const opportunity = {
+    findFirst: vi.fn(async () => ({ id: "opp-1", projectId: "proj-1" })),
+  };
+
   return {
     __watchdogTestState: state,
     prisma: {
       renewalOpportunity,
+      subscription,
+      renewalReminderEvent,
+      notificationEvent,
+      userCompanyRole,
+      opportunity,
       supportCase,
       domainDecisionLog,
       workTask,
@@ -60,6 +91,7 @@ import { prisma } from "@sangfor/db";
 import { runWatchdogPass } from "./watchdog";
 
 type TestState = {
+  subscriptions: unknown[];
   renewals: unknown[];
   supportCases: unknown[];
   domainDecisionLogs: unknown[];
@@ -78,6 +110,7 @@ describe("runWatchdogPass", () => {
     vi.clearAllMocks();
     const mod = await import("@sangfor/db");
     state = (mod as unknown as { __watchdogTestState: TestState }).__watchdogTestState;
+    state.subscriptions = [];
     state.renewals = [];
     state.supportCases = [];
     state.domainDecisionLogs = [];
@@ -87,13 +120,11 @@ describe("runWatchdogPass", () => {
 
   it("D-30 renewal creates exactly one task with the expected deterministic title", async () => {
     const now = new Date("2026-07-11T00:00:00Z");
-    state.renewals = [
+    state.subscriptions = [
       {
-        id: "ren-1",
-        customerId: "cust-1",
-        expiresAt: new Date("2026-08-05T00:00:00Z"), // 25 days out -> bucket 30
-        status: "pending",
-        customer: { name: "테스트고객" },
+        id: "sub-1",
+        endDate: new Date("2026-10-04T00:00:00Z"), // 85 days out -> D-90
+        asset: { id: "ast-1", customerId: "cust-1" },
       },
     ];
 
@@ -103,18 +134,16 @@ describe("runWatchdogPass", () => {
     expect(result.skippedExisting).toBe(0);
     expect(prisma.workTask.create).toHaveBeenCalledTimes(1);
     const createArgs = (prisma.workTask.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(createArgs.data.title).toBe("[와치독] 리뉴얼 D-30: 테스트고객 (ren-1)");
+    expect(createArgs.data.title).toBe("Renewal Follow-up D-90 for sub-1");
   });
 
   it("re-run with the task already existing -> 0 created, skippedExisting >= 1 (idempotency)", async () => {
     const now = new Date("2026-07-11T00:00:00Z");
-    state.renewals = [
+    state.subscriptions = [
       {
-        id: "ren-1",
-        customerId: "cust-1",
-        expiresAt: new Date("2026-08-05T00:00:00Z"),
-        status: "pending",
-        customer: { name: "테스트고객" },
+        id: "sub-1",
+        endDate: new Date("2026-10-04T00:00:00Z"),
+        asset: { id: "ast-1", customerId: "cust-1" },
       },
     ];
 
@@ -123,7 +152,7 @@ describe("runWatchdogPass", () => {
 
     const second = await runWatchdogPass({ now });
     expect(second.renewalTasksCreated).toBe(0);
-    expect(second.skippedExisting).toBeGreaterThanOrEqual(1);
+    expect(second.skippedExisting).toBe(1);
     expect(prisma.workTask.create).toHaveBeenCalledTimes(1);
   });
 

@@ -2,7 +2,9 @@
 
 > **목적**: 개발할 때마다 펴보는 단일 진입점. 시스템 지도 · 워크스트림 · 소스 인벤토리 · 명령어 · 데이터모델 · 알려진 이슈를 한 곳에.
 > **유지 규칙**: 작업이 끝날 때마다 이 문서를 갱신한다. 새 워크스트림은 §3에 한 섹션 추가, 명령은 §5, 파일은 §6, 모델 변경은 §7, 이슈는 §8. 맨 아래 **변경 이력** 한 줄 추가.
-> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-07-13
+> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-07-17
+
+> **Canonical requirement/acceptance 진입점**: [ID registry](01_SPEC/Requirement_ID_Registry.md) → [requirement source](01_SPEC/Requirements_MoSCoW.md) / [acceptance source](08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md) → [99-row machine manifest](12_VERIFICATION/acceptance-manifest.json) / [evidence schema](12_VERIFICATION/acceptance-evidence.schema.json). 구현 분모는 28 requirements와 71 acceptance이며 C1–C5/W1–W5는 제외한다.
 
 ---
 
@@ -110,7 +112,7 @@ const results = await runDomainPipeline({ id, subject, tags }, { generate });
 - **실데이터 구축**: Notion CFO CSV(프로젝트·미수금·매입·자금흐름) import + 원본 대조 검증. **날짜 off-by-one 수정**(KST 자정→UTC 자정 저장).
 - **통장 임포트**: `POST /api/cfo/cashflows/import` — CSV/xlsx 직접(SheetJS), 헤더행 자동탐지·합계행 제외, **중복 자동 제외**(date+cashChange+거래처+적요+`balanceAfter`).
 - **프로젝트 자동매칭**: 거래처명 정규화 후 입금→미수금/출금→매입처 해석, import 시 자동 + `POST /api/cfo/cashflows/rematch`.
-- **데이터 신뢰성(P0)**: 유실 근본원인 = stale `schema.prisma` + 반복 `db push`로 테이블 drop. → 비파괴 스냅샷/복원(`cfo:snapshot`/`cfo:restore`, 멱등), import footgun 가드(FORCE=1), 마이그레이션 전환(§3.G).
+- **데이터 신뢰성(P0)**: 유실 근본원인 = stale `schema.prisma` + 반복 `db push`로 테이블 drop. → export-only `cfo:snapshot`, U009 격리 restore drill, import footgun 가드(FORCE=1), formal migration 전환(§3.G).
 - **품질/보안**: 매칭 단위테스트 + `CI_INTEGRATION` 통합테스트, `financeAccessGuard`(system_admin·finance_manager·ceo만), `FINANCE_API_KEY` 문서화.
 - **재디자인(PR #31)**: "잉크 위 장부(ledger)" — 토큰 `lib/cfo-theme`(ink/paper/hairline, 입금 teal·출금 brick·강조 brass), **현금 런웨이 게이지**(0–12개월, 3개월 위험선), 등폭 tabular ₩ 타이포. CFO를 `PortalShell`로 감싸 좌측 사이드바 통일.
 
@@ -208,7 +210,7 @@ POC 확정 시 영업기회를 **멱등·원자적**으로 Engagement(프로젝�
 
 - **근본 문제**: `prisma migrate dev`는 파괴적 리셋을 요구 → 메일/재무 데이터 보호 위해 그동안 `db push` 사용. 그러나 stale 스키마 + 반복 push가 테이블 drop을 유발(데이터 유실).
 - **전환**: db-push 갭을 baseline 마이그레이션으로 생성, fresh DB에서 `migrate deploy` → schema와 empty-diff 검증. **CI test를 `db:push` → `db:migrate:deploy`** 로 전환.
-- **안전망**: `db:push:safe`(스냅샷 후 push), `cfo:snapshot`/`cfo:restore`(비파괴 멱등), 시간별 cron 가이드.
+- **안전망**: `cfo:snapshot`은 export-only이며, U009 isolated restore drill이 복원 검증의 유일한 자동 경로다. 직접 `db push`와 `cfo:restore`는 U031에서 폐기됐다.
 - **규칙**: 스키마 변경 전 반드시 `git diff origin/main -- packages/db/prisma/schema.prisma` 확인. `db push --accept-data-loss` 금지.
 
 > `memory/`의 [DB uses db push not migrate] 메모는 이 전환으로 갱신 필요(현재 마이그레이션 전환 중).
@@ -219,6 +221,26 @@ POC 확정 시 영업기회를 **멱등·원자적**으로 Engagement(프로젝�
 - **주요 착륙**: Contact 교정/soft archive, partner/contact tenant scope, 안정적인 전환 409+명시적 force, renewal 상태 변경, 월마감 실행, VAT 기간 선택, CFO 미수·현금 SSOT, subscription API 계약, CFO-local 404, 모바일/한국어/오류 피드백.
 - **안전/발견**: 기능 쓰기는 QA DB `sangfor_os_uxtest_r16r20`, Redis DB 14, web 3110/api 3230에서 수행했다. 다만 기존 비격리 business 테스트 4개가 루트 `.env` 운영 DB에 감사 로그 34행을 남기는 결함을 발견해 `CI_INTEGRATION=1` 게이트와 cleanup을 추가했다. 남은 운영 로그 삭제는 승인 대기다.
 - **상세 증거**: [`docs/plans/2026-07-13-r16-r20-real-usage-qa.md`](plans/2026-07-13-r16-r20-real-usage-qa.md).
+
+### 3.L AI 품질 커널 (U054)
+
+- **핵심**: AI 산출물의 수치/규칙 기반 자동 품질 평가(`aiQualityAssessment`), 다중 역량 인간 리뷰(`aiQualityReview`), 최종 릴리즈 승인 판단(`aiReleaseEvaluation`)을 다루는 가버넌스 커널.
+- **주요 규칙**: `qualityPassed`는 수치/규칙 기반 자동 평가 통과 여부일 뿐, 최종 릴리즈/발송 승인을 의미하지 않는다. 2-of-2 human review complete와 release evaluation(`eligible: true`)이 모두 충족되어야 최종 발송이 허가된다.
+- **Policy/Slot/Quorum 규격**:
+
+| policyKey | quorum | slot 1 (order 1) | slot 2 (order 2) |
+|---|---|---|---|
+| `proposal.human_review.v1` | 2 | `proposal.presales` (presales_engineer, `ai_quality.review`) | `proposal.account` (account_manager, `ai_quality.review`) |
+| `domain_proposal.human_review.v1` | 2 | `domain_proposal.architect` (solution_architect, `ai_quality.review`) | `domain_proposal.account` (account_manager, `ai_quality.review`) |
+| `quote.internal_release.human_review.v1` | 2 | `quote.internal_release.sales` (sales_manager, `ai_quality.review`) | `quote.internal_release.finance` (finance_manager, `ai_quality.review`) |
+| `support.rca.human_review.v1` | 2 | `support.rca.support_lead` (support_engineer, `support.rca.review.lead`) | `support.rca.solution_architect` (solution_architect, `support.rca.review.architect`) |
+
+- **커맨드 & 룩업**:
+  - `completeCurrentAiQualityAssessment`: 버전/해시 스냅샷 검증 후 품질 평가를 완료하고 불변 레코드 생성.
+  - `submitAiQualityReview`: human review 제출. Slot 순서, businessRole, capability, 동일 User ID(대체 멤버십 포함) 차단 검증.
+  - `completeCurrentAiReleaseEvaluation`: 2-of-2 review set 완성 및 quality eligibility 평가 후 release evaluation 결정을 생성.
+  - 룩업: `evaluateCurrentReviewSet` (slot 검증 및 reviewSetHash), `requireCurrentAiReleaseEvaluation` (최신 release evaluation 조회).
+- **에러 409 코드**: `AI_QUALITY_IDEMPOTENCY_CONFLICT`, `AI_QUALITY_SNAPSHOT_STALE`, `AI_RELEASE_EVALUATION_IDEMPOTENCY_CONFLICT`, `AI_RELEASE_EVALUATION_STALE`.
 
 ---
 
@@ -304,9 +326,9 @@ branch protection 없으면 `--auto`는 mergeable 즉시 머지(게이트 없음
 ```bash
 cd packages/db && npx prisma generate
 pnpm --filter @sangfor/db db:migrate:deploy   # 정식(마이그레이션)
-pnpm --filter @sangfor/db db:push:safe         # 부득이할 때(스냅샷 후 push)
 pnpm --filter @sangfor/db cfo:snapshot         # 비파괴 백업
-pnpm --filter @sangfor/db cfo:restore          # 멱등 복원
+pnpm restore:drill                             # U009 격리 fixture 복원 검증
+pnpm verify:operational-entrypoints            # 금지된 운영 진입점 검사
 # 스키마 변경 전 필수:
 git diff origin/main -- packages/db/prisma/schema.prisma
 ```
@@ -431,7 +453,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **lone surrogate jsonb 크래시**: 메일 저장 전 `sanitizeJsonStrings` 필수.
 - **finance 포트 4100 제거됨**: `:3200/api/cfo`가 단일 소스.
 - **워크트리 셋업 순서(중요)**: 새 git worktree는 ① 루트 `.env` + `packages/db/.env`(필요 시 `apps/web/.env.local`도) 복사 → ② `pnpm install` → ③ `cd packages/db && npx prisma generate` 순서를 반드시 지킨다. 순서가 틀리면(특히 env 복사 전에 install/generate) Prisma 클라이언트가 env 경로를 못 캡처해 테스트가 `DATABASE_URL not found`로 실패하는데, 이는 회귀가 아니라 순서 문제다.
-- **API 부팅 전 워크스페이스 패키지 빌드 필요**: 새 워크트리에는 `packages/*/dist`가 없다. `pnpm --filter @sangfor/shared build`/`@sangfor/config build`만으로 부족한 경우(예: `apps/api`가 `@sangfor/auth`, `@sangfor/api-utils`, `@sangfor/health`, `@sangfor/infra`, `@sangfor/persona`, `@sangfor/ui` 등 dist-only 패키지를 요구해 boot 시 `Cannot find module '.../dist/index.js'`로 크래시) `pnpm -r --filter "./packages/**" build`로 전체를 빌드한다. `src`를 `exports`로 직접 노출하는 패키지(agent/business/mail-intelligence)는 `--noEmit` 타입체크만 있으면 되고 dist가 불필요하다.
+- **API 부팅 전 워크스페이스 패키지 빌드 필요**: 새 워크트리에는 `packages/*/dist`가 없다. `pnpm --filter @sangfor/shared build`/`@sangfor/config build`만으로 부족한 경우(예: `apps/api`가 `@sangfor/auth`, `@sangfor/api-utils`, `@sangfor/health`, `@sangfor/infra`, `@sangfor/persona` 등 dist-only 패키지를 요구해 boot 시 `Cannot find module '.../dist/index.js'`로 크래시) `pnpm -r --filter "./packages/**" build`로 전체를 빌드한다. `src`를 `exports`로 직접 노출하는 패키지(agent/business/mail-intelligence)는 `--noEmit` 타입체크만 있으면 되고 dist가 불필요하다.
 - **`(portal)/loading.tsx` 스트리밍 컨텍스트의 redirect 강등**: 이 레이아웃의 스트리밍 컨텍스트 안에서는 page-level `redirect()`(Next.js 서버 함수)가 실제 307이 아니라 **meta-refresh로 강등**된다. 라우트 통합/리다이렉트가 필요하면 page 컴포넌트의 `redirect()` 대신 **`next.config.ts`의 `redirects()`**를 써서 실 307을 보장한다(`/opportunities`→`/deals`, `/mail-connection`→`/settings/mail-connection` 전환에서 발견·적용, PR #101).
 - **opencode 샌드박스는 `.env`를 못 읽는다**: opencode CLI로 위임한 작업이 DB 관련 코드를 만지면 샌드박스가 프로젝트 `.env`를 읽지 못해 `DATABASE_URL`이 비어 실패할 수 있다 — 호출 전에 `DATABASE_URL`을 환경변수로 선주입해야 한다.
 - **e2e는 이제 CI 차단 체크**: `playwright.config.ts`에 `webServer`가 추가돼 API(`tsx` 경유, dist ESM directory-import 버그로 dist 실행 불가)와 web(`next start`)을 스스로 기동한다. `PORT`/`API_PORT` 오버라이드로 로컬의 다른 인스턴스와 포트 충돌 없이 별도 포트에서 돌릴 수 있다(`BASE_URL`/`API_BASE_URL`이 그 포트를 따라간다). `continue-on-error`가 제거됐으므로 e2e 실패는 이제 실제로 머지를 막는다(PR #99).
@@ -473,11 +495,16 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 | Engagement 전환 | `docs/plans/opportunity-to-project-conversion.md` |
 | 메일 하드닝 | `docs/12_VERIFICATION/real-mail-hardening-runbook.md` |
 | 검증 매트릭스 | `docs/12_VERIFICATION/verification-command-matrix.md`, `unsafe-action-matrix.md` |
+| Requirement/acceptance registry | `docs/01_SPEC/Requirement_ID_Registry.md`, `docs/12_VERIFICATION/acceptance-manifest.json`, `acceptance-evidence.schema.json`, `test-alias-map.json` |
 | 에이전트 메모리 | `memory/` (AGENTS.memory.md 계약), `MEMORY.md`(자동 메모리) |
 
 ---
 
 ## 변경 이력
+- **2026-07-27**: U076 100건 격리 실사용 검증 — 이메일 학습 50건과 사용자 UI 입력 50건을 실제 입력해 메일 스레드 50·후보 130·직접 고객 50을 확인하고 승인/반려/AI 재검증/유형교정/연결 산출물을 표본 실측했다. CAS·멱등성·RLS·감사 JSON·회사명 도출·연결 UI 결함을 수정하고 비스코프 레거시 배치/거부/유형수정 경로를 제거했다. 테스트 행·JWT 픽스처·격리 Docker 자원은 모두 삭제했으며 Grok 독립 감사와 Node 20 전체 품질 게이트가 PASS했다. 상세 범위와 과장 금지 경계는 [`docs/plans/2026-07-27-u076-real-use-100.md`](plans/2026-07-27-u076-real-use-100.md)에 기록했다.
+- **2026-07-26**: U068/U073/U074 DB closure 보강 — scheduler 실통합 테스트, 198-model 중 187 scoped table의 FORCE RLS와 94개 CHILD_VIA_FK parent-EXISTS 정책, U009 격리 tenant-selective restore 실행기(식별자 allowlist·결정적 remap·hash 기반 멱등성)를 추가했다. 복구 멱등 ledger로 `_prisma_migrations`를 사용하지 않는다.
+- **2026-07-25**: AI 품질 커널 (U054) 안착 — policyKey/slot/quorum 규격, writer/lookup 커맨드, 409 에러 코드, user separation 규칙 및 qualityPassed ≠ 승인/발송 구분 명시.
+- **2026-07-17**: Canonical requirement/acceptance registry 동결 — 28 requirements, 71 acceptance, 99-row owner/closure manifest, evidence schema, 23-alias/63-step execution map, exact-set validator를 연결하고 C1–C5/W1–W5 제외 범위를 명시했다.
 - **2026-06-29**: 최초 작성. 2026-06-28 7개 워크스트림(A 도메인 / B CFO / C MCP / D Engagement / E 웹LLM / F 메일 / G DB마이그레이션) 일괄 정리.
 - **2026-06-29**: 워킹트리 thrashing 손상 치유 — `origin/main`(99c69e9) 동기화 → 작업 브랜치 `dev-clean`, 손상본 `backup/worktree-thrashing-2026-06-29` 백업. thrashing 근원(동시 워크트리) 규명·기록(§8).
 - **2026-06-29**: 후속 개발 4종(브랜치 `feat-domain-followups`): D 기본 생성기 디폴트화(`bc37df1`) · A 구조화→실 DB 매핑(`0c82a31`) · B 대시보드 SSE+상세(`edeb114`) · C CFO ledger 테마 확장(`08e7550`). 전부 TDD/typecheck/lint 통과, B는 실 DB 검증.

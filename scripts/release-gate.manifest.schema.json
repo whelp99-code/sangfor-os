@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sangfor-release-gate-manifest-v1",
+  "title": "ReleaseGateManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "steps"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 15,
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "scope", "kind", "cwd", "env", "argv", "database", "resultPolicy"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["root", "engineer", "workflow"]
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["lint", "typecheck", "unit", "integration", "build"]
+          },
+          "cwd": {
+            "type": "string",
+            "minLength": 1,
+            "not": { "pattern": "^/" }
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["literal"],
+                  "properties": {
+                    "literal": { "type": "string" }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["from"],
+                  "properties": {
+                    "from": { "type": "string", "minLength": 1 }
+                  }
+                }
+              ]
+            }
+          },
+          "argv": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "database": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["mode"],
+                "properties": {
+                  "mode": { "const": "none" }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["mode", "migrationCwd", "migrationArgv"],
+                "properties": {
+                  "mode": { "const": "scratch-pg16" },
+                  "migrationCwd": {
+                    "type": "string",
+                    "minLength": 1,
+                    "not": { "pattern": "^/" }
+                  },
+                  "migrationArgv": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": { "type": "string", "minLength": 1 }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "resultPolicy": {
+            "type": "string",
+            "enum": ["command", "strict-test"]
+          }
+        }
+      }
+    }
+  }
+}

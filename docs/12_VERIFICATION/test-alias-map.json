@@ -1,0 +1,2037 @@
+[
+  {
+    "owner": "DOC-01",
+    "alias": "T-DOC",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-DOC",
+    "executionOwnerUnit": "U001",
+    "closureUnits": [
+      "U001"
+    ],
+    "manifestRowIds": [
+      "AC-DOD-08"
+    ],
+    "steps": [
+      {
+        "id": "registry",
+        "coversClosureUnits": [
+          "U001"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "node",
+          "scripts/check-requirement-registry.mjs"
+        ]
+      },
+      {
+        "id": "registry-tests",
+        "coversClosureUnits": [
+          "U001"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "node",
+          "--test",
+          "scripts/check-requirement-registry.test.mjs",
+          "scripts/run-test-alias.test.mjs"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "SEC-01",
+    "alias": "T-SEC-AUTH",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-SEC-AUTH",
+    "executionOwnerUnit": "U014",
+    "closureUnits": [
+      "U013",
+      "U014"
+    ],
+    "manifestRowIds": [
+      "AC-SEC-01",
+      "AC-V31-AUTH-01",
+      "AC-V31-AUTH-02",
+      "AC-V31-AUTH-03",
+      "AC-V31-AUTH-04",
+      "REQ-M2"
+    ],
+    "steps": [
+      {
+        "id": "session-jwt",
+        "coversClosureUnits": [
+          "U013"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/auth",
+          "exec",
+          "vitest",
+          "run",
+          "src/session-jwt.test.ts",
+          "src/auth-context.test.ts"
+        ]
+      },
+      {
+        "id": "session-web-boundaries",
+        "coversClosureUnits": [
+          "U013"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/web",
+          "exec",
+          "vitest",
+          "run",
+          "src/lib/auth/session.test.ts",
+          "src/lib/api-auth.test.ts",
+          "src/proxy.test.ts",
+          "src/app/api/auth/login/route.test.ts"
+        ]
+      },
+      {
+        "id": "session-api-boundary",
+        "coversClosureUnits": [
+          "U013"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/api",
+          "exec",
+          "vitest",
+          "run",
+          "src/index.test.ts"
+        ]
+      },
+      {
+        "id": "persisted-principal",
+        "coversClosureUnits": [
+          "U014"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/auth",
+          "exec",
+          "vitest",
+          "run",
+          "src/principal-policy.test.ts"
+        ]
+      },
+      {
+        "id": "persisted-session-web-boundaries",
+        "coversClosureUnits": [
+          "U014"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/web",
+          "exec",
+          "vitest",
+          "run",
+          "src/lib/auth/persisted-session.test.ts",
+          "src/proxy.test.ts",
+          "src/app/api/auth/login/route.test.ts",
+          "src/app/api/auth/logout/route.test.ts"
+        ]
+      },
+      {
+        "id": "persisted-session-api-boundaries",
+        "coversClosureUnits": [
+          "U014"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/api",
+          "exec",
+          "vitest",
+          "run",
+          "src/middleware/persisted-session.test.ts",
+          "src/index.test.ts"
+        ]
+      },
+      {
+        "id": "principal-session-contract",
+        "coversClosureUnits": [
+          "U014"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/db",
+          "exec",
+          "tsx",
+          "scripts/run-db-contract.ts",
+          "--suite",
+          "principal-session",
+          "--evidence",
+          "$ACCEPTANCE_EVIDENCE_DIR"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "SEC-02",
+    "alias": "T-SEC-RBAC",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-SEC-RBAC",
+    "executionOwnerUnit": "U024",
+    "closureUnits": [
+      "U015",
+      "U024"
+    ],
+    "manifestRowIds": [
+      "AC-SEC-06",
+      "AC-V31-AUTH-05",
+      "REQ-M3"
+    ],
+    "steps": [
+      {
+        "id": "capability-policy",
+        "coversClosureUnits": [
+          "U015"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/auth",
+          "exec",
+          "vitest",
+          "run",
+          "src/capability-policy.test.ts",
+          "src/auth-context.test.ts"
+        ]
+      },
+      {
+        "id": "authorization-web-boundaries",
+        "coversClosureUnits": [
+          "U015"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/web",
+          "exec",
+          "vitest",
+          "run",
+          "src/lib/auth/authorization.test.ts",
+          "src/lib/auth/route-capability-registry.test.ts",
+          "src/lib/project-scope.test.ts",
+          "src/lib/api-auth.test.ts",
+          "src/proxy.test.ts"
+        ]
+      },
+      {
+        "id": "authorization-api-boundaries",
+        "coversClosureUnits": [
+          "U015"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/api",
+          "exec",
+          "vitest",
+          "run",
+          "src/middleware/business-authorization.test.ts",
+          "src/index.test.ts"
+        ]
+      },
+      {
+        "id": "business-role-contract",
+        "coversClosureUnits": [
+          "U015"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/db",
+          "exec",
+          "tsx",
+          "scripts/run-db-contract.ts",
+          "--suite",
+          "business-role",
+          "--evidence",
+          "$ACCEPTANCE_EVIDENCE_DIR"
+        ]
+      },
+      {
+        "id": "role-change",
+        "coversClosureUnits": [
+          "U024"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/governance/role-change.test.ts"
+        ]
+      },
+      {
+        "id": "role-change-web-boundaries",
+        "coversClosureUnits": [
+          "U024"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/web",
+          "exec",
+          "vitest",
+          "run",
+          "src/app/api/security/role-changes/route.test.ts",
+          "src/app/api/security/role-changes/[id]/decisions/route.test.ts"
+        ]
+      },
+      {
+        "id": "role-change-contract",
+        "coversClosureUnits": [
+          "U024"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/db",
+          "exec",
+          "tsx",
+          "scripts/run-db-contract.ts",
+          "--suite",
+          "role-change",
+          "--evidence",
+          "$ACCEPTANCE_EVIDENCE_DIR"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "DB-01",
+    "alias": "T-DB-SCOPE-RLS",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-DB-SCOPE-RLS",
+    "executionOwnerUnit": "U073",
+    "closureUnits": [
+      "U073"
+    ],
+    "manifestRowIds": [
+      "AC-SEC-02",
+      "AC-SEC-03",
+      "AC-SEC-08",
+      "REQ-M1",
+      "REQ-M4"
+    ],
+    "steps": [
+      {
+        "id": "scope-rls-final",
+        "coversClosureUnits": [
+          "U073"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          },
+          "DATABASE_URL": {
+            "from": "TASK_OWNED_DATABASE_URL"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/db",
+          "exec",
+          "vitest",
+          "run",
+          "src/scope-inventory.test.ts",
+          "src/scope-rls-closure.test.ts",
+          "src/scope-rls-closure.integration.test.ts"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "AUD-01",
+    "alias": "T-AUD",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-AUD",
+    "executionOwnerUnit": "U021",
+    "closureUnits": [
+      "U021"
+    ],
+    "manifestRowIds": [
+      "AC-SEC-07",
+      "REQ-M5"
+    ],
+    "steps": [
+      {
+        "id": "audit-chain",
+        "coversClosureUnits": [
+          "U021"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/governance/audit-chain.test.ts"
+        ]
+      },
+      {
+        "id": "audit-chain-contract",
+        "coversClosureUnits": [
+          "U021"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/db",
+          "exec",
+          "tsx",
+          "scripts/run-db-contract.ts",
+          "--suite",
+          "audit-chain",
+          "--evidence",
+          "$ACCEPTANCE_EVIDENCE_DIR"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "APR-01",
+    "alias": "T-APR",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-APR",
+    "executionOwnerUnit": "U024",
+    "closureUnits": [
+      "U022",
+      "U024"
+    ],
+    "manifestRowIds": [
+      "AC-SEC-04",
+      "AC-SEC-05",
+      "AC-V31-AUTH-06",
+      "AC-WF-04",
+      "REQ-M7"
+    ],
+    "steps": [
+      {
+        "id": "approval-kernel",
+        "coversClosureUnits": [
+          "U022"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/governance/approval-kernel.integration.test.ts"
+        ]
+      },
+      {
+        "id": "role-change-approval",
+        "coversClosureUnits": [
+          "U024"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/web",
+          "exec",
+          "vitest",
+          "run",
+          "src/app/api/security/role-changes/[id]/decisions/route.test.ts"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "ART-01",
+    "alias": "T-ART",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-ART",
+    "executionOwnerUnit": "U023",
+    "closureUnits": [
+      "U023"
+    ],
+    "manifestRowIds": [
+      "REQ-M8"
+    ],
+    "steps": [
+      {
+        "id": "artifact-release",
+        "coversClosureUnits": [
+          "U023"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/governance/artifact-service.integration.test.ts"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "WF-01",
+    "alias": "T-WF",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-WF",
+    "executionOwnerUnit": "U050",
+    "closureUnits": [
+      "U050"
+    ],
+    "manifestRowIds": [
+      "AC-V31-BIZOPS-03",
+      "AC-WF-05",
+      "REQ-M6"
+    ],
+    "steps": [
+      {
+        "id": "deal-workflow",
+        "coversClosureUnits": [
+          "U050"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/orchestration/deal-workflow.integration.test.ts",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "workflow-adapter",
+        "coversClosureUnits": [
+          "U050"
+        ],
+        "workspace": "workflow",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "exec",
+          "vitest",
+          "run",
+          "packages/workflow-engine/src/canonical-workflow-client.test.ts"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "CRM-01",
+    "alias": "T-CRM",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-CRM",
+    "executionOwnerUnit": "U043",
+    "closureUnits": [
+      "U043"
+    ],
+    "manifestRowIds": [
+      "REQ-M9"
+    ],
+    "steps": [
+      {
+        "id": "customer-authority",
+        "coversClosureUnits": [
+          "U043"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/crm/customer-partner.test.ts",
+          "src/crm/customer-partner-authority.test.ts",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "customer-api-detail-page",
+        "coversClosureUnits": [
+          "U043"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/web",
+          "exec",
+          "vitest",
+          "run",
+          "src/app/api/customers/route.test.ts",
+          "src/app/api/customers/[id]/route.test.ts",
+          "src/app/(portal)/customers/page.test.tsx",
+          "src/app/(portal)/customers/[id]/page.test.tsx",
+          "src/components/customers/create-customer-form.test.tsx",
+          "src/components/customers/customer-detail-actions.test.tsx",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "customer-cas-idempotency-audit",
+        "coversClosureUnits": [
+          "U043"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          },
+          "CI_INTEGRATION": {
+            "literal": "1"
+          },
+          "TASK_POSTGRES_RECEIPT_FILE": {
+            "from": "TASK_POSTGRES_RECEIPT_FILE"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/crm/customer-partner.integration.test.ts",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "mail-conversion",
+        "coversClosureUnits": [
+          "U043"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          },
+          "CI_INTEGRATION": {
+            "literal": "1"
+          },
+          "DATABASE_URL": {
+            "from": "TASK_OWNED_DATABASE_URL"
+          },
+          "TASK_POSTGRES_RECEIPT_FILE": {
+            "from": "TASK_POSTGRES_RECEIPT_FILE"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/mail/mail-candidates-convert.test.ts",
+          "src/mail/candidates-update.test.ts",
+          "src/mail/candidates-update.approve-concurrency.test.ts",
+          "src/mail/mail-candidate-connections.test.ts",
+          "src/domain-ai/domain-persistence.test.ts",
+          "src/orchestration/autopilot.test.ts",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "mail-conversion-routes",
+        "coversClosureUnits": [
+          "U043"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/web",
+          "exec",
+          "vitest",
+          "run",
+          "src/app/api/mail-candidates/[id]/route.test.ts",
+          "src/app/api/mail-candidates/[id]/connect/route.test.ts",
+          "src/app/api/mail-candidates/convert/route.test.ts",
+          "src/app/api/mail/calendar-sync/route.test.ts",
+          "src/app/api/portal/route.test.ts",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "core-loop-absence",
+        "coversClosureUnits": [
+          "U043"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/orchestration/core-loop-retirement.test.ts",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "external-customer-read-adapters",
+        "coversClosureUnits": [
+          "U043"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/mail/classify-ai.test.ts",
+          "src/mail/outlook/outlook-graph.customer-read.test.ts",
+          "src/orchestration/portal-mvp.customer-read.test.ts",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "opportunity-integration",
+        "coversClosureUnits": [
+          "U043"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          },
+          "CI_INTEGRATION": {
+            "literal": "1"
+          },
+          "TASK_POSTGRES_RECEIPT_FILE": {
+            "from": "TASK_POSTGRES_RECEIPT_FILE"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/crm/opportunity-center.test.ts",
+          "src/crm/opportunity-cursor.test.ts",
+          "src/crm/opportunity-center.integration.test.ts",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "opportunity-routes",
+        "coversClosureUnits": [
+          "U043"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/web",
+          "exec",
+          "vitest",
+          "run",
+          "src/app/api/opportunities/route.test.ts",
+          "src/app/api/opportunities/[id]/route.test.ts",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "crm-scope-pagination-browser",
+        "coversClosureUnits": [
+          "U043"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          },
+          "API_PORT": {
+            "from": "ALIAS_API_PORT"
+          },
+          "DATABASE_URL": {
+            "from": "TASK_OWNED_DATABASE_URL"
+          },
+          "PORT": {
+            "from": "ALIAS_WEB_PORT"
+          },
+          "RESOURCE_LEASE_FILE": {
+            "from": "ALIAS_LEASE_FILE"
+          },
+          "TASK_OWNER_UNIT": {
+            "literal": "U043"
+          },
+          "TASK_POSTGRES_RECEIPT_FILE": {
+            "from": "TASK_POSTGRES_RECEIPT_FILE"
+          },
+          "TASK_RUN_ID": {
+            "from": "ALIAS_RUN_ID"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "test:acceptance",
+          "--",
+          "tests/e2e/playwright/crm-scope-pagination.spec.ts"
+        ]
+      }
+    ],
+    "groups": [
+      {
+        "id": "customer-authority",
+        "stepIds": [
+          "customer-authority"
+        ],
+        "browserCasePartition": null,
+        "outputs": [
+          "steps/customer-authority/result.json",
+          "customer-authority-static.json",
+          "customer-business-tests.txt"
+        ]
+      },
+      {
+        "id": "customer-api-detail-page",
+        "stepIds": [
+          "customer-api-detail-page",
+          "crm-scope-pagination-browser"
+        ],
+        "browserCasePartition": "customerCaseIds",
+        "outputs": [
+          "steps/customer-api-detail-page/result.json",
+          "customer-route-page-tests.txt",
+          "customer-read-model.json",
+          "customers-375.png",
+          "customers-768.png",
+          "customers-1280.png",
+          "customer-detail-375.png",
+          "customer-detail-768.png",
+          "customer-detail-1280.png"
+        ]
+      },
+      {
+        "id": "customer-cas-idempotency-audit",
+        "stepIds": [
+          "customer-cas-idempotency-audit"
+        ],
+        "browserCasePartition": null,
+        "outputs": [
+          "steps/customer-cas-idempotency-audit/result.json",
+          "customer-mutation-atomicity.json",
+          "customer-idempotency-cas.json",
+          "customer-no-scope-payload.json"
+        ]
+      },
+      {
+        "id": "mail-conversion",
+        "stepIds": [
+          "mail-conversion",
+          "mail-conversion-routes"
+        ],
+        "browserCasePartition": null,
+        "outputs": [
+          "steps/mail-conversion/result.json",
+          "steps/mail-conversion-routes/result.json",
+          "mail-conversion-tests.txt",
+          "mail-conversion-atomicity.json"
+        ]
+      },
+      {
+        "id": "core-loop-absence",
+        "stepIds": [
+          "core-loop-absence"
+        ],
+        "browserCasePartition": null,
+        "outputs": [
+          "steps/core-loop-absence/result.json",
+          "core-loop-absence.json"
+        ]
+      },
+      {
+        "id": "external-customer-read-adapters",
+        "stepIds": [
+          "external-customer-read-adapters"
+        ],
+        "browserCasePartition": null,
+        "outputs": [
+          "steps/external-customer-read-adapters/result.json",
+          "classify-ai-customer-adapter.json",
+          "outlook-graph-customer-adapter.json",
+          "portal-mvp-customer-adapter.json"
+        ]
+      },
+      {
+        "id": "opportunity-integration",
+        "stepIds": [
+          "opportunity-integration",
+          "opportunity-routes",
+          "crm-scope-pagination-browser"
+        ],
+        "browserCasePartition": "opportunityCaseIds",
+        "outputs": [
+          "steps/opportunity-integration/result.json",
+          "steps/opportunity-routes/result.json",
+          "steps/crm-scope-pagination-browser/result.json",
+          "pagination-ids.json",
+          "scope-negative.json",
+          "deals-375.png",
+          "deals-768.png",
+          "deals-1280.png"
+        ]
+      }
+    ],
+    "finalReceipt": "receipt.json"
+  },
+  {
+    "owner": "QUAL-01",
+    "alias": "T-QUAL",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-QUAL",
+    "executionOwnerUnit": "U045",
+    "closureUnits": [
+      "U045"
+    ],
+    "manifestRowIds": [
+      "AC-BIZ-01",
+      "AC-WF-01",
+      "REQ-M10"
+    ],
+    "steps": [
+      {
+        "id": "qualification",
+        "coversClosureUnits": [
+          "U045"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/crm/deal-qualification.integration.test.ts",
+          "--reporter=verbose"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "CAT-01",
+    "alias": "T-CAT",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-CAT",
+    "executionOwnerUnit": "U046",
+    "closureUnits": [
+      "U044",
+      "U046"
+    ],
+    "manifestRowIds": [
+      "AC-WF-02",
+      "REQ-M11",
+      "REQ-S3"
+    ],
+    "steps": [
+      {
+        "id": "catalog-lifecycle",
+        "coversClosureUnits": [
+          "U044"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/catalog/catalog-service.integration.test.ts",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "catalog-rules",
+        "coversClosureUnits": [
+          "U046"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/catalog/catalog-rule-service.integration.test.ts",
+          "--reporter=verbose"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "QTE-01",
+    "alias": "T-QTE",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-QTE",
+    "executionOwnerUnit": "U055",
+    "closureUnits": [
+      "U047",
+      "U048",
+      "U055"
+    ],
+    "manifestRowIds": [
+      "AC-AI-04",
+      "AC-BIZ-02",
+      "AC-BIZ-03",
+      "AC-BIZ-04",
+      "AC-WF-03",
+      "REQ-M12",
+      "REQ-M13"
+    ],
+    "steps": [
+      {
+        "id": "quote-versioning",
+        "coversClosureUnits": [
+          "U047"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/crm/quote-service.integration.test.ts",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "commercial-approval",
+        "coversClosureUnits": [
+          "U048"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/governance/commercial-approval.integration.test.ts",
+          "--reporter=verbose"
+        ]
+      },
+      {
+        "id": "commercial-release",
+        "coversClosureUnits": [
+          "U055"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/governance/commercial-release.integration.test.ts",
+          "--reporter=verbose"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "VND-01",
+    "alias": "T-VND",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-VND",
+    "executionOwnerUnit": "U049",
+    "closureUnits": [
+      "U049"
+    ],
+    "manifestRowIds": [
+      "AC-V31-BIZOPS-01",
+      "AC-V31-BIZOPS-02",
+      "REQ-S1"
+    ],
+    "steps": [
+      {
+        "id": "vendor-request",
+        "coversClosureUnits": [
+          "U049"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/support/vendor-request.integration.test.ts",
+          "--reporter=verbose"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "DLV-01",
+    "alias": "T-DLV",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-DLV",
+    "executionOwnerUnit": "U052",
+    "closureUnits": [
+      "U051",
+      "U052"
+    ],
+    "manifestRowIds": [
+      "AC-BIZ-05",
+      "AC-BIZ-06",
+      "AC-V31-BIZOPS-04",
+      "AC-V31-BIZOPS-05",
+      "REQ-M14",
+      "REQ-M15"
+    ],
+    "steps": [
+      {
+        "id": "delivery-acceptance",
+        "coversClosureUnits": [
+          "U051"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/support/delivery-acceptance.integration.test.ts"
+        ]
+      },
+      {
+        "id": "renewal-projection",
+        "coversClosureUnits": [
+          "U052"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/support/renewal-projection.integration.test.ts"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "SUP-01",
+    "alias": "T-SUP",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-SUP",
+    "executionOwnerUnit": "U057",
+    "closureUnits": [
+      "U056",
+      "U057"
+    ],
+    "manifestRowIds": [
+      "AC-AI-05",
+      "AC-V31-BIZOPS-06",
+      "AC-V31-BIZOPS-07",
+      "REQ-S2",
+      "REQ-S4",
+      "REQ-S5"
+    ],
+    "steps": [
+      {
+        "id": "support-sla",
+        "coversClosureUnits": [
+          "U056"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/support/support-service.integration.test.ts"
+        ]
+      },
+      {
+        "id": "support-rca",
+        "coversClosureUnits": [
+          "U057"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          },
+          "DATABASE_URL": {
+            "from": "TASK_OWNED_DATABASE_URL"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/support/rca-workflow.integration.test.ts"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "PPL-01",
+    "alias": "T-PPL",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-PPL",
+    "executionOwnerUnit": "U053",
+    "closureUnits": [
+      "U053"
+    ],
+    "manifestRowIds": [
+      "AC-V31-BIZOPS-08",
+      "REQ-S6"
+    ],
+    "steps": [
+      {
+        "id": "engineer-eligibility",
+        "coversClosureUnits": [
+          "U053"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/support/engineer-eligibility.integration.test.ts"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "AIQ-01",
+    "alias": "T-AIQ",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-AIQ",
+    "executionOwnerUnit": "U055",
+    "closureUnits": [
+      "U055"
+    ],
+    "manifestRowIds": [
+      "AC-AI-01",
+      "AC-AI-02",
+      "AC-AI-03",
+      "AC-V31-AIQ-01",
+      "AC-V31-AIQ-02",
+      "AC-V31-AIQ-03",
+      "AC-V31-AIQ-04",
+      "AC-V31-AIQ-05",
+      "REQ-M16"
+    ],
+    "steps": [
+      {
+        "id": "ai-quality-kernel-unit",
+        "coversClosureUnits": [
+          "U055"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/governance/ai-quality-gate.test.ts",
+          "src/governance/ai-quality-service.test.ts",
+          "src/governance/ai-quality-review-service.test.ts",
+          "src/governance/commercial-release.test.ts"
+        ]
+      },
+      {
+        "id": "ai-quality-service-integration",
+        "coversClosureUnits": [
+          "U055"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/governance/ai-quality-service.integration.test.ts",
+          "src/governance/ai-quality-review-service.integration.test.ts",
+          "src/governance/commercial-release.integration.test.ts"
+        ]
+      },
+      {
+        "id": "governed-ai-adapters",
+        "coversClosureUnits": [
+          "U055"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          },
+          "DATABASE_URL": {
+            "from": "TASK_OWNED_DATABASE_URL"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/crm/governed-proposal.test.ts",
+          "src/domain-ai/governed-domain-proposal.test.ts",
+          "src/mail/mail-candidate-connections.test.ts"
+        ]
+      },
+      {
+        "id": "governed-ai-web",
+        "coversClosureUnits": [
+          "U055"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/web",
+          "exec",
+          "vitest",
+          "run",
+          "src/app/api/artifacts/[artifactId]/quality/route.test.ts",
+          "src/app/api/artifacts/[artifactId]/quality/reviews/route.test.ts",
+          "src/app/api/proposals/route.test.ts",
+          "src/app/api/projects/[id]/generate/route.test.ts",
+          "src/app/api/engineer/domain-proposal/route.test.ts",
+          "src/app/api/quotes/[id]/release/route.test.ts",
+          "src/components/governance/ai-quality-evidence.test.tsx"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "GOV-01",
+    "alias": "T-GOV",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-GOV",
+    "executionOwnerUnit": "U059",
+    "closureUnits": [
+      "U058",
+      "U059"
+    ],
+    "manifestRowIds": [
+      "AC-SEC-09",
+      "AC-V31-GOV-01",
+      "AC-V31-GOV-02",
+      "AC-V31-GOV-03",
+      "AC-V31-GOV-04",
+      "AC-V31-GOV-05",
+      "AC-V31-GOV-06",
+      "REQ-S7"
+    ],
+    "steps": [
+      {
+        "id": "governance-export",
+        "coversClosureUnits": [
+          "U058"
+        ],
+        "workspace": "root",
+        "env": {
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          },
+          "CI_INTEGRATION": {
+            "literal": "1"
+          },
+          "DATABASE_URL": {
+            "from": "TASK_OWNED_DATABASE_URL"
+          },
+          "RETENTION_LOCAL_PURGE_ALLOWED": {
+            "literal": "1"
+          },
+          "TASK_OWNER_UNIT": {
+            "literal": "U059"
+          },
+          "TASK_POSTGRES_RECEIPT_FILE": {
+            "from": "TASK_POSTGRES_RECEIPT_FILE"
+          },
+          "TASK_RUN_ID": {
+            "from": "ALIAS_RUN_ID"
+          },
+          "TASK_TEST_ALIAS": {
+            "literal": "T-GOV"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/governance/governance.integration.test.ts"
+        ]
+      },
+      {
+        "id": "ownership-transfer",
+        "coversClosureUnits": [
+          "U059"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          },
+          "DATABASE_URL": {
+            "from": "TASK_OWNED_DATABASE_URL"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/business",
+          "exec",
+          "vitest",
+          "run",
+          "src/governance/ownership-transfer.integration.test.ts"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "UX-01",
+    "alias": "T-UX",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-UX",
+    "executionOwnerUnit": "U066",
+    "closureUnits": [
+      "U065",
+      "U066"
+    ],
+    "manifestRowIds": [
+      "AC-UX-01",
+      "AC-UX-02",
+      "AC-UX-03",
+      "AC-UX-04",
+      "AC-UX-05",
+      "AC-UX-06",
+      "REQ-M17",
+      "REQ-S8"
+    ],
+    "steps": [
+      {
+        "id": "semantic-ui",
+        "coversClosureUnits": [
+          "U065"
+        ],
+        "workspace": "root",
+        "env": {
+          "RESOURCE_LEASE_FILE": {
+            "from": "ALIAS_LEASE_FILE"
+          },
+          "TASK_OWNER_UNIT": {
+            "literal": "U066"
+          },
+          "PORT": {
+            "from": "ALIAS_WEB_PORT"
+          },
+          "API_PORT": {
+            "from": "ALIAS_API_PORT"
+          },
+          "DATABASE_URL": {
+            "from": "TASK_OWNED_DATABASE_URL"
+          },
+          "TASK_POSTGRES_RECEIPT_FILE": {
+            "from": "TASK_POSTGRES_RECEIPT_FILE"
+          },
+          "TASK_RUN_ID": {
+            "from": "ALIAS_RUN_ID"
+          },
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "test:acceptance",
+          "--",
+          "tests/e2e/playwright/ux-semantics.spec.ts"
+        ]
+      },
+      {
+        "id": "ux-checkpoint",
+        "coversClosureUnits": [
+          "U066"
+        ],
+        "workspace": "root",
+        "env": {
+          "RESOURCE_LEASE_FILE": {
+            "from": "ALIAS_LEASE_FILE"
+          },
+          "TASK_OWNER_UNIT": {
+            "literal": "U066"
+          },
+          "PORT": {
+            "from": "ALIAS_WEB_PORT"
+          },
+          "API_PORT": {
+            "from": "ALIAS_API_PORT"
+          },
+          "DATABASE_URL": {
+            "from": "TASK_OWNED_DATABASE_URL"
+          },
+          "TASK_POSTGRES_RECEIPT_FILE": {
+            "from": "TASK_POSTGRES_RECEIPT_FILE"
+          },
+          "TASK_RUN_ID": {
+            "from": "ALIAS_RUN_ID"
+          },
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "test:acceptance",
+          "--",
+          "tests/e2e/playwright/ux-checkpoint.spec.ts"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "OPS-01",
+    "alias": "T-OPS",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-OPS",
+    "executionOwnerUnit": "U071",
+    "closureUnits": [
+      "U071",
+      "U074"
+    ],
+    "manifestRowIds": [
+      "REQ-M18",
+      "REQ-S9"
+    ],
+    "steps": [
+      {
+        "id": "fresh-s9a-final-candidate",
+        "coversClosureUnits": [
+          "U074"
+        ],
+        "workspace": "root",
+        "env": {
+          "TASK_RUN_ID": {
+            "from": "ALIAS_RUN_ID"
+          },
+          "TASK_OWNER_UNIT": {
+            "literal": "U071"
+          },
+          "RESOURCE_LEASE_FILE": {
+            "from": "ALIAS_LEASE_FILE"
+          },
+          "ALIAS_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          },
+          "FINAL_CANDIDATE_SHA": {
+            "from": "FINAL_CANDIDATE_SHA"
+          }
+        },
+        "argv": [
+          "node",
+          "scripts/run-s9a-contract.mjs"
+        ]
+      },
+      {
+        "id": "operator-drills",
+        "coversClosureUnits": [
+          "U071"
+        ],
+        "workspace": "root",
+        "env": {
+          "TASK_RUN_ID": {
+            "from": "ALIAS_RUN_ID"
+          },
+          "TASK_OWNER_UNIT": {
+            "literal": "U071"
+          },
+          "PORT": {
+            "from": "ALIAS_WEB_PORT"
+          },
+          "API_PORT": {
+            "from": "ALIAS_API_PORT"
+          },
+          "RESOURCE_LEASE_FILE": {
+            "from": "ALIAS_LEASE_FILE"
+          },
+          "U071_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          },
+          "OPS_SYNTHETIC_DRILLS_ENABLED": {
+            "literal": "1"
+          }
+        },
+        "argv": [
+          "node",
+          "scripts/run-operator-drills-contract.mjs"
+        ]
+      },
+      {
+        "id": "tenant-restore-drill",
+        "coversClosureUnits": [
+          "U074"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          },
+          "TASK_RUN_ID": {
+            "from": "ALIAS_RUN_ID"
+          },
+          "FINAL_CANDIDATE_SHA": {
+            "from": "FINAL_CANDIDATE_SHA"
+          },
+          "S9A_RECEIPT_FILE": {
+            "from": "ALIAS_S9A_RECEIPT_FILE"
+          },
+          "TENANT_RESTORE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/db",
+          "drill:tenant-restore"
+        ]
+      },
+      {
+        "id": "tenant-restore-contract",
+        "coversClosureUnits": [
+          "U074"
+        ],
+        "workspace": "root",
+        "env": {
+          "CI_INTEGRATION": {
+            "literal": "1"
+          },
+          "TASK_RUN_ID": {
+            "from": "ALIAS_RUN_ID"
+          },
+          "FINAL_CANDIDATE_SHA": {
+            "from": "FINAL_CANDIDATE_SHA"
+          },
+          "S9A_RECEIPT_FILE": {
+            "from": "ALIAS_S9A_RECEIPT_FILE"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "--filter",
+          "@sangfor/db",
+          "exec",
+          "vitest",
+          "run",
+          "src/tenant-restore/tenant-restore.integration.test.ts"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "ROI-01",
+    "alias": "T-ROI",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-ROI",
+    "executionOwnerUnit": "U072",
+    "closureUnits": [
+      "U072"
+    ],
+    "manifestRowIds": [
+      "REQ-S10"
+    ],
+    "steps": [
+      {
+        "id": "roi-contract",
+        "coversClosureUnits": [
+          "U072"
+        ],
+        "workspace": "root",
+        "env": {
+          "TASK_RUN_ID": {
+            "from": "ALIAS_RUN_ID"
+          },
+          "TASK_OWNER_UNIT": {
+            "literal": "U072"
+          },
+          "PORT": {
+            "from": "ALIAS_WEB_PORT"
+          },
+          "API_PORT": {
+            "from": "ALIAS_API_PORT"
+          },
+          "RESOURCE_LEASE_FILE": {
+            "from": "ALIAS_LEASE_FILE"
+          },
+          "U072_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "node",
+          "scripts/run-roi-contract.mjs"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "PERF-01",
+    "alias": "T-PERF",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-PERF",
+    "executionOwnerUnit": "U075",
+    "closureUnits": [
+      "U075"
+    ],
+    "manifestRowIds": [
+      "AC-PERF-01",
+      "AC-PERF-02",
+      "AC-PERF-03",
+      "AC-PERF-04",
+      "AC-PERF-05",
+      "AC-PERF-06"
+    ],
+    "steps": [
+      {
+        "id": "performance-safety",
+        "coversClosureUnits": [
+          "U075"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "exec",
+          "vitest",
+          "run",
+          "tests/performance/safety.test.ts"
+        ]
+      },
+      {
+        "id": "performance-smoke",
+        "coversClosureUnits": [
+          "U075"
+        ],
+        "workspace": "root",
+        "env": {
+          "TASK_RUN_ID": {
+            "from": "ALIAS_RUN_ID"
+          },
+          "TASK_OWNER_UNIT": {
+            "literal": "U075"
+          },
+          "PORT": {
+            "from": "ALIAS_WEB_PORT"
+          },
+          "API_PORT": {
+            "from": "ALIAS_API_PORT"
+          },
+          "RESOURCE_LEASE_FILE": {
+            "from": "ALIAS_LEASE_FILE"
+          },
+          "ACCEPTANCE_EVIDENCE_DIR": {
+            "from": "ALIAS_EVIDENCE_DIR"
+          }
+        },
+        "argv": [
+          "corepack",
+          "pnpm",
+          "perf:smoke"
+        ]
+      }
+    ]
+  },
+  {
+    "owner": "REL-01",
+    "alias": "T-REL",
+    "runner": "bash scripts/run-workspace-runtime.sh root -- node scripts/run-test-alias.mjs --alias T-REL",
+    "executionOwnerUnit": "U076",
+    "closureUnits": [
+      "U076"
+    ],
+    "manifestRowIds": [
+      "AC-DOD-01",
+      "AC-DOD-02",
+      "AC-DOD-03",
+      "AC-DOD-04",
+      "AC-DOD-05",
+      "AC-DOD-06",
+      "AC-DOD-07",
+      "AC-DOD-09"
+    ],
+    "steps": [
+      {
+        "id": "release-verifier-tests",
+        "coversClosureUnits": [
+          "U076"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "node",
+          "--test",
+          "scripts/run-final-acceptance.test.mjs",
+          "scripts/verify-acceptance.test.mjs",
+          "scripts/verify-staging-equivalent.test.mjs"
+        ]
+      },
+      {
+        "id": "release-gate",
+        "coversClosureUnits": [
+          "U076"
+        ],
+        "workspace": "root",
+        "env": {},
+        "argv": [
+          "corepack",
+          "pnpm",
+          "verify:release"
+        ]
+      }
+    ]
+  }
+]

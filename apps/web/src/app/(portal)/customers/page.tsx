@@ -1,16 +1,32 @@
 export const dynamic = "force-dynamic";
 
-import { listCustomersWithOpportunities, resolveDefaultProjectSlug } from "@sangfor/business";
+import { listCustomersWithOpportunities, resolveCrmAuthContext } from "@sangfor/business";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { CompaniesWorkspace, type Company } from "@/components/companies/companies-workspace";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
 
 export default async function CustomersPage() {
-  // Single query: customers + their opportunities (was N+1 — listCustomers then
-  // per-customer getCustomerDetail with 6 relations of which only opportunities was used).
-  const slug = await resolveDefaultProjectSlug();
-  const customers = await listCustomersWithOpportunities(slug);
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(
+    new Request("http://sangfor.local/customers", {
+      headers: { cookie: `session=${encodeURIComponent(token)}` },
+    }),
+  );
+  if (!session.ok) redirect("/login");
+  const ctx = await resolveCrmAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
+  });
+  const page = await listCustomersWithOpportunities(ctx, { first: 100 });
 
-  const companies: Company[] = customers.map((customer) => ({
+  const companies: Company[] = page.items.map((customer) => ({
     id: customer.id,
     name: customer.name,
     domain: customer.domain ?? null,
@@ -30,7 +46,10 @@ export default async function CustomersPage() {
 
   return (
     <div className="space-y-4">
-      <CompaniesWorkspace companies={companies} />
+      <CompaniesWorkspace
+        companies={companies}
+        canWrite={ctx.permissions.includes("customer.write")}
+      />
     </div>
   );
 }

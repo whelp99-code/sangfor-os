@@ -3,55 +3,65 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
-import { createLogger, nowId } from '@sangfor/workflow-shared';
+import { createHmac } from 'node:crypto';
+import { createLogger } from '@sangfor/workflow-shared';
+import { createDomainSeparatedEngineerMcpLaunch, UnsafeAuthConfigurationError, type EngineerMcpChildLaunchInput } from '../../shared/src/mutation-policy.js';
 
 const log = createLogger('mcp-client');
 
 // ─── 타입 정의 ──────────────────────────────────────────────────────────────
 
-export interface McpRequest {
-  jsonrpc: '2.0';
-  id: string | number;
-  method: string;
-  params?: any;
-}
+export type McpRequest = { jsonrpc: '2.0'; id: string | number; method: string; params?: unknown };
+export type McpToolDescription = Readonly<{ name: string; description: string; inputSchema: Record<string, unknown> }>;
+type McpResponseResult = Readonly<{ tools?: readonly McpToolDescription[];
+  content?: readonly Readonly<{ text?: string }>[]; readonly [key: string]: unknown }>;
 
-export interface McpResponse {
-  jsonrpc: '2.0';
-  id: string | number;
-  result?: any;
-  error?: { code: number; message: string };
-}
-
-export interface McpToolCall {
-  name: string;
-  arguments: Record<string, any>;
-}
+export type McpResponse = { jsonrpc: '2.0'; id: string | number; result?: McpResponseResult; error?: { code: number; message: string } };
 
 // ─── MCP Stdio 클라이언트 ───────────────────────────────────────────────────
 
 export interface McpSpawnOptions {
-  cwd?: string;
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-  requestTimeoutMs?: number;
+  readonly cwd?: string; readonly command?: string; readonly args?: readonly string[];
+  readonly env?: Readonly<Record<string, string>>; readonly envMode?: 'merge' | 'replace';
+  readonly requestApiKey?: string; readonly requestTimeoutMs?: number;
+}
+
+type ProcessSpawnOptions = Omit<McpSpawnOptions, 'requestApiKey'>;
+type PendingRequest = { resolve: (value: McpResponse) => void; reject: (error: Error) => void; timeout: NodeJS.Timeout };
+export type EngineerMcpClientInput = Omit<EngineerMcpChildLaunchInput, 'requestApiKey'>;
+
+export function createDomainSeparatedEngineerMcpClient(
+  input: EngineerMcpClientInput, createClient: (serverPath: string, options: McpSpawnOptions) => McpStdioClient
+    = (serverPath, options) => new McpStdioClient(serverPath, options),
+): McpStdioClient {
+  const rawWorkflowKey = input.environment.SANGFOR_API_KEY;
+  if (rawWorkflowKey === undefined) throw new UnsafeAuthConfigurationError('missing SANGFOR_API_KEY');
+  if (rawWorkflowKey.trim().length === 0) throw new UnsafeAuthConfigurationError('blank SANGFOR_API_KEY');
+  const requestApiKey = createHmac('sha256', rawWorkflowKey).update('sangfor-engineer-mcp/stdio/v1', 'utf8').digest('hex');
+  const launch = createDomainSeparatedEngineerMcpLaunch({ ...input, requestApiKey });
+  return createClient(launch.serverPath, launch.spawnOptions);
 }
 
 export class McpStdioClient {
   private process: ChildProcess | null = null;
-  private pendingRequests: Map<string | number, {
-    resolve: (value: any) => void;
-    reject: (error: Error) => void;
-  }> = new Map();
+  private pendingRequests: Map<string | number, PendingRequest> = new Map();
   private buffer: string = '';
-  private serverPath: string;
-  private spawnOptions: McpSpawnOptions;
+  private readonly serverPath: string;
+  private readonly spawnOptions: Readonly<ProcessSpawnOptions>;
+  private readonly requestApiKey: string | undefined;
+  private disconnectHandler: (() => void) | undefined;
+  private disconnectNotified = true;
   private initialized: boolean = false;
 
   constructor(serverPath: string, spawnOptions: McpSpawnOptions = {}) {
+    const { requestApiKey, ...processSpawnOptions } = spawnOptions;
     this.serverPath = serverPath;
-    this.spawnOptions = spawnOptions;
+    this.spawnOptions = {
+      ...processSpawnOptions,
+      args: processSpawnOptions.args ? [...processSpawnOptions.args] : undefined,
+      env: processSpawnOptions.env ? { ...processSpawnOptions.env } : undefined,
+    };
+    this.requestApiKey = requestApiKey?.trim() || undefined;
   }
 
   // 서버 시작
@@ -67,37 +77,96 @@ export class McpStdioClient {
 
     log.info(`Starting MCP server: ${command} ${args.join(' ')} (cwd: ${cwd})`);
 
-    this.process = spawn(command, args, {
+    const childEnv = this.spawnOptions.envMode === 'replace'
+      ? { ...this.spawnOptions.env }
+      : { ...process.env, ...this.spawnOptions.env };
+    const child = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd,
-      env: { ...process.env, ...this.spawnOptions.env },
+      env: childEnv,
     });
+    this.process = child;
+    this.disconnectNotified = false;
 
-    this.process.stdout?.on('data', (data: Buffer) => {
+    child.stdout?.on('data', (data: Buffer) => {
       this.handleData(data.toString());
     });
 
-    this.process.stderr?.on('data', (data: Buffer) => {
+    child.stderr?.on('data', (data: Buffer) => {
       log.debug(`stderr: ${data.toString().trim()}`);
     });
 
-    this.process.on('exit', (code) => {
-      log.info(`MCP server exited with code ${code}`);
-      this.process = null;
-      this.initialized = false;
+    child.on('error', (error) => {
+      if (this.process === child) this.process = null;
+      this.markDisconnected();
+      this.rejectPendingRequests(error);
     });
 
-    // 초기화
-    await this.initialize();
+    child.on('exit', (code, signal) => {
+      log.info(`MCP server exited with code ${code}`);
+      if (this.process === child) this.process = null;
+      this.markDisconnected();
+      const reason = code === null ? `signal ${signal ?? 'unknown'}` : `code ${code}`;
+      this.rejectPendingRequests(new Error(`MCP server exited before response (${reason})`));
+    });
+
+    try {
+      await this.initialize();
+    } catch (error) {
+      await this.stop();
+      throw error;
+    }
   }
 
   // 서버 중지
-  stop(): void {
-    if (this.process) {
-      this.process.kill();
-      this.process = null;
-      this.initialized = false;
+  async stop(): Promise<void> {
+    const child = this.process;
+    if (!child) {
+      this.markDisconnected();
+      return;
     }
+
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const timers: { forceKill: NodeJS.Timeout | undefined } = { forceKill: undefined };
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        if (timers.forceKill) clearTimeout(timers.forceKill);
+        resolve();
+      };
+
+      child.once('exit', finish);
+      child.once('error', finish);
+      if (child.exitCode !== null || child.signalCode !== null) {
+        finish();
+        return;
+      }
+
+      if (!child.kill('SIGTERM')) {
+        finish();
+        return;
+      }
+      timers.forceKill = setTimeout(() => {
+        if (!settled) child.kill('SIGKILL');
+      }, 5_000);
+      timers.forceKill.unref();
+    });
+
+    if (this.process === child) this.process = null;
+    this.markDisconnected();
+    this.rejectPendingRequests(new Error('MCP server stopped'));
+  }
+
+  setDisconnectHandler(handler: (() => void) | undefined): void {
+    this.disconnectHandler = handler;
+  }
+
+  private markDisconnected(): void {
+    this.initialized = false;
+    if (this.disconnectNotified) return;
+    this.disconnectNotified = true;
+    this.disconnectHandler?.();
   }
 
   // 초기화
@@ -110,6 +179,7 @@ export class McpStdioClient {
         protocolVersion: '2024-11-05',
         capabilities: {},
         clientInfo: { name: 'sangfor-mcp-workflow', version: '0.1.0' },
+        ...(this.requestApiKey ? { _meta: { apiKey: this.requestApiKey } } : {}),
       },
     });
 
@@ -122,18 +192,19 @@ export class McpStdioClient {
   }
 
   // tool 목록 조회
-  async listTools(): Promise<any[]> {
+  async listTools(): Promise<McpToolDescription[]> {
     const result = await this.sendRequest({
       jsonrpc: '2.0',
       id: Date.now(),
       method: 'tools/list',
+      params: this.requestApiKey ? { _meta: { apiKey: this.requestApiKey } } : undefined,
     });
 
-    return result.result?.tools || [];
+    return result.result?.tools ? [...result.result.tools] : [];
   }
 
   // tool 호출
-  async callTool(name: string, args: Record<string, any> = {}): Promise<any> {
+  async callTool<T = Record<string, unknown>>(name: string, args: Record<string, unknown> = {}): Promise<T> {
     if (!this.initialized) {
       throw new Error('MCP server not initialized');
     }
@@ -144,7 +215,11 @@ export class McpStdioClient {
       jsonrpc: '2.0',
       id: Date.now(),
       method: 'tools/call',
-      params: { name, arguments: args },
+      params: {
+        name,
+        arguments: args,
+        ...(this.requestApiKey ? { _meta: { apiKey: this.requestApiKey } } : {}),
+      },
     });
 
     if (result.error) {
@@ -155,13 +230,13 @@ export class McpStdioClient {
     const content = result.result?.content?.[0]?.text;
     if (content) {
       try {
-        return JSON.parse(content);
+        return JSON.parse(content) as T;
       } catch {
-        return content;
+        return content as T;
       }
     }
 
-    return result.result;
+    return result.result as T;
   }
 
   // 요청 전송
@@ -172,19 +247,26 @@ export class McpStdioClient {
         return;
       }
 
-      this.pendingRequests.set(request.id, { resolve, reject });
-
-      const data = JSON.stringify(request) + '\n';
-      this.process.stdin.write(data);
-
       const timeoutMs = this.spawnOptions.requestTimeoutMs ?? 600_000;
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         if (this.pendingRequests.has(request.id)) {
           this.pendingRequests.delete(request.id);
           reject(new Error(`Request timeout: ${request.method}`));
         }
       }, timeoutMs);
+      this.pendingRequests.set(request.id, { resolve, reject, timeout });
+
+      const data = JSON.stringify(request) + '\n';
+      this.process.stdin.write(data);
     });
+  }
+
+  private rejectPendingRequests(error: Error): void {
+    for (const pending of this.pendingRequests.values()) {
+      clearTimeout(pending.timeout);
+      pending.reject(error);
+    }
+    this.pendingRequests.clear();
   }
 
   // 데이터 수신 처리
@@ -203,6 +285,7 @@ export class McpStdioClient {
 
         if (pending) {
           this.pendingRequests.delete(response.id);
+          clearTimeout(pending.timeout);
           pending.resolve(response);
         }
       } catch {

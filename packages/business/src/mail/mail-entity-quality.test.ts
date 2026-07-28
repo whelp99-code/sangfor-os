@@ -111,6 +111,19 @@ describe('isJunkCompanyName', () => {
 });
 
 describe('deriveEntityFromCandidate', () => {
+  it('uses an explicitly classified customer title instead of a misleading multi-label domain', () => {
+    const result = deriveEntityFromCandidate({
+      title: 'Customer: REALMAIL-003 인천 양자보안 주식회사',
+      sourceSender: 'realmail-003-quantum.example.test',
+    });
+
+    expect(result).toEqual({
+      skip: false,
+      name: 'REALMAIL-003 인천 양자보안 주식회사',
+      domain: 'realmail-003-quantum.example.test',
+    });
+  });
+
   it('rejects non-business domain (self domain)', () => {
     const result = deriveEntityFromCandidate({
       title: 'Customer: 견적요청',

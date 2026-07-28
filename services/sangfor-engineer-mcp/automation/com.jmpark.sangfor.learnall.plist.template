@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jmpark.sangfor.learnall</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__SANGFOR_OS_ROOT__/scripts/launchd/run-scheduled-job.sh</string>
+        <string>learnall</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>86400</integer>
+</dict>
+</plist>

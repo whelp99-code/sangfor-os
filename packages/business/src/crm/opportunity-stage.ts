@@ -211,13 +211,18 @@ export const BANT_LABELS: Record<keyof BantScores, string> = {
 };
 
 export type OpportunityQualificationInput = {
-  bantScore: number;
-  hasBudget: boolean;
-  hasAuthority: boolean;
-  hasNeed: boolean;
-  hasTimeline: boolean;
-  hasDiscoveryNote: boolean;
-  hasSolutionFit: boolean;
+  qualification?: {
+    scoringVersion?: string | null;
+    passed?: boolean | null;
+    scoreTotal?: number | null;
+  } | null;
+  bantScore?: number;
+  hasBudget?: boolean;
+  hasAuthority?: boolean;
+  hasNeed?: boolean;
+  hasTimeline?: boolean;
+  hasDiscoveryNote?: boolean;
+  hasSolutionFit?: boolean;
 };
 
 export type OpportunityQualificationStatus = "needs_discovery" | "qualified" | "requires_review";
@@ -231,7 +236,11 @@ export type OpportunityQualificationDecision = {
 export type OpportunityStageTransitionInput = {
   from: string;
   to: string;
-  qualificationStatus: OpportunityQualificationStatus;
+  qualificationStatus?: OpportunityQualificationStatus;
+  qualification?: {
+    scoringVersion?: string | null;
+    passed?: boolean | null;
+  } | null;
 };
 
 export type OpportunityStageTransitionDecision =
@@ -241,31 +250,44 @@ export type OpportunityStageTransitionDecision =
 export function evaluateOpportunityQualification(
   input: OpportunityQualificationInput,
 ): OpportunityQualificationDecision {
-  const reasons: string[] = [];
+  if (input.qualification) {
+    if (input.qualification.scoringVersion === "bant-tf-v1" && input.qualification.passed === true) {
+      return { status: "qualified", reasons: [], nextStage: "qualified" };
+    }
+    return {
+      status: "needs_discovery",
+      reasons: ["stale_or_non_passing_qualification"],
+      nextStage: "discovery",
+    };
+  }
 
+  const reasons: string[] = [];
   if (!input.hasBudget) reasons.push("missing_budget");
   if (!input.hasAuthority) reasons.push("missing_authority");
   if (!input.hasNeed) reasons.push("missing_need");
   if (!input.hasTimeline) reasons.push("missing_timeline");
-  if (!input.hasDiscoveryNote) reasons.push("missing_discovery_note");
-  if (!input.hasSolutionFit) reasons.push("missing_solution_fit");
-  if (!Number.isFinite(input.bantScore) || input.bantScore < 70) reasons.push("low_bant_score");
+  if (!Number.isFinite(input.bantScore) || (input.bantScore ?? 0) < 60) reasons.push("low_bant_score");
 
-  if (reasons.length === 0) {
+  if (reasons.length === 0 && (input.bantScore ?? 0) >= 60) {
     return { status: "qualified", reasons: [], nextStage: "qualified" };
   }
 
-  const status = input.bantScore >= 70 && input.hasDiscoveryNote ? "requires_review" : "needs_discovery";
-  return { status, reasons, nextStage: "discovery" };
+  return { status: "needs_discovery", reasons, nextStage: "discovery" };
 }
 
 export function canTransitionOpportunityStage(
   input: OpportunityStageTransitionInput,
 ): OpportunityStageTransitionDecision {
-  const targetStage = input.to.toLowerCase();
-  const requiresQualification = targetStage === "quote" || targetStage === "proposal";
+  const targetStage = normalizeOpportunityStage(input.to);
+  const fromStage = normalizeOpportunityStage(input.from);
+  const isAdvancingPastLead = fromStage === "LEAD" && targetStage !== "LEAD" && targetStage !== "LOST";
+  const requiresQualification = isAdvancingPastLead || targetStage === "QUALIFIED" || targetStage === "PROPOSAL" || targetStage === "POC" || targetStage === "NEGOTIATION";
 
-  if (requiresQualification && input.qualificationStatus !== "qualified") {
+  const isPassing = input.qualification
+    ? input.qualification.scoringVersion === "bant-tf-v1" && input.qualification.passed === true
+    : input.qualificationStatus === "qualified";
+
+  if (requiresQualification && !isPassing) {
     return { allowed: false, reason: "opportunity_must_be_qualified" };
   }
 

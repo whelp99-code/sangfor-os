@@ -3,6 +3,7 @@ import { runMcpAgent } from "@sangfor/agent";
 import { agentRunStore } from "@/lib/agent/run-store";
 import type { RunSource } from "@/lib/agent/types";
 import { assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/agent/run/route.ts");
+  if (capabilityDenied) return capabilityDenied;
 
   let body: {
     goal?: unknown;

@@ -12,12 +12,12 @@ This file is the agent entry point — a map, not an encyclopedia. Follow the po
 apps/       web  (Next.js 16, App Router) — the PRIMARY product backend
             api  (Express 4 REST)         — finance/CFO + webhooks/metrics/MCP edge
 packages/   business (domain core, hub) · db (Prisma, ~150 models, formal migrations)
-            agent · infra · auth · mail-intelligence · persona · shared · ui · config · health · api-utils
+            agent · infra · auth · mail-intelligence · persona · shared · config · health · api-utils
 services/   sangfor-engineer-mcp (bridge :3600 · operator :3502 · mock :3400)
             sangfor-mcp-workflow (:3500)
 ```
 
-Dependency direction (leaf → top): `config · db · shared · api-utils` → `auth · health · infra · mail-intelligence · persona · ui` → `business` → `agent`. Clean DAG; `business` is the hub, `agent` the sink.
+Dependency direction (leaf → top): `config · db · shared · api-utils` → `auth · health · infra · mail-intelligence · persona` → `business` → `agent`. Clean DAG; `business` is the hub, `agent` the sink.
 
 ## Documentation
 - [DEV_REFERENCE.md](docs/DEV_REFERENCE.md) — **living master reference**: system map, workstreams, commands, data-model log, known gotchas. Read first, update after each session.
@@ -39,6 +39,7 @@ Dependency direction (leaf → top): `config · db · shared · api-utils` → `
 4. **DB: additive & migration-first.** Schema changes are additive/nullable; formal `pnpm db:migrate:deploy` is the system of record; `db push --accept-data-loss` is banned. Before any schema edit run `git diff origin/main -- packages/db/prisma/schema.prisma`. Access Prisma only via `import { prisma } from "@sangfor/db"` — never `new PrismaClient()`.
 5. **Quality gate before merge:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. DB-dependent (integration) tests run under `CI_INTEGRATION=1`.
 6. **Concurrent-worktree hazard.** Multiple worktrees share this root and can revert uncommitted edits (thrashing). Commit early to a dedicated branch; see DEV_REFERENCE §8.
+7. **Operational entrypoints are fail-closed.** Run `pnpm verify:operational-entrypoints`; use formal migrations and the U009 isolated restore drill, never `db push` or a direct restore script.
 
 ## Working Norms (Fable Doctrine)
 How every agent thinks, executes, and reports here. Rule numbers (F1–F14) are stable identifiers for cross-file reference.

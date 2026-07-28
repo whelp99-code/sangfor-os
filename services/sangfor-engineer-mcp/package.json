@@ -13,7 +13,7 @@
     "dev:operator-console": "tsx apps/operator-console/src/server.ts",
     "dev:web": "tsx apps/operator-console/src/server.ts",
     "test": "vitest run --config vitest.config.ts",
-    "lint": "tsc -p tsconfig.json --noEmit",
+    "lint": "pnpm db:generate && tsc -p tsconfig.json --noEmit",
     "build": "tsc -p tsconfig.json",
     "seed:docs": "tsx scripts/seed-demo-knowledge.ts",
     "seed:demo": "tsx scripts/seed-demo-knowledge.ts",
@@ -42,9 +42,11 @@
     "learn:nightly": "pnpm run learn:all && pnpm run learn:kb:full && pnpm run rag:reembed",
     "smoke:mcp": "node scripts/smoke-mcp-tools.mjs",
     "check:mcp-scorecard": "node scripts/check-mcp-scorecard.mjs",
+    "knip": "knip",
+    "knip:baseline": "knip --no-exit-code",
+    "knip:check": "knip",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
     "db:studio": "prisma studio"
   },
   "dependencies": {
@@ -64,9 +66,13 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "knip": "5.88.1",
     "prisma": "^6.19.3",
     "tsx": "^4.19.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.8"
+  },
+  "engines": {
+    "node": ">=20 <21"
   }
 }

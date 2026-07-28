@@ -88,25 +88,11 @@ export async function runWatchdogPass(deps?: {
   let skippedExisting = 0;
 
   // ── 1) 리뉴얼 D-90/60/30 ────────────────────────────────────────────────
-  const renewals = await client.renewalOpportunity.findMany({
-    where: {
-      status: { notIn: RENEWAL_DONE_STATUSES },
-      expiresAt: { not: null },
-    },
-    include: { customer: true },
-  });
-
-  for (const renewal of renewals) {
-    if (!renewal.expiresAt) continue;
-    const bucket = renewalBucketFor(daysUntil(renewal.expiresAt, now));
-    if (bucket === null) continue;
-
-    const name = renewal.customer?.name ?? renewal.customerId;
-    const title = `[와치독] 리뉴얼 D-${bucket}: ${name} (${renewal.id})`;
-    const result = await ensureWatchdogTask(client, title, renewal.customerId);
-    if (result === "created") renewalTasksCreated++;
-    else skippedExisting++;
-  }
+  const { runRenewalProjectionBatch } = await import("../support/renewal-projection");
+  const renewalBatchRes = await runRenewalProjectionBatch({ now });
+  // console.log("renewalBatchRes:", renewalBatchRes);
+  renewalTasksCreated = renewalBatchRes.createdCount;
+  skippedExisting += renewalBatchRes.alreadyPresentCount;
 
   // ── 2) SLA 응답 임박/위반 ────────────────────────────────────────────────
   // SupportCase 스키마에는 createdAt이 없다(daily-report.ts에 이미 기록된

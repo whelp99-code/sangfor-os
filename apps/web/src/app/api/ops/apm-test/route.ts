@@ -2,12 +2,15 @@ import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 
 import { assertApiAccess } from "@/lib/api-auth";
+import { assertBusinessCapability } from "@/lib/auth/authorization";
 import { isApmTestRouteAllowed } from "@/lib/observability/sentry";
 
 export async function POST(request: Request) {
   // Mutating diagnostic route (emits a Sentry event) — guard as a mutating op.
   const denied = assertApiAccess(request);
   if (denied) return denied;
+  const capabilityDenied = await assertBusinessCapability(request, "apps/web/src/app/api/ops/apm-test/route.ts");
+  if (capabilityDenied) return capabilityDenied;
 
   if (!isApmTestRouteAllowed()) {
     return NextResponse.json(

@@ -6,7 +6,14 @@
 
 set -euo pipefail
 
-REPO_DIR="${SANGFOR_REPO_DIR:-/Users/jmpark/Documents/Playground/whelp99-code-sangfor-engineer-mcp}"
+SCRIPT_DIR="${0:A:h}"
+DEFAULT_REPO_DIR="${SCRIPT_DIR:h:h}"
+REPO_DIR="${SANGFOR_REPO_DIR:-$DEFAULT_REPO_DIR}"
+REPO_DIR="${REPO_DIR:A}"
+if [[ ! -f "$REPO_DIR/package.json" ]] || ! grep -Eq '"name"[[:space:]]*:[[:space:]]*"sangfor-engineer-mcp"' "$REPO_DIR/package.json"; then
+  print -u2 -r -- "SANGFOR_REPO_DIR_INVALID: expected a sangfor-engineer-mcp package"
+  exit 64
+fi
 LOG_DIR="${SANGFOR_LOG_DIR:-$HOME/Library/Logs/sangfor-engineer-mcp}"
 CDP_URL="${SANGFOR_CDP_URL:-http://127.0.0.1:9222}"
 

@@ -21,6 +21,9 @@ jobs:
   container-stack:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      SANGFOR_API_KEY: stack-smoke-key-0000000000000000
+      SANGFOR_OPERATOR_PRINCIPAL_ID: stack-smoke-operator
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +41,7 @@ jobs:
 
       - name: Assert health (bridge 3600 / console 3502 / mock 3400)
         run: |
-          probe() { curl -s -o /dev/null -w '%{http_code}' --max-time 4 "$1" || echo 000; }
+          probe() { curl -s -o /dev/null -w '%{http_code}' --max-time 4 -H "x-api-key: ${SANGFOR_API_KEY}" "$1" || echo 000; }
           fail=0
           for ep in \
             "bridge:3600|http://localhost:3600/health" \

@@ -11,6 +11,6 @@
 
 ## Dependencies
 - Depends on: none
-- Depended on by: `@sangfor/business`, `@sangfor/ui`, `@sangfor/persona`, `apps/web`, `apps/api`
+- Depended on by: `@sangfor/business`, `@sangfor/persona`, `apps/web`, `apps/api`
 
 <!-- MANUAL: Notes below this line are preserved on regeneration -->

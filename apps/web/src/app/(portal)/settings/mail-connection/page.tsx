@@ -78,6 +78,27 @@ export default function MailConnectionPage() {
     }
   }
 
+  const handleLearnSyncedMail = async () => {
+    setSyncing(true)
+    setSyncResult('저장된 메일을 대화 단위로 학습 중…')
+    try {
+      const learnRes = await fetch('/api/mail-learn', { method: 'POST' }).then(r => r.json())
+      if (learnRes.success) {
+        const created = learnRes.candidates?.created ?? learnRes.candidates?.candidatesCreated
+        setSyncResult(
+          `완료 — 스레드 ${learnRes.threads}개 학습` +
+            (created != null ? `, 후보 ${created}건 생성` : ''),
+        )
+      } else {
+        setSyncResult(`학습 오류: ${learnRes.error}`)
+      }
+    } catch {
+      setSyncResult('학습 요청에 실패했습니다')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -192,6 +213,13 @@ export default function MailConnectionPage() {
               className="inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
             >
               캘린더 미팅 가져오기
+            </button>
+            <button
+              onClick={handleLearnSyncedMail}
+              disabled={syncing || (status?.messageCount ?? 0) === 0}
+              className="inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+            >
+              저장된 메일 다시 학습
             </button>
           </div>
           {syncResult && <p className="text-sm text-muted-foreground">{syncResult}</p>}

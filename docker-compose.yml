@@ -126,8 +126,13 @@ services:
       - "3600:3600"
       - "3502:3502"
     environment:
+      HOST: 0.0.0.0
       PORT: 3600
       OPERATOR_CONSOLE_PORT: 3502
+      AUTH_BYPASS_ENABLED: "0"
+      SANGFOR_API_KEY: ${SANGFOR_API_KEY:-}
+      SANGFOR_OPERATOR_PRINCIPAL_ID: ${SANGFOR_OPERATOR_PRINCIPAL_ID:-}
+      WHELP99_ENFORCE_SAFE_TOOLS: "true"
     volumes:
       - ./services/sangfor-engineer-mcp/data:/app/data
     depends_on:

@@ -14,8 +14,38 @@ import {
   , importExcelRequirementList,
   mapRequirementsToProducts
 } from '../packages/sangfor-product-adapters/src/index.js';
+import * as productAdapters from '../packages/sangfor-product-adapters/src/index.js';
+
+const EXPECTED_PUBLIC_EXPORTS = [
+  'analyzeCustomerRequirements',
+  'applyApprovedProductChange',
+  'buildComprehensiveOperationsGuideDocx',
+  'buildComprehensiveSettingGuideDocx',
+  'buildOperationsGuideDocx',
+  'buildSettingGuideDocx',
+  'collectProductConfig',
+  'discoverProductConsole',
+  'dryRunProductChange',
+  'generateExcelBasedChangePlan',
+  'generateProductChangePlan',
+  'getProductAdapter',
+  'importExcelRequirementList',
+  'listProductAdapters',
+  'mapRequirementsToProducts',
+  'normalizeAutomationProduct',
+  'verifyProductChange',
+] as const;
 
 describe('Product automation adapters', () => {
+  it('exports exactly the supported package API', () => {
+    // Given: the package barrel loaded by existing consumers.
+    // When: its runtime export names are enumerated.
+    const actualExports = Object.keys(productAdapters).sort();
+
+    // Then: no private split helper leaks and no public symbol disappears.
+    expect(actualExports).toEqual([...EXPECTED_PUBLIC_EXPORTS].sort());
+  });
+
   it('uses API-first strategy for HCI/SCP and exposes SCP OpenAPI candidates', () => {
     const discovery = discoverProductConsole({ product: 'SCP', version: '6.11.2' });
     expect(discovery.product).toBe('HCI_SCP');

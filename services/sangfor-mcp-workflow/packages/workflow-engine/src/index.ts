@@ -60,4 +60,5 @@ export * from './incident-detector.js';
 export * from './remediation-planner.js';
 export * from './rollback-manager.js';
 export * from './breakglass-policy.js';
+export * from './canonical-workflow-client.js';
 export * from './config-drift-detector.js';

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { authorizationHeadersForProfile } from './support/auth-profile'
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3101'
 const API_BASE = process.env.API_BASE_URL ?? 'http://localhost:3200'
@@ -11,7 +12,10 @@ test.describe('System', () => {
     expect(body.status).toBe('ok')
   })
   test('API metrics endpoint', async ({ request }) => {
-    const res = await request.get(`${API_BASE}/api/metrics`, { timeout: 5000 })
+    const res = await request.get(`${API_BASE}/api/metrics`, {
+      headers: authorizationHeadersForProfile('system_admin'),
+      timeout: 5000,
+    })
     expect(res.ok()).toBeTruthy()
   })
   test('Webhook GET endpoint', async ({ request }) => {

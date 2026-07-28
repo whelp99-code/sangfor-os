@@ -7,8 +7,22 @@
  * `@sangfor/business` OutlookSyncService; this module is the delegated path used
  * when a user clicks "Connect Outlook".
  */
-import { prisma } from "@sangfor/db";
+import { createHash } from "node:crypto";
+
+import {
+  hasCapability,
+  isActiveProjectAssignment,
+  resolveActiveCompanyRole,
+  type AuthContext,
+} from "@sangfor/auth";
+import { canonicalizeRfc8785, prisma, withRlsTransaction, type Prisma } from "@sangfor/db";
+import { z } from "zod";
+
+import { CrmServiceError, listCustomersWithOpportunities } from "../../crm/customer-partner";
+import { getOpportunityDetail } from "../../crm/opportunity-center";
 import { cfoFetch } from "../../finance/cfo-client";
+import { appendAuditEvent } from "../../governance/audit-db";
+import { deriveChainScopeKey } from "../../governance/audit-chain";
 import { extractMailBody } from "./mail-body";
 
 const AUTH_HOST = "https://login.microsoftonline.com";
@@ -418,6 +432,53 @@ function domainOfEmail(email?: string | null): string | null {
   return email.split("@")[1]?.toLowerCase() ?? null;
 }
 
+const syncCalendarMeetingsSchema = z.object({
+  opportunityId: z.string().trim().min(1).max(200).optional(),
+  daysBack: z.number().int().min(0).max(365).default(120),
+  daysAhead: z.number().int().min(0).max(365).default(30),
+  idempotencyKey: z.string().trim().min(1).max(128),
+}).strict();
+
+async function resolveCalendarActor(tx: Prisma.TransactionClient, ctx: AuthContext) {
+  const now = new Date();
+  const [assignments, projectAssignment] = await Promise.all([
+    tx.userCompanyRole.findMany({
+      where: { userId: ctx.userId, companyId: ctx.companyId },
+      select: {
+        id: true,
+        userId: true,
+        companyId: true,
+        role: true,
+        status: true,
+        validFrom: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    }),
+    tx.projectMember.findFirst({
+      where: { userId: ctx.userId, projectId: ctx.projectId },
+      select: {
+        id: true,
+        userId: true,
+        projectId: true,
+        status: true,
+        validFrom: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    }),
+  ]);
+  const resolved = resolveActiveCompanyRole(assignments, now);
+  if (
+    !resolved.ok ||
+    !isActiveProjectAssignment(projectAssignment, now) ||
+    !hasCapability(resolved.role, "opportunity.write")
+  ) {
+    throw new CrmServiceError("FORBIDDEN", 403, "calendar_sync_denied");
+  }
+  return resolved.assignment;
+}
+
 /**
  * P7 #5: collect Outlook calendar events (`/me/calendarView`) as MeetingNotes.
  *
@@ -428,19 +489,32 @@ function domainOfEmail(email?: string | null): string | null {
  * an existing (opportunityId, source=calendar, title, occurredAt) note is skipped.
  */
 export async function syncCalendarMeetings(
-  opts: { opportunityId?: string; daysBack?: number; daysAhead?: number } = {},
+  ctx: AuthContext,
+  rawCommand: z.input<typeof syncCalendarMeetingsSchema>,
 ): Promise<{ fetched: number; created: number; matched: number }> {
+  const command = syncCalendarMeetingsSchema.parse(rawCommand);
   const account = await prisma.mailAccount.findFirst({
-    where: { provider: "outlook", refreshToken: { not: null } },
+    where: {
+      projectId: ctx.projectId,
+      provider: "outlook",
+      refreshToken: { not: null },
+    },
   });
   if (!account) return { fetched: 0, created: 0, matched: 0 };
   if (account.tokenScope && !account.tokenScope.includes("Calendars.Read")) {
     throw new Error("Connected mailbox is missing the Calendars.Read scope — reconnect Outlook.");
   }
 
+  if (command.opportunityId) {
+    const opportunity = await getOpportunityDetail(ctx, command.opportunityId);
+    if (!opportunity) {
+      throw new CrmServiceError("NOT_FOUND", 404, "opportunity_not_found");
+    }
+  }
+
   const token = await getValidAccessToken(account);
-  const start = new Date(Date.now() - (opts.daysBack ?? 120) * 86400000).toISOString();
-  const end = new Date(Date.now() + (opts.daysAhead ?? 30) * 86400000).toISOString();
+  const start = new Date(Date.now() - command.daysBack * 86400000).toISOString();
+  const end = new Date(Date.now() + command.daysAhead * 86400000).toISOString();
   const url =
     `${GRAPH}/me/calendarView?startDateTime=${start}&endDateTime=${end}` +
     `&$top=100&$orderby=start/dateTime desc` +
@@ -464,15 +538,12 @@ export async function syncCalendarMeetings(
       ...(ev.attendees ?? []).map((a) => a.emailAddress?.address),
     ].filter((e): e is string => Boolean(e));
 
-    let opportunityId = opts.opportunityId ?? null;
+    let opportunityId = command.opportunityId ?? null;
     if (!opportunityId) {
       const domains = Array.from(new Set(attendeeEmails.map(domainOfEmail).filter((d): d is string => Boolean(d))));
       for (const domain of domains) {
-        const customer = await prisma.customer.findFirst({
-          where: { domain },
-          select: { opportunities: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true } } },
-        });
-        const oppId = customer?.opportunities[0]?.id;
+        const page = await listCustomersWithOpportunities(ctx, { domain, first: 1 });
+        const oppId = page.items[0]?.opportunities[0]?.id;
         if (oppId) {
           opportunityId = oppId;
           break;
@@ -482,24 +553,79 @@ export async function syncCalendarMeetings(
     if (!opportunityId) continue;
     matched++;
 
-    const exists = await prisma.meetingNote.findFirst({
-      where: { opportunityId, source: "calendar", title, occurredAt },
-      select: { id: true },
-    });
-    if (exists) continue;
-
-    await prisma.meetingNote.create({
-      data: {
+    const createdMeeting = await withRlsTransaction(ctx, async (tx) => {
+      const actor = await resolveCalendarActor(tx, ctx);
+      const scope = {
+        tenantId: ctx.tenantId,
+        companyId: ctx.companyId,
+        projectId: ctx.projectId,
+        level: "PROJECT" as const,
+      };
+      const eventIdentity = createHash("sha256").update(ev.id).digest("hex");
+      const auditKey = `meeting_note.calendar_synced:${command.idempotencyKey}:${eventIdentity}`;
+      const inputHash = createHash("sha256").update(canonicalizeRfc8785({
+        contract: "sangfor.meeting_note.calendar_sync/v1",
+        scope: { tenantId: ctx.tenantId, companyId: ctx.companyId, projectId: ctx.projectId },
+        actorAssignmentId: actor.id,
+        graphEventId: ev.id,
         opportunityId,
         title,
-        occurredAt,
-        attendees: attendeeEmails.map((e) => sanitizeText(e)),
-        bodyMarkdown: sanitizeText(ev.bodyPreview) || title,
-        source: "calendar",
-        status: "confirmed",
-      },
+        occurredAt: occurredAt?.toISOString() ?? null,
+      })).digest("hex");
+
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${deriveChainScopeKey(scope)}, 0))`;
+      const prior = await tx.auditLog.findFirst({
+        where: { chainScopeKey: deriveChainScopeKey(scope), idempotencyKey: auditKey },
+      });
+      if (prior) {
+        const details = prior.details && typeof prior.details === "object" && !Array.isArray(prior.details)
+          ? prior.details as Record<string, unknown>
+          : {};
+        if (details.inputHash !== inputHash) {
+          throw new CrmServiceError("CONFLICT", 409, "calendar_sync_idempotency_conflict");
+        }
+        return false;
+      }
+
+      const scopedOpportunity = await tx.opportunity.findFirst({
+        where: { id: opportunityId, projectId: ctx.projectId, archivedAt: null },
+        select: { id: true },
+      });
+      if (!scopedOpportunity) {
+        throw new CrmServiceError("NOT_FOUND", 404, "opportunity_not_found");
+      }
+      const existing = await tx.meetingNote.findFirst({
+        where: { opportunityId, source: "calendar", title, occurredAt },
+        select: { id: true },
+      });
+      const meeting = existing ?? await tx.meetingNote.create({
+        data: {
+          opportunityId,
+          title,
+          occurredAt,
+          attendees: attendeeEmails.map((email) => sanitizeText(email)),
+          bodyMarkdown: sanitizeText(ev.bodyPreview) || title,
+          source: "calendar",
+          status: "confirmed",
+        },
+      });
+      await appendAuditEvent(tx, {
+        scope,
+        eventType: "meeting_note.calendar_synced",
+        actorId: actor.id,
+        resourceType: "meeting_note",
+        resourceId: meeting.id,
+        idempotencyKey: auditKey,
+        details: {
+          contract: "sangfor.meeting_note.calendar_sync/v1",
+          inputHash,
+          actorAssignmentId: actor.id,
+          result: { meetingNoteId: meeting.id, created: !existing },
+        },
+      });
+      return !existing;
     });
-    created++;
+    if (createdMeeting) created++;
   }
 
   return { fetched: events.length, created, matched };

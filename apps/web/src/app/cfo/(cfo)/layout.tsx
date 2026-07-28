@@ -19,21 +19,21 @@ export default async function CfoLayout({ children }: { children: React.ReactNod
   if (session?.role === "viewer") {
     return (
       <PortalShell>
-        <main id="main-content" className="flex-1 p-6 outline-none">
+        <div id="main-content" className="flex-1 p-6 outline-none">
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
             재무 정보는 관리자와 운영 담당자만 볼 수 있습니다.
           </div>
-        </main>
+        </div>
       </PortalShell>
     );
   }
 
   return (
     <PortalShell>
-      <main id="main-content" className="flex-1 outline-none">
+      <div id="main-content" className="flex-1 outline-none">
         <CfoSubnav />
         {children}
-      </main>
+      </div>
     </PortalShell>
   );
 }
