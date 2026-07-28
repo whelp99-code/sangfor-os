@@ -26,6 +26,23 @@ function validEnvironment() {
   };
 }
 
+function validComposeModel() {
+  const runtimeEnvironment = { DATABASE_URL: "postgresql://sangfor_runtime_login@postgres/sangfor?options=-c%20app.tenant_id%3Dtenant-prod", SANGFOR_PROCESS_PROFILE: "production", AUTH_BYPASS_ENABLED: "0", API_KEY_BYPASS_ENABLED: "0", AUTH_PROFILE: "production" };
+  return {
+    services: {
+      postgres: { healthcheck: {}, ports: [] },
+      redis: { healthcheck: {}, ports: [] },
+      backup: { restart: "no" },
+      migrate: { restart: "no" },
+      "app-role-init": { command: ["ALTER ROLE sangfor_runtime_login NOBYPASSRLS"], restart: "no" },
+      api: { environment: { ...runtimeEnvironment }, healthcheck: {}, ports: [], volumes: [] },
+      web: { environment: { ...runtimeEnvironment }, healthcheck: {}, ports: [], volumes: [] },
+      caddy: { ports: [{ published: 80 }, { published: 443 }] },
+    },
+    networks: { backend: { internal: true } },
+  };
+}
+
 describe("production deploy verifier", () => {
   it("parses comments and quoted values without evaluating shell", () => {
     assert.deepEqual(parseEnvFile("# comment\nAPP_DOMAIN='example.test'\nVALUE=plain\n"), { APP_DOMAIN: "example.test", VALUE: "plain" });
@@ -41,6 +58,16 @@ describe("production deploy verifier", () => {
     const services = Object.fromEntries(["postgres", "redis", "migrate", "app-role-init", "api", "web", "caddy"].map((name) => [name, {}]));
     services.postgres.ports = [{ published: 5432 }];
     assert.throws(() => validateComposeModel({ services }), /postgres: must not publish/u);
+  });
+  it("requires the production process profile for both API and web", () => {
+    const valid = validComposeModel();
+    assert.deepEqual(validateComposeModel(valid), { ok: true, serviceCount: 8 });
+    const missingApiProfile = structuredClone(valid);
+    delete missingApiProfile.services.api.environment.SANGFOR_PROCESS_PROFILE;
+    assert.throws(() => validateComposeModel(missingApiProfile), /api: SANGFOR_PROCESS_PROFILE must be production/u);
+    const wrongWebProfile = structuredClone(valid);
+    wrongWebProfile.services.web.environment.SANGFOR_PROCESS_PROFILE = "development";
+    assert.throws(() => validateComposeModel(wrongWebProfile), /web: SANGFOR_PROCESS_PROFILE must be production/u);
   });
   it("deploys and rolls back by immutable image ID with fixed authority scripts", () => {
     const deploy = readFileSync(new URL("./deploy-production.sh", import.meta.url), "utf8");
