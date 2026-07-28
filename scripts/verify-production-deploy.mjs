@@ -23,7 +23,7 @@ export function parseEnvFile(text) {
 }
 
 export function validateProductionEnvironment(env) {
-  const required = ["APP_DOMAIN", "BACKUP_DIR", "POSTGRES_PASSWORD", "SANGFOR_APP_DB_PASSWORD", "SANGFOR_RUNTIME_DB_PASSWORD", "REDIS_PASSWORD", "API_KEY", "FINANCE_API_KEY", "SANGFOR_API_KEY", "SANGFOR_OPERATOR_PRINCIPAL_ID", "JWT_SECRET", "USER_JWT_ACTIVE_KID", "USER_JWT_KEYRING_JSON", "INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID", "INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON", "INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID", "INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON", "INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID", "INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON", "INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID", "INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON", "EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID", "EXTERNAL_ACTION_RECEIPT_KEYS_JSON"];
+  const required = ["APP_DOMAIN", "BACKUP_DIR", "DEFAULT_TENANT_ID", "DEFAULT_COMPANY_ID", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "PRODUCTION_APPROVAL_ISSUER", "PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON", "POSTGRES_PASSWORD", "SANGFOR_APP_DB_PASSWORD", "SANGFOR_RUNTIME_DB_PASSWORD", "REDIS_PASSWORD", "API_KEY", "FINANCE_API_KEY", "SANGFOR_API_KEY", "SANGFOR_OPERATOR_PRINCIPAL_ID", "JWT_SECRET", "USER_JWT_ACTIVE_KID", "USER_JWT_KEYRING_JSON", "INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID", "INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON", "INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID", "INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON", "INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID", "INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON", "INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID", "INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON", "EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID", "EXTERNAL_ACTION_RECEIPT_KEYS_JSON"];
   const issues = [];
   for (const key of required) {
     const value = env[key]?.trim();
@@ -32,6 +32,9 @@ export function validateProductionEnvironment(env) {
   }
   if (env.APP_DOMAIN && (!/^[a-z0-9.-]+(?::[0-9]+)?$/iu.test(env.APP_DOMAIN) || env.APP_DOMAIN.includes(".."))) issues.push("APP_DOMAIN: expected hostname without scheme or path");
   if (env.BACKUP_DIR && !isAbsolute(env.BACKUP_DIR)) issues.push("BACKUP_DIR: must be absolute");
+  for (const key of ["DEFAULT_TENANT_ID", "DEFAULT_COMPANY_ID", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "PRODUCTION_APPROVAL_ISSUER"]) {
+    if (env[key] && !/^[A-Za-z0-9._-]{3,128}$/u.test(env[key])) issues.push(`${key}: invalid identifier`);
+  }
   for (const key of ["POSTGRES_PASSWORD", "SANGFOR_APP_DB_PASSWORD", "SANGFOR_RUNTIME_DB_PASSWORD", "REDIS_PASSWORD"]) {
     const value = env[key] ?? "";
     if (value && !/^[A-Za-z0-9_-]{32,}$/u.test(value)) issues.push(`${key}: must be at least 32 URL-safe characters`);
@@ -86,6 +89,15 @@ export function validateProductionEnvironment(env) {
       issues.push("EXTERNAL_ACTION_RECEIPT_KEYS_JSON: invalid JSON");
     }
   }
+  if (env.PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON) {
+    try {
+      const keys = JSON.parse(env.PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON);
+      const entries = Object.values(keys ?? {});
+      if (entries.length === 0 || !entries.every((entry) => entry && Object.keys(entry).sort().join(",") === "publicKeyPem,status" && entry.status === "verify" && /^-----BEGIN PUBLIC KEY-----[\s\S]+-----END PUBLIC KEY-----\n?$/u.test(entry.publicKeyPem) && !placeholderPattern.test(entry.publicKeyPem))) issues.push("PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON: trusted Ed25519 public key missing or malformed");
+    } catch {
+      issues.push("PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON: invalid JSON");
+    }
+  }
   if (issues.length > 0) throw new Error(`production environment rejected:\n${issues.join("\n")}`);
   return { ok: true, requiredCount: required.length };
 }
@@ -100,6 +112,9 @@ export function validateComposeModel(model) {
   if (model.networks?.backend?.internal !== true) issues.push("backend network must remain internal");
   if (!model.services?.api?.environment?.DATABASE_URL?.includes("sangfor_runtime_login")) issues.push("api DATABASE_URL must use the non-DDL runtime role");
   if (!model.services?.web?.environment?.DATABASE_URL?.includes("sangfor_runtime_login")) issues.push("web DATABASE_URL must use the non-DDL runtime role");
+  for (const service of ["api", "web"]) if (!model.services?.[service]?.environment?.DATABASE_URL?.includes("app.tenant_id")) issues.push(`${service}: runtime DATABASE_URL must pin RLS scope settings`);
+  const roleInitCommand = JSON.stringify(model.services?.["app-role-init"]?.command ?? []);
+  if (!roleInitCommand.includes("NOBYPASSRLS") || roleInitCommand.includes(" BYPASSRLS")) issues.push("runtime role must be NOBYPASSRLS");
   for (const service of ["api", "web"]) {
     if (model.services?.[service]?.environment?.AUTH_BYPASS_ENABLED !== "0" || model.services?.[service]?.environment?.API_KEY_BYPASS_ENABLED !== "0" || model.services?.[service]?.environment?.AUTH_PROFILE === "local_mock") issues.push(`${service}: unsafe runtime auth environment`);
   }
@@ -119,12 +134,12 @@ function parseArgs(argv) {
 export function verifyProductionDeploy(envFile) {
   const mode = statSync(envFile).mode & 0o777;
   if ((mode & 0o077) !== 0) throw new Error(`env file permissions must be owner-only (chmod 600): ${mode.toString(8)}`);
-  const env = parseEnvFile(readFileSync(envFile, "utf8"));
+  const env = { ...parseEnvFile(readFileSync(envFile, "utf8")), ...process.env };
   const envResult = validateProductionEnvironment(env);
   const backupStat = statSync(env.BACKUP_DIR);
   if (!backupStat.isDirectory()) throw new Error("BACKUP_DIR must be an existing directory");
   if ((backupStat.mode & 0o077) !== 0) throw new Error("BACKUP_DIR permissions must be owner-only (chmod 700)");
-  const compose = spawnSync("docker", ["compose", "--env-file", envFile, "-f", composeFile, "config", "--format", "json"], { cwd: root, encoding: "utf8", env: { ...process.env, ...env } });
+  const compose = spawnSync("docker", ["compose", "--env-file", envFile, "-f", composeFile, "config", "--format", "json"], { cwd: root, encoding: "utf8", env });
   if (compose.status !== 0) throw new Error(`docker compose config failed (exit ${compose.status}): ${compose.stderr || "no stderr"}`);
   const composeResult = validateComposeModel(JSON.parse(compose.stdout));
   return { ...envResult, ...composeResult, envFile, appDomain: env.APP_DOMAIN, backupDir: env.BACKUP_DIR, apiImage: env.API_IMAGE || "sangfor-api", webImage: env.WEB_IMAGE || "sangfor-web" };

@@ -1,16 +1,46 @@
-import { createHash } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
+import { createHash, sign as signDetached, verify as verifyDetached } from "node:crypto";
+import { closeSync, mkdirSync, openSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseEnvFile } from "./verify-production-deploy.mjs";
 
 const SHA40 = /^[a-f0-9]{40}$/u;
 const SHA64 = /^[a-f0-9]{64}$/u;
+const APPROVAL_DOMAIN = "sangfor.production-approval/v1";
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  return JSON.stringify(value);
+}
+
+function unsignedReceipt(receipt) {
+  const { signature: _signature, ...unsigned } = receipt;
+  return unsigned;
+}
+
+export function signProductionApprovalReceipt(receipt, key) {
+  return signDetached(null, Buffer.from(`${APPROVAL_DOMAIN}\n${canonicalJson(unsignedReceipt(receipt))}`), key).toString("base64url");
+}
+
+function verifyApprovalSignature(receipt, keyring) {
+  const signature = receipt?.signature;
+  const entry = signature && keyring?.[signature.keyId];
+  if (!signature || signature.algorithm !== "Ed25519" || !entry || entry.status !== "verify" || typeof entry.publicKeyPem !== "string") return false;
+  const supplied = typeof signature.value === "string" && /^[A-Za-z0-9_-]+$/u.test(signature.value) ? Buffer.from(signature.value, "base64url") : Buffer.alloc(0);
+  if (supplied.length !== 64) return false;
+  try {
+    return verifyDetached(null, Buffer.from(`${APPROVAL_DOMAIN}\n${canonicalJson(unsignedReceipt(receipt))}`), entry.publicKeyPem, supplied);
+  } catch {
+    return false;
+  }
+}
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
-export function validateProductionReadiness({ candidateSha, finalAcceptance, finalAcceptanceSha256, externalReceipt, externalReceiptPath }) {
+export function validateProductionReadiness({ candidateSha, finalAcceptance, finalAcceptanceSha256, externalReceipt, externalReceiptPath, approvalIssuer, approvalKeyring }) {
   const issues = [];
   if (!SHA40.test(candidateSha ?? "")) issues.push("candidateSha must be lowercase 40-hex");
   if (finalAcceptance?.schemaVersion !== 1 || finalAcceptance?.candidateSha !== candidateSha) issues.push("final acceptance candidate identity mismatch");
@@ -24,6 +54,8 @@ export function validateProductionReadiness({ candidateSha, finalAcceptance, fin
   if (!SHA64.test(finalAcceptanceSha256 ?? "") || externalReceipt?.localAcceptanceSha256 !== finalAcceptanceSha256) issues.push("external receipt is not bound to the exact local acceptance evidence");
   if (externalReceipt?.verificationState !== "MANUAL_EXTERNAL_PASS" || externalReceipt?.executed !== true || externalReceipt?.result !== "PASS") issues.push("AC-DOD-09 must be executed with MANUAL_EXTERNAL_PASS");
   if (!externalReceipt?.approval?.id || !externalReceipt?.approval?.approvedBy || Number.isNaN(Date.parse(externalReceipt?.approval?.approvedAt))) issues.push("external receipt requires explicit human approval identity and timestamp");
+  if (externalReceipt?.approval?.issuer !== approvalIssuer || !/^[A-Za-z0-9._-]{32,128}$/u.test(externalReceipt?.approval?.nonce ?? "")) issues.push("external approval issuer or nonce invalid");
+  if (!verifyApprovalSignature(externalReceipt, approvalKeyring)) issues.push("external approval signature invalid");
   if (externalReceipt?.approvalRequired !== true || Number.isNaN(Date.parse(externalReceipt?.issuedAt)) || Date.parse(externalReceipt?.approval?.approvedAt) < Date.parse(finalAcceptance?.createdAt) || Date.parse(externalReceipt?.issuedAt) < Date.parse(externalReceipt?.approval?.approvedAt)) issues.push("external approval chronology invalid");
   if (!Array.isArray(externalReceipt?.commands) || externalReceipt.commands.length === 0 || !externalReceipt.commands.every((command) => Array.isArray(command.argv) && command.argv.length > 0 && command.exitCode === 0 && Number.isInteger(command.testCount) && command.testCount > 0)) issues.push("external receipt commands must prove nonzero successful tests");
 
@@ -54,24 +86,47 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index];
     const value = argv[index + 1];
-    if (!key?.startsWith("--") || !value) throw new Error("usage: verify-production-readiness --candidate-sha SHA --final-acceptance FILE --external-receipt FILE");
+    if (!key?.startsWith("--") || !value) throw new Error("usage: verify-production-readiness --candidate-sha SHA --final-acceptance FILE --external-receipt FILE --env-file FILE [--consume-nonce-dir DIR]");
     values[key.slice(2)] = value;
   }
   return values;
 }
 
-export function verifyProductionReadiness({ candidateSha, finalAcceptancePath, externalReceiptPath }) {
+function consumeApprovalNonce(receipt, nonceDirectory) {
+  mkdirSync(nonceDirectory, { recursive: true, mode: 0o700 });
+  if ((statSync(nonceDirectory).mode & 0o077) !== 0) throw new Error("approval nonce directory must be owner-only");
+  const nonceId = createHash("sha256").update(`${receipt.approval.issuer}\n${receipt.approval.nonce}`).digest("hex");
+  const path = resolve(nonceDirectory, `${nonceId}.json`);
+  let descriptor;
+  try {
+    descriptor = openSync(path, "wx", 0o600);
+    writeFileSync(descriptor, `${JSON.stringify({ candidateSha: receipt.candidateSha, runId: receipt.runId, approvalId: receipt.approval.id, consumedAt: new Date().toISOString() })}\n`);
+  } catch (error) {
+    if (error?.code === "EEXIST") throw new Error("external approval nonce already consumed");
+    throw error;
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+}
+
+export function verifyProductionReadinessWithEnvironment({ candidateSha, finalAcceptancePath, externalReceiptPath, envFile, nonceDirectory }) {
   const finalPath = resolve(finalAcceptancePath);
   const externalPath = resolve(externalReceiptPath);
   if (!statSync(finalPath).isFile() || !statSync(externalPath).isFile()) throw new Error("acceptance evidence paths must be files");
   const finalBytes = readFileSync(finalPath);
-  return validateProductionReadiness({ candidateSha, finalAcceptance: JSON.parse(finalBytes), finalAcceptanceSha256: createHash("sha256").update(finalBytes).digest("hex"), externalReceipt: readJson(externalPath), externalReceiptPath: externalPath });
+  const externalReceipt = readJson(externalPath);
+  const env = { ...parseEnvFile(readFileSync(resolve(envFile), "utf8")), ...process.env };
+  let approvalKeyring;
+  try { approvalKeyring = JSON.parse(env.PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON); } catch { throw new Error("production approval keyring invalid"); }
+  const result = validateProductionReadiness({ candidateSha, finalAcceptance: JSON.parse(finalBytes), finalAcceptanceSha256: createHash("sha256").update(finalBytes).digest("hex"), externalReceipt, externalReceiptPath: externalPath, approvalIssuer: env.PRODUCTION_APPROVAL_ISSUER, approvalKeyring });
+  if (nonceDirectory) consumeApprovalNonce(externalReceipt, resolve(nonceDirectory));
+  return result;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     const args = parseArgs(process.argv.slice(2));
-    const result = verifyProductionReadiness({ candidateSha: args["candidate-sha"], finalAcceptancePath: args["final-acceptance"], externalReceiptPath: args["external-receipt"] });
+    const result = verifyProductionReadinessWithEnvironment({ candidateSha: args["candidate-sha"], finalAcceptancePath: args["final-acceptance"], externalReceiptPath: args["external-receipt"], envFile: args["env-file"], nonceDirectory: args["consume-nonce-dir"] });
     process.stdout.write(`${JSON.stringify(result)}\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

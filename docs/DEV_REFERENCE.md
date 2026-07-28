@@ -301,7 +301,7 @@ scripts/dev-down.sh                      # api/web 정지 (postgres 유지; --db
 `sangfor_app_login` 비밀번호 설정 → API/Web health → Caddy TLS ingress 순서를 fail-closed로 강제한다.
 
 ```bash
-cp .env.production.example .env.production
+cp production.env.example .env.production
 chmod 600 .env.production
 # 모든 placeholder를 서로 다른 실제 비밀값과 운영 도메인으로 교체
 scripts/deploy-production.sh --env-file .env.production --check

@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ userFindUnique: vi.fn(), credentialUpdate: vi.fn(), credentialUpdateMany: vi.fn(), transaction: vi.fn() }));
+const mocks = vi.hoisted(() => ({ userFindUnique: vi.fn(), credentialUpdate: vi.fn(), executeRaw: vi.fn() }));
 vi.mock("@sangfor/db", () => ({
+  Prisma: { sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values })) },
   prisma: {
     user: { findUnique: mocks.userFindUnique },
-    userCredential: { update: mocks.credentialUpdate, updateMany: mocks.credentialUpdateMany },
-    $transaction: mocks.transaction,
+    userCredential: { update: mocks.credentialUpdate },
+    $executeRaw: mocks.executeRaw,
   },
 }));
 
@@ -15,8 +16,7 @@ describe("password credential digest", () => {
   beforeEach(() => {
     mocks.userFindUnique.mockReset();
     mocks.credentialUpdate.mockReset().mockResolvedValue({});
-    mocks.credentialUpdateMany.mockReset().mockResolvedValue({ count: 1 });
-    mocks.transaction.mockReset().mockResolvedValue([]);
+    mocks.executeRaw.mockReset().mockResolvedValue(1);
   });
   it("hashes with a unique salt and verifies only the matching password", async () => {
     const first = await hashPasswordCredential("correct horse battery staple");
@@ -31,16 +31,15 @@ describe("password credential digest", () => {
   });
   it("persists failed attempts and locks the fifth failure", async () => {
     const digest = await hashPasswordCredential("correct horse battery staple");
-    mocks.userFindUnique.mockResolvedValue({ id: "user-1", status: "active", disabledAt: null, credential: { passwordDigest: digest, failedAttempts: 4, lockedUntil: null } });
-    await expect(authenticatePasswordCredential("USER@EXAMPLE.COM", "incorrect credential value", new Date("2026-07-28T00:00:00Z"))).resolves.toBe(false);
-    expect(mocks.credentialUpdateMany).toHaveBeenNthCalledWith(2, expect.objectContaining({ data: expect.objectContaining({ failedAttempts: 5, lockedUntil: new Date("2026-07-28T00:15:00Z") }) }));
-    expect(mocks.transaction).toHaveBeenCalledTimes(1);
+    mocks.userFindUnique.mockResolvedValue({ id: "user-1", status: "active", disabledAt: null, credential: { passwordDigest: digest, credentialVersion: 3, failedAttempts: 4, lockedUntil: null } });
+    await expect(authenticatePasswordCredential("USER@EXAMPLE.COM", "incorrect credential value", new Date("2026-07-28T00:00:00Z"))).resolves.toBeNull();
+    expect(mocks.executeRaw).toHaveBeenCalledTimes(1);
   });
   it("resets lock counters after a valid credential", async () => {
     const password = "correct horse battery staple";
     const digest = await hashPasswordCredential(password);
-    mocks.userFindUnique.mockResolvedValue({ id: "user-1", status: "active", disabledAt: null, credential: { passwordDigest: digest, failedAttempts: 2, lockedUntil: null } });
-    await expect(authenticatePasswordCredential("user@example.com", password, new Date("2026-07-28T00:00:00Z"))).resolves.toBe(true);
+    mocks.userFindUnique.mockResolvedValue({ id: "user-1", status: "active", disabledAt: null, credential: { passwordDigest: digest, credentialVersion: 3, failedAttempts: 2, lockedUntil: null } });
+    await expect(authenticatePasswordCredential("user@example.com", password, new Date("2026-07-28T00:00:00Z"))).resolves.toEqual({ userId: "user-1", credentialVersion: 3 });
     expect(mocks.credentialUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ failedAttempts: 0, lockedUntil: null }) }));
   });
 });

@@ -15,15 +15,19 @@ const prismaMocks = vi.hoisted(() => ({
   projectMemberFindFirst: vi.fn(),
   userCompanyRoleFindFirst: vi.fn(),
   authSessionCreate: vi.fn(),
+  credentialLockQuery: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock("@sangfor/db", () => ({
+  Prisma: { sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values })) },
   prisma: {
     user: { findUnique: prismaMocks.userFindUnique },
     project: { findUnique: prismaMocks.projectFindUnique },
     projectMember: { findFirst: prismaMocks.projectMemberFindFirst },
     userCompanyRole: { findFirst: prismaMocks.userCompanyRoleFindFirst },
     authSession: { create: prismaMocks.authSessionCreate },
+    $transaction: prismaMocks.transaction,
   },
 }));
 
@@ -142,6 +146,11 @@ describe("POST /api/auth/login with a configured USER_JWT_* keyring", () => {
     prismaMocks.projectMemberFindFirst.mockReset().mockResolvedValue({ id: "membership-1" });
     prismaMocks.userCompanyRoleFindFirst.mockReset().mockResolvedValue({ id: "role-1" });
     prismaMocks.authSessionCreate.mockReset().mockResolvedValue({});
+    prismaMocks.credentialLockQuery.mockReset().mockResolvedValue([{ credential_version: 1 }]);
+    prismaMocks.transaction.mockReset().mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => callback({
+      $queryRaw: prismaMocks.credentialLockQuery,
+      authSession: { create: prismaMocks.authSessionCreate },
+    }));
     credentialMocks.authenticate.mockReset();
   });
 
@@ -159,7 +168,7 @@ describe("POST /api/auth/login with a configured USER_JWT_* keyring", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("SANGFOR_PROCESS_PROFILE", "production");
     vi.stubEnv("AUTH_DEMO_PASSWORD", "");
-    credentialMocks.authenticate.mockResolvedValueOnce(true);
+    credentialMocks.authenticate.mockResolvedValueOnce({ userId: "user-1", credentialVersion: 1 });
     vi.mocked(resolveDefaultProjectScope).mockResolvedValueOnce({ projectId: "project-1", projectSlug: "demo-project" });
     prismaMocks.userFindUnique.mockResolvedValueOnce(ACTIVE_USER);
     prismaMocks.projectFindUnique.mockResolvedValueOnce(PROJECT);

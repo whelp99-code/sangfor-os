@@ -3,9 +3,13 @@ name: ${COMPOSE_PROJECT_NAME:-sangfor-production}
 x-runtime-environment: &runtime-environment
   NODE_ENV: production
   SANGFOR_PROCESS_PROFILE: production
-  DATABASE_URL: postgresql://sangfor_runtime_login:${SANGFOR_RUNTIME_DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-sangfor_os}
+  DATABASE_URL: postgresql://sangfor_runtime_login:${SANGFOR_RUNTIME_DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-sangfor_os}?options=-c%20app.tenant_id%3D${DEFAULT_TENANT_ID}%20-c%20app.company_id%3D${DEFAULT_COMPANY_ID}%20-c%20app.project_id%3D${DEFAULT_PROJECT_ID}
   SANGFOR_APP_DATABASE_URL: postgresql://sangfor_app_login:${SANGFOR_APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-sangfor_os}
   REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+  DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID}
+  DEFAULT_COMPANY_ID: ${DEFAULT_COMPANY_ID}
+  DEFAULT_PROJECT_ID: ${DEFAULT_PROJECT_ID}
+  DEFAULT_PROJECT_SLUG: ${DEFAULT_PROJECT_SLUG}
   AUTH_PROFILE: ""
   AUTH_BYPASS_ENABLED: "0"
   API_KEY_BYPASS_ENABLED: "0"
@@ -108,7 +112,7 @@ services:
     restart: "no"
 
   migrate:
-    image: ${API_IMAGE:-sangfor-api}:${IMAGE_TAG:-local}
+    image: ${API_IMAGE_REF:-sangfor-api:local}
     command: ["corepack", "pnpm", "--filter", "@sangfor/db", "db:migrate:deploy"]
     environment:
       DATABASE_URL: postgresql://sangfor:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sangfor_os}
@@ -127,6 +131,9 @@ services:
       PGDATABASE: ${POSTGRES_DB:-sangfor_os}
       SANGFOR_APP_DB_PASSWORD: ${SANGFOR_APP_DB_PASSWORD}
       SANGFOR_RUNTIME_DB_PASSWORD: ${SANGFOR_RUNTIME_DB_PASSWORD}
+      DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID}
+      DEFAULT_COMPANY_ID: ${DEFAULT_COMPANY_ID}
+      DEFAULT_PROJECT_ID: ${DEFAULT_PROJECT_ID}
     command:
       - sh
       - -ec
@@ -138,11 +145,12 @@ services:
         DO $$$$
         BEGIN
           IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sangfor_runtime_login') THEN
-            CREATE ROLE sangfor_runtime_login WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS;
+            CREATE ROLE sangfor_runtime_login WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOBYPASSRLS;
           END IF;
         END
         $$$$;
-        ALTER ROLE sangfor_runtime_login NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS;
+        ALTER ROLE sangfor_runtime_login NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOBYPASSRLS;
+        GRANT sangfor_app TO sangfor_runtime_login WITH INHERIT TRUE, SET FALSE;
         SELECT format('ALTER ROLE sangfor_runtime_login WITH PASSWORD %L', :'runtime_password') \gexec
         SELECT format('GRANT CONNECT ON DATABASE %I TO sangfor_runtime_login', current_database()) \gexec
         GRANT USAGE ON SCHEMA public TO sangfor_runtime_login;
@@ -154,6 +162,8 @@ services:
         ALTER DEFAULT PRIVILEGES FOR ROLE sangfor IN SCHEMA public
           GRANT USAGE, SELECT ON SEQUENCES TO sangfor_runtime_login;
         SQL
+        scoped_count="$$(PGPASSWORD="$$SANGFOR_RUNTIME_DB_PASSWORD" PGOPTIONS="-c app.tenant_id=$$DEFAULT_TENANT_ID -c app.company_id=$$DEFAULT_COMPANY_ID -c app.project_id=$$DEFAULT_PROJECT_ID" psql -U sangfor_runtime_login -Atc 'SELECT count(*) FROM projects')"
+        test "$$scoped_count" = "1"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -161,7 +171,7 @@ services:
     restart: "no"
 
   api:
-    image: ${API_IMAGE:-sangfor-api}:${IMAGE_TAG:-local}
+    image: ${API_IMAGE_REF:-sangfor-api:local}
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -186,7 +196,7 @@ services:
     networks: [backend, egress]
 
   web:
-    image: ${WEB_IMAGE:-sangfor-web}:${IMAGE_TAG:-local}
+    image: ${WEB_IMAGE_REF:-sangfor-web:local}
     build:
       context: .
       dockerfile: apps/web/Dockerfile

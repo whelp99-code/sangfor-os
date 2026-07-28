@@ -4,7 +4,7 @@ import { z } from "zod";
 import { AUTH_CONFIGURATION_UNAVAILABLE } from "@/lib/auth/config";
 import { isLocalMockAuthProfile } from "@/lib/auth/runtime-profile";
 import { isAuthConfigured, resolveWebSessionRole } from "@/lib/auth/session";
-import { createPersistedSession, resolveActiveLocalPrincipal } from "@/lib/auth/persisted-session";
+import { createPersistedSession, CredentialVersionMismatchError, resolveActiveLocalPrincipal } from "@/lib/auth/persisted-session";
 import { authenticatePasswordCredential } from "@/lib/auth/password-credential";
 import { checkRateLimit, clientIp } from "@/lib/api-auth";
 import { resolveDefaultProjectScope } from "@/lib/project-scope";
@@ -60,11 +60,13 @@ export async function POST(request: Request) {
 
   const body = bodyResult.data;
   const processProfile = resolveProcessProfile();
+  let authenticatedCredential: Awaited<ReturnType<typeof authenticatePasswordCredential>> = null;
   if (jwtConfigured) {
     const password = typeof body.password === "string" ? body.password : "";
     const requestedEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     if (processProfile === "production") {
-      if (!requestedEmail || !(await authenticatePasswordCredential(requestedEmail, password))) {
+      authenticatedCredential = requestedEmail ? await authenticatePasswordCredential(requestedEmail, password) : null;
+      if (!authenticatedCredential) {
         return NextResponse.json({ error: "invalid credentials" }, { status: 401 });
       }
     } else {
@@ -103,18 +105,27 @@ export async function POST(request: Request) {
     // arbitrary request email into an enabled user. A legacy NULL/legacy_pending or disabled row
     // gets no session even with a correct AUTH_DEMO_PASSWORD (no password-only fallback).
     const principal = await resolveActiveLocalPrincipal(email, projectScope.projectId);
-    if (!principal) {
+    if (!principal || (processProfile === "production" && authenticatedCredential?.userId !== principal.userId)) {
       return NextResponse.json({ error: "invalid credentials" }, { status: 401 });
     }
 
-    const persisted = await createPersistedSession({
-      userId: principal.userId,
-      tenantId: principal.tenantId,
-      companyId: principal.companyId,
-      projectId: principal.projectId,
-      projectSlug: projectScope.projectSlug,
-      role,
-    });
+    let persisted;
+    try {
+      persisted = await createPersistedSession({
+        userId: principal.userId,
+        tenantId: principal.tenantId,
+        companyId: principal.companyId,
+        projectId: principal.projectId,
+        projectSlug: projectScope.projectSlug,
+        role,
+        credentialVersion: processProfile === "production" ? authenticatedCredential!.credentialVersion : null,
+      });
+    } catch (error) {
+      if (error instanceof CredentialVersionMismatchError) {
+        return NextResponse.json({ error: "invalid credentials" }, { status: 401 });
+      }
+      throw error;
+    }
     token = persisted.token;
   }
 

@@ -45,6 +45,7 @@ model User {
 model UserCredential {
   userId              String    @id @map("user_id")
   passwordDigest      String    @map("password_digest")
+  credentialVersion   Int       @default(1) @map("credential_version")
   failedAttempts      Int       @default(0) @map("failed_attempts")
   lockedUntil         DateTime? @map("locked_until")
   lastAuthenticatedAt DateTime? @map("last_authenticated_at")

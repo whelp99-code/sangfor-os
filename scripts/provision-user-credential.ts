@@ -24,8 +24,8 @@ async function main() {
   await prisma.$transaction([
     prisma.userCredential.upsert({
       where: { userId: user.id },
-      create: { userId: user.id, passwordDigest },
-      update: { passwordDigest, failedAttempts: 0, lockedUntil: null },
+      create: { userId: user.id, passwordDigest, credentialVersion: 1 },
+      update: { passwordDigest, credentialVersion: { increment: 1 }, failedAttempts: 0, lockedUntil: null },
     }),
     prisma.authSession.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: now } }),
   ]);

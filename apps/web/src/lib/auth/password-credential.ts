@@ -1,7 +1,7 @@
 import { randomBytes, scrypt as nodeScrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
-import { prisma } from "@sangfor/db";
+import { Prisma, prisma } from "@sangfor/db";
 
 const scrypt = promisify(nodeScrypt);
 const DIGEST_PREFIX = "$scrypt$v1$";
@@ -30,33 +30,38 @@ export async function verifyPasswordDigest(password: string, digest: string): Pr
   }
 }
 
-export async function authenticatePasswordCredential(email: string, password: string, now = new Date()): Promise<boolean> {
+export interface AuthenticatedPasswordCredential {
+  readonly userId: string;
+  readonly credentialVersion: number;
+}
+
+export async function authenticatePasswordCredential(email: string, password: string, now = new Date()): Promise<AuthenticatedPasswordCredential | null> {
   const normalizedEmail = email.trim().toLowerCase();
-  if (!normalizedEmail || password.length < 1 || password.length > 1024) return false;
+  if (!normalizedEmail || password.length < 1 || password.length > 1024) return null;
   const user = await prisma.user.findUnique({
     where: { email: normalizedEmail },
     select: { id: true, status: true, disabledAt: true, credential: true },
   });
   const credential = user?.credential;
   const verified = await verifyPasswordDigest(password, credential?.passwordDigest ?? DUMMY_DIGEST);
-  if (!user || user.status !== "active" || user.disabledAt !== null || !credential) return false;
-  if (credential.lockedUntil && credential.lockedUntil.getTime() > now.getTime()) return false;
+  if (!user || user.status !== "active" || user.disabledAt !== null || !credential) return null;
+  if (credential.lockedUntil && credential.lockedUntil.getTime() > now.getTime()) return null;
   if (!verified) {
-    await prisma.$transaction([
-      prisma.userCredential.updateMany({
-        where: { userId: user.id, failedAttempts: { lt: MAX_FAILED_ATTEMPTS - 1 } },
-        data: { failedAttempts: { increment: 1 }, lockedUntil: null },
-      }),
-      prisma.userCredential.updateMany({
-        where: { userId: user.id, failedAttempts: { gte: MAX_FAILED_ATTEMPTS - 1 } },
-        data: { failedAttempts: MAX_FAILED_ATTEMPTS, lockedUntil: new Date(now.getTime() + LOCK_DURATION_MS) },
-      }),
-    ]);
-    return false;
+    await prisma.$executeRaw(Prisma.sql`
+      UPDATE user_credentials
+      SET failed_attempts = LEAST(${MAX_FAILED_ATTEMPTS}, failed_attempts + 1),
+          locked_until = CASE
+            WHEN failed_attempts >= ${MAX_FAILED_ATTEMPTS - 1} THEN ${new Date(now.getTime() + LOCK_DURATION_MS)}
+            ELSE locked_until
+          END,
+          updated_at = ${now}
+      WHERE user_id = ${user.id}
+    `);
+    return null;
   }
   await prisma.userCredential.update({
     where: { userId: user.id },
     data: { failedAttempts: 0, lockedUntil: null, lastAuthenticatedAt: now },
   });
-  return true;
+  return { userId: user.id, credentialVersion: credential.credentialVersion };
 }

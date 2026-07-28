@@ -1,6 +1,6 @@
 import { createHmac, randomUUID } from "node:crypto";
 
-import { prisma } from "@sangfor/db";
+import { Prisma, prisma } from "@sangfor/db";
 import {
   computeHmacSignature,
   decodeJsonSegment,
@@ -84,12 +84,20 @@ export interface CreatePersistedSessionInput {
   readonly projectId: string;
   readonly projectSlug: string;
   readonly role: WebSessionRole;
+  readonly credentialVersion: number | null;
 }
 
 export interface CreatePersistedSessionResult {
   readonly token: string;
   readonly jti: string;
   readonly expiresAt: Date;
+}
+
+export class CredentialVersionMismatchError extends Error {
+  constructor() {
+    super("credential changed before session creation");
+    this.name = "CredentialVersionMismatchError";
+  }
 }
 
 /**
@@ -104,17 +112,27 @@ export async function createPersistedSession(input: CreatePersistedSessionInput)
   const nowSeconds = Math.floor(issuedAt.getTime() / 1000);
   const expiresAt = new Date((nowSeconds + config.ttlSeconds) * 1000);
 
-  await prisma.authSession.create({
-    data: {
-      id: jti,
-      userId: input.userId,
-      tenantId: input.tenantId,
-      companyId: input.companyId,
-      projectId: input.projectId,
-      issuedAt,
-      expiresAt,
-    },
+  const created = await prisma.$transaction(async (tx) => {
+    if (input.credentialVersion !== null) {
+      const rows = await tx.$queryRaw<Array<{ credential_version: number }>>(Prisma.sql`
+        SELECT credential_version FROM user_credentials WHERE user_id = ${input.userId} FOR UPDATE
+      `);
+      if (rows[0]?.credential_version !== input.credentialVersion) return false;
+    }
+    await tx.authSession.create({
+      data: {
+        id: jti,
+        userId: input.userId,
+        tenantId: input.tenantId,
+        companyId: input.companyId,
+        projectId: input.projectId,
+        issuedAt,
+        expiresAt,
+      },
+    });
+    return true;
   });
+  if (!created) throw new CredentialVersionMismatchError();
 
   const token = signSessionJwt(
     {
