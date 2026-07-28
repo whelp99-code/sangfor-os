@@ -102,6 +102,16 @@ describe("U075 perf:smoke safety contract", () => {
     )).toThrow("lease-bound T-PERF");
   });
 
+  it("seeds a production-profile password credential for the performance principal", async () => {
+    const { seedPerformanceCredential } = await import("./seed");
+    const hashPassword = vi.fn().mockResolvedValue("$scrypt$v1$digest");
+    const createCredential = vi.fn().mockResolvedValue({});
+    await seedPerformanceCredential("performance-password", { hashPassword, createCredential });
+    expect(hashPassword).toHaveBeenCalledWith("performance-password");
+    expect(createCredential).toHaveBeenCalledWith({ userId: "u075-user-ceo", passwordDigest: "$scrypt$v1$digest" });
+    await expect(seedPerformanceCredential(undefined, { hashPassword, createCredential })).rejects.toThrow("AUTH_DEMO_PASSWORD");
+  });
+
   it("rejects non-loopback PORT", async () => {
     process.env.TASK_RUN_ID = "test-run";
     process.env.TASK_OWNER_UNIT = "U075";
