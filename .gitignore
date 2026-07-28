@@ -35,3 +35,15 @@ docs/generated/
 
 # Local DB backups (real data — never commit)
 .local-backups/
+backups/
+.agents/results/backups/
+
+# Local runtime and test logs
+*.log
+.local-uxtest/
+
+# Agent scratch files
+brain/
+
+# Derived mail-learning work products (may contain sensitive source data)
+.agents/results/learning/
