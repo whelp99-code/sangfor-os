@@ -104,6 +104,7 @@ export function validateComposeModel(model) {
   if (!model.services?.api?.environment?.DATABASE_URL?.includes("sangfor_runtime_login")) issues.push("api DATABASE_URL must use the non-DDL runtime role");
   if (!model.services?.web?.environment?.DATABASE_URL?.includes("sangfor_runtime_login")) issues.push("web DATABASE_URL must use the non-DDL runtime role");
   for (const service of ["api", "web"]) if (!model.services?.[service]?.environment?.DATABASE_URL?.includes("app.tenant_id")) issues.push(`${service}: runtime DATABASE_URL must pin RLS scope settings`);
+  for (const service of ["api", "web"]) if (model.services?.[service]?.environment?.SANGFOR_PROCESS_PROFILE !== "production") issues.push(`${service}: SANGFOR_PROCESS_PROFILE must be production`);
   for (const service of ["api", "web"]) if ((model.services?.[service]?.volumes?.length ?? 0) > 0) issues.push(`${service}: runtime source bind mounts are forbidden`);
   const roleInitCommand = JSON.stringify(model.services?.["app-role-init"]?.command ?? []);
   if (!roleInitCommand.includes("NOBYPASSRLS") || roleInitCommand.includes(" BYPASSRLS")) issues.push("runtime role must be NOBYPASSRLS");

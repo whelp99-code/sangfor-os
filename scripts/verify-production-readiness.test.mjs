@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import { signProductionApprovalReceipt, validateProductionReadiness, verifyProductionReadinessWithAuthority } from "./verify-production-readiness.mjs";
+import { loadProductionAuthority } from "./lib/production-authority.mjs";
 
 const candidateSha = "a".repeat(40);
 const approvalKeys = generateKeyPairSync("ed25519");
@@ -87,6 +88,36 @@ describe("production readiness evidence", () => {
       if (previousIssuer === undefined) delete process.env.PRODUCTION_APPROVAL_ISSUER;
       else process.env.PRODUCTION_APPROVAL_ISSUER = previousIssuer;
       rmSync(value.directory, { recursive: true });
+    }
+  });
+  it("rejects local and private nonce authorities while accepting remote HTTPS addresses", () => {
+    const directory = join(tmpdir(), `production-authority-addresses-${process.pid}-${Math.random().toString(16).slice(2)}`);
+    mkdirSync(directory);
+    const authorityPath = join(directory, "production-authority.json");
+    const privateKeyPath = join(directory, "deployment-private.pem");
+    writeFileSync(privateKeyPath, deploymentKeys.privateKey.export({ type: "pkcs8", format: "pem" }), { mode: 0o600 });
+    const authority = (nonceConsumeUrl) => ({ schemaVersion: 1, approvalIssuer, approvalKeys: approvalKeyring, nonceConsumeUrl, nonceConsumeBearerToken: "t".repeat(32), deploymentReceiptKeyId: "deployment-1", deploymentReceiptPrivateKeyPath: privateKeyPath, deploymentReceiptKeys: { "deployment-1": { publicKeyPem: deploymentKeys.publicKey.export({ type: "spki", format: "pem" }), status: "verify" } } });
+    const writeAuthority = (nonceConsumeUrl) => writeFileSync(authorityPath, `${JSON.stringify(authority(nonceConsumeUrl))}\n`, { mode: 0o600 });
+    const rejected = [
+      "https://localhost/v1/consume", "https://localhost./v1/consume", "https://a.localhost/v1/consume", "https://a.localhost./v1/consume",
+      "https://0.0.0.0/v1/consume", "https://0.255.255.255/v1/consume", "https://10.0.0.5/v1/consume", "https://127.0.0.2/v1/consume", "https://127.1/v1/consume", "https://2130706433/v1/consume", "https://0x7f.1/v1/consume", "https://169.254.169.254/v1/consume", "https://172.16.0.1/v1/consume", "https://172.31.255.255/v1/consume", "https://192.168.1.1/v1/consume",
+      "https://[::]/v1/consume", "https://[::1]/v1/consume", "https://[fe80::1]/v1/consume", "https://[febf::1]/v1/consume", "https://[fc00::1]/v1/consume", "https://[fdff::1]/v1/consume",
+      "https://[::ffff:0.0.0.1]/v1/consume", "https://[::ffff:10.0.0.5]/v1/consume", "https://[::ffff:127.0.0.1]/v1/consume", "https://[::ffff:169.254.169.254]/v1/consume", "https://[::ffff:172.16.0.1]/v1/consume", "https://[::ffff:192.168.1.1]/v1/consume",
+    ];
+    const accepted = [
+      "https://nonce.approval.example/v1/consume", "https://8.8.8.8/v1/consume", "https://126.255.255.255/v1/consume", "https://128.0.0.1/v1/consume", "https://172.15.255.255/v1/consume", "https://172.32.0.1/v1/consume", "https://[2606:4700:4700::1111]/v1/consume", "https://[::ffff:8.8.8.8]/v1/consume",
+    ];
+    try {
+      for (const nonceConsumeUrl of rejected) {
+        writeAuthority(nonceConsumeUrl);
+        assert.throws(() => loadProductionAuthority(authorityPath, { allowNonRootOwner: true }), /must be remote HTTPS/u, nonceConsumeUrl);
+      }
+      for (const nonceConsumeUrl of accepted) {
+        writeAuthority(nonceConsumeUrl);
+        assert.equal(loadProductionAuthority(authorityPath, { allowNonRootOwner: true }).authority.nonceConsumeUrl, nonceConsumeUrl);
+      }
+    } finally {
+      rmSync(directory, { recursive: true });
     }
   });
 });
