@@ -180,10 +180,10 @@ jobs:
     env:
       DATABASE_URL: postgresql://aios:aios_password@localhost:5432/sangfor_task_ci_e2e
       TASK_OWNED_DATABASE_URL: postgresql://aios:aios_password@localhost:5432/sangfor_task_ci_e2e
-      TASK_POSTGRES_RECEIPT_FILE: ${{ runner.temp }}/sangfor-e2e/postgres-receipt.json
+      TASK_POSTGRES_RECEIPT_FILE: /tmp/sangfor-e2e/postgres-receipt.json
       TASK_OWNER_UNIT: U066
       TASK_RUN_ID: ci-e2e
-      UX_FIXTURE_OUTPUT_DIR: ${{ runner.temp }}/sangfor-e2e/ux-fixtures
+      UX_FIXTURE_OUTPUT_DIR: /tmp/sangfor-e2e/ux-fixtures
       SANGFOR_APP_DATABASE_URL: postgresql://sangfor_app_login:ci-e2e-app-password@localhost:5432/sangfor_task_ci_e2e
       API_KEY: ci-e2e-operator-api-key-000000000
       FINANCE_API_KEY: ci-e2e-finance-api-key-000000000
