@@ -2,7 +2,7 @@
 
 > **목적**: 개발할 때마다 펴보는 단일 진입점. 시스템 지도 · 워크스트림 · 소스 인벤토리 · 명령어 · 데이터모델 · 알려진 이슈를 한 곳에.
 > **유지 규칙**: 작업이 끝날 때마다 이 문서를 갱신한다. 새 워크스트림은 §3에 한 섹션 추가, 명령은 §5, 파일은 §6, 모델 변경은 §7, 이슈는 §8. 맨 아래 **변경 이력** 한 줄 추가.
-> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-07-17
+> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-07-28
 
 > **Canonical requirement/acceptance 진입점**: [ID registry](01_SPEC/Requirement_ID_Registry.md) → [requirement source](01_SPEC/Requirements_MoSCoW.md) / [acceptance source](08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md) → [99-row machine manifest](12_VERIFICATION/acceptance-manifest.json) / [evidence schema](12_VERIFICATION/acceptance-evidence.schema.json). 구현 분모는 28 requirements와 71 acceptance이며 C1–C5/W1–W5는 제외한다.
 
@@ -501,6 +501,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ---
 
 ## 변경 이력
+- **2026-07-28**: U076 실사용 QA 하네스 운영 안전성 보강 — 고정 `:3101`과 타 프로세스 READY 오인을 제거하고 run-id별 fresh evidence, 명시/동적 loopback 포트 검증, owned web child 생존 검사를 추가했다. 가상 메일 시드는 U076 task-owned loopback `sangfor_task_*` DB와 open/migrated PostgreSQL receipt가 일치할 때만 Prisma를 지연 로드해 mutation하며, 두 행동 테스트를 CI·release manifest·최종 수용성 focused gate에 연결했다.
 - **2026-07-27**: U076 100건 격리 실사용 검증 — 이메일 학습 50건과 사용자 UI 입력 50건을 실제 입력해 메일 스레드 50·후보 130·직접 고객 50을 확인하고 승인/반려/AI 재검증/유형교정/연결 산출물을 표본 실측했다. CAS·멱등성·RLS·감사 JSON·회사명 도출·연결 UI 결함을 수정하고 비스코프 레거시 배치/거부/유형수정 경로를 제거했다. 테스트 행·JWT 픽스처·격리 Docker 자원은 모두 삭제했으며 Grok 독립 감사와 Node 20 전체 품질 게이트가 PASS했다. 상세 범위와 과장 금지 경계는 [`docs/plans/2026-07-27-u076-real-use-100.md`](plans/2026-07-27-u076-real-use-100.md)에 기록했다.
 - **2026-07-26**: U068/U073/U074 DB closure 보강 — scheduler 실통합 테스트, 198-model 중 187 scoped table의 FORCE RLS와 94개 CHILD_VIA_FK parent-EXISTS 정책, U009 격리 tenant-selective restore 실행기(식별자 allowlist·결정적 remap·hash 기반 멱등성)를 추가했다. 복구 멱등 ledger로 `_prisma_migrations`를 사용하지 않는다.
 - **2026-07-25**: AI 품질 커널 (U054) 안착 — policyKey/slot/quorum 규격, writer/lookup 커맨드, 409 에러 코드, user separation 규칙 및 qualityPassed ≠ 승인/발송 구분 명시.
