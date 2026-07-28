@@ -4,17 +4,30 @@ vi.mock("@/lib/project-scope", () => ({
   resolveDefaultProjectScope: vi.fn().mockResolvedValue(null),
 }));
 
+const credentialMocks = vi.hoisted(() => ({ authenticate: vi.fn() }));
+vi.mock("@/lib/auth/password-credential", () => ({
+  authenticatePasswordCredential: credentialMocks.authenticate,
+}));
+
 const prismaMocks = vi.hoisted(() => ({
   userFindUnique: vi.fn(),
   projectFindUnique: vi.fn(),
+  projectMemberFindFirst: vi.fn(),
+  userCompanyRoleFindFirst: vi.fn(),
   authSessionCreate: vi.fn(),
+  credentialLockQuery: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock("@sangfor/db", () => ({
+  Prisma: { sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values })) },
   prisma: {
     user: { findUnique: prismaMocks.userFindUnique },
     project: { findUnique: prismaMocks.projectFindUnique },
+    projectMember: { findFirst: prismaMocks.projectMemberFindFirst },
+    userCompanyRole: { findFirst: prismaMocks.userCompanyRoleFindFirst },
     authSession: { create: prismaMocks.authSessionCreate },
+    $transaction: prismaMocks.transaction,
   },
 }));
 
@@ -130,7 +143,15 @@ describe("POST /api/auth/login with a configured USER_JWT_* keyring", () => {
     for (const [key, value] of Object.entries(validUserJwtEnv())) vi.stubEnv(key, value);
     prismaMocks.userFindUnique.mockReset();
     prismaMocks.projectFindUnique.mockReset();
+    prismaMocks.projectMemberFindFirst.mockReset().mockResolvedValue({ id: "membership-1" });
+    prismaMocks.userCompanyRoleFindFirst.mockReset().mockResolvedValue({ id: "role-1" });
     prismaMocks.authSessionCreate.mockReset().mockResolvedValue({});
+    prismaMocks.credentialLockQuery.mockReset().mockResolvedValue([{ credential_version: 1 }]);
+    prismaMocks.transaction.mockReset().mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => callback({
+      $queryRaw: prismaMocks.credentialLockQuery,
+      authSession: { create: prismaMocks.authSessionCreate },
+    }));
+    credentialMocks.authenticate.mockReset();
   });
 
   afterEach(() => vi.unstubAllEnvs());
@@ -141,6 +162,25 @@ describe("POST /api/auth/login with a configured USER_JWT_* keyring", () => {
     const response = await POST(loginRequest("203.0.113.10"));
 
     expect(response.status).toBe(503);
+  });
+
+  it("uses a per-user credential and forbids shared demo-password auth in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SANGFOR_PROCESS_PROFILE", "production");
+    vi.stubEnv("AUTH_DEMO_PASSWORD", "");
+    credentialMocks.authenticate.mockResolvedValueOnce({ userId: "user-1", credentialVersion: 1 });
+    vi.mocked(resolveDefaultProjectScope).mockResolvedValueOnce({ projectId: "project-1", projectSlug: "demo-project" });
+    prismaMocks.userFindUnique.mockResolvedValueOnce(ACTIVE_USER);
+    prismaMocks.projectFindUnique.mockResolvedValueOnce(PROJECT);
+
+    const response = await POST(new Request("http://localhost/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.14" },
+      body: JSON.stringify({ email: "ACTIVE@EXAMPLE.COM", password: "per-user-password-value" }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(credentialMocks.authenticate).toHaveBeenCalledWith("active@example.com", "per-user-password-value");
   });
 
   it("issues a canonical 3-segment session JWT with a cookie bounded to the token TTL, not 7 days — for an existing, explicitly active user", async () => {

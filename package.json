@@ -21,6 +21,8 @@
     "verify:staging-equivalent": "node scripts/verify-staging-equivalent.mjs",
     "verify:final-acceptance": "node scripts/run-final-acceptance.mjs",
     "verify:operational-entrypoints": "node scripts/verify-operational-entrypoints.mjs",
+    "verify:production-deploy": "node scripts/verify-production-deploy.mjs --env-file .env.production",
+    "provision:user-credential": "tsx scripts/provision-user-credential.ts",
     "db:generate": "pnpm --filter @sangfor/db db:generate",
     "db:migrate": "pnpm --filter @sangfor/db db:migrate",
     "db:migrate:deploy": "pnpm --filter @sangfor/db db:migrate:deploy",

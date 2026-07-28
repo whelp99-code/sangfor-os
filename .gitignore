@@ -8,6 +8,7 @@ allure-results
 *.tsbuildinfo
 .env
 .env.local
+.env.production
 .env.*.local
 __pycache__
 .DS_Store

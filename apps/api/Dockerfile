@@ -1,4 +1,4 @@
-FROM node:22-alpine AS base
+FROM node:20-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
 
 FROM base AS deps
@@ -20,6 +20,7 @@ COPY --from=deps /app/packages ./packages
 COPY . .
 
 RUN pnpm --filter @sangfor/db db:generate
+RUN pnpm --filter @sangfor/api build
 
 FROM base AS runner
 WORKDIR /app
@@ -33,4 +34,4 @@ COPY --from=builder /app/package.json /app/pnpm-workspace.yaml ./
 
 EXPOSE 3200
 WORKDIR /app/apps/api
-CMD ["pnpm", "exec", "tsx", "src/index.ts"]
+CMD ["node", "dist/index.mjs"]

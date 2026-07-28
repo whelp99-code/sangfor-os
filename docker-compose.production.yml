@@ -1,0 +1,253 @@
+name: ${COMPOSE_PROJECT_NAME:-sangfor-production}
+
+x-runtime-environment: &runtime-environment
+  NODE_ENV: production
+  SANGFOR_PROCESS_PROFILE: production
+  DATABASE_URL: postgresql://sangfor_runtime_login:${SANGFOR_RUNTIME_DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-sangfor_os}?options=-c%20app.tenant_id%3D${DEFAULT_TENANT_ID}%20-c%20app.company_id%3D${DEFAULT_COMPANY_ID}%20-c%20app.project_id%3D${DEFAULT_PROJECT_ID}
+  SANGFOR_APP_DATABASE_URL: postgresql://sangfor_app_login:${SANGFOR_APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-sangfor_os}
+  REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+  DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID}
+  DEFAULT_COMPANY_ID: ${DEFAULT_COMPANY_ID}
+  DEFAULT_PROJECT_ID: ${DEFAULT_PROJECT_ID}
+  DEFAULT_PROJECT_SLUG: ${DEFAULT_PROJECT_SLUG}
+  AUTH_PROFILE: ""
+  AUTH_BYPASS_ENABLED: "0"
+  API_KEY_BYPASS_ENABLED: "0"
+  WHELP99_ENFORCE_SAFE_TOOLS: "true"
+  API_KEY: ${API_KEY}
+  FINANCE_API_KEY: ${FINANCE_API_KEY}
+  SANGFOR_API_KEY: ${SANGFOR_API_KEY}
+  SANGFOR_OPERATOR_PRINCIPAL_ID: ${SANGFOR_OPERATOR_PRINCIPAL_ID}
+  JWT_SECRET: ${JWT_SECRET}
+  USER_JWT_ACTIVE_KID: ${USER_JWT_ACTIVE_KID}
+  USER_JWT_KEYRING_JSON: ${USER_JWT_KEYRING_JSON}
+  USER_JWT_ROTATION_OWNER: security-auth
+  USER_JWT_ISSUER: ${USER_JWT_ISSUER:-sangfor-os}
+  USER_JWT_AUDIENCE: ${USER_JWT_AUDIENCE:-sangfor-os-runtime}
+  USER_JWT_TTL_SECONDS: ${USER_JWT_TTL_SECONDS:-900}
+  USER_JWT_CLOCK_SKEW_SECONDS: ${USER_JWT_CLOCK_SKEW_SECONDS:-30}
+  INTERNAL_PRINCIPAL_TTL_SECONDS: ${INTERNAL_PRINCIPAL_TTL_SECONDS:-60}
+  INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS: ${INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS:-5}
+  INTERNAL_PRINCIPAL_ROTATION_OWNER: security-auth
+  INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID: ${INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID}
+  INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON: ${INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON}
+  INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID: ${INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID}
+  INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON: ${INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON}
+  INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID: ${INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID}
+  INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON: ${INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON}
+  INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID: ${INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID}
+  INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON: ${INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON}
+  EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID: ${EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID}
+  EXTERNAL_ACTION_RECEIPT_KEYS_JSON: ${EXTERNAL_ACTION_RECEIPT_KEYS_JSON}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sangfor
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-sangfor_os}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sangfor -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks: [backend]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["sh", "-ec", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -qx PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    networks: [backend]
+
+  backup:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: postgres
+      PGUSER: sangfor
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-sangfor_os}
+      DEPLOYMENT_ID: ${DEPLOYMENT_ID:-validation}
+    command:
+      - sh
+      - -ec
+      - |
+        umask 077
+        output="/backups/predeploy-$${DEPLOYMENT_ID}.dump"
+        partial="$${output}.partial"
+        if [ -e "$${output}" ] || [ -e "$${output}.sha256" ]; then
+          echo "refusing to overwrite existing predeploy backup for $${DEPLOYMENT_ID}" >&2
+          exit 73
+        fi
+        trap 'rm -f "$${partial}"' EXIT
+        pg_dump -Fc --no-owner --no-privileges -f "$${partial}"
+        test "$$(wc -c < "$${partial}")" -ge 512
+        pg_restore --list "$${partial}" >/dev/null
+        mv "$${partial}" "$${output}"
+        cd /backups
+        sha256sum "predeploy-$${DEPLOYMENT_ID}.dump" > "predeploy-$${DEPLOYMENT_ID}.dump.sha256"
+        trap - EXIT
+    volumes:
+      - type: bind
+        source: ${BACKUP_DIR}
+        target: /backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+    restart: "no"
+
+  migrate:
+    image: ${API_IMAGE_REF:-sangfor-api:local}
+    command: ["corepack", "pnpm", "--filter", "@sangfor/db", "db:migrate:deploy"]
+    environment:
+      DATABASE_URL: postgresql://sangfor:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sangfor_os}
+    depends_on:
+      backup:
+        condition: service_completed_successfully
+    networks: [backend]
+    restart: "no"
+
+  app-role-init:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: postgres
+      PGUSER: sangfor
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-sangfor_os}
+      SANGFOR_APP_DB_PASSWORD: ${SANGFOR_APP_DB_PASSWORD}
+      SANGFOR_RUNTIME_DB_PASSWORD: ${SANGFOR_RUNTIME_DB_PASSWORD}
+      DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID}
+      DEFAULT_COMPANY_ID: ${DEFAULT_COMPANY_ID}
+      DEFAULT_PROJECT_ID: ${DEFAULT_PROJECT_ID}
+    command:
+      - sh
+      - -ec
+      - |
+        psql -v ON_ERROR_STOP=1 -v app_password="$$SANGFOR_APP_DB_PASSWORD" <<'SQL'
+        SELECT format('ALTER ROLE sangfor_app_login WITH PASSWORD %L', :'app_password') \gexec
+        SQL
+        psql -v ON_ERROR_STOP=1 -v runtime_password="$$SANGFOR_RUNTIME_DB_PASSWORD" <<'SQL'
+        DO $$$$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sangfor_runtime_login') THEN
+            CREATE ROLE sangfor_runtime_login WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOBYPASSRLS;
+          END IF;
+        END
+        $$$$;
+        ALTER ROLE sangfor_runtime_login NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOBYPASSRLS;
+        GRANT sangfor_app TO sangfor_runtime_login WITH INHERIT TRUE, SET FALSE;
+        SELECT format('ALTER ROLE sangfor_runtime_login WITH PASSWORD %L', :'runtime_password') \gexec
+        SELECT format('GRANT CONNECT ON DATABASE %I TO sangfor_runtime_login', current_database()) \gexec
+        GRANT USAGE ON SCHEMA public TO sangfor_runtime_login;
+        REVOKE CREATE ON SCHEMA public FROM sangfor_runtime_login;
+        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sangfor_runtime_login;
+        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sangfor_runtime_login;
+        ALTER DEFAULT PRIVILEGES FOR ROLE sangfor IN SCHEMA public
+          GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sangfor_runtime_login;
+        ALTER DEFAULT PRIVILEGES FOR ROLE sangfor IN SCHEMA public
+          GRANT USAGE, SELECT ON SEQUENCES TO sangfor_runtime_login;
+        SQL
+        scoped_count="$$(PGPASSWORD="$$SANGFOR_RUNTIME_DB_PASSWORD" PGOPTIONS="-c app.tenant_id=$$DEFAULT_TENANT_ID -c app.company_id=$$DEFAULT_COMPANY_ID -c app.project_id=$$DEFAULT_PROJECT_ID" psql -U sangfor_runtime_login -Atc 'SELECT count(*) FROM projects')"
+        test "$$scoped_count" = "1"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [backend]
+    restart: "no"
+
+  api:
+    image: ${API_IMAGE_REF:-sangfor-api:local}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *runtime-environment
+      API_PORT: "3200"
+      HOST: 0.0.0.0
+      CORS_ORIGIN: https://${APP_DOMAIN}
+    expose: ["3200"]
+    depends_on:
+      app-role-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3200/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks: [backend, egress]
+
+  web:
+    image: ${WEB_IMAGE_REF:-sangfor-web:local}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *runtime-environment
+      PORT: "3101"
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_APP_URL: https://${APP_DOMAIN}
+      FINANCE_API_URL: http://api:3200/api/cfo
+      CFO_API_URL: http://api:3200/api/cfo
+      SESSION_COOKIE_SECURE: "1"
+    expose: ["3101"]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3101/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks: [backend, egress]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./docker/caddy/Caddyfile.production:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    networks: [backend, edge]
+
+networks:
+  backend:
+    internal: true
+  egress:
+  edge:
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

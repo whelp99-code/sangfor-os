@@ -218,6 +218,7 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   { model: 'AiExecution', unit: 'U072', category: 'PROJECT_ROOT' },
   { model: 'AiProviderAttempt', unit: 'U072', category: 'CHILD_VIA_FK' },
   { model: 'AiExecutionCost', unit: 'U072', category: 'CHILD_VIA_FK' },
+  { model: 'UserCredential', unit: 'U076', category: 'GLOBAL_SHARED' },
 ];
 
 export interface ReclassifiedModel {
@@ -449,6 +450,7 @@ export const MODEL_SCOPE_INVENTORY: Record<string, ScopeInventoryEntry> = {
   TestRun: { model: 'TestRun', category: 'PROJECT_ROOT' },
   ToolCall: { model: 'ToolCall', category: 'CHILD_VIA_FK', parentModel: 'AgentAssignment', relationField: 'agentAssignment', scalarFkField: 'agentAssignmentId', nullable: false },
   User: { model: 'User', category: 'GLOBAL_SHARED' },
+  UserCredential: { model: 'UserCredential', category: 'GLOBAL_SHARED' },
   UserCompanyRole: { model: 'UserCompanyRole', category: 'CHILD_VIA_FK', parentModel: 'Company', relationField: 'company', scalarFkField: 'companyId', nullable: false },
   ValidationCheck: { model: 'ValidationCheck', category: 'CHILD_VIA_FK', parentModel: 'ValidationPlan', relationField: 'plan', scalarFkField: 'planId', nullable: false },
   ValidationPlan: { model: 'ValidationPlan', category: 'PROJECT_ROOT' },

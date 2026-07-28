@@ -392,7 +392,7 @@ The following 12 steps are the recommended learning path for new team members.
 | `health-check.sh` | Check all services health |
 | `mock-upstreams.mjs` | Start mock external services |
 | `start-system.sh` | Start full system stack |
-| `deploy-production.sh` | Production deployment |
+| `deploy-production.sh` | Fail-closed single-host production deployment (`--check`, explicit confirmation) |
 | `daily-report.py` | Daily report generation |
 | `run-all-checks.sh` | Run all verification checks |
 | `reset-db.sh` | Reset database |

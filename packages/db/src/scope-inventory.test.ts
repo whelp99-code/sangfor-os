@@ -67,8 +67,8 @@ describe('buildScopeInventoryReport — real inventory', () => {
     const report = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
-    expect(Prisma.dmmf.datamodel.models).toHaveLength(198);
-    expect(report.currentModelCount).toBe(198);
+    expect(Prisma.dmmf.datamodel.models).toHaveLength(199);
+    expect(report.currentModelCount).toBe(199);
     expect(report.currentModelCount).toBe(expectedCurrentModelCount());
     expect(report.tallies).toEqual(expectedCategoryCounts());
   });
@@ -125,6 +125,7 @@ describe('REGISTERED_ADDITIONS — U011 model registration', () => {
       { model: 'AiExecution', unit: 'U072', category: 'PROJECT_ROOT' },
       { model: 'AiProviderAttempt', unit: 'U072', category: 'CHILD_VIA_FK' },
       { model: 'AiExecutionCost', unit: 'U072', category: 'CHILD_VIA_FK' },
+      { model: 'UserCredential', unit: 'U076', category: 'GLOBAL_SHARED' },
     ]);
   });
 
@@ -390,7 +391,7 @@ describe('RECLASSIFIED_MODELS — sealed scope reclassifications', () => {
 
   it('derives the exact U041 vector from baseline plus additions and reclassifications', () => {
     expect(expectedCategoryCounts()).toEqual(buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES).tallies);
-    expect(expectedCategoryCounts()).toEqual({ GLOBAL_SHARED: 8, TENANT_ROOT: 2, COMPANY_ROOT: 38, PROJECT_ROOT: 49, CHILD_VIA_FK: 97, COMPANY_DIRECT: 4 });
+    expect(expectedCategoryCounts()).toEqual({ GLOBAL_SHARED: 9, TENANT_ROOT: 2, COMPANY_ROOT: 38, PROJECT_ROOT: 49, CHILD_VIA_FK: 97, COMPANY_DIRECT: 4 });
   });
 
   it('classifies RoleChangeRequest as CHILD_VIA_FK of Company via mandatory companyId in the live inventory', () => {
@@ -420,7 +421,7 @@ describe('U041 AI quality immutable-history registration', () => {
 
   it('requires the six new Prisma models, then permits only their single canonical child paths', () => {
     const modelNames = Prisma.dmmf.datamodel.models.map((model) => model.name);
-    expect(modelNames).toHaveLength(198);
+    expect(modelNames).toHaveLength(199);
     for (const name of names) expect(modelNames).toContain(name);
 
     const withoutU041 = REAL_ENTRIES.filter((entry) => !names.includes(entry.model));
@@ -450,9 +451,9 @@ describe('U041 AI quality immutable-history registration', () => {
     const first = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     const second = buildScopeInventoryReport(REAL_MODEL_NAMES, REAL_ENTRIES);
     expect(JSON.stringify(second)).toBe(JSON.stringify(first));
-    expect(first.currentModelCount).toBe(198);
-    expect(first.inventoryModelCount).toBe(198);
-    expect(Object.values(first.tallies).reduce((sum, count) => sum + count, 0)).toBe(198);
+    expect(first.currentModelCount).toBe(199);
+    expect(first.inventoryModelCount).toBe(199);
+    expect(Object.values(first.tallies).reduce((sum, count) => sum + count, 0)).toBe(199);
   });
 });
 

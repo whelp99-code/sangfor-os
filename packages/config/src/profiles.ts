@@ -247,6 +247,9 @@ function collectProductionSafetyIssues(
   }
 
   if (processName === "web") {
+    if (isNonBlank(env.AUTH_DEMO_PASSWORD)) {
+      issues.push("AUTH_DEMO_PASSWORD forbidden in production");
+    }
     if (!isNonBlank(env.JWT_SECRET) && !isNonBlank(env.NEXTAUTH_SECRET)) {
       issues.push("missing JWT_SECRET|NEXTAUTH_SECRET (production)");
     }

@@ -5,15 +5,19 @@ const prismaMocks = vi.hoisted(() => ({
   userFindUnique: vi.fn(),
   authSessionFindUnique: vi.fn(),
   authSessionCreate: vi.fn(),
+  credentialLockQuery: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock("@sangfor/db", () => ({
+  Prisma: { sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values })) },
   prisma: {
     user: { findUnique: prismaMocks.userFindUnique },
     authSession: {
       findUnique: prismaMocks.authSessionFindUnique,
       create: prismaMocks.authSessionCreate,
     },
+    $transaction: prismaMocks.transaction,
   },
 }));
 
@@ -96,6 +100,7 @@ async function persistedToken(): Promise<string> {
     projectId: "project-1",
     projectSlug: "demo-project",
     role: "admin",
+    credentialVersion: 1,
   });
   prismaMocks.authSessionFindUnique.mockResolvedValue({
     id: jti,
@@ -132,6 +137,11 @@ describe("proxy (Next.js proxy/middleware convention — apps/web/src/proxy.ts)"
   beforeEach(() => {
     snap = snapshotEnv();
     vi.clearAllMocks();
+    prismaMocks.credentialLockQuery.mockResolvedValue([{ credential_version: 1 }]);
+    prismaMocks.transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => callback({
+      $queryRaw: prismaMocks.credentialLockQuery,
+      authSession: { create: prismaMocks.authSessionCreate },
+    }));
   });
 
   afterEach(() => {

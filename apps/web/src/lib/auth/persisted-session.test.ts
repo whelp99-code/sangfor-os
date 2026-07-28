@@ -3,20 +3,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMocks = vi.hoisted(() => ({
   userFindUnique: vi.fn(),
   projectFindUnique: vi.fn(),
+  projectMemberFindFirst: vi.fn(),
+  userCompanyRoleFindFirst: vi.fn(),
   authSessionCreate: vi.fn(),
   authSessionFindUnique: vi.fn(),
   authSessionUpdateMany: vi.fn(),
+  credentialLockQuery: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock("@sangfor/db", () => ({
+  Prisma: { sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values })) },
   prisma: {
     user: { findUnique: prismaMocks.userFindUnique },
     project: { findUnique: prismaMocks.projectFindUnique },
+    projectMember: { findFirst: prismaMocks.projectMemberFindFirst },
+    userCompanyRole: { findFirst: prismaMocks.userCompanyRoleFindFirst },
     authSession: {
       create: prismaMocks.authSessionCreate,
       findUnique: prismaMocks.authSessionFindUnique,
       updateMany: prismaMocks.authSessionUpdateMany,
     },
+    $transaction: prismaMocks.transaction,
   },
 }));
 
@@ -24,6 +32,7 @@ import { verifySessionJwt } from "@sangfor/auth";
 
 import {
   createPersistedSession,
+  CredentialVersionMismatchError,
   evaluatePersistedSessionFromRequest,
   resolveActiveLocalPrincipal,
   revokeSession,
@@ -72,6 +81,13 @@ const PROJECT = { id: "project-1", companyId: "company-1", company: { tenantId: 
 
 beforeEach(() => {
   vi.clearAllMocks();
+  prismaMocks.credentialLockQuery.mockResolvedValue([{ credential_version: 1 }]);
+  prismaMocks.transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => callback({
+    $queryRaw: prismaMocks.credentialLockQuery,
+    authSession: { create: prismaMocks.authSessionCreate },
+  }));
+  prismaMocks.projectMemberFindFirst.mockResolvedValue({ id: "membership-1" });
+  prismaMocks.userCompanyRoleFindFirst.mockResolvedValue({ id: "role-1" });
   stubValidUserJwtEnv();
 });
 
@@ -120,6 +136,14 @@ describe("resolveActiveLocalPrincipal", () => {
 
     expect(result).toBeNull();
   });
+
+  it("returns null without active project and company authority", async () => {
+    prismaMocks.userFindUnique.mockResolvedValueOnce(ACTIVE_USER);
+    prismaMocks.projectFindUnique.mockResolvedValueOnce(PROJECT);
+    prismaMocks.projectMemberFindFirst.mockResolvedValueOnce(null);
+
+    await expect(resolveActiveLocalPrincipal("operator@example.com", "project-1")).resolves.toBeNull();
+  });
 });
 
 describe("createPersistedSession", () => {
@@ -133,6 +157,7 @@ describe("createPersistedSession", () => {
       projectId: "project-1",
       projectSlug: "demo-project",
       role: "operator",
+      credentialVersion: 1,
     });
 
     expect(prismaMocks.authSessionCreate).toHaveBeenCalledTimes(1);
@@ -159,8 +184,23 @@ describe("createPersistedSession", () => {
         projectId: "project-1",
         projectSlug: "demo-project",
         role: "operator",
+        credentialVersion: 1,
       }),
     ).rejects.toThrow("insert failed");
+  });
+
+  it("rejects session creation after a concurrent credential rotation", async () => {
+    prismaMocks.credentialLockQuery.mockResolvedValueOnce([{ credential_version: 2 }]);
+    await expect(createPersistedSession({
+      userId: "user-1",
+      tenantId: "tenant-1",
+      companyId: "company-1",
+      projectId: "project-1",
+      projectSlug: "demo-project",
+      role: "operator",
+      credentialVersion: 1,
+    })).rejects.toBeInstanceOf(CredentialVersionMismatchError);
+    expect(prismaMocks.authSessionCreate).not.toHaveBeenCalled();
   });
 });
 
@@ -185,6 +225,7 @@ describe("evaluatePersistedSessionFromRequest", () => {
       projectId: "project-1",
       projectSlug: "demo-project",
       role: "operator",
+      credentialVersion: 1,
     });
     prismaMocks.authSessionFindUnique.mockResolvedValueOnce(null);
 
@@ -202,6 +243,7 @@ describe("evaluatePersistedSessionFromRequest", () => {
       projectId: "project-1",
       projectSlug: "demo-project",
       role: "operator",
+      credentialVersion: 1,
     });
     prismaMocks.authSessionFindUnique.mockResolvedValueOnce({
       id: jti,
@@ -231,6 +273,7 @@ describe("evaluatePersistedSessionFromRequest", () => {
       projectId: "project-1",
       projectSlug: "demo-project",
       role: "operator",
+      credentialVersion: 1,
     });
     prismaMocks.authSessionFindUnique.mockResolvedValueOnce({
       id: jti,
@@ -260,6 +303,7 @@ describe("evaluatePersistedSessionFromRequest", () => {
       projectId: "project-1",
       projectSlug: "demo-project",
       role: "operator",
+      credentialVersion: 1,
     });
     prismaMocks.authSessionFindUnique.mockResolvedValueOnce({
       id: jti,
