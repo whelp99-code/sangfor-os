@@ -18,6 +18,8 @@
 ```bash
 bash scripts/run-workspace-runtime.sh root -- node --test \
   scripts/run-final-acceptance.test.mjs \
+  scripts/qa/run-real-use-100.test.mjs \
+  scripts/qa/seed-real-use-mail.test.mjs \
   scripts/verify-acceptance.test.mjs \
   scripts/verify-staging-equivalent.test.mjs
 ```
