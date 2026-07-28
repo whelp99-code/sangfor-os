@@ -37,8 +37,23 @@ model User {
   // TODO(oma-deferred): owner will expand to Actor union (User | TeamAgent) in a future migration
   ownedOpportunities Opportunity[]
   authSessions       AuthSession[]
+  credential         UserCredential?
 
   @@map("users")
+}
+
+model UserCredential {
+  userId              String    @id @map("user_id")
+  passwordDigest      String    @map("password_digest")
+  failedAttempts      Int       @default(0) @map("failed_attempts")
+  lockedUntil         DateTime? @map("locked_until")
+  lastAuthenticatedAt DateTime? @map("last_authenticated_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_credentials")
 }
 
 model Project {

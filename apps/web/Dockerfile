@@ -1,5 +1,5 @@
 # Sangfor Agentic OS — Web (Next.js 16)
-FROM node:22-alpine AS base
+FROM node:20-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
 
 # Dependencies stage — copy every workspace manifest so install is complete
@@ -17,6 +17,7 @@ RUN pnpm install --frozen-lockfile --prod=false
 # Build stage
 FROM base AS builder
 WORKDIR /app
+ENV NODE_OPTIONS=--max-old-space-size=4096
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps ./apps
 COPY --from=deps /app/packages ./packages

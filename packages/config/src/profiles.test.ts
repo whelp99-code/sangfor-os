@@ -167,6 +167,10 @@ describe("production profile fail-closed", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("forbids the shared demo password for production web", () => {
+    expect(() => validateProcessProfile("web", productionBase({ AUTH_DEMO_PASSWORD: "shared-password-value" }), "production")).toThrow(/AUTH_DEMO_PASSWORD forbidden/u);
+  });
+
   it("mirrors U002 productionAuthConfigurationIssues predicates", () => {
     const issues = productionAuthConfigurationIssues({
       NODE_ENV: "production",

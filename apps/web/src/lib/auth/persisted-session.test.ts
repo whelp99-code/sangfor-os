@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMocks = vi.hoisted(() => ({
   userFindUnique: vi.fn(),
   projectFindUnique: vi.fn(),
+  projectMemberFindFirst: vi.fn(),
+  userCompanyRoleFindFirst: vi.fn(),
   authSessionCreate: vi.fn(),
   authSessionFindUnique: vi.fn(),
   authSessionUpdateMany: vi.fn(),
@@ -12,6 +14,8 @@ vi.mock("@sangfor/db", () => ({
   prisma: {
     user: { findUnique: prismaMocks.userFindUnique },
     project: { findUnique: prismaMocks.projectFindUnique },
+    projectMember: { findFirst: prismaMocks.projectMemberFindFirst },
+    userCompanyRole: { findFirst: prismaMocks.userCompanyRoleFindFirst },
     authSession: {
       create: prismaMocks.authSessionCreate,
       findUnique: prismaMocks.authSessionFindUnique,
@@ -72,6 +76,8 @@ const PROJECT = { id: "project-1", companyId: "company-1", company: { tenantId: 
 
 beforeEach(() => {
   vi.clearAllMocks();
+  prismaMocks.projectMemberFindFirst.mockResolvedValue({ id: "membership-1" });
+  prismaMocks.userCompanyRoleFindFirst.mockResolvedValue({ id: "role-1" });
   stubValidUserJwtEnv();
 });
 
@@ -119,6 +125,14 @@ describe("resolveActiveLocalPrincipal", () => {
     const result = await resolveActiveLocalPrincipal("operator@example.com", "project-1");
 
     expect(result).toBeNull();
+  });
+
+  it("returns null without active project and company authority", async () => {
+    prismaMocks.userFindUnique.mockResolvedValueOnce(ACTIVE_USER);
+    prismaMocks.projectFindUnique.mockResolvedValueOnce(PROJECT);
+    prismaMocks.projectMemberFindFirst.mockResolvedValueOnce(null);
+
+    await expect(resolveActiveLocalPrincipal("operator@example.com", "project-1")).resolves.toBeNull();
   });
 });
 

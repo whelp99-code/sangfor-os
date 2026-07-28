@@ -296,6 +296,28 @@ scripts/dev-smoke.sh                     # 핵심 라우트 200/307 스모크
 scripts/dev-down.sh                      # api/web 정지 (postgres 유지; --db로 함께 정지)
 ```
 
+### 단일 호스트 운영 배포
+`docker-compose.production.yml`은 DB/Redis를 호스트에 공개하지 않고, 정식 Prisma migration →
+`sangfor_app_login` 비밀번호 설정 → API/Web health → Caddy TLS ingress 순서를 fail-closed로 강제한다.
+
+```bash
+cp .env.production.example .env.production
+chmod 600 .env.production
+# 모든 placeholder를 서로 다른 실제 비밀값과 운영 도메인으로 교체
+scripts/deploy-production.sh --env-file .env.production --check
+scripts/deploy-production.sh --env-file .env.production \
+  --final-acceptance /absolute/path/final-acceptance.json \
+  --external-receipt /absolute/path/ac-dod-09-pass.json \
+  --confirm-production
+```
+
+배포는 tracked worktree가 깨끗하고 `--confirm-production`이 있을 때만 실행되며, Caddy를 통한
+외부 `/health`와 `/login` HTTPS probe까지 성공해야 완료된다. DB/Redis/API/Web은 host port를
+publish하지 않으며 Caddy의 80/443만 공개한다. 실제 운영 전에는 별도로 AC-DOD-09
+외부 staging connector 검증과 DNS/TLS 도메인 준비가 필요하다.
+운영 로그인은 사용자별 scrypt credential만 허용하며 `AUTH_DEMO_PASSWORD`는 거부한다. 마이그레이션
+전 dump와 SHA 이미지 rollback 절차는 `docs/12_VERIFICATION/production-deployment-runbook.md`를 따른다.
+
 ### 개선 라운드 워크플로우 (`/round` 스킬 + auto-merge)
 반복적인 fix/cleanup 라운드는 `.claude/skills/round/SKILL.md`(`/round`)로 표준화됨.
 격리 worktree → 파일범위 분리 병렬 에이전트 → `scripts/dev-up.sh`+검증 → `scripts/round-ship.sh`.
@@ -501,6 +523,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ---
 
 ## 변경 이력
+- **2026-07-28**: 단일 호스트 운영 배포 경로 정식화 — production Compose, owner-only env 검증기, 정식 migration과 RLS app-role credential 초기화, API/Web health gate, Caddy TLS ingress, 명시적 배포 확인을 추가했다. 격리 신규 DB에서 69 migration과 API/Web production health를 실검증하고 테스트 볼륨/네트워크를 제거했다.
 - **2026-07-28**: U076 실사용 QA 하네스 운영 안전성 보강 — 고정 `:3101`과 타 프로세스 READY 오인을 제거하고 run-id별 fresh evidence, 명시/동적 loopback 포트 검증, owned web child 생존 검사를 추가했다. 가상 메일 시드는 U076 task-owned loopback `sangfor_task_*` DB와 open/migrated PostgreSQL receipt가 일치할 때만 Prisma를 지연 로드해 mutation하며, 두 행동 테스트를 CI·release manifest·최종 수용성 focused gate에 연결했다.
 - **2026-07-27**: U076 100건 격리 실사용 검증 — 이메일 학습 50건과 사용자 UI 입력 50건을 실제 입력해 메일 스레드 50·후보 130·직접 고객 50을 확인하고 승인/반려/AI 재검증/유형교정/연결 산출물을 표본 실측했다. CAS·멱등성·RLS·감사 JSON·회사명 도출·연결 UI 결함을 수정하고 비스코프 레거시 배치/거부/유형수정 경로를 제거했다. 테스트 행·JWT 픽스처·격리 Docker 자원은 모두 삭제했으며 Grok 독립 감사와 Node 20 전체 품질 게이트가 PASS했다. 상세 범위와 과장 금지 경계는 [`docs/plans/2026-07-27-u076-real-use-100.md`](plans/2026-07-27-u076-real-use-100.md)에 기록했다.
 - **2026-07-26**: U068/U073/U074 DB closure 보강 — scheduler 실통합 테스트, 198-model 중 187 scoped table의 FORCE RLS와 94개 CHILD_VIA_FK parent-EXISTS 정책, U009 격리 tenant-selective restore 실행기(식별자 allowlist·결정적 remap·hash 기반 멱등성)를 추가했다. 복구 멱등 ledger로 `_prisma_migrations`를 사용하지 않는다.

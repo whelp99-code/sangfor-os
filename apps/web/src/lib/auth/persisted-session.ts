@@ -47,6 +47,33 @@ export async function resolveActiveLocalPrincipal(
   });
   if (!project || !project.companyId || !project.company) return null;
 
+  const now = new Date();
+  const [projectMembership, companyRole] = await Promise.all([
+    prisma.projectMember.findFirst({
+      where: {
+        projectId: project.id,
+        userId: user.id,
+        status: "active",
+        revokedAt: null,
+        OR: [{ validFrom: null }, { validFrom: { lte: now } }],
+        AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }],
+      },
+      select: { id: true },
+    }),
+    prisma.userCompanyRole.findFirst({
+      where: {
+        userId: user.id,
+        companyId: project.companyId,
+        status: "active",
+        revokedAt: null,
+        OR: [{ validFrom: null }, { validFrom: { lte: now } }],
+        AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }],
+      },
+      select: { id: true },
+    }),
+  ]);
+  if (!projectMembership || !companyRole) return null;
+
   return { userId: user.id, tenantId: project.company.tenantId, companyId: project.companyId, projectId: project.id };
 }
 

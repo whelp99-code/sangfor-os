@@ -78,10 +78,10 @@ check_required "REDIS_URL"
 # In --soft mode these remain advisory for local dev and won't fail the script.
 if [[ "$strict" -eq 1 ]]; then
   check_secret "JWT_SECRET" 16 "true"
-  check_secret "AUTH_DEMO_PASSWORD" 8 "true"
+  check_optional "AUTH_DEMO_PASSWORD"
 else
   check_secret "JWT_SECRET" 16 "false"
-  check_secret "AUTH_DEMO_PASSWORD" 8 "false"
+  check_optional "AUTH_DEMO_PASSWORD"
 fi
 
 # 3. Optional integration / staging mode variables
