@@ -38,6 +38,7 @@ describe.skipIf(!integration)("deal-registration service", () => {
   });
 
   afterAll(async () => {
+    if (!opportunityId) return;
     await prisma.dealRegistration.deleteMany({ where: { opportunity: { title: TAG } } });
     await prisma.domainDecisionLog.deleteMany({ where: { caseRef: `opp:${opportunityId}` } });
     await prisma.stateTransitionLog.deleteMany({ where: { entityType: "opportunity", entityId: opportunityId } });
