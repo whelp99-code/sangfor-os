@@ -10,7 +10,7 @@ const imageDigest = JSON.parse(readFileSync(DEFAULT_LOCK, "utf8")).manifestListD
 
 function runRace(databaseUrl) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn("bash", ["scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "--filter", "@sangfor/web", "exec", "tsx", "../../scripts/production-auth-rotation-race.ts"], {
+    const child = spawn("corepack", ["pnpm", "--filter", "@sangfor/web", "exec", "tsx", "../../scripts/production-auth-rotation-race.ts"], {
       cwd: new URL("..", import.meta.url),
       env: {
         PATH: process.env.PATH,
