@@ -37,7 +37,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Root unit lane (release-gate manifest argv)
         run: |
-          bash scripts/run-workspace-runtime.sh root -- node --test \
+          bash scripts/run-workspace-runtime.sh root -- node --test --test-concurrency=1 \
             scripts/verify-release.test.mjs \
             scripts/check-no-false-green-tests.test.mjs \
             scripts/release-state-receipt.test.mjs \

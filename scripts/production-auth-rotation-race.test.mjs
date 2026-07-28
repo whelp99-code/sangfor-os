@@ -37,7 +37,7 @@ async function runRace(databaseUrl) {
     USER_JWT_TTL_SECONDS: "900",
     USER_JWT_KEYRING_JSON: JSON.stringify({ version: "sangfor.user-jwt-keyring/v1", keys: [{ kid: "race-key", state: "active", secretBase64Url: "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc", activatedAt: "2026-01-01T00:00:00Z", demotedAt: null, verifyUntil: null, retiredAt: null }] }),
   };
-  await spawnCommand(["pnpm", "--filter", "@sangfor/auth", "build"], env);
+  await spawnCommand(["pnpm", "--filter", "@sangfor/auth...", "build"], env);
   return spawnCommand(["pnpm", "--filter", "@sangfor/web", "exec", "tsx", "../../scripts/production-auth-rotation-race.ts"], env);
 }
 
