@@ -5,10 +5,11 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { signProductionApprovalReceipt, validateProductionReadiness, verifyProductionReadinessWithEnvironment } from "./verify-production-readiness.mjs";
+import { signProductionApprovalReceipt, validateProductionReadiness, verifyProductionReadinessWithAuthority } from "./verify-production-readiness.mjs";
 
 const candidateSha = "a".repeat(40);
 const approvalKeys = generateKeyPairSync("ed25519");
+const deploymentKeys = generateKeyPairSync("ed25519");
 const approvalKeyring = { "approval-key-1": { publicKeyPem: approvalKeys.publicKey.export({ type: "spki", format: "pem" }), status: "verify" } };
 const approvalIssuer = "trusted-release-owner";
 
@@ -61,15 +62,31 @@ describe("production readiness evidence", () => {
     value.input.externalReceipt.runId = "stale-run";
     try { assert.throws(() => validateProductionReadiness(value.input), /run identity|exact local acceptance/u); } finally { rmSync(value.directory, { recursive: true }); }
   });
-  it("consumes a signed approval nonce exactly once", () => {
+  it("uses the authority file instead of caller environment and consumes remotely exactly once", async () => {
     const value = fixture();
-    const envFile = join(value.directory, ".env.production");
-    writeFileSync(envFile, `PRODUCTION_APPROVAL_ISSUER=${approvalIssuer}\nPRODUCTION_APPROVAL_PUBLIC_KEYS_JSON=${JSON.stringify(approvalKeyring)}\n`);
-    chmodSync(envFile, 0o600);
-    const input = { candidateSha, finalAcceptancePath: join(value.directory, "final.json"), externalReceiptPath: join(value.directory, "receipt.json"), envFile, nonceDirectory: join(value.directory, "nonces") };
+    const authorityPath = join(value.directory, "production-authority.json");
+    const privateKeyPath = join(value.directory, "deployment-private.pem");
+    writeFileSync(privateKeyPath, deploymentKeys.privateKey.export({ type: "pkcs8", format: "pem" }), { mode: 0o600 });
+    const authority = { schemaVersion: 1, approvalIssuer, approvalKeys: approvalKeyring, nonceConsumeUrl: "https://approval.internal.test/v1/nonces/consume", nonceConsumeBearerToken: "t".repeat(32), deploymentReceiptKeyId: "deployment-1", deploymentReceiptPrivateKeyPath: privateKeyPath, deploymentReceiptKeys: { "deployment-1": { publicKeyPem: deploymentKeys.publicKey.export({ type: "spki", format: "pem" }), status: "verify" } } };
+    writeFileSync(authorityPath, `${JSON.stringify(authority)}\n`, { mode: 0o600 });
+    chmodSync(authorityPath, 0o600);
+    const consumed = new Set();
+    const fetchImpl = async (_url, options) => {
+      const body = JSON.parse(options.body);
+      if (consumed.has(body.nonce)) return { status: 409, json: async () => ({}) };
+      consumed.add(body.nonce);
+      return { status: 201, json: async () => ({ schemaVersion: 1, consumed: true, nonce: body.nonce, receiptSha256: body.receiptSha256 }) };
+    };
+    const input = { candidateSha, finalAcceptancePath: join(value.directory, "final.json"), externalReceiptPath: join(value.directory, "receipt.json"), authorityPath, allowNonRootAuthorityForTests: true, fetchImpl };
+    const previousIssuer = process.env.PRODUCTION_APPROVAL_ISSUER;
+    process.env.PRODUCTION_APPROVAL_ISSUER = "attacker-controlled";
     try {
-      assert.equal(verifyProductionReadinessWithEnvironment(input).ok, true);
-      assert.throws(() => verifyProductionReadinessWithEnvironment(input), /already consumed/u);
-    } finally { rmSync(value.directory, { recursive: true }); }
+      assert.equal((await verifyProductionReadinessWithAuthority(input)).ok, true);
+      await assert.rejects(() => verifyProductionReadinessWithAuthority(input), /HTTP 409/u);
+    } finally {
+      if (previousIssuer === undefined) delete process.env.PRODUCTION_APPROVAL_ISSUER;
+      else process.env.PRODUCTION_APPROVAL_ISSUER = previousIssuer;
+      rmSync(value.directory, { recursive: true });
+    }
   });
 });

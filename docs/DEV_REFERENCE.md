@@ -304,6 +304,8 @@ scripts/dev-down.sh                      # api/web 정지 (postgres 유지; --db
 cp production.env.example .env.production
 chmod 600 .env.production
 # 모든 placeholder를 서로 다른 실제 비밀값과 운영 도메인으로 교체
+# production-authority.example.json을 root-owned 0600
+# /etc/sangfor-os/production-authority.json으로 프로비저닝
 scripts/deploy-production.sh --env-file .env.production --check
 scripts/deploy-production.sh --env-file .env.production \
   --final-acceptance /absolute/path/final-acceptance.json \

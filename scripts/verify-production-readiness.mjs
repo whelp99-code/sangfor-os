@@ -1,18 +1,12 @@
 import { createHash, sign as signDetached, verify as verifyDetached } from "node:crypto";
-import { closeSync, mkdirSync, openSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseEnvFile } from "./verify-production-deploy.mjs";
+import { canonicalJson, loadProductionAuthority } from "./lib/production-authority.mjs";
 
 const SHA40 = /^[a-f0-9]{40}$/u;
 const SHA64 = /^[a-f0-9]{64}$/u;
 const APPROVAL_DOMAIN = "sangfor.production-approval/v1";
-
-function canonicalJson(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
-  return JSON.stringify(value);
-}
 
 function unsignedReceipt(receipt) {
   const { signature: _signature, ...unsigned } = receipt;
@@ -86,47 +80,41 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index];
     const value = argv[index + 1];
-    if (!key?.startsWith("--") || !value) throw new Error("usage: verify-production-readiness --candidate-sha SHA --final-acceptance FILE --external-receipt FILE --env-file FILE [--consume-nonce-dir DIR]");
+    if (!key?.startsWith("--") || !value) throw new Error("usage: verify-production-readiness --candidate-sha SHA --final-acceptance FILE --external-receipt FILE");
     values[key.slice(2)] = value;
   }
   return values;
 }
 
-function consumeApprovalNonce(receipt, nonceDirectory) {
-  mkdirSync(nonceDirectory, { recursive: true, mode: 0o700 });
-  if ((statSync(nonceDirectory).mode & 0o077) !== 0) throw new Error("approval nonce directory must be owner-only");
-  const nonceId = createHash("sha256").update(`${receipt.approval.issuer}\n${receipt.approval.nonce}`).digest("hex");
-  const path = resolve(nonceDirectory, `${nonceId}.json`);
-  let descriptor;
-  try {
-    descriptor = openSync(path, "wx", 0o600);
-    writeFileSync(descriptor, `${JSON.stringify({ candidateSha: receipt.candidateSha, runId: receipt.runId, approvalId: receipt.approval.id, consumedAt: new Date().toISOString() })}\n`);
-  } catch (error) {
-    if (error?.code === "EEXIST") throw new Error("external approval nonce already consumed");
-    throw error;
-  } finally {
-    if (descriptor !== undefined) closeSync(descriptor);
-  }
+export async function consumeApprovalNonce(receipt, authority, fetchImpl = fetch) {
+  const receiptSha256 = createHash("sha256").update(canonicalJson(receipt)).digest("hex");
+  const request = { schemaVersion: 1, issuer: receipt.approval.issuer, nonce: receipt.approval.nonce, approvalId: receipt.approval.id, candidateSha: receipt.candidateSha, runId: receipt.runId, receiptSha256 };
+  const response = await fetchImpl(authority.nonceConsumeUrl, {
+    method: "POST",
+    headers: { authorization: `Bearer ${authority.nonceConsumeBearerToken}`, "content-type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (response.status !== 201) throw new Error(`external approval nonce consumption rejected with HTTP ${response.status}`);
+  const result = await response.json();
+  if (result?.schemaVersion !== 1 || result?.consumed !== true || result?.receiptSha256 !== receiptSha256 || result?.nonce !== receipt.approval.nonce) throw new Error("external approval nonce authority response invalid");
 }
 
-export function verifyProductionReadinessWithEnvironment({ candidateSha, finalAcceptancePath, externalReceiptPath, envFile, nonceDirectory }) {
+export async function verifyProductionReadinessWithAuthority({ candidateSha, finalAcceptancePath, externalReceiptPath, authorityPath, allowNonRootAuthorityForTests = false, fetchImpl = fetch }) {
   const finalPath = resolve(finalAcceptancePath);
   const externalPath = resolve(externalReceiptPath);
   if (!statSync(finalPath).isFile() || !statSync(externalPath).isFile()) throw new Error("acceptance evidence paths must be files");
   const finalBytes = readFileSync(finalPath);
   const externalReceipt = readJson(externalPath);
-  const env = { ...parseEnvFile(readFileSync(resolve(envFile), "utf8")), ...process.env };
-  let approvalKeyring;
-  try { approvalKeyring = JSON.parse(env.PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON); } catch { throw new Error("production approval keyring invalid"); }
-  const result = validateProductionReadiness({ candidateSha, finalAcceptance: JSON.parse(finalBytes), finalAcceptanceSha256: createHash("sha256").update(finalBytes).digest("hex"), externalReceipt, externalReceiptPath: externalPath, approvalIssuer: env.PRODUCTION_APPROVAL_ISSUER, approvalKeyring });
-  if (nonceDirectory) consumeApprovalNonce(externalReceipt, resolve(nonceDirectory));
+  const { authority } = loadProductionAuthority(authorityPath, { allowNonRootOwner: allowNonRootAuthorityForTests });
+  const result = validateProductionReadiness({ candidateSha, finalAcceptance: JSON.parse(finalBytes), finalAcceptanceSha256: createHash("sha256").update(finalBytes).digest("hex"), externalReceipt, externalReceiptPath: externalPath, approvalIssuer: authority.approvalIssuer, approvalKeyring: authority.approvalKeys });
+  await consumeApprovalNonce(externalReceipt, authority, fetchImpl);
   return result;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     const args = parseArgs(process.argv.slice(2));
-    const result = verifyProductionReadinessWithEnvironment({ candidateSha: args["candidate-sha"], finalAcceptancePath: args["final-acceptance"], externalReceiptPath: args["external-receipt"], envFile: args["env-file"], nonceDirectory: args["consume-nonce-dir"] });
+    const result = await verifyProductionReadinessWithAuthority({ candidateSha: args["candidate-sha"], finalAcceptancePath: args["final-acceptance"], externalReceiptPath: args["external-receipt"] });
     process.stdout.write(`${JSON.stringify(result)}\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

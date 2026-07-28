@@ -3,11 +3,13 @@
 ## Hard gates
 
 1. Use a clean committed worktree; untracked files are rejected.
-2. Supply the candidate-bound authoritative-mirror U076 `final-acceptance.json` proving `LOCAL_PASS_EXTERNAL_PENDING` and a separately approved `AC-DOD-09` receipt proving `MANUAL_EXTERNAL_PASS`, the same run ID, the exact local acceptance SHA-256, and verified artifact hashes. The receipt must be Ed25519-signed by `PRODUCTION_APPROVAL_ISSUER` with a private key held outside the application runtime; deployment verifies `PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON` and consumes the receipt's fresh 32+ character nonce exactly once.
+2. Supply the candidate-bound authoritative-mirror U076 `final-acceptance.json` proving `LOCAL_PASS_EXTERNAL_PENDING` and a separately approved `AC-DOD-09` receipt proving `MANUAL_EXTERNAL_PASS`, the same run ID, the exact local acceptance SHA-256, and verified artifact hashes. The receipt must be Ed25519-signed by the issuer pinned in the root-owned authority file. The configured HTTPS nonce authority must atomically return `201` for the first consumption and reject replay on every deployment host.
 3. Keep `.env.production` mode `0600` and `BACKUP_DIR` mode `0700`. Production rejects `AUTH_DEMO_PASSWORD`; provision a per-user credential before cutover.
 4. Run `scripts/deploy-production.sh --check` before the approved deployment command.
 
 Start from `production.env.example`. The configured default tenant, company, and project must identify one existing production hierarchy before application startup.
+
+Provision `production-authority.example.json` as `/etc/sangfor-os/production-authority.json`, replace every placeholder, and set the file plus its deployment-receipt private key to root-owned mode `0600`. This path is fixed in code and cannot be replaced by `.env.production` or ambient environment values. The nonce bearer credential is consume-only; it must not be able to issue or sign approvals.
 
 ```bash
 scripts/deploy-production.sh \
@@ -32,7 +34,7 @@ printf '%s' "$NEW_PASSWORD" | pnpm provision:user-credential \
 
 ## Application rollback
 
-Every successful deployment retains SHA-tagged API/Web images and writes their immutable Docker image IDs to an owner-only receipt under `.local-prod/deployments/<deployment-id>.json`. Rollback ignores mutable tags for execution, requires both retained IDs to exist, and starts Compose by those IDs. Because repository migrations are additive and forward-compatible, application images can be rolled back without reversing schema:
+Every successful deployment retains SHA-tagged API/Web images, the exact owner-only Compose artifact used for that deployment, and an Ed25519-signed receipt under `.local-prod/deployments/`. The receipt binds the candidate, project, immutable Docker image IDs, authority configuration hash, and Compose artifact hash. Rollback rejects unsigned or altered receipts and artifacts, ignores mutable tags for execution, requires both retained IDs to exist, and starts the signed Compose artifact by those IDs. Because repository migrations are additive and forward-compatible, application images can be rolled back without reversing schema:
 
 ```bash
 scripts/rollback-production.sh \

@@ -23,7 +23,7 @@ export function parseEnvFile(text) {
 }
 
 export function validateProductionEnvironment(env) {
-  const required = ["APP_DOMAIN", "BACKUP_DIR", "DEFAULT_TENANT_ID", "DEFAULT_COMPANY_ID", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "PRODUCTION_APPROVAL_ISSUER", "PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON", "POSTGRES_PASSWORD", "SANGFOR_APP_DB_PASSWORD", "SANGFOR_RUNTIME_DB_PASSWORD", "REDIS_PASSWORD", "API_KEY", "FINANCE_API_KEY", "SANGFOR_API_KEY", "SANGFOR_OPERATOR_PRINCIPAL_ID", "JWT_SECRET", "USER_JWT_ACTIVE_KID", "USER_JWT_KEYRING_JSON", "INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID", "INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON", "INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID", "INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON", "INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID", "INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON", "INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID", "INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON", "EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID", "EXTERNAL_ACTION_RECEIPT_KEYS_JSON"];
+  const required = ["APP_DOMAIN", "BACKUP_DIR", "DEFAULT_TENANT_ID", "DEFAULT_COMPANY_ID", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "POSTGRES_PASSWORD", "SANGFOR_APP_DB_PASSWORD", "SANGFOR_RUNTIME_DB_PASSWORD", "REDIS_PASSWORD", "API_KEY", "FINANCE_API_KEY", "SANGFOR_API_KEY", "SANGFOR_OPERATOR_PRINCIPAL_ID", "JWT_SECRET", "USER_JWT_ACTIVE_KID", "USER_JWT_KEYRING_JSON", "INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID", "INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON", "INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID", "INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON", "INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID", "INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON", "INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID", "INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON", "EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID", "EXTERNAL_ACTION_RECEIPT_KEYS_JSON"];
   const issues = [];
   for (const key of required) {
     const value = env[key]?.trim();
@@ -32,7 +32,7 @@ export function validateProductionEnvironment(env) {
   }
   if (env.APP_DOMAIN && (!/^[a-z0-9.-]+(?::[0-9]+)?$/iu.test(env.APP_DOMAIN) || env.APP_DOMAIN.includes(".."))) issues.push("APP_DOMAIN: expected hostname without scheme or path");
   if (env.BACKUP_DIR && !isAbsolute(env.BACKUP_DIR)) issues.push("BACKUP_DIR: must be absolute");
-  for (const key of ["DEFAULT_TENANT_ID", "DEFAULT_COMPANY_ID", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "PRODUCTION_APPROVAL_ISSUER"]) {
+  for (const key of ["DEFAULT_TENANT_ID", "DEFAULT_COMPANY_ID", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG"]) {
     if (env[key] && !/^[A-Za-z0-9._-]{3,128}$/u.test(env[key])) issues.push(`${key}: invalid identifier`);
   }
   for (const key of ["POSTGRES_PASSWORD", "SANGFOR_APP_DB_PASSWORD", "SANGFOR_RUNTIME_DB_PASSWORD", "REDIS_PASSWORD"]) {
@@ -87,15 +87,6 @@ export function validateProductionEnvironment(env) {
       if (!entry || Object.keys(entry).sort().join(",") !== "secret,signingDisabledAt,status" || entry.status !== "sign_verify" || entry.signingDisabledAt !== null || typeof secret !== "string" || !/^[A-Za-z0-9_-]+$/u.test(secret) || Buffer.from(secret, "base64url").length < 32 || placeholderPattern.test(secret)) issues.push("EXTERNAL_ACTION_RECEIPT_KEYS_JSON: active key missing, malformed, or placeholder");
     } catch {
       issues.push("EXTERNAL_ACTION_RECEIPT_KEYS_JSON: invalid JSON");
-    }
-  }
-  if (env.PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON) {
-    try {
-      const keys = JSON.parse(env.PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON);
-      const entries = Object.values(keys ?? {});
-      if (entries.length === 0 || !entries.every((entry) => entry && Object.keys(entry).sort().join(",") === "publicKeyPem,status" && entry.status === "verify" && /^-----BEGIN PUBLIC KEY-----[\s\S]+-----END PUBLIC KEY-----\n?$/u.test(entry.publicKeyPem) && !placeholderPattern.test(entry.publicKeyPem))) issues.push("PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON: trusted Ed25519 public key missing or malformed");
-    } catch {
-      issues.push("PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON: invalid JSON");
     }
   }
   if (issues.length > 0) throw new Error(`production environment rejected:\n${issues.join("\n")}`);

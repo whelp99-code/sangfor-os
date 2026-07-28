@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "approvalIssuer": "trusted-release-owner",
+  "approvalKeys": {
+    "release-key-2026-01": {
+      "publicKeyPem": "replace_with_ed25519_public_key_pem",
+      "status": "verify"
+    }
+  },
+  "nonceConsumeUrl": "https://approval.example.com/v1/production-nonces/consume",
+  "nonceConsumeBearerToken": "replace_with_32_plus_character_consume_only_token",
+  "deploymentReceiptKeyId": "deployment-host-2026-01",
+  "deploymentReceiptPrivateKeyPath": "/etc/sangfor-os/deployment-receipt-ed25519.pem",
+  "deploymentReceiptKeys": {
+    "deployment-host-2026-01": {
+      "publicKeyPem": "replace_with_deployment_ed25519_public_key_pem",
+      "status": "verify"
+    }
+  }
+}

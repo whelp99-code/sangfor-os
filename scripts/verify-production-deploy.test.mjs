@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { generateKeyPairSync } from "node:crypto";
+import { createHash, generateKeyPairSync } from "node:crypto";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { parseEnvFile, validateComposeModel, validateProductionEnvironment, verifyProductionDeploy } from "./verify-production-deploy.mjs";
-
-const approvalPublicKeyPem = generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "pem" });
+import { signDeploymentReceipt, verifyDeploymentReceipt } from "./lib/production-authority.mjs";
+import { validateDeploymentReceipt } from "./production-deployment-receipt.mjs";
 
 function ring(version, kid, profile) {
   return JSON.stringify({ version, ...(profile ? { profile } : {}), keys: [{ kid, state: "active", secretBase64Url: "A".repeat(43), activatedAt: "2026-01-01T00:00:00Z", demotedAt: null, verifyUntil: null, retiredAt: null }] });
@@ -14,7 +14,7 @@ function ring(version, kid, profile) {
 
 function validEnvironment() {
   return {
-    APP_DOMAIN: "sangfor.internal.test", BACKUP_DIR: "/var/backups/sangfor-os", DEFAULT_TENANT_ID: "tenant-prod", DEFAULT_COMPANY_ID: "company-prod", DEFAULT_PROJECT_ID: "project-prod", DEFAULT_PROJECT_SLUG: "project-prod", PRODUCTION_APPROVAL_ISSUER: "release-owner", PRODUCTION_APPROVAL_PUBLIC_KEYS_JSON: JSON.stringify({ "approval-1": { publicKeyPem: approvalPublicKeyPem, status: "verify" } }), POSTGRES_PASSWORD: "p".repeat(32), SANGFOR_APP_DB_PASSWORD: "a".repeat(32), SANGFOR_RUNTIME_DB_PASSWORD: "t".repeat(32), REDIS_PASSWORD: "r".repeat(32),
+    APP_DOMAIN: "sangfor.internal.test", BACKUP_DIR: "/var/backups/sangfor-os", DEFAULT_TENANT_ID: "tenant-prod", DEFAULT_COMPANY_ID: "company-prod", DEFAULT_PROJECT_ID: "project-prod", DEFAULT_PROJECT_SLUG: "project-prod", POSTGRES_PASSWORD: "p".repeat(32), SANGFOR_APP_DB_PASSWORD: "a".repeat(32), SANGFOR_RUNTIME_DB_PASSWORD: "t".repeat(32), REDIS_PASSWORD: "r".repeat(32),
     API_KEY: "o".repeat(32), FINANCE_API_KEY: "f".repeat(32), SANGFOR_API_KEY: "s".repeat(32), SANGFOR_OPERATOR_PRINCIPAL_ID: "production-operator",
     JWT_SECRET: "j".repeat(32), USER_JWT_ACTIVE_KID: "user-1", USER_JWT_KEYRING_JSON: ring("sangfor.user-jwt-keyring/v1", "user-1"),
     INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID: "finance-1", INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON: ring("sangfor.internal-principal-keyring/v1", "finance-1", "FINANCE"),
@@ -31,7 +31,7 @@ describe("production deploy verifier", () => {
     assert.throws(() => parseEnvFile("export BAD=value"), /invalid env syntax/);
   });
   it("accepts complete, distinct production credentials", () => {
-    assert.deepEqual(validateProductionEnvironment(validEnvironment()), { ok: true, requiredCount: 29 });
+    assert.deepEqual(validateProductionEnvironment(validEnvironment()), { ok: true, requiredCount: 27 });
   });
   it("rejects placeholders, shared secrets, bypasses, and malformed keyrings", () => {
     assert.throws(() => validateProductionEnvironment({ ...validEnvironment(), APP_DOMAIN: "example.com", FINANCE_API_KEY: "o".repeat(32), AUTH_BYPASS_ENABLED: "1", USER_JWT_KEYRING_JSON: "{}" }), /placeholder|must differ|forbidden|active key missing/u);
@@ -41,14 +41,35 @@ describe("production deploy verifier", () => {
     services.postgres.ports = [{ published: 5432 }];
     assert.throws(() => validateComposeModel({ services }), /postgres: must not publish/u);
   });
-  it("deploys and rolls back by immutable image ID after signed nonce consumption", () => {
+  it("deploys and rolls back by immutable image ID with fixed authority scripts", () => {
     const deploy = readFileSync(new URL("./deploy-production.sh", import.meta.url), "utf8");
     const rollback = readFileSync(new URL("./rollback-production.sh", import.meta.url), "utf8");
-    assert.match(deploy, /--consume-nonce-dir/u);
+    assert.doesNotMatch(deploy, /PRODUCTION_APPROVAL_ISSUER|consume-nonce-dir/u);
+    assert.match(deploy, /production-deployment-receipt\.mjs sign/u);
     assert.match(deploy, /docker image inspect --format '\{\{\.Id\}\}'/u);
     assert.match(deploy, /export API_IMAGE_REF="\$API_IMAGE_ID"/u);
     assert.match(rollback, /docker image inspect "\$API_ID" "\$WEB_ID"/u);
     assert.match(rollback, /export API_IMAGE_REF="\$API_ID"/u);
+    assert.match(rollback, /production-deployment-receipt\.mjs verify/u);
+  });
+  it("cryptographically rejects a tampered deployment receipt or compose artifact", () => {
+    const directory = mkdtempSync(join(tmpdir(), "deployment-receipt-"));
+    const keys = generateKeyPairSync("ed25519");
+    const privateKeyPath = join(directory, "private.pem");
+    const composePath = join(directory, "deploy.compose.yml");
+    writeFileSync(privateKeyPath, keys.privateKey.export({ type: "pkcs8", format: "pem" }), { mode: 0o600 });
+    writeFileSync(composePath, "services: {}\n", { mode: 0o600 });
+    const authority = { deploymentReceiptKeyId: "host-1", deploymentReceiptPrivateKeyPath: privateKeyPath, deploymentReceiptKeys: { "host-1": { publicKeyPem: keys.publicKey.export({ type: "spki", format: "pem" }), status: "verify" } } };
+    const receipt = { schemaVersion: 2, candidateSha: "a".repeat(40), projectName: "prod", imageTags: { api: `api:${"a".repeat(40)}`, web: `web:${"a".repeat(40)}` }, imageIds: { api: `sha256:${"b".repeat(64)}`, web: `sha256:${"c".repeat(64)}` }, composeArtifact: "deploy.compose.yml", composeSha256: createHash("sha256").update(readFileSync(composePath)).digest("hex"), authoritySha256: "d".repeat(64) };
+    try {
+      const signed = signDeploymentReceipt(receipt, authority, { allowNonRootOwner: true });
+      assert.equal(validateDeploymentReceipt(verifyDeploymentReceipt(signed, authority), { projectName: "prod", apiImage: "api", webImage: "web", composePath, authoritySha256: "d".repeat(64) }).candidateSha, receipt.candidateSha);
+      assert.throws(() => verifyDeploymentReceipt({ ...signed, imageIds: { ...signed.imageIds, api: `sha256:${"e".repeat(64)}` } }, authority), /signature invalid/u);
+      writeFileSync(composePath, "services:\n  attacker: {}\n");
+      assert.throws(() => validateDeploymentReceipt(signed, { projectName: "prod", apiImage: "api", webImage: "web", composePath, authoritySha256: "d".repeat(64) }), /compose artifact mismatch/u);
+    } finally {
+      rmSync(directory, { recursive: true });
+    }
   });
 
   if (process.env.RUN_DOCKER_COMPOSE_CONTRACT === "1") {

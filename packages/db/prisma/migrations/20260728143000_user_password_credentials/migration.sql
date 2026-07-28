@@ -1,7 +1,6 @@
 CREATE TABLE "user_credentials" (
     "user_id" TEXT NOT NULL,
     "password_digest" TEXT NOT NULL,
-    "credential_version" INTEGER NOT NULL DEFAULT 1,
     "failed_attempts" INTEGER NOT NULL DEFAULT 0,
     "locked_until" TIMESTAMP(3),
     "last_authenticated_at" TIMESTAMP(3),
@@ -10,7 +9,6 @@ CREATE TABLE "user_credentials" (
 
     CONSTRAINT "user_credentials_pkey" PRIMARY KEY ("user_id"),
     CONSTRAINT "user_credentials_failed_attempts_check" CHECK ("failed_attempts" >= 0 AND "failed_attempts" <= 5),
-    CONSTRAINT "user_credentials_version_check" CHECK ("credential_version" > 0),
     CONSTRAINT "user_credentials_password_digest_check" CHECK ("password_digest" LIKE '$scrypt$v1$%')
 );
 
