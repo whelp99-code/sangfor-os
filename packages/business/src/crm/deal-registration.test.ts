@@ -6,14 +6,14 @@ import { describe, it, expect, afterAll, beforeAll } from "vitest";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 loadEnv({ path: path.join(repoRoot, ".env") });
 
-import { prisma } from "@sangfor/db";
-import { createOpportunity } from "./opportunity-center";
-import { getDealRegistration, upsertDealRegistration } from "./deal-registration";
-import { getOpportunityDetail } from "./opportunity-center";
-
 const TAG = "__t43a_deal_reg__";
 const integration = process.env.CI_INTEGRATION === "1";
 let opportunityId: string;
+let prisma: typeof import("@sangfor/db").prisma;
+let createOpportunity: typeof import("./opportunity-center").createOpportunity;
+let getOpportunityDetail: typeof import("./opportunity-center").getOpportunityDetail;
+let getDealRegistration: typeof import("./deal-registration").getDealRegistration;
+let upsertDealRegistration: typeof import("./deal-registration").upsertDealRegistration;
 
 import type { AuthContext } from "@sangfor/auth";
 
@@ -30,11 +30,15 @@ const mockCtx: AuthContext = {
 
 describe.skipIf(!integration)("deal-registration service", () => {
   beforeAll(async () => {
+    ({ prisma } = await import("@sangfor/db"));
+    ({ createOpportunity, getOpportunityDetail } = await import("./opportunity-center"));
+    ({ getDealRegistration, upsertDealRegistration } = await import("./deal-registration"));
     const opp = (await createOpportunity(mockCtx, { title: TAG, idempotencyKey: "ik-deal-reg-1" })) as { id: string };
     opportunityId = opp.id;
   });
 
   afterAll(async () => {
+    if (!opportunityId) return;
     await prisma.dealRegistration.deleteMany({ where: { opportunity: { title: TAG } } });
     await prisma.domainDecisionLog.deleteMany({ where: { caseRef: `opp:${opportunityId}` } });
     await prisma.stateTransitionLog.deleteMany({ where: { entityType: "opportunity", entityId: opportunityId } });

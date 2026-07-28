@@ -12,6 +12,7 @@ import {
   type ApprovalKernelCaller,
 } from "@sangfor/business";
 import { BUSINESS_ROLE_CODES } from "@sangfor/auth";
+import { hashPasswordCredential } from "../../apps/web/src/lib/auth/password-credential";
 import { QUOTE_HTTP_OPPORTUNITY_COUNT } from "./contracts";
 
 export const DEFAULT_CORPUS = Object.freeze({
@@ -31,6 +32,20 @@ const operatorAssignmentId = "u075-operator-role";
 const approverId = "u075-approver";
 const approverAssignmentId = "u075-approver-role";
 
+export async function seedPerformanceCredential(
+  password: string | undefined,
+  dependencies: {
+    hashPassword: (value: string) => Promise<string>;
+    createCredential: (data: { userId: string; passwordDigest: string }) => Promise<unknown>;
+  } = {
+    hashPassword: hashPasswordCredential,
+    createCredential: (data) => prisma.userCredential.create({ data }),
+  },
+): Promise<void> {
+  if (!password) throw new Error("AUTH_DEMO_PASSWORD is required for the production-profile performance principal");
+  await dependencies.createCredential({ userId: "u075-user-ceo", passwordDigest: await dependencies.hashPassword(password) });
+}
+
 function caller(userId = operatorId, sessionId = "u075-seed-session"): ApprovalKernelCaller {
   return { userId, sessionId, scope, mfaVerifiedAt: new Date() };
 }
@@ -40,6 +55,7 @@ function timestamp(index: number): Date {
 }
 
 async function seedScope(): Promise<void> {
+  const password = process.env.AUTH_DEMO_PASSWORD;
   await prisma.tenant.create({ data: { id: scope.tenantId, slug: "u075-tenant", name: "U075 Tenant", status: "active" } });
   await prisma.company.create({ data: { id: scope.companyId, tenantId: scope.tenantId, slug: "u075-company", name: "U075 Company" } });
   await prisma.project.create({ data: { id: scope.projectId, companyId: scope.companyId, slug: "demo-project", name: "U075 Performance Project" } });
@@ -54,6 +70,7 @@ async function seedScope(): Promise<void> {
     name: `U075 ${role}`,
     status: "active",
   })) });
+  await seedPerformanceCredential(password);
   await prisma.userCompanyRole.createMany({ data: roleUsers.map(({ role, userId, assignmentId }) => ({
     id: assignmentId,
     userId,
@@ -283,7 +300,7 @@ async function seedWorkflow(): Promise<string> {
 }
 
 async function verifyCorpus(workflowDefinitionId: string) {
-  const [customers, opportunities, artifactVersions, workflows, archivedCustomers, foreignCustomers, canonicalRoles, productSkus, quotes] = await Promise.all([
+  const [customers, opportunities, artifactVersions, workflows, archivedCustomers, foreignCustomers, canonicalRoles, productSkus, quotes, credentials] = await Promise.all([
     prisma.customer.count({ where: { projectId: scope.projectId, archivedAt: null } }),
     prisma.opportunity.count({ where: { projectId: scope.projectId, archivedAt: null } }),
     prisma.artifactVersion.count({ where: { artifactId: "u075-corpus-artifact" } }),
@@ -293,10 +310,11 @@ async function verifyCorpus(workflowDefinitionId: string) {
     prisma.userCompanyRole.count({ where: { companyId: scope.companyId, status: "active", role: { in: [...BUSINESS_ROLE_CODES] } } }),
     prisma.productSku.count({ where: { id: "u075-product-sku", status: "active" } }),
     prisma.quote.count({ where: { id: "u075-canonical-quote", opportunityId: "u075-opportunity-0000" } }),
+    prisma.userCredential.count({ where: { userId: "u075-user-ceo", credentialVersion: 1 } }),
   ]);
   const actual = { customers, opportunities, artifactVersions, workflows };
-  if (JSON.stringify(actual) !== JSON.stringify(DEFAULT_CORPUS) || archivedCustomers !== 1 || foreignCustomers !== 1 || canonicalRoles !== BUSINESS_ROLE_CODES.length || productSkus !== 1 || quotes !== 1) {
-    throw new Error(`corpus verification failed: ${JSON.stringify({ actual, archivedCustomers, foreignCustomers, canonicalRoles, productSkus, quotes })}`);
+  if (JSON.stringify(actual) !== JSON.stringify(DEFAULT_CORPUS) || archivedCustomers !== 1 || foreignCustomers !== 1 || canonicalRoles !== BUSINESS_ROLE_CODES.length || productSkus !== 1 || quotes !== 1 || credentials !== 1) {
+    throw new Error(`corpus verification failed: ${JSON.stringify({ actual, archivedCustomers, foreignCustomers, canonicalRoles, productSkus, quotes, credentials })}`);
   }
   return {
     schemaVersion: 1,
