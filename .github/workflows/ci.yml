@@ -54,6 +54,8 @@ jobs:
             scripts/qa/seed-real-use-mail.test.mjs \
             scripts/verify-production-deploy.test.mjs \
             scripts/verify-production-readiness.test.mjs \
+            scripts/production-migration-upgrade.test.mjs \
+            scripts/production-auth-rotation-race.test.mjs \
             scripts/verify-acceptance.test.mjs \
             scripts/verify-staging-equivalent.test.mjs
       - name: False-green scan

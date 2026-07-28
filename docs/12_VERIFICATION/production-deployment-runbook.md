@@ -19,7 +19,7 @@ scripts/deploy-production.sh \
   --confirm-production
 ```
 
-The Compose dependency graph creates and hashes `BACKUP_DIR/predeploy-<deployment-id>.dump` before applying formal migrations and refuses to overwrite an existing backup. The deployment ID includes candidate SHA, UTC timestamp, and process ID. Runtime Prisma uses `sangfor_runtime_login`, which has no RLS bypass and inherits `sangfor_app`; its connection pins the configured default tenant/company/project settings so unscoped direct Prisma paths cannot cross that boundary. Explicit scope-bound operations continue through `sangfor_app_login` and transaction-local `SET ROLE sangfor_app`.
+The deployer archives the approved Git commit before consuming approval, builds only from that immutable archive, and pins Compose's project directory to the extracted candidate. It also preflights the deployment signing private/public key pair before nonce consumption or cutover. The Compose dependency graph creates and hashes `BACKUP_DIR/predeploy-<deployment-id>.dump` before applying formal migrations and refuses to overwrite an existing backup. The deployment ID includes candidate SHA, UTC timestamp, and process ID. Runtime Prisma uses `sangfor_runtime_login`, which has no RLS bypass and inherits `sangfor_app`; its connection pins the configured default tenant/company/project settings so unscoped direct Prisma paths cannot cross that boundary. Explicit scope-bound operations continue through `sangfor_app_login` and transaction-local `SET ROLE sangfor_app`.
 
 ## Credential provisioning
 
@@ -34,7 +34,7 @@ printf '%s' "$NEW_PASSWORD" | pnpm provision:user-credential \
 
 ## Application rollback
 
-Every successful deployment retains SHA-tagged API/Web images, the exact owner-only Compose artifact used for that deployment, and an Ed25519-signed receipt under `.local-prod/deployments/`. The receipt binds the candidate, project, immutable Docker image IDs, authority configuration hash, and Compose artifact hash. Rollback rejects unsigned or altered receipts and artifacts, ignores mutable tags for execution, requires both retained IDs to exist, and starts the signed Compose artifact by those IDs. Because repository migrations are additive and forward-compatible, application images can be rolled back without reversing schema:
+Every successful deployment retains SHA-tagged API/Web images, the exact owner-only Git source archive and Compose artifact used for that deployment, and an Ed25519-signed receipt under `.local-prod/deployments/`. The receipt binds the candidate, project, immutable Docker image IDs, signing-key fingerprint, source archive, and Compose artifact. Retain old public keys with `status: "verify"` when rotating the active signing key so prior rollback receipts remain valid. Rollback rejects unsigned or altered receipts and artifacts, re-extracts the signed source archive, ignores mutable tags for execution, requires both retained IDs to exist, and starts the signed Compose artifact by those IDs. Because repository migrations are additive and forward-compatible, application images can be rolled back without reversing schema:
 
 ```bash
 scripts/rollback-production.sh \

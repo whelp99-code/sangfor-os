@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync } from "node:crypto";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { parseEnvFile, validateComposeModel, validateProductionEnvironment, verifyProductionDeploy } from "./verify-production-deploy.mjs";
-import { signDeploymentReceipt, verifyDeploymentReceipt } from "./lib/production-authority.mjs";
+import { deploymentAuthoritySha256, preflightDeploymentSigningAuthority, signDeploymentReceipt, verifyDeploymentReceipt } from "./lib/production-authority.mjs";
 import { validateDeploymentReceipt } from "./production-deployment-receipt.mjs";
 
 function ring(version, kid, profile) {
@@ -45,7 +46,10 @@ describe("production deploy verifier", () => {
     const deploy = readFileSync(new URL("./deploy-production.sh", import.meta.url), "utf8");
     const rollback = readFileSync(new URL("./rollback-production.sh", import.meta.url), "utf8");
     assert.doesNotMatch(deploy, /PRODUCTION_APPROVAL_ISSUER|consume-nonce-dir/u);
-    assert.match(deploy, /production-deployment-receipt\.mjs sign/u);
+    assert.ok(deploy.indexOf("git archive") < deploy.indexOf("verify-production-readiness.mjs"));
+    assert.ok(deploy.indexOf("production-deployment-receipt.mjs\" preflight") < deploy.indexOf("verify-production-readiness.mjs"));
+    assert.match(deploy, /--project-directory "\$DEPLOYMENT_SOURCE"/u);
+    assert.match(deploy, /production-deployment-receipt\.mjs" sign/u);
     assert.match(deploy, /docker image inspect --format '\{\{\.Id\}\}'/u);
     assert.match(deploy, /export API_IMAGE_REF="\$API_IMAGE_ID"/u);
     assert.match(rollback, /docker image inspect "\$API_ID" "\$WEB_ID"/u);
@@ -57,16 +61,27 @@ describe("production deploy verifier", () => {
     const keys = generateKeyPairSync("ed25519");
     const privateKeyPath = join(directory, "private.pem");
     const composePath = join(directory, "deploy.compose.yml");
+    const sourceArchivePath = join(directory, "deploy.source.tar");
     writeFileSync(privateKeyPath, keys.privateKey.export({ type: "pkcs8", format: "pem" }), { mode: 0o600 });
     writeFileSync(composePath, "services: {}\n", { mode: 0o600 });
-    const authority = { deploymentReceiptKeyId: "host-1", deploymentReceiptPrivateKeyPath: privateKeyPath, deploymentReceiptKeys: { "host-1": { publicKeyPem: keys.publicKey.export({ type: "spki", format: "pem" }), status: "verify" } } };
-    const receipt = { schemaVersion: 2, candidateSha: "a".repeat(40), projectName: "prod", imageTags: { api: `api:${"a".repeat(40)}`, web: `web:${"a".repeat(40)}` }, imageIds: { api: `sha256:${"b".repeat(64)}`, web: `sha256:${"c".repeat(64)}` }, composeArtifact: "deploy.compose.yml", composeSha256: createHash("sha256").update(readFileSync(composePath)).digest("hex"), authoritySha256: "d".repeat(64) };
+    writeFileSync(sourceArchivePath, "immutable source archive", { mode: 0o600 });
+    const authority = { schemaVersion: 1, deploymentReceiptKeyId: "host-1", deploymentReceiptPrivateKeyPath: privateKeyPath, deploymentReceiptKeys: { "host-1": { publicKeyPem: keys.publicKey.export({ type: "spki", format: "pem" }), status: "verify" } } };
+    const authoritySha256 = deploymentAuthoritySha256(authority, "host-1");
+    const receipt = { schemaVersion: 3, candidateSha: "a".repeat(40), projectName: "prod", imageTags: { api: `api:${"a".repeat(40)}`, web: `web:${"a".repeat(40)}` }, imageIds: { api: `sha256:${"b".repeat(64)}`, web: `sha256:${"c".repeat(64)}` }, composeArtifact: "deploy.compose.yml", composeSha256: createHash("sha256").update(readFileSync(composePath)).digest("hex"), sourceArchive: "deploy.source.tar", sourceArchiveSha256: createHash("sha256").update(readFileSync(sourceArchivePath)).digest("hex"), sourceDirectory: "deploy-source", authoritySha256 };
     try {
+      assert.equal(preflightDeploymentSigningAuthority(authority, { allowNonRootOwner: true }).keyId, "host-1");
+      const mismatchedKeys = generateKeyPairSync("ed25519");
+      assert.throws(() => preflightDeploymentSigningAuthority({ ...authority, deploymentReceiptKeys: { "host-1": { publicKeyPem: mismatchedKeys.publicKey.export({ type: "spki", format: "pem" }), status: "verify" } } }, { allowNonRootOwner: true }), /signature invalid/u);
       const signed = signDeploymentReceipt(receipt, authority, { allowNonRootOwner: true });
-      assert.equal(validateDeploymentReceipt(verifyDeploymentReceipt(signed, authority), { projectName: "prod", apiImage: "api", webImage: "web", composePath, authoritySha256: "d".repeat(64) }).candidateSha, receipt.candidateSha);
+      const rotatedKeys = generateKeyPairSync("ed25519");
+      const rotatedAuthority = { ...authority, deploymentReceiptKeyId: "host-2", deploymentReceiptKeys: { ...authority.deploymentReceiptKeys, "host-2": { publicKeyPem: rotatedKeys.publicKey.export({ type: "spki", format: "pem" }), status: "verify" } } };
+      assert.equal(validateDeploymentReceipt(verifyDeploymentReceipt(signed, rotatedAuthority), { projectName: "prod", apiImage: "api", webImage: "web", composePath, sourceArchivePath, authoritySha256: deploymentAuthoritySha256(rotatedAuthority, signed.signature.keyId) }).candidateSha, receipt.candidateSha);
       assert.throws(() => verifyDeploymentReceipt({ ...signed, imageIds: { ...signed.imageIds, api: `sha256:${"e".repeat(64)}` } }, authority), /signature invalid/u);
       writeFileSync(composePath, "services:\n  attacker: {}\n");
-      assert.throws(() => validateDeploymentReceipt(signed, { projectName: "prod", apiImage: "api", webImage: "web", composePath, authoritySha256: "d".repeat(64) }), /compose artifact mismatch/u);
+      assert.throws(() => validateDeploymentReceipt(signed, { projectName: "prod", apiImage: "api", webImage: "web", composePath, sourceArchivePath, authoritySha256 }), /compose artifact mismatch/u);
+      writeFileSync(composePath, "services: {}\n");
+      writeFileSync(sourceArchivePath, "tampered source archive");
+      assert.throws(() => validateDeploymentReceipt(signed, { projectName: "prod", apiImage: "api", webImage: "web", composePath, sourceArchivePath, authoritySha256 }), /source archive mismatch/u);
     } finally {
       rmSync(directory, { recursive: true });
     }
@@ -86,6 +101,11 @@ describe("production deploy verifier", () => {
         const result = verifyProductionDeploy(envFile);
         assert.equal(result.serviceCount, 8);
         assert.equal(result.appDomain, "ambient.sangfor.internal.test");
+        const copiedCompose = join(directory, "retained.compose.yml");
+        writeFileSync(copiedCompose, readFileSync(new URL("../docker-compose.production.yml", import.meta.url)));
+        const rendered = spawnSync("docker", ["compose", "--project-directory", new URL("..", import.meta.url).pathname, "--env-file", envFile, "-f", copiedCompose, "config", "--format", "json"], { encoding: "utf8", env: { PATH: process.env.PATH, APP_DOMAIN: "ambient.sangfor.internal.test" } });
+        assert.equal(rendered.status, 0, rendered.stderr);
+        assert.equal(JSON.parse(rendered.stdout).services.api.build.context, new URL("..", import.meta.url).pathname.replace(/\/$/u, ""));
       } finally {
         if (previousDomain === undefined) delete process.env.APP_DOMAIN;
         else process.env.APP_DOMAIN = previousDomain;

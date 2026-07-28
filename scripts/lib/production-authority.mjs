@@ -32,8 +32,13 @@ export function loadProductionAuthority(path = PRODUCTION_AUTHORITY_PATH, { allo
   const deploymentReceiptKey = authority.deploymentReceiptKeys?.[authority.deploymentReceiptKeyId];
   if (deploymentReceiptKey?.status !== "verify" || typeof deploymentReceiptKey.publicKeyPem !== "string") throw new Error("deployment receipt verify key missing");
   if (typeof authority.deploymentReceiptPrivateKeyPath !== "string" || !isAbsolute(authority.deploymentReceiptPrivateKeyPath)) throw new Error("deployment receipt private key path must be absolute");
-  const authorityIdentity = { schemaVersion: authority.schemaVersion, deploymentReceiptKeyId: authority.deploymentReceiptKeyId, deploymentReceiptKey };
-  return { authority, authorityPath, authoritySha256: createHash("sha256").update(canonicalJson(authorityIdentity)).digest("hex") };
+  return { authority, authorityPath };
+}
+
+export function deploymentAuthoritySha256(authority, keyId) {
+  const deploymentReceiptKey = authority.deploymentReceiptKeys?.[keyId];
+  if (deploymentReceiptKey?.status !== "verify" || typeof deploymentReceiptKey.publicKeyPem !== "string") throw new Error("deployment receipt authority key unavailable");
+  return createHash("sha256").update(canonicalJson({ schemaVersion: authority.schemaVersion, keyId, deploymentReceiptKey })).digest("hex");
 }
 
 function unsignedDeploymentReceipt(receipt) {
@@ -61,4 +66,10 @@ export function verifyDeploymentReceipt(receipt, authority) {
   }
   if (!valid) throw new Error("deployment receipt signature invalid");
   return receipt;
+}
+
+export function preflightDeploymentSigningAuthority(authority, options = {}) {
+  const challenge = { schemaVersion: 0, purpose: "production-deployment-signing-preflight" };
+  verifyDeploymentReceipt(signDeploymentReceipt(challenge, authority, options), authority);
+  return { ok: true, keyId: authority.deploymentReceiptKeyId, authoritySha256: deploymentAuthoritySha256(authority, authority.deploymentReceiptKeyId) };
 }
