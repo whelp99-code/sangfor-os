@@ -242,6 +242,7 @@ jobs:
           printf "%s\n" "ALTER ROLE sangfor_app_login WITH PASSWORD 'ci-e2e-app-password';" | \
             pnpm --filter @sangfor/db exec prisma db execute --stdin --schema prisma/schema.prisma
       - run: pnpm db:seed
+      - run: pnpm --filter "./packages/**" build
       - name: Prepare authenticated E2E fixtures
         run: |
           mkdir -p "$(dirname "$TASK_POSTGRES_RECEIPT_FILE")"
