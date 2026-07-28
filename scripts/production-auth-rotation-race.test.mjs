@@ -8,22 +8,11 @@ import { DEFAULT_LOCK, withIsolatedPostgres } from "./lib/isolated-postgres.mjs"
 
 const imageDigest = JSON.parse(readFileSync(DEFAULT_LOCK, "utf8")).manifestListDigest;
 
-function runRace(databaseUrl) {
+function spawnCommand(args, env) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn("corepack", ["pnpm", "--filter", "@sangfor/web", "exec", "tsx", "../../scripts/production-auth-rotation-race.ts"], {
+    const child = spawn("corepack", args, {
       cwd: new URL("..", import.meta.url),
-      env: {
-        PATH: process.env.PATH,
-        HOME: process.env.HOME,
-        DATABASE_URL: databaseUrl,
-        USER_JWT_ACTIVE_KID: "race-key",
-        USER_JWT_AUDIENCE: "sangfor-os-runtime",
-        USER_JWT_CLOCK_SKEW_SECONDS: "30",
-        USER_JWT_ISSUER: "sangfor-os",
-        USER_JWT_ROTATION_OWNER: "security-auth",
-        USER_JWT_TTL_SECONDS: "900",
-        USER_JWT_KEYRING_JSON: JSON.stringify({ version: "sangfor.user-jwt-keyring/v1", keys: [{ kid: "race-key", state: "active", secretBase64Url: "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc", activatedAt: "2026-01-01T00:00:00Z", demotedAt: null, verifyUntil: null, retiredAt: null }] }),
-      },
+      env,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
@@ -33,6 +22,23 @@ function runRace(databaseUrl) {
     child.on("error", reject);
     child.on("close", (code) => code === 0 ? resolvePromise(stdout) : reject(new Error(stderr || stdout)));
   });
+}
+
+async function runRace(databaseUrl) {
+  const env = {
+    PATH: process.env.PATH,
+    HOME: process.env.HOME,
+    DATABASE_URL: databaseUrl,
+    USER_JWT_ACTIVE_KID: "race-key",
+    USER_JWT_AUDIENCE: "sangfor-os-runtime",
+    USER_JWT_CLOCK_SKEW_SECONDS: "30",
+    USER_JWT_ISSUER: "sangfor-os",
+    USER_JWT_ROTATION_OWNER: "security-auth",
+    USER_JWT_TTL_SECONDS: "900",
+    USER_JWT_KEYRING_JSON: JSON.stringify({ version: "sangfor.user-jwt-keyring/v1", keys: [{ kid: "race-key", state: "active", secretBase64Url: "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc", activatedAt: "2026-01-01T00:00:00Z", demotedAt: null, verifyUntil: null, retiredAt: null }] }),
+  };
+  await spawnCommand(["pnpm", "--filter", "@sangfor/auth", "build"], env);
+  return spawnCommand(["pnpm", "--filter", "@sangfor/web", "exec", "tsx", "../../scripts/production-auth-rotation-race.ts"], env);
 }
 
 test("credential rotation leaves no live stale-password session in real PostgreSQL", { timeout: 240_000 }, async () => {
