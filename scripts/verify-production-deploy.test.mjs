@@ -9,21 +9,44 @@ import { parseEnvFile, validateComposeModel, validateProductionEnvironment, veri
 import { deploymentAuthoritySha256, preflightDeploymentSigningAuthority, signDeploymentReceipt, verifyDeploymentReceipt } from "./lib/production-authority.mjs";
 import { validateDeploymentReceipt } from "./production-deployment-receipt.mjs";
 
-function ring(version, kid, profile) {
-  return JSON.stringify({ version, ...(profile ? { profile } : {}), keys: [{ kid, state: "active", secretBase64Url: "A".repeat(43), activatedAt: "2026-01-01T00:00:00Z", demotedAt: null, verifyUntil: null, retiredAt: null }] });
+function userRing(kid, activatedAt = "2026-01-01T00:00:00Z") {
+  return JSON.stringify({ version: "sangfor.user-jwt-keyring/v1", keys: [{ kid, state: "active", secretBase64Url: "A".repeat(43), activatedAt, demotedAt: null, verifyUntil: null, retiredAt: null }] });
+}
+
+function internalRing(kid, secretByte, activatedAt = "2026-01-01T00:00:00Z") {
+  return JSON.stringify({ version: "sangfor.internal-principal-keyring/v1", keys: [{ kid, state: "active", secretBase64Url: Buffer.alloc(32, secretByte).toString("base64url"), activatedAt, demotedAt: null, verificationCutoff: null, retiredAt: null }] });
 }
 
 function validEnvironment() {
   return {
     APP_DOMAIN: "sangfor.internal.test", BACKUP_DIR: "/var/backups/sangfor-os", DEFAULT_TENANT_ID: "tenant-prod", DEFAULT_COMPANY_ID: "company-prod", DEFAULT_PROJECT_ID: "project-prod", DEFAULT_PROJECT_SLUG: "project-prod", POSTGRES_PASSWORD: "p".repeat(32), SANGFOR_APP_DB_PASSWORD: "a".repeat(32), SANGFOR_RUNTIME_DB_PASSWORD: "t".repeat(32), REDIS_PASSWORD: "r".repeat(32),
     API_KEY: "o".repeat(32), FINANCE_API_KEY: "f".repeat(32), SANGFOR_API_KEY: "s".repeat(32), SANGFOR_OPERATOR_PRINCIPAL_ID: "production-operator",
-    JWT_SECRET: "j".repeat(32), USER_JWT_ACTIVE_KID: "user-1", USER_JWT_KEYRING_JSON: ring("sangfor.user-jwt-keyring/v1", "user-1"),
-    INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID: "finance-1", INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON: ring("sangfor.internal-principal-keyring/v1", "finance-1", "FINANCE"),
-    INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID: "scheduler-1", INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON: ring("sangfor.internal-principal-keyring/v1", "scheduler-1", "SCHEDULER"),
-    INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID: "workflow-1", INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON: ring("sangfor.internal-principal-keyring/v1", "workflow-1", "WORKFLOW"),
-    INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID: "engineer-1", INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON: ring("sangfor.internal-principal-keyring/v1", "engineer-1", "ENGINEER"),
+    JWT_SECRET: "j".repeat(32), USER_JWT_ACTIVE_KID: "user-1", USER_JWT_KEYRING_JSON: userRing("user-1"),
+    INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID: "finance-1", INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON: internalRing("finance-1", 1),
+    INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID: "scheduler-1", INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON: internalRing("scheduler-1", 2),
+    INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID: "workflow-1", INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON: internalRing("workflow-1", 3),
+    INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID: "engineer-1", INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON: internalRing("engineer-1", 4),
     EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID: "external-1", EXTERNAL_ACTION_RECEIPT_KEYS_JSON: JSON.stringify({ "external-1": { secret: "C".repeat(43), status: "sign_verify", signingDisabledAt: null } }),
   };
+}
+
+function environmentWithTemplateKeyrings() {
+  const env = validEnvironment();
+  const template = parseEnvFile(readFileSync(new URL("../production.env.example", import.meta.url), "utf8"));
+  const keyrings = [
+    ["USER_JWT_ACTIVE_KID", "USER_JWT_KEYRING_JSON", 10],
+    ["INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID", "INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON", 11],
+    ["INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID", "INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON", 12],
+    ["INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID", "INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON", 13],
+    ["INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID", "INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON", 14],
+  ];
+  for (const [activeKidKey, keyringKey, secretByte] of keyrings) {
+    const keyring = JSON.parse(template[keyringKey]);
+    for (const entry of keyring.keys) entry.secretBase64Url = Buffer.alloc(32, secretByte).toString("base64url");
+    env[activeKidKey] = template[activeKidKey];
+    env[keyringKey] = JSON.stringify(keyring);
+  }
+  return env;
 }
 
 function validComposeModel() {
@@ -50,6 +73,22 @@ describe("production deploy verifier", () => {
   });
   it("accepts complete, distinct production credentials", () => {
     assert.deepEqual(validateProductionEnvironment(validEnvironment()), { ok: true, requiredCount: 27 });
+  });
+  it("keeps the production environment template aligned with canonical keyring parsers", () => {
+    assert.deepEqual(validateProductionEnvironment(environmentWithTemplateKeyrings()), { ok: true, requiredCount: 27 });
+  });
+  it("rejects the millisecond keyring timestamp that produced production login 503", () => {
+    const invalidUser = validEnvironment();
+    invalidUser.USER_JWT_KEYRING_JSON = userRing("user-1", "2026-07-29T00:29:12.384Z");
+    assert.throws(() => validateProductionEnvironment(invalidUser), /USER_JWT config: .*RFC3339-seconds/u);
+
+    const invalidInternal = validEnvironment();
+    invalidInternal.INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON = internalRing("finance-1", 1, "2026-07-29T00:29:12.384Z");
+    assert.throws(() => validateProductionEnvironment(invalidInternal), /INTERNAL_PRINCIPAL config: .*RFC3339-seconds/u);
+  });
+  it("validates operator TTL and clock-skew overrides used by Compose", () => {
+    assert.throws(() => validateProductionEnvironment({ ...validEnvironment(), INTERNAL_PRINCIPAL_TTL_SECONDS: "61" }), /INTERNAL_PRINCIPAL_TTL_SECONDS must equal 60/u);
+    assert.throws(() => validateProductionEnvironment({ ...validEnvironment(), INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS: "6" }), /INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS must equal 5/u);
   });
   it("rejects placeholders, shared secrets, bypasses, and malformed keyrings", () => {
     assert.throws(() => validateProductionEnvironment({ ...validEnvironment(), APP_DOMAIN: "example.com", FINANCE_API_KEY: "o".repeat(32), AUTH_BYPASS_ENABLED: "1", USER_JWT_KEYRING_JSON: "{}" }), /placeholder|must differ|forbidden|active key missing/u);
@@ -82,6 +121,42 @@ describe("production deploy verifier", () => {
     assert.match(rollback, /docker image inspect "\$API_ID" "\$WEB_ID"/u);
     assert.match(rollback, /export API_IMAGE_REF="\$API_ID"/u);
     assert.match(rollback, /production-deployment-receipt\.mjs verify/u);
+  });
+  it("preserves an authority verifier exit 64 through the rollback shell", () => {
+    const directory = mkdtempSync(join(tmpdir(), "rollback-exit-code-"));
+    const binDirectory = join(directory, "bin");
+    const receiptPath = join(directory, "receipt.json");
+    mkdirSync(binDirectory);
+    writeFileSync(receiptPath, "{}\n");
+    const nodeStub = join(binDirectory, "node");
+    writeFileSync(nodeStub, `#!/bin/sh
+case "$1" in
+  scripts/verify-production-deploy.mjs) printf '%s\\n' '{"appDomain":"rollback.invalid","apiImage":"api","webImage":"web"}'; exit 0 ;;
+  scripts/production-deployment-receipt.mjs) printf '%s\\n' 'authority unavailable' >&2; exit 64 ;;
+  -e)
+    case "$2" in
+      *appDomain*) printf '%s' 'rollback.invalid' ;;
+      *apiImage*) printf '%s' 'api' ;;
+      *webImage*) printf '%s' 'web' ;;
+      *) exit 70 ;;
+    esac
+    exit 0 ;;
+  *) exit 71 ;;
+esac
+`);
+    chmodSync(nodeStub, 0o700);
+    for (const command of ["docker", "curl", "tar"]) {
+      const path = join(binDirectory, command);
+      writeFileSync(path, "#!/bin/sh\nexit 99\n");
+      chmodSync(path, 0o700);
+    }
+    try {
+      const result = spawnSync("bash", [new URL("./rollback-production.sh", import.meta.url).pathname, "--env-file", join(directory, "unused.env"), "--project-name", "rollback-test", "--receipt", receiptPath, "--confirm-rollback"], { cwd: new URL("..", import.meta.url), encoding: "utf8", env: { ...process.env, PATH: `${binDirectory}:${process.env.PATH}` } });
+      assert.equal(result.status, 64, result.stderr);
+      assert.match(result.stderr, /authority unavailable/u);
+    } finally {
+      rmSync(directory, { recursive: true });
+    }
   });
   it("cryptographically rejects a tampered deployment receipt or compose artifact", () => {
     const directory = mkdtempSync(join(tmpdir(), "deployment-receipt-"));
