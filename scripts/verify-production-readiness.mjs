@@ -1,5 +1,5 @@
 import { createHash, sign as signDetached, verify as verifyDetached } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalJson, loadProductionAuthority } from "./lib/production-authority.mjs";
@@ -7,6 +7,12 @@ import { canonicalJson, loadProductionAuthority } from "./lib/production-authori
 const SHA40 = /^[a-f0-9]{40}$/u;
 const SHA64 = /^[a-f0-9]{64}$/u;
 const APPROVAL_DOMAIN = "sangfor.production-approval/v1";
+const NONCE_AUTHORITY_RELEASE_GATE_FILE = "nonce-authority-release-gate.json";
+const NONCE_AUTHORITY_RELEASE_LANES = ["nonce-lint", "nonce-typecheck", "nonce-unit", "nonce-build"];
+const NONCE_AUTHORITY_RELEASE_GATE_KEYS = ["candidateSha", "runId", "schemaVersion", "steps", "workspace"];
+const NONCE_AUTHORITY_RELEASE_STEP_KEYS = ["argv", "counts", "durationMs", "exitCode", "id", "outputHash", "reason", "verdict"];
+const NONCE_AUTHORITY_COUNT_KEYS = ["failed", "fixme", "flaky", "noTestsPhrase", "only", "parseable", "passed", "retry", "skipped", "todo", "total"];
+const FINAL_ACCEPTANCE_KEYS = ["autonomousPassed", "candidateSha", "cleanup", "createdAt", "detachedMirrorReceiptSha256", "innerSummarySha256", "manualPending", "nonceAuthorityReleaseGateSha256", "runId", "schemaVersion", "scmHandoffSha256", "state", "unit"];
 
 function unsignedReceipt(receipt) {
   const { signature: _signature, ...unsigned } = receipt;
@@ -34,15 +40,33 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
-export function validateProductionReadiness({ candidateSha, finalAcceptance, finalAcceptanceSha256, externalReceipt, externalReceiptPath, approvalIssuer, approvalKeyring }) {
+function exactKeys(value, keys) {
+  return value !== null && typeof value === "object" && !Array.isArray(value) && Object.keys(value).sort().join("\0") === keys.join("\0");
+}
+
+function validNonceAuthorityReleaseGate(gate, candidateSha, runId) {
+  if (!exactKeys(gate, NONCE_AUTHORITY_RELEASE_GATE_KEYS) || gate.schemaVersion !== 1 || gate.candidateSha !== candidateSha || gate.runId !== runId || gate.workspace !== "services/production-nonce-authority" || !Array.isArray(gate.steps) || gate.steps.length !== NONCE_AUTHORITY_RELEASE_LANES.length) return false;
+  return gate.steps.every((step, index) => {
+    const expectedArgv = ["bash", "scripts/run-workspace-runtime.sh", "nonce", "--", "corepack", "pnpm", index === 2 ? "test" : NONCE_AUTHORITY_RELEASE_LANES[index].slice("nonce-".length)];
+    if (!exactKeys(step, NONCE_AUTHORITY_RELEASE_STEP_KEYS) || step.id !== NONCE_AUTHORITY_RELEASE_LANES[index] || step.verdict !== "PASS" || step.exitCode !== 0 || !Number.isInteger(step.durationMs) || step.durationMs < 0 || !SHA64.test(step.outputHash ?? "") || JSON.stringify(step.argv) !== JSON.stringify(expectedArgv) || typeof step.reason !== "string" || step.reason.length === 0 || !exactKeys(step.counts, NONCE_AUTHORITY_COUNT_KEYS)) return false;
+    const counts = step.counts;
+    if (!["fixme", "flaky", "only", "retry", "skipped", "todo"].every((key) => Number.isInteger(counts[key]) && counts[key] === 0) || counts.noTestsPhrase !== false) return false;
+    if (index === 2) return step.reason === "strict_test_pass" && counts.parseable === true && Number.isInteger(counts.total) && counts.total > 0 && counts.failed === 0 && Number.isInteger(counts.passed) && counts.passed > 0 && counts.passed === counts.total;
+    return step.reason === "command_exit_0" && counts.parseable === false && counts.total === null && counts.passed === null && counts.failed === null;
+  });
+}
+
+export function validateProductionReadiness({ candidateSha, finalAcceptance, finalAcceptanceSha256, nonceAuthorityReleaseGate, nonceAuthorityReleaseGateSha256, externalReceipt, externalReceiptPath, approvalIssuer, approvalKeyring }) {
   const issues = [];
   if (!SHA40.test(candidateSha ?? "")) issues.push("candidateSha must be lowercase 40-hex");
-  if (finalAcceptance?.schemaVersion !== 1 || finalAcceptance?.candidateSha !== candidateSha) issues.push("final acceptance candidate identity mismatch");
-  if (finalAcceptance?.authority !== "AUTHORITATIVE_MIRROR_INTERNAL" || !SHA64.test(finalAcceptance?.contextHash ?? "") || !SHA64.test(finalAcceptance?.aliasMapHash ?? "")) issues.push("final acceptance authority or provenance invalid");
+  if (!exactKeys(finalAcceptance, FINAL_ACCEPTANCE_KEYS) || finalAcceptance?.schemaVersion !== 1 || finalAcceptance?.unit !== "U076" || finalAcceptance?.candidateSha !== candidateSha) issues.push("final acceptance candidate identity or schema invalid");
+  if (!["innerSummarySha256", "detachedMirrorReceiptSha256", "scmHandoffSha256"].every((key) => SHA64.test(finalAcceptance?.[key] ?? ""))) issues.push("final acceptance provenance hashes invalid");
   if (finalAcceptance?.state !== "LOCAL_PASS_EXTERNAL_PENDING" || finalAcceptance?.autonomousPassed !== 98 || finalAcceptance?.manualPending !== 1 || finalAcceptance?.cleanup !== "PASS") {
     issues.push("final acceptance must prove 98 local passes, one external pending row, and cleanup PASS");
   }
   if (!finalAcceptance?.runId || Number.isNaN(Date.parse(finalAcceptance?.createdAt))) issues.push("final acceptance run identity invalid");
+  if (!SHA64.test(finalAcceptance?.nonceAuthorityReleaseGateSha256 ?? "") || finalAcceptance.nonceAuthorityReleaseGateSha256 !== nonceAuthorityReleaseGateSha256) issues.push("final acceptance nonce authority release-gate hash invalid");
+  if (!validNonceAuthorityReleaseGate(nonceAuthorityReleaseGate, candidateSha, finalAcceptance?.runId)) issues.push("nonce authority release-gate evidence invalid");
 
   if (externalReceipt?.schemaVersion !== 1 || externalReceipt?.candidateSha !== candidateSha || externalReceipt?.manifestId !== "AC-DOD-09" || externalReceipt?.runId !== finalAcceptance?.runId || externalReceipt?.ownerUnit !== "U076") issues.push("external receipt candidate or run identity mismatch");
   if (!SHA64.test(finalAcceptanceSha256 ?? "") || externalReceipt?.localAcceptanceSha256 !== finalAcceptanceSha256) issues.push("external receipt is not bound to the exact local acceptance evidence");
@@ -70,6 +94,8 @@ export function validateProductionReadiness({ candidateSha, finalAcceptance, fin
         issues.push(`external artifact missing: ${artifact.path}`);
       }
     }
+    const gateArtifacts = externalReceipt.artifactHashes.filter((artifact) => artifact?.path === NONCE_AUTHORITY_RELEASE_GATE_FILE);
+    if (gateArtifacts.length !== 1 || gateArtifacts[0]?.sha256 !== nonceAuthorityReleaseGateSha256) issues.push("external receipt must bind the nonce authority release-gate artifact hash");
   }
   if (issues.length > 0) throw new Error(`production readiness rejected:\n${issues.join("\n")}`);
   return { ok: true, candidateSha, localState: finalAcceptance.state, externalState: externalReceipt.verificationState };
@@ -104,9 +130,12 @@ export async function verifyProductionReadinessWithAuthority({ candidateSha, fin
   const externalPath = resolve(externalReceiptPath);
   if (!statSync(finalPath).isFile() || !statSync(externalPath).isFile()) throw new Error("acceptance evidence paths must be files");
   const finalBytes = readFileSync(finalPath);
+  const nonceAuthorityReleaseGatePath = resolve(dirname(finalPath), NONCE_AUTHORITY_RELEASE_GATE_FILE);
+  if (!existsSync(nonceAuthorityReleaseGatePath) || !statSync(nonceAuthorityReleaseGatePath).isFile()) throw new Error("nonce authority release-gate evidence path must be a file");
+  const nonceAuthorityReleaseGateBytes = readFileSync(nonceAuthorityReleaseGatePath);
   const externalReceipt = readJson(externalPath);
   const { authority } = loadProductionAuthority(authorityPath, { allowNonRootOwner: allowNonRootAuthorityForTests });
-  const result = validateProductionReadiness({ candidateSha, finalAcceptance: JSON.parse(finalBytes), finalAcceptanceSha256: createHash("sha256").update(finalBytes).digest("hex"), externalReceipt, externalReceiptPath: externalPath, approvalIssuer: authority.approvalIssuer, approvalKeyring: authority.approvalKeys });
+  const result = validateProductionReadiness({ candidateSha, finalAcceptance: JSON.parse(finalBytes), finalAcceptanceSha256: createHash("sha256").update(finalBytes).digest("hex"), nonceAuthorityReleaseGate: JSON.parse(nonceAuthorityReleaseGateBytes), nonceAuthorityReleaseGateSha256: createHash("sha256").update(nonceAuthorityReleaseGateBytes).digest("hex"), externalReceipt, externalReceiptPath: externalPath, approvalIssuer: authority.approvalIssuer, approvalKeyring: authority.approvalKeys });
   await consumeApprovalNonce(externalReceipt, authority, fetchImpl);
   return result;
 }

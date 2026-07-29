@@ -17,6 +17,36 @@ Start from `production.env.example`. The configured default tenant, company, and
 
 Provision `production-authority.example.json` as `/etc/sangfor-os/production-authority.json`, replace every placeholder, and set the file plus its deployment-receipt private key to root-owned mode `0600`. This path is fixed in code and cannot be replaced by `.env.production` or ambient environment values. The nonce bearer credential is consume-only; it must not be able to issue or sign approvals.
 
+## Nonce authority deployment
+
+The nonce authority is a separate Cloudflare Worker with a SQLite-backed Durable Object. It is not deployed by `scripts/deploy-production.sh`; deploy it and capture its HTTPS endpoint before placing that endpoint in the root-owned production authority file. The commands below do not put a secret in an argv value.
+
+```bash
+cd services/production-nonce-authority
+corepack pnpm install --ignore-workspace --frozen-lockfile
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+
+# First deployment: use a deploying-user-owned mode-0600 dotenv or JSON secrets file that
+# contains only NONCE_CONSUME_BEARER_TOKEN and the exact APPROVAL_ISSUER pinned
+# in production-authority.json. Do not source, echo, commit, or pass its values
+# as command arguments. This creates the Worker, applies its DO migration, and
+# uploads both secret bindings in one deployment.
+corepack pnpm exec wrangler deploy --secrets-file /secure/path/production-nonce-authority.secrets.env
+```
+
+For a later token rotation on the already-deployed Worker, provide the replacement token from standard input or a protected file, never argv:
+
+```bash
+corepack pnpm exec wrangler secret put NONCE_CONSUME_BEARER_TOKEN < /secure/path/nonce-consume-bearer-token
+```
+
+`APPROVAL_ISSUER` is deliberately not a request-controlled value. After the initial `corepack pnpm exec wrangler deploy` completes, copy the `https://<worker>.<account>.workers.dev` URL it prints and configure it as `nonceConsumeUrl` in that authority file. Do not use a non-HTTPS URL.
+
+Before authorizing a production application deployment, perform an operational proof against the captured HTTPS URL with a distinct, never-deployed canary receipt, nonce, and request. Its first `POST /v1/production-nonces/consume` must return `201` with `schemaVersion: 1`, `consumed: true`, the submitted canary nonce, and the submitted canary receipt SHA-256. Re-submit that exact canary request and verify `409`; the replay result must not alter the original consumption record. Do not use the real deployment receipt, nonce, or request for this canary: its nonce must remain unconsumed until `verify-production-readiness` and the approved `deploy-production.sh` cutover consume it. Record only status and non-secret identifiers in the deployment evidence—never the bearer token or full request body.
+
 ```bash
 scripts/deploy-production.sh \
   --env-file .env.production \

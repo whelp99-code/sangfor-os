@@ -9,6 +9,7 @@ const userJwtParser = new URL("../packages/config/src/user-jwt.ts", import.meta.
 const internalPrincipalParser = new URL("../packages/config/src/internal-principal.ts", import.meta.url).href;
 const placeholderPattern = /(replace|placeholder|change.?me|example\.com|your[-_])/i;
 const trueValues = new Set(["1", "true", "yes", "on"]);
+const reservedEmailDomainPattern = /(?:^|\.)invalid$|(?:^|\.)test$|(?:^|\.)example$|(?:^|\.)localhost$/u;
 
 const canonicalKeyringValidationProgram = `
 import { parseUserJwtConfig } from ${JSON.stringify(userJwtParser)};
@@ -64,7 +65,7 @@ export function parseEnvFile(text) {
 }
 
 export function validateProductionEnvironment(env) {
-  const required = ["APP_DOMAIN", "BACKUP_DIR", "DEFAULT_TENANT_ID", "DEFAULT_COMPANY_ID", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "POSTGRES_PASSWORD", "SANGFOR_APP_DB_PASSWORD", "SANGFOR_RUNTIME_DB_PASSWORD", "REDIS_PASSWORD", "API_KEY", "FINANCE_API_KEY", "SANGFOR_API_KEY", "SANGFOR_OPERATOR_PRINCIPAL_ID", "JWT_SECRET", "USER_JWT_ACTIVE_KID", "USER_JWT_KEYRING_JSON", "INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID", "INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON", "INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID", "INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON", "INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID", "INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON", "INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID", "INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON", "EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID", "EXTERNAL_ACTION_RECEIPT_KEYS_JSON"];
+  const required = ["APP_DOMAIN", "BACKUP_DIR", "DEFAULT_TENANT_ID", "DEFAULT_TENANT_SLUG", "DEFAULT_COMPANY_ID", "DEFAULT_COMPANY_SLUG", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "PRODUCTION_OPERATOR_USER_ID", "PRODUCTION_OPERATOR_EMAIL", "POSTGRES_PASSWORD", "SANGFOR_APP_DB_PASSWORD", "SANGFOR_RUNTIME_DB_PASSWORD", "REDIS_PASSWORD", "API_KEY", "FINANCE_API_KEY", "SANGFOR_API_KEY", "SANGFOR_OPERATOR_PRINCIPAL_ID", "JWT_SECRET", "USER_JWT_ACTIVE_KID", "USER_JWT_KEYRING_JSON", "INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID", "INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON", "INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID", "INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON", "INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID", "INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON", "INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID", "INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON", "EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID", "EXTERNAL_ACTION_RECEIPT_KEYS_JSON"];
   const issues = [];
   for (const key of required) {
     const value = env[key]?.trim();
@@ -73,9 +74,11 @@ export function validateProductionEnvironment(env) {
   }
   if (env.APP_DOMAIN && (!/^[a-z0-9.-]+(?::[0-9]+)?$/iu.test(env.APP_DOMAIN) || env.APP_DOMAIN.includes(".."))) issues.push("APP_DOMAIN: expected hostname without scheme or path");
   if (env.BACKUP_DIR && !isAbsolute(env.BACKUP_DIR)) issues.push("BACKUP_DIR: must be absolute");
-  for (const key of ["DEFAULT_TENANT_ID", "DEFAULT_COMPANY_ID", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG"]) {
-    if (env[key] && !/^[A-Za-z0-9._-]{3,128}$/u.test(env[key])) issues.push(`${key}: invalid identifier`);
+  for (const key of ["DEFAULT_TENANT_ID", "DEFAULT_TENANT_SLUG", "DEFAULT_COMPANY_ID", "DEFAULT_COMPANY_SLUG", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "PRODUCTION_OPERATOR_USER_ID"]) {
+    if (env[key] && !/^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$/u.test(env[key])) issues.push(`${key}: invalid identifier`);
   }
+  if (env.PRODUCTION_OPERATOR_EMAIL && (env.PRODUCTION_OPERATOR_EMAIL !== env.PRODUCTION_OPERATOR_EMAIL.toLowerCase() || !/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/u.test(env.PRODUCTION_OPERATOR_EMAIL))) issues.push("PRODUCTION_OPERATOR_EMAIL: expected canonical lowercase email");
+  else if (env.PRODUCTION_OPERATOR_EMAIL && reservedEmailDomainPattern.test(env.PRODUCTION_OPERATOR_EMAIL.slice(env.PRODUCTION_OPERATOR_EMAIL.lastIndexOf("@") + 1))) issues.push("PRODUCTION_OPERATOR_EMAIL: reserved email domain");
   for (const key of ["POSTGRES_PASSWORD", "SANGFOR_APP_DB_PASSWORD", "SANGFOR_RUNTIME_DB_PASSWORD", "REDIS_PASSWORD"]) {
     const value = env[key] ?? "";
     if (value && !/^[A-Za-z0-9_-]{32,}$/u.test(value)) issues.push(`${key}: must be at least 32 URL-safe characters`);
@@ -122,7 +125,7 @@ export function validateProductionEnvironment(env) {
 
 export function validateComposeModel(model) {
   const issues = [];
-  const requiredServices = ["postgres", "redis", "backup", "migrate", "app-role-init", "api", "web", "caddy"];
+  const requiredServices = ["postgres", "redis", "backup", "migrate", "bootstrap", "app-role-init", "api", "web", "caddy"];
   for (const service of requiredServices) if (!model.services?.[service]) issues.push(`missing service: ${service}`);
   for (const service of ["postgres", "redis", "api", "web"]) if (!model.services?.[service]?.healthcheck) issues.push(`missing healthcheck: ${service}`);
   for (const service of ["postgres", "redis", "api", "web"]) if ((model.services?.[service]?.ports?.length ?? 0) > 0) issues.push(`${service}: must not publish host ports`);
@@ -135,11 +138,28 @@ export function validateComposeModel(model) {
   for (const service of ["api", "web"]) if ((model.services?.[service]?.volumes?.length ?? 0) > 0) issues.push(`${service}: runtime source bind mounts are forbidden`);
   const roleInitCommand = JSON.stringify(model.services?.["app-role-init"]?.command ?? []);
   if (!roleInitCommand.includes("NOBYPASSRLS") || roleInitCommand.includes(" BYPASSRLS")) issues.push("runtime role must be NOBYPASSRLS");
+  const bootstrap = model.services?.bootstrap;
+  const bootstrapDatabaseUrl = bootstrap?.environment?.DATABASE_URL;
+  if (typeof bootstrapDatabaseUrl !== "string" || !bootstrapDatabaseUrl.startsWith("postgresql://sangfor:")) issues.push("bootstrap: DATABASE_URL must use the admin database role");
+  const bootstrapEnvironmentKeys = Object.keys(bootstrap?.environment ?? {}).sort();
+  const expectedBootstrapEnvironmentKeys = ["DATABASE_URL", "DEFAULT_COMPANY_ID", "DEFAULT_COMPANY_SLUG", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "DEFAULT_TENANT_ID", "DEFAULT_TENANT_SLUG", "PRODUCTION_OPERATOR_EMAIL", "PRODUCTION_OPERATOR_USER_ID"].sort();
+  if (bootstrapEnvironmentKeys.join(",") !== expectedBootstrapEnvironmentKeys.join(",")) issues.push("bootstrap: environment must contain only the admin URL and bootstrap identities");
+  const expectedBootstrapCommand = ["node", "--import", "tsx", "/app/scripts/provision-production-bootstrap.mjs"];
+  const bootstrapCommand = bootstrap?.command;
+  if (!Array.isArray(bootstrapCommand) || bootstrapCommand.length !== expectedBootstrapCommand.length || bootstrapCommand.some((argument, index) => argument !== expectedBootstrapCommand[index])) {
+    issues.push("bootstrap: command must exactly be node --import tsx /app/scripts/provision-production-bootstrap.mjs");
+  }
+  const bootstrapVolumes = bootstrap?.volumes ?? [];
+  if (bootstrapVolumes.length !== 1 || bootstrapVolumes[0]?.type !== "bind" || bootstrapVolumes[0]?.target !== "/app/scripts/provision-production-bootstrap.mjs" || bootstrapVolumes[0]?.read_only !== true) issues.push("bootstrap: must mount only the read-only provisioner script");
+  if (Object.keys(bootstrap?.depends_on ?? {}).join(",") !== "migrate" || bootstrap?.depends_on?.migrate?.condition !== "service_completed_successfully") issues.push("bootstrap: must wait only for migrate completion");
+  const roleInitDependencies = model.services?.["app-role-init"]?.depends_on ?? {};
+  if (Object.keys(roleInitDependencies).join(",") !== "bootstrap" || roleInitDependencies.bootstrap?.condition !== "service_completed_successfully") issues.push("app-role-init: must wait only for bootstrap completion");
   for (const service of ["api", "web"]) {
     if (model.services?.[service]?.environment?.AUTH_BYPASS_ENABLED !== "0" || model.services?.[service]?.environment?.API_KEY_BYPASS_ENABLED !== "0" || model.services?.[service]?.environment?.AUTH_PROFILE === "local_mock") issues.push(`${service}: unsafe runtime auth environment`);
   }
   if (model.services?.backup?.restart !== "no") issues.push("backup: restart must be no");
   if (model.services?.migrate?.restart !== "no") issues.push("migrate: restart must be no");
+  if (bootstrap?.restart !== "no") issues.push("bootstrap: restart must be no");
   if (model.services?.["app-role-init"]?.restart !== "no") issues.push("app-role-init: restart must be no");
   if (issues.length > 0) throw new Error(`production compose rejected:\n${issues.join("\n")}`);
   return { ok: true, serviceCount: Object.keys(model.services ?? {}).length };

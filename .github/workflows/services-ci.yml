@@ -19,6 +19,27 @@ on:
       - 'scripts/verify-release.mjs'
 
 jobs:
+  production-nonce-authority:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/production-nonce-authority
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: services/production-nonce-authority/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: services/production-nonce-authority/.nvmrc
+      - name: Assert runtime matrix
+        run: '[ "$(node -p ''process.versions.node.split(".")[0]'')" = "20" ] && [ "$(corepack pnpm --version)" = "10.28.1" ]'
+      - run: pnpm install --ignore-workspace --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
   engineer-mcp:
     runs-on: ubuntu-latest
     defaults:

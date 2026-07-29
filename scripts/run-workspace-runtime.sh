@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # U003 — deterministic workspace runtime wrapper
-# Interface: scripts/run-workspace-runtime.sh <root|engineer|workflow> -- <command...>
+# Interface: scripts/run-workspace-runtime.sh <root|engineer|workflow|nonce> -- <command...>
 set -euo pipefail
 
 die64() {
@@ -23,7 +23,7 @@ fi
 REPO_ROOT="$(cd "$(dirname "$_script_abs")/.." && pwd -P)"
 
 if [[ $# -lt 1 ]]; then
-  die64 "usage: run-workspace-runtime.sh <root|engineer|workflow> -- <command...>"
+  die64 "usage: run-workspace-runtime.sh <root|engineer|workflow|nonce> -- <command...>"
 fi
 
 WS="$1"
@@ -44,6 +44,11 @@ case "$WS" in
     WS_CWD="services/sangfor-mcp-workflow"
     WS_MAJOR="22"
     WS_PKG="sangfor-mcp-workflow"
+    ;;
+  nonce)
+    WS_CWD="services/production-nonce-authority"
+    WS_MAJOR="20"
+    WS_PKG="@sangfor/production-nonce-authority"
     ;;
   *)
     die64 "unknown workspace: ${WS}"
