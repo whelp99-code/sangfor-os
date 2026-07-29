@@ -49,6 +49,21 @@ function environmentWithTemplateKeyrings() {
   return env;
 }
 
+function assertDeploymentPermissionContract(deploy) {
+  const permissionCommands = deploy.match(/^\s*(?:chmod|install|chown|chgrp|setfacl|umask)\b.*$/gmu) ?? [];
+  assert.deepEqual(permissionCommands, [
+    '  chmod a+x "$ROOT/.local-prod" "$DEPLOYMENT_RUNTIME_ROOT" "$DEPLOYMENT_SOURCE"',
+    'chmod 700 "$ROOT/.local-prod" "$DEPLOYMENT_DIR" "$DEPLOYMENT_RUNTIME_ROOT" "$DEPLOYMENT_SOURCE"',
+    'chmod 600 "$DEPLOYMENT_ARCHIVE"',
+    'install -m 600 "$DEPLOYMENT_SOURCE/docker-compose.production.yml" "$DEPLOYMENT_COMPOSE"',
+    'chmod -R a-w "$DEPLOYMENT_SOURCE"',
+  ], "production deployment permission command allowlist");
+  const traversalCall = deploy.indexOf("allow_docker_bind_mount_traversal\n");
+  assert.ok(traversalCall >= 0, "Docker bind traversal helper must be called");
+  assert.ok(deploy.indexOf("chmod -R a-w \"$DEPLOYMENT_SOURCE\"") < traversalCall, "source must be immutable before traversal is granted");
+  assert.ok(traversalCall < deploy.indexOf('"${COMPOSE[@]}"'), "Docker traversal must be granted before the first Compose command");
+}
+
 function validComposeModel() {
   const runtimeEnvironment = { DATABASE_URL: "postgresql://sangfor_runtime_login@postgres/sangfor?options=-c%20app.tenant_id%3Dtenant-prod", SANGFOR_PROCESS_PROFILE: "production", AUTH_BYPASS_ENABLED: "0", API_KEY_BYPASS_ENABLED: "0", AUTH_PROFILE: "production" };
   const bootstrapEnvironment = { DATABASE_URL: "postgresql://sangfor:admin@postgres/sangfor", DEFAULT_TENANT_ID: "tenant-prod", DEFAULT_TENANT_SLUG: "tenant-prod", DEFAULT_COMPANY_ID: "company-prod", DEFAULT_COMPANY_SLUG: "company-prod", DEFAULT_PROJECT_ID: "project-prod", DEFAULT_PROJECT_SLUG: "project-prod", PRODUCTION_OPERATOR_USER_ID: "operator-prod", PRODUCTION_OPERATOR_EMAIL: "operator-prod@production.sangfor.com" };
@@ -149,6 +164,9 @@ describe("production deploy verifier", () => {
     assert.match(deploy, /cd "\$DEPLOYMENT_SOURCE"\n  corepack pnpm install --prod --frozen-lockfile/u);
     assert.ok(deploy.indexOf("tar -xf \"$DEPLOYMENT_ARCHIVE\" -C \"$DEPLOYMENT_SOURCE\"") < deploy.indexOf("corepack pnpm install --prod --frozen-lockfile"));
     assert.ok(deploy.indexOf("corepack pnpm install --prod --frozen-lockfile") < deploy.indexOf("chmod -R a-w \"$DEPLOYMENT_SOURCE\""));
+    assertDeploymentPermissionContract(deploy);
+    assert.throws(() => assertDeploymentPermissionContract(deploy.replace('chmod 700 "$ROOT/.local-prod" "$DEPLOYMENT_DIR" "$DEPLOYMENT_RUNTIME_ROOT" "$DEPLOYMENT_SOURCE"', 'chmod 755 "$DEPLOYMENT_DIR"')), /permission command allowlist/u);
+    assert.throws(() => assertDeploymentPermissionContract(deploy.replace('chmod 600 "$DEPLOYMENT_ARCHIVE"', 'chmod 600 "$DEPLOYMENT_ARCHIVE"\nchmod a+r "$DEPLOYMENT_ARCHIVE"')), /permission command allowlist/u);
     assert.ok(deploy.indexOf("corepack pnpm install --prod --frozen-lockfile") < deploy.indexOf("production-deployment-receipt.mjs\" preflight"));
     assert.ok(deploy.indexOf("production-deployment-receipt.mjs\" preflight") < deploy.indexOf("verify-production-readiness.mjs"));
     assert.match(deploy, /--project-directory "\$DEPLOYMENT_SOURCE"/u);
