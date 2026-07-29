@@ -49,6 +49,11 @@ DEPLOYMENT_ARCHIVE="${DEPLOYMENT_DIR}/${DEPLOYMENT_ID}.source.tar"
 DEPLOYMENT_COMPOSE="${DEPLOYMENT_DIR}/${DEPLOYMENT_ID}.compose.yml"
 UNSIGNED_RECEIPT="${DEPLOYMENT_DIR}/${DEPLOYMENT_ID}.unsigned.json"
 SIGNED_RECEIPT="${DEPLOYMENT_DIR}/${DEPLOYMENT_ID}.json"
+allow_docker_bind_mount_traversal() {
+  # Docker Desktop needs directory search permission to resolve the read-only bind sources.
+  # `a+x` permits traversal only; it does not allow directory listing or writes.
+  chmod a+x "$ROOT/.local-prod" "$DEPLOYMENT_RUNTIME_ROOT" "$DEPLOYMENT_SOURCE"
+}
 mkdir -p "$DEPLOYMENT_DIR" "$DEPLOYMENT_RUNTIME_ROOT" "$DEPLOYMENT_SOURCE"
 chmod 700 "$ROOT/.local-prod" "$DEPLOYMENT_DIR" "$DEPLOYMENT_RUNTIME_ROOT" "$DEPLOYMENT_SOURCE"
 git archive --format=tar --output="$DEPLOYMENT_ARCHIVE" "$EXPECTED_SHA"
@@ -60,6 +65,7 @@ tar -xf "$DEPLOYMENT_ARCHIVE" -C "$DEPLOYMENT_SOURCE"
 )
 install -m 600 "$DEPLOYMENT_SOURCE/docker-compose.production.yml" "$DEPLOYMENT_COMPOSE"
 chmod -R a-w "$DEPLOYMENT_SOURCE"
+allow_docker_bind_mount_traversal
 node "$DEPLOYMENT_SOURCE/scripts/production-deployment-receipt.mjs" preflight
 VERIFICATION_JSON="$(node "$DEPLOYMENT_SOURCE/scripts/verify-production-deploy.mjs" --env-file "$ENV_FILE")"
 node "$DEPLOYMENT_SOURCE/scripts/verify-production-readiness.mjs" --candidate-sha "$EXPECTED_SHA" --final-acceptance "$FINAL_ACCEPTANCE" --external-receipt "$EXTERNAL_RECEIPT"
