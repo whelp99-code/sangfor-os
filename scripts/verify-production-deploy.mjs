@@ -5,8 +5,49 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const composeFile = resolve(root, "docker-compose.production.yml");
+const userJwtParser = new URL("../packages/config/src/user-jwt.ts", import.meta.url).href;
+const internalPrincipalParser = new URL("../packages/config/src/internal-principal.ts", import.meta.url).href;
 const placeholderPattern = /(replace|placeholder|change.?me|example\.com|your[-_])/i;
 const trueValues = new Set(["1", "true", "yes", "on"]);
+
+const canonicalKeyringValidationProgram = `
+import { parseUserJwtConfig } from ${JSON.stringify(userJwtParser)};
+import { parseInternalPrincipalConfig } from ${JSON.stringify(internalPrincipalParser)};
+let input = "";
+for await (const chunk of process.stdin) input += chunk;
+try {
+  const env = JSON.parse(input);
+  parseUserJwtConfig(env);
+  parseInternalPrincipalConfig(env);
+} catch (error) {
+  process.stderr.write((error instanceof Error ? error.message : String(error)) + "\\n");
+  process.exitCode = 64;
+}
+`;
+
+function validateCanonicalRuntimeKeyrings(env, issues) {
+  const effectiveRuntimeEnv = {
+    ...env,
+    USER_JWT_ROTATION_OWNER: "security-auth",
+    USER_JWT_ISSUER: env.USER_JWT_ISSUER || "sangfor-os",
+    USER_JWT_AUDIENCE: env.USER_JWT_AUDIENCE || "sangfor-os-runtime",
+    USER_JWT_TTL_SECONDS: env.USER_JWT_TTL_SECONDS || "900",
+    USER_JWT_CLOCK_SKEW_SECONDS: env.USER_JWT_CLOCK_SKEW_SECONDS || "30",
+    INTERNAL_PRINCIPAL_TTL_SECONDS: env.INTERNAL_PRINCIPAL_TTL_SECONDS || "60",
+    INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS: env.INTERNAL_PRINCIPAL_CLOCK_SKEW_SECONDS || "5",
+    INTERNAL_PRINCIPAL_ROTATION_OWNER: "security-auth",
+  };
+  const validation = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "--eval", canonicalKeyringValidationProgram], {
+    cwd: root,
+    encoding: "utf8",
+    input: JSON.stringify(effectiveRuntimeEnv),
+  });
+  if (validation.error) {
+    issues.push(`runtime keyring canonical validation unavailable: ${validation.error.message}`);
+  } else if (validation.status !== 0) {
+    issues.push(`runtime keyring configuration invalid: ${validation.stderr.trim() || `canonical parser exited ${validation.status}`}`);
+  }
+}
 
 export function parseEnvFile(text) {
   const env = {};
@@ -55,26 +96,12 @@ export function validateProductionEnvironment(env) {
     if (trueValues.has((env[key] ?? "").trim().toLowerCase())) issues.push(`${key}: forbidden in production`);
   }
   if (env.AUTH_PROFILE === "local_mock") issues.push("AUTH_PROFILE=local_mock: forbidden in production");
-  for (const [jsonKey, activeKidKey, expectedVersion, expectedProfile] of [
-    ["USER_JWT_KEYRING_JSON", "USER_JWT_ACTIVE_KID", "sangfor.user-jwt-keyring/v1", undefined],
-    ["INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON", "INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID", "sangfor.internal-principal-keyring/v1", "FINANCE"],
-    ["INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON", "INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID", "sangfor.internal-principal-keyring/v1", "SCHEDULER"],
-    ["INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON", "INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID", "sangfor.internal-principal-keyring/v1", "WORKFLOW"],
-    ["INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON", "INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID", "sangfor.internal-principal-keyring/v1", "ENGINEER"],
-  ]) {
+  validateCanonicalRuntimeKeyrings(env, issues);
+  for (const jsonKey of ["USER_JWT_KEYRING_JSON", "INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON", "INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON", "INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON", "INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON"]) {
     if (!env[jsonKey]) continue;
     try {
       const parsed = JSON.parse(env[jsonKey]);
-      const active = parsed.keys?.find((key) => key.kid === env[activeKidKey] && key.state === "active");
-      if (parsed.version !== expectedVersion) issues.push(`${jsonKey}: unexpected version`);
-      if (expectedProfile && parsed.profile !== expectedProfile) issues.push(`${jsonKey}: unexpected profile`);
-      const encodedSecret = active?.secretBase64Url;
-      const secretBytes = typeof encodedSecret === "string" && /^[A-Za-z0-9_-]+$/u.test(encodedSecret)
-        ? Buffer.from(encodedSecret, "base64url")
-        : Buffer.alloc(0);
-      if (!active || secretBytes.length < 32 || !Number.isFinite(Date.parse(active.activatedAt))) issues.push(`${jsonKey}: active key missing, malformed, or secret too short`);
-      if (active && (active.demotedAt !== null || active.verifyUntil !== null || active.retiredAt !== null)) issues.push(`${jsonKey}: active key lifecycle fields must be null`);
-      if (active && placeholderPattern.test(active.secretBase64Url)) issues.push(`${jsonKey}: placeholder secret`);
+      if (parsed.keys?.some((key) => typeof key.secretBase64Url === "string" && placeholderPattern.test(key.secretBase64Url))) issues.push(`${jsonKey}: placeholder secret`);
     } catch {
       issues.push(`${jsonKey}: invalid JSON`);
     }

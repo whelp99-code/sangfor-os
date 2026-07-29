@@ -28,7 +28,8 @@ APP_DOMAIN="$(printf '%s' "$VERIFICATION_JSON" | node -e 'let s="";process.stdin
 API_IMAGE="$(printf '%s' "$VERIFICATION_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).apiImage))')"
 WEB_IMAGE="$(printf '%s' "$VERIFICATION_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).webImage))')"
 DEPLOYMENT_DIR="$(cd "$(dirname "$RECEIPT")" && pwd)"
-IFS=$'\t' read -r TARGET_SHA API_TAG API_ID WEB_TAG WEB_ID DEPLOYMENT_COMPOSE SOURCE_ARCHIVE < <(node scripts/production-deployment-receipt.mjs verify --receipt "$RECEIPT" --project "$PROJECT_NAME" --api-image "$API_IMAGE" --web-image "$WEB_IMAGE" --deployment-dir "$DEPLOYMENT_DIR")
+RECEIPT_FIELDS="$(node scripts/production-deployment-receipt.mjs verify --receipt "$RECEIPT" --project "$PROJECT_NAME" --api-image "$API_IMAGE" --web-image "$WEB_IMAGE" --deployment-dir "$DEPLOYMENT_DIR")" || exit $?
+IFS=$'\t' read -r TARGET_SHA API_TAG API_ID WEB_TAG WEB_ID DEPLOYMENT_COMPOSE SOURCE_ARCHIVE <<< "$RECEIPT_FIELDS"
 docker image inspect "$API_ID" "$WEB_ID" >/dev/null
 export API_IMAGE_REF="$API_ID"
 export WEB_IMAGE_REF="$WEB_ID"
