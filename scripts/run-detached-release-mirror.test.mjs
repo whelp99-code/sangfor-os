@@ -16,8 +16,10 @@ import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import {
   deriveRunnerContractChecks,
+  engineerPrismaGenerateInnerArgv,
   evaluateNodeTestTap,
   finalAcceptanceInnerArgv,
+  runU076CleanMirrorBootstrap,
   runDetachedReleaseMirrorMain,
   validateScmHandoff,
 } from "./run-detached-release-mirror.mjs";
@@ -142,6 +144,62 @@ describe("run-detached-release-mirror", () => {
       "/attempt/context.json",
       "--mirror-context-sha256",
       "f".repeat(64),
+    ]);
+  });
+
+  it("generates the engineer Prisma client after all frozen installs and before the root build", async () => {
+    const argv = [];
+    const ctx = {
+      makeChildEnv: (lane) => ({ lane }),
+      spawnInMirror: async (command) => {
+        argv.push(command);
+        return { code: 0, stdout: "", stderr: "" };
+      },
+    };
+
+    await runU076CleanMirrorBootstrap(ctx);
+
+    assert.deepEqual(engineerPrismaGenerateInnerArgv(), [
+      "bash",
+      "scripts/run-workspace-runtime.sh",
+      "engineer",
+      "--",
+      "corepack",
+      "pnpm",
+      "exec",
+      "prisma",
+      "generate",
+    ]);
+    assert.deepEqual(argv, [
+      ...["root", "engineer", "workflow"].map((scope) => [
+        "bash", "scripts/run-workspace-runtime.sh", scope, "--", "corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline",
+      ]),
+      engineerPrismaGenerateInnerArgv(),
+      ["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "build"],
+    ]);
+  });
+
+  it("aborts U076 before the root build when engineer Prisma generation fails", async () => {
+    const argv = [];
+    const ctx = {
+      makeChildEnv: () => ({}),
+      spawnInMirror: async (command) => {
+        argv.push(command);
+        return JSON.stringify(command) === JSON.stringify(engineerPrismaGenerateInnerArgv())
+          ? { code: 1, stdout: "", stderr: "missing generated Prisma client" }
+          : { code: 0, stdout: "", stderr: "" };
+      },
+    };
+
+    await assert.rejects(
+      runU076CleanMirrorBootstrap(ctx),
+      (error) => error?.exitCode === 65 && /u076 engineer Prisma generate failed: missing generated Prisma client/.test(error.message),
+    );
+    assert.deepEqual(argv, [
+      ...["root", "engineer", "workflow"].map((scope) => [
+        "bash", "scripts/run-workspace-runtime.sh", scope, "--", "corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline",
+      ]),
+      engineerPrismaGenerateInnerArgv(),
     ]);
   });
   it("exit 64 on missing required args / bad mode", () => {
