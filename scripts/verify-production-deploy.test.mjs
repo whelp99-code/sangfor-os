@@ -111,6 +111,11 @@ describe("production deploy verifier", () => {
   it("deploys and rolls back by immutable image ID with fixed authority scripts", () => {
     const deploy = readFileSync(new URL("./deploy-production.sh", import.meta.url), "utf8");
     const rollback = readFileSync(new URL("./rollback-production.sh", import.meta.url), "utf8");
+    const packageManifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    const runbook = readFileSync(new URL("../docs/12_VERIFICATION/production-deployment-runbook.md", import.meta.url), "utf8");
+    assert.equal(packageManifest.dependencies.tsx, "4.22.4");
+    assert.equal(packageManifest.devDependencies.tsx, undefined);
+    assert.match(runbook, /corepack pnpm install --prod --frozen-lockfile/u);
     assert.doesNotMatch(deploy, /PRODUCTION_APPROVAL_ISSUER|consume-nonce-dir/u);
     assert.ok(deploy.indexOf("git archive") < deploy.indexOf("verify-production-readiness.mjs"));
     assert.ok(deploy.indexOf("production-deployment-receipt.mjs\" preflight") < deploy.indexOf("verify-production-readiness.mjs"));

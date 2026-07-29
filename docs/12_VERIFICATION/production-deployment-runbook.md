@@ -5,7 +5,13 @@
 1. Use a clean committed worktree; untracked files are rejected.
 2. Supply the candidate-bound authoritative-mirror U076 `final-acceptance.json` proving `LOCAL_PASS_EXTERNAL_PENDING` and a separately approved `AC-DOD-09` receipt proving `MANUAL_EXTERNAL_PASS`, the same run ID, the exact local acceptance SHA-256, and verified artifact hashes. The receipt must be Ed25519-signed by the issuer pinned in the root-owned authority file. The configured HTTPS nonce authority must atomically return `201` for the first consumption and reject replay on every deployment host.
 3. Keep `.env.production` mode `0600` and `BACKUP_DIR` mode `0700`. Production rejects `AUTH_DEMO_PASSWORD`; provision a per-user credential before cutover.
-4. Run `scripts/deploy-production.sh --check` before the approved deployment command.
+4. In a clean deployment-control checkout, provision the canonical TypeScript loader before preflight:
+
+   ```bash
+   corepack pnpm install --prod --frozen-lockfile
+   ```
+
+5. Run `scripts/deploy-production.sh --check` before the approved deployment command.
 
 Start from `production.env.example`. The configured default tenant, company, and project must identify one existing production hierarchy before application startup.
 
