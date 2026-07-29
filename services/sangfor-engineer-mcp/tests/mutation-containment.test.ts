@@ -89,9 +89,12 @@ describe('Product mutation containment', () => {
       await expect(initialized).resolves.toMatchObject({ id: 2, result: { protocolVersion: '2025-06-18' } });
       expect(child.exitCode).toBeNull();
     } finally {
+      const exited = child.exitCode === null
+        ? new Promise<void>(resolve => child.once('exit', () => resolve()))
+        : Promise.resolve();
       lines.close();
       child.kill('SIGTERM');
-      await new Promise<void>(resolve => child.once('exit', () => resolve()));
+      await exited;
     }
   });
 

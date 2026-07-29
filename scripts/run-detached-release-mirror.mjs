@@ -135,6 +135,51 @@ export function finalAcceptanceInnerArgv(contextFile, contextHash) {
   ];
 }
 
+export function engineerPrismaGenerateInnerArgv() {
+  return [
+    "bash",
+    "scripts/run-workspace-runtime.sh",
+    "engineer",
+    "--",
+    "corepack",
+    "pnpm",
+    "exec",
+    "prisma",
+    "generate",
+  ];
+}
+
+/**
+ * Install each workspace used by U076's detached mirror, then generate the
+ * engineer Prisma client before any root build or final acceptance command.
+ *
+ * @param {{
+ *   spawnInMirror: (argv: string[], env?: NodeJS.ProcessEnv) => Promise<{code:number,stdout:string,stderr:string}>,
+ *   makeChildEnv: (lane?: string, explicit?: Record<string,string>) => Record<string,string>,
+ * }} ctx
+ */
+export async function runU076CleanMirrorBootstrap(ctx) {
+  for (const scope of INSTALL_SCOPES) {
+    const install = await ctx.spawnInMirror(
+      ["bash", "scripts/run-workspace-runtime.sh", scope, "--", "corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline"],
+      ctx.makeChildEnv("install"),
+    );
+    if (install.code !== 0) abort(66, `u076 ${scope} frozen install failed: ${install.stderr.slice(-2000)}`);
+  }
+  const prismaGenerate = await ctx.spawnInMirror(
+    engineerPrismaGenerateInnerArgv(),
+    ctx.makeChildEnv("generic"),
+  );
+  if (prismaGenerate.code !== 0) {
+    abort(65, `u076 engineer Prisma generate failed: ${prismaGenerate.stderr.slice(-4000)}`);
+  }
+  const build = await ctx.spawnInMirror(
+    ["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "build"],
+    ctx.makeChildEnv("generic"),
+  );
+  if (build.code !== 0) abort(65, `u076 clean-mirror build failed: ${build.stderr.slice(-4000)}`);
+}
+
 /**
  * Atomic exclusive-create publish of receipt + sidecar.
  */
@@ -1311,18 +1356,7 @@ export async function runDetachedReleaseMirrorMain(
     const mirrorRun = await withMirror(
       { candidateSha, runId, ownerUnit, attemptDir: absAttempt, mode },
       async (ctx) => {
-        for (const scope of INSTALL_SCOPES) {
-          const install = await ctx.spawnInMirror(
-            ["bash", "scripts/run-workspace-runtime.sh", scope, "--", "corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline"],
-            ctx.makeChildEnv("install"),
-          );
-          if (install.code !== 0) abort(66, `u076 ${scope} frozen install failed: ${install.stderr.slice(-2000)}`);
-        }
-        const build = await ctx.spawnInMirror(
-          ["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "build"],
-          ctx.makeChildEnv("generic"),
-        );
-        if (build.code !== 0) abort(65, `u076 clean-mirror build failed: ${build.stderr.slice(-4000)}`);
+        await runU076CleanMirrorBootstrap(ctx);
         const inner = await ctx.spawnInMirror(
           finalAcceptanceInnerArgv(ctx.mirrorContextFile, ctx.mirrorContextHash),
           ctx.makeChildEnv("generic", {
