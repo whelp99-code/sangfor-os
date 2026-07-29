@@ -54,6 +54,10 @@ chmod 700 "$ROOT/.local-prod" "$DEPLOYMENT_DIR" "$DEPLOYMENT_RUNTIME_ROOT" "$DEP
 git archive --format=tar --output="$DEPLOYMENT_ARCHIVE" "$EXPECTED_SHA"
 chmod 600 "$DEPLOYMENT_ARCHIVE"
 tar -xf "$DEPLOYMENT_ARCHIVE" -C "$DEPLOYMENT_SOURCE"
+(
+  cd "$DEPLOYMENT_SOURCE"
+  corepack pnpm install --prod --frozen-lockfile
+)
 install -m 600 "$DEPLOYMENT_SOURCE/docker-compose.production.yml" "$DEPLOYMENT_COMPOSE"
 chmod -R a-w "$DEPLOYMENT_SOURCE"
 node "$DEPLOYMENT_SOURCE/scripts/production-deployment-receipt.mjs" preflight

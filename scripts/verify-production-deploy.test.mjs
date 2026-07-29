@@ -146,6 +146,10 @@ describe("production deploy verifier", () => {
     assert.match(runbook, /corepack pnpm install --prod --frozen-lockfile/u);
     assert.doesNotMatch(deploy, /PRODUCTION_APPROVAL_ISSUER|consume-nonce-dir/u);
     assert.ok(deploy.indexOf("git archive") < deploy.indexOf("verify-production-readiness.mjs"));
+    assert.match(deploy, /cd "\$DEPLOYMENT_SOURCE"\n  corepack pnpm install --prod --frozen-lockfile/u);
+    assert.ok(deploy.indexOf("tar -xf \"$DEPLOYMENT_ARCHIVE\" -C \"$DEPLOYMENT_SOURCE\"") < deploy.indexOf("corepack pnpm install --prod --frozen-lockfile"));
+    assert.ok(deploy.indexOf("corepack pnpm install --prod --frozen-lockfile") < deploy.indexOf("chmod -R a-w \"$DEPLOYMENT_SOURCE\""));
+    assert.ok(deploy.indexOf("corepack pnpm install --prod --frozen-lockfile") < deploy.indexOf("production-deployment-receipt.mjs\" preflight"));
     assert.ok(deploy.indexOf("production-deployment-receipt.mjs\" preflight") < deploy.indexOf("verify-production-readiness.mjs"));
     assert.match(deploy, /--project-directory "\$DEPLOYMENT_SOURCE"/u);
     assert.match(deploy, /production-deployment-receipt\.mjs" sign/u);
