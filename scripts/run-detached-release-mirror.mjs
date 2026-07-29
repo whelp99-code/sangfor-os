@@ -28,6 +28,7 @@ import {
   DEFAULT_LOCK,
   LABEL_RUN,
 } from "./lib/isolated-postgres.mjs";
+import { evaluateCommandResult } from "./lib/strict-command-result.mjs";
 import { validateManifestSemantics } from "./verify-release.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -38,7 +39,7 @@ const MODES = new Set([
 ]);
 
 const RUNNER_CHECK_KEYS = [
-  "manifest15Lanes",
+  "manifest19Lanes",
   "strictResultParser",
   "falseGreenFixtures",
   "sanitizedEnv",
@@ -48,7 +49,14 @@ const RUNNER_CHECK_KEYS = [
   "detachedMirrorCleanup",
 ];
 
-const INSTALL_SCOPES = ["root", "engineer", "workflow"];
+const INSTALL_SCOPES = ["root", "engineer", "workflow", "nonce"];
+
+const NONCE_AUTHORITY_RELEASE_LANES = [
+  { id: "nonce-lint", argv: ["corepack", "pnpm", "lint"], resultPolicy: "command" },
+  { id: "nonce-typecheck", argv: ["corepack", "pnpm", "typecheck"], resultPolicy: "command" },
+  { id: "nonce-unit", argv: ["corepack", "pnpm", "test"], resultPolicy: "strict-test" },
+  { id: "nonce-build", argv: ["corepack", "pnpm", "build"], resultPolicy: "command" },
+];
 
 const STRICT_PARSER_TESTS = [
   "scripts/lib/strict-command-result.test.mjs",
@@ -149,6 +157,34 @@ export function engineerPrismaGenerateInnerArgv() {
   ];
 }
 
+export function nonceAuthorityInnerArgv(argv) {
+  return [
+    "bash",
+    "scripts/run-workspace-runtime.sh",
+    "nonce",
+    "--",
+    ...argv,
+  ];
+}
+
+export function frozenInstallInnerArgv(scope) {
+  if (!INSTALL_SCOPES.includes(scope)) {
+    abort(64, `unknown frozen-install scope ${scope}`);
+  }
+  return [
+    "bash",
+    "scripts/run-workspace-runtime.sh",
+    scope,
+    "--",
+    "corepack",
+    "pnpm",
+    "install",
+    ...(scope === "nonce" ? ["--ignore-workspace"] : []),
+    "--frozen-lockfile",
+    "--prefer-offline",
+  ];
+}
+
 /**
  * Install each workspace used by U076's detached mirror, then generate the
  * engineer Prisma client before any root build or final acceptance command.
@@ -161,7 +197,7 @@ export function engineerPrismaGenerateInnerArgv() {
 export async function runU076CleanMirrorBootstrap(ctx) {
   for (const scope of INSTALL_SCOPES) {
     const install = await ctx.spawnInMirror(
-      ["bash", "scripts/run-workspace-runtime.sh", scope, "--", "corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline"],
+      frozenInstallInnerArgv(scope),
       ctx.makeChildEnv("install"),
     );
     if (install.code !== 0) abort(66, `u076 ${scope} frozen install failed: ${install.stderr.slice(-2000)}`);
@@ -173,11 +209,39 @@ export async function runU076CleanMirrorBootstrap(ctx) {
   if (prismaGenerate.code !== 0) {
     abort(65, `u076 engineer Prisma generate failed: ${prismaGenerate.stderr.slice(-4000)}`);
   }
+  const nonceAuthorityReleaseGate = [];
+  for (const lane of NONCE_AUTHORITY_RELEASE_LANES) {
+    const started = Date.now();
+    const argv = nonceAuthorityInnerArgv(lane.argv);
+    const result = await ctx.spawnInMirror(argv, ctx.makeChildEnv("generic"));
+    const verdict = evaluateCommandResult({
+      exitCode: result.code,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      policy: lane.resultPolicy,
+      receiptPresent: true,
+    });
+    const evidence = {
+      id: lane.id,
+      argv,
+      exitCode: result.code,
+      durationMs: Date.now() - started,
+      verdict: verdict.verdict,
+      reason: verdict.reason,
+      counts: verdict.counts,
+      outputHash: verdict.outputHash,
+    };
+    nonceAuthorityReleaseGate.push(evidence);
+    if (verdict.verdict !== "PASS") {
+      abort(65, `u076 ${lane.id} failed: ${verdict.reason}`);
+    }
+  }
   const build = await ctx.spawnInMirror(
     ["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "build"],
     ctx.makeChildEnv("generic"),
   );
   if (build.code !== 0) abort(65, `u076 clean-mirror build failed: ${build.stderr.slice(-4000)}`);
+  return Object.freeze({ nonceAuthorityReleaseGate });
 }
 
 /**
@@ -469,7 +533,7 @@ export async function executeU007RunnerContract(ctx, opts) {
     fail(64, "pre-U030 expected @sangfor/ui false-green blocker not found");
   }
 
-  // ── 1. Frozen OFFLINE install (root / engineer / workflow) ──────────────
+  // ── 1. Frozen OFFLINE install (root / engineer / workflow / nonce) ──────
   let installsOk = true;
   /** @type {string|null} */
   let installBlocked = null;
@@ -479,17 +543,7 @@ export async function executeU007RunnerContract(ctx, opts) {
     installs._injected = inject.installs.detail ?? { ok: installsOk };
   } else {
     for (const scope of INSTALL_SCOPES) {
-      const argv = [
-        "bash",
-        "scripts/run-workspace-runtime.sh",
-        scope,
-        "--",
-        "corepack",
-        "pnpm",
-        "install",
-        "--frozen-lockfile",
-        "--prefer-offline",
-      ];
+      const argv = frozenInstallInnerArgv(scope);
       const started = Date.now();
       process.stderr.write(`WORKING: frozen offline install (${scope})\n`);
       const r = await spawnInMirror(argv, makeChildEnv("install"));
@@ -511,11 +565,11 @@ export async function executeU007RunnerContract(ctx, opts) {
   }
   if (installBlocked) notes.push(installBlocked);
 
-  // ── 2. manifest15Lanes (contract validation, not product lanes) ─────────
-  if (inject.manifest15Lanes) {
-    outcomes.manifest15Lanes = inject.manifest15Lanes;
+  // ── 2. manifest19Lanes (contract validation, not product lanes) ─────────
+  if (inject.manifest19Lanes) {
+    outcomes.manifest19Lanes = inject.manifest19Lanes;
   } else {
-    process.stderr.write("WORKING: manifest15Lanes contract validation\n");
+    process.stderr.write("WORKING: manifest19Lanes contract validation\n");
     try {
       const manifestPath = join(mirrorRoot, "scripts/release-gate.manifest.json");
       const schemaPath = join(
@@ -546,12 +600,12 @@ export async function executeU007RunnerContract(ctx, opts) {
         throw new Error("schema required fields missing schemaVersion");
       }
       validateManifestSemantics(manifest);
-      outcomes.manifest15Lanes = {
+      outcomes.manifest19Lanes = {
         ok: true,
         detail: { manifestSha, schemaSha, steps: manifest.steps.length },
       };
     } catch (err) {
-      outcomes.manifest15Lanes = {
+      outcomes.manifest19Lanes = {
         ok: false,
         detail: {
           error: err instanceof Error ? err.message : String(err),
@@ -1197,7 +1251,7 @@ export async function runDetachedReleaseMirrorMain(
       });
 
     const runnerReceipt = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       receiptKind: "runner_contract",
       phase: "pre_u030",
       unit: "U007",
@@ -1228,7 +1282,7 @@ export async function runDetachedReleaseMirrorMain(
     const runnerForPublish =
       contract.runner_contract_status === "PASS"
         ? {
-            schemaVersion: 1,
+            schemaVersion: 2,
             receiptKind: "runner_contract",
             phase: "pre_u030",
             unit: "U007",
@@ -1263,7 +1317,7 @@ export async function runDetachedReleaseMirrorMain(
     const releaseReportSha256 = sha256Text(JSON.stringify(releaseReport));
 
     const productReceipt = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       receiptKind: "product_release",
       phase: "pre_u030",
       unit: "U007",
@@ -1356,7 +1410,7 @@ export async function runDetachedReleaseMirrorMain(
     const mirrorRun = await withMirror(
       { candidateSha, runId, ownerUnit, attemptDir: absAttempt, mode },
       async (ctx) => {
-        await runU076CleanMirrorBootstrap(ctx);
+        const bootstrap = await runU076CleanMirrorBootstrap(ctx);
         const inner = await ctx.spawnInMirror(
           finalAcceptanceInnerArgv(ctx.mirrorContextFile, ctx.mirrorContextHash),
           ctx.makeChildEnv("generic", {
@@ -1378,7 +1432,7 @@ export async function runDetachedReleaseMirrorMain(
         if (summary.candidateSha !== candidateSha || summary.state !== "LOCAL_PASS_EXTERNAL_PENDING" || summary.autonomousPassed !== 98 || summary.manualPending !== 1) {
           abort(64, "U076 inner summary identity/state mismatch");
         }
-        return summary;
+        return { summary, nonceAuthorityReleaseGate: bootstrap.nonceAuthorityReleaseGate };
       },
     );
     const innerSummaryFile = join(absAttempt, "mirror-internal-summary.json");
@@ -1387,6 +1441,33 @@ export async function runDetachedReleaseMirrorMain(
     if (mirrorReceipt.cleanup?.status !== "PASS" || mirrorReceipt.result !== "PASS") {
       fail(64, "U076 detached mirror cleanup did not PASS");
     }
+    const nonceAuthorityReleaseGate = mirrorRun.result?.nonceAuthorityReleaseGate;
+    if (
+      !Array.isArray(nonceAuthorityReleaseGate) ||
+      nonceAuthorityReleaseGate.length !== NONCE_AUTHORITY_RELEASE_LANES.length ||
+      nonceAuthorityReleaseGate.some((lane, index) =>
+        lane?.id !== NONCE_AUTHORITY_RELEASE_LANES[index].id ||
+        lane?.verdict !== "PASS" ||
+        lane?.exitCode !== 0 ||
+        !Number.isInteger(lane?.durationMs) ||
+        lane.durationMs < 0 ||
+        !/^[0-9a-f]{64}$/.test(lane?.outputHash ?? ""),
+      )
+    ) {
+      fail(64, "U076 nonce authority release-gate evidence invalid");
+    }
+    const nonceAuthorityReleaseGateFile = join(absAttempt, "nonce-authority-release-gate.json");
+    writeFileSync(
+      nonceAuthorityReleaseGateFile,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        candidateSha,
+        runId,
+        workspace: "services/production-nonce-authority",
+        steps: nonceAuthorityReleaseGate,
+      }, null, 2)}\n`,
+      { mode: 0o600 },
+    );
     const envelope = {
       schemaVersion: 1,
       unit: "U076",
@@ -1397,6 +1478,7 @@ export async function runDetachedReleaseMirrorMain(
       manualPending: 1,
       innerSummarySha256: sha256File(innerSummaryFile),
       detachedMirrorReceiptSha256: sha256File(mirrorReceiptFile),
+      nonceAuthorityReleaseGateSha256: sha256File(nonceAuthorityReleaseGateFile),
       scmHandoffSha256: handoff.sha256,
       cleanup: "PASS",
       createdAt: new Date().toISOString(),

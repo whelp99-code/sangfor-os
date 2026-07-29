@@ -15,7 +15,7 @@ const PRE_BLOCKER = {
   script: "echo No tests",
 };
 
-const STEP_IDS = [
+const V2_STEP_IDS = [
   "root-lint",
   "root-typecheck",
   "root-unit",
@@ -31,6 +31,32 @@ const STEP_IDS = [
   "workflow-unit",
   "workflow-integration",
   "workflow-build",
+  "nonce-lint",
+  "nonce-typecheck",
+  "nonce-unit",
+  "nonce-build",
+];
+
+const V1_RUNNER_CHECK_KEYS = [
+  "manifest15Lanes",
+  "strictResultParser",
+  "falseGreenFixtures",
+  "sanitizedEnv",
+  "scratchPostgres",
+  "apiProductionStart",
+  "playwrightCoreFlow",
+  "detachedMirrorCleanup",
+];
+
+const V2_RUNNER_CHECK_KEYS = [
+  "manifest19Lanes",
+  "strictResultParser",
+  "falseGreenFixtures",
+  "sanitizedEnv",
+  "scratchPostgres",
+  "apiProductionStart",
+  "playwrightCoreFlow",
+  "detachedMirrorCleanup",
 ];
 
 function fail(msg) {
@@ -127,7 +153,12 @@ export function checkReleaseStateReceipts(argv = process.argv.slice(2)) {
     ],
     "runner",
   );
-  if (runner.schemaVersion !== 1) fail("runner schemaVersion");
+  const expectedSchemaVersion = runner.schemaVersion;
+  if (![1, 2].includes(expectedSchemaVersion)) fail("runner schemaVersion");
+  if (phase === "post_u030" && expectedSchemaVersion !== 2) {
+    fail("runner schemaVersion");
+  }
+  if (runner.schemaVersion !== expectedSchemaVersion) fail("runner schemaVersion");
   if (runner.receiptKind !== "runner_contract") fail("runner receiptKind");
   if (runner.runner_contract_status !== "PASS") fail("runner_contract_status");
   if (runner.phase !== phase) fail("runner phase");
@@ -141,16 +172,8 @@ export function checkReleaseStateReceipts(argv = process.argv.slice(2)) {
   ]) {
     if (!/^[0-9a-f]{64}$/.test(runner[h])) fail(`${h} format`);
   }
-  const checkKeys = [
-    "manifest15Lanes",
-    "strictResultParser",
-    "falseGreenFixtures",
-    "sanitizedEnv",
-    "scratchPostgres",
-    "apiProductionStart",
-    "playwrightCoreFlow",
-    "detachedMirrorCleanup",
-  ];
+  const checkKeys =
+    expectedSchemaVersion === 1 ? V1_RUNNER_CHECK_KEYS : V2_RUNNER_CHECK_KEYS;
   assertExactKeys(runner.checks, checkKeys, "checks");
   for (const k of checkKeys) {
     if (runner.checks[k] !== "PASS") fail(`check ${k} not PASS`);
@@ -184,7 +207,7 @@ export function checkReleaseStateReceipts(argv = process.argv.slice(2)) {
     ],
     "product",
   );
-  if (product.schemaVersion !== 1) fail("product schemaVersion");
+  if (product.schemaVersion !== expectedSchemaVersion) fail("product schemaVersion");
   if (product.receiptKind !== "product_release") fail("product receiptKind");
   if (product.phase !== phase) fail("product phase");
   if (product.runId !== runner.runId) fail("runId mismatch");
@@ -227,8 +250,8 @@ export function checkReleaseStateReceipts(argv = process.argv.slice(2)) {
     if (!product.previousProductReleaseReceiptSha256) fail("previous required");
     if (!product.u008InventoryReceiptSha256) fail("inventory required");
     if (!product.u029ReceiptSha256) fail("u029 required");
-    if (JSON.stringify(product.completedStepIds) !== JSON.stringify(STEP_IDS)) {
-      fail("completedStepIds exact 15");
+    if (JSON.stringify(product.completedStepIds) !== JSON.stringify(V2_STEP_IDS)) {
+      fail("completedStepIds exact ordered 19");
     }
     if (product.failedStepIds.length !== 0) fail("failedStepIds empty");
     if (product.preflightBlockers.length !== 0) fail("blockers empty");

@@ -19,6 +19,8 @@ import {
   engineerPrismaGenerateInnerArgv,
   evaluateNodeTestTap,
   finalAcceptanceInnerArgv,
+  frozenInstallInnerArgv,
+  nonceAuthorityInnerArgv,
   runU076CleanMirrorBootstrap,
   runDetachedReleaseMirrorMain,
   validateScmHandoff,
@@ -26,6 +28,7 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(HERE, "run-detached-release-mirror.mjs");
+const RECEIPT_CHECKER = join(HERE, "check-release-state-receipts.mjs");
 const HEAD = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
 
 function writeLease(dir, overrides = {}) {
@@ -84,7 +87,7 @@ async function captureExit(fn) {
 function allPassInject(overrides = {}) {
   return {
     installs: { ok: true, detail: { stub: true } },
-    manifest15Lanes: { ok: true, detail: { stub: true } },
+    manifest19Lanes: { ok: true, detail: { stub: true } },
     strictResultParser: { ok: true, detail: { stub: true } },
     falseGreenFixtures: { ok: true, detail: { stub: true } },
     sanitizedEnv: { ok: true, detail: { stub: true } },
@@ -147,17 +150,19 @@ describe("run-detached-release-mirror", () => {
     ]);
   });
 
-  it("generates the engineer Prisma client after all frozen installs and before the root build", async () => {
+  it("runs the frozen standalone nonce authority release gate after all installs and before the root build", async () => {
     const argv = [];
     const ctx = {
       makeChildEnv: (lane) => ({ lane }),
       spawnInMirror: async (command) => {
         argv.push(command);
-        return { code: 0, stdout: "", stderr: "" };
+        return JSON.stringify(command) === JSON.stringify(nonceAuthorityInnerArgv(["corepack", "pnpm", "test"]))
+          ? { code: 0, stdout: "Tests  1 passed\n", stderr: "" }
+          : { code: 0, stdout: "", stderr: "" };
       },
     };
 
-    await runU076CleanMirrorBootstrap(ctx);
+    const bootstrap = await runU076CleanMirrorBootstrap(ctx);
 
     assert.deepEqual(engineerPrismaGenerateInnerArgv(), [
       "bash",
@@ -170,11 +175,40 @@ describe("run-detached-release-mirror", () => {
       "prisma",
       "generate",
     ]);
+    assert.deepEqual(nonceAuthorityInnerArgv(["corepack", "pnpm", "test"]), [
+      "bash",
+      "scripts/run-workspace-runtime.sh",
+      "nonce",
+      "--",
+      "corepack",
+      "pnpm",
+      "test",
+    ]);
+    assert.deepEqual(frozenInstallInnerArgv("nonce"), [
+      "bash",
+      "scripts/run-workspace-runtime.sh",
+      "nonce",
+      "--",
+      "corepack",
+      "pnpm",
+      "install",
+      "--ignore-workspace",
+      "--frozen-lockfile",
+      "--prefer-offline",
+    ]);
+    assert.deepEqual(bootstrap.nonceAuthorityReleaseGate.map(({ id, argv, verdict }) => ({ id, argv, verdict })), [
+      { id: "nonce-lint", argv: nonceAuthorityInnerArgv(["corepack", "pnpm", "lint"]), verdict: "PASS" },
+      { id: "nonce-typecheck", argv: nonceAuthorityInnerArgv(["corepack", "pnpm", "typecheck"]), verdict: "PASS" },
+      { id: "nonce-unit", argv: nonceAuthorityInnerArgv(["corepack", "pnpm", "test"]), verdict: "PASS" },
+      { id: "nonce-build", argv: nonceAuthorityInnerArgv(["corepack", "pnpm", "build"]), verdict: "PASS" },
+    ]);
     assert.deepEqual(argv, [
-      ...["root", "engineer", "workflow"].map((scope) => [
-        "bash", "scripts/run-workspace-runtime.sh", scope, "--", "corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline",
-      ]),
+      ...["root", "engineer", "workflow", "nonce"].map(frozenInstallInnerArgv),
       engineerPrismaGenerateInnerArgv(),
+      nonceAuthorityInnerArgv(["corepack", "pnpm", "lint"]),
+      nonceAuthorityInnerArgv(["corepack", "pnpm", "typecheck"]),
+      nonceAuthorityInnerArgv(["corepack", "pnpm", "test"]),
+      nonceAuthorityInnerArgv(["corepack", "pnpm", "build"]),
       ["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "build"],
     ]);
   });
@@ -196,10 +230,31 @@ describe("run-detached-release-mirror", () => {
       (error) => error?.exitCode === 65 && /u076 engineer Prisma generate failed: missing generated Prisma client/.test(error.message),
     );
     assert.deepEqual(argv, [
-      ...["root", "engineer", "workflow"].map((scope) => [
-        "bash", "scripts/run-workspace-runtime.sh", scope, "--", "corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline",
-      ]),
+      ...["root", "engineer", "workflow", "nonce"].map(frozenInstallInnerArgv),
       engineerPrismaGenerateInnerArgv(),
+    ]);
+  });
+
+  it("fails closed before root build when the standalone nonce test has no parseable test evidence", async () => {
+    const argv = [];
+    const ctx = {
+      makeChildEnv: () => ({}),
+      spawnInMirror: async (command) => {
+        argv.push(command);
+        return { code: 0, stdout: "", stderr: "" };
+      },
+    };
+
+    await assert.rejects(
+      runU076CleanMirrorBootstrap(ctx),
+      (error) => error?.exitCode === 65 && /u076 nonce-unit failed: unparseable_output/.test(error.message),
+    );
+    assert.deepEqual(argv, [
+      ...["root", "engineer", "workflow", "nonce"].map(frozenInstallInnerArgv),
+      engineerPrismaGenerateInnerArgv(),
+      nonceAuthorityInnerArgv(["corepack", "pnpm", "lint"]),
+      nonceAuthorityInnerArgv(["corepack", "pnpm", "typecheck"]),
+      nonceAuthorityInnerArgv(["corepack", "pnpm", "test"]),
     ]);
   });
   it("exit 64 on missing required args / bad mode", () => {
@@ -233,7 +288,7 @@ describe("run-detached-release-mirror", () => {
     assert.equal(empty.checks.scratchPostgres, "FAIL");
 
     const oneFail = deriveRunnerContractChecks({
-      manifest15Lanes: { ok: true },
+      manifest19Lanes: { ok: true },
       strictResultParser: { ok: true },
       falseGreenFixtures: { ok: true },
       sanitizedEnv: { ok: true },
@@ -244,10 +299,10 @@ describe("run-detached-release-mirror", () => {
     });
     assert.equal(oneFail.runner_contract_status, "FAIL");
     assert.equal(oneFail.checks.scratchPostgres, "FAIL");
-    assert.equal(oneFail.checks.manifest15Lanes, "PASS");
+    assert.equal(oneFail.checks.manifest19Lanes, "PASS");
 
     const all = deriveRunnerContractChecks({
-      manifest15Lanes: { ok: true },
+      manifest19Lanes: { ok: true },
       strictResultParser: { ok: true },
       falseGreenFixtures: { ok: true },
       sanitizedEnv: { ok: true },
@@ -336,14 +391,16 @@ describe("run-detached-release-mirror", () => {
         const runner = JSON.parse(
           readFileSync(join(attempt, "runner-contract-receipt.json"), "utf8"),
         );
+        assert.equal(runner.schemaVersion, 2);
         assert.equal(runner.runner_contract_status, "FAIL");
         assert.equal(runner.checks.scratchPostgres, "FAIL");
         // Other injected steps still PASS — proves per-check derivation
-        assert.equal(runner.checks.manifest15Lanes, "PASS");
+        assert.equal(runner.checks.manifest19Lanes, "PASS");
         assert.equal(runner.checks.sanitizedEnv, "PASS");
         const product = JSON.parse(
           readFileSync(join(attempt, "product-release-receipt.json"), "utf8"),
         );
+        assert.equal(product.schemaVersion, 2);
         assert.equal(product.product_release_status, "RED_EXPECTED");
         assert.equal(product.outerExitCode, 65);
         assert.notEqual(product.outerExitCode, 78);
@@ -394,6 +451,7 @@ describe("run-detached-release-mirror", () => {
         const runner = JSON.parse(
           readFileSync(join(attempt, "runner-contract-receipt.json"), "utf8"),
         );
+        assert.equal(runner.schemaVersion, 2);
         assert.equal(runner.runner_contract_status, "PASS");
         for (const [k, v] of Object.entries(runner.checks)) {
           assert.equal(v, "PASS", k);
@@ -408,11 +466,26 @@ describe("run-detached-release-mirror", () => {
         const product = JSON.parse(
           readFileSync(join(attempt, "product-release-receipt.json"), "utf8"),
         );
+        assert.equal(product.schemaVersion, 2);
         assert.equal(product.product_release_status, "RED_EXPECTED");
         assert.equal(product.outerExitCode, 78);
         assert.equal(product.preflightBlockers.length, 1);
         assert.equal(product.preflightBlockers[0].package, "@sangfor/ui");
         assert.equal(product.cleanupStatus, "PASS");
+        const checker = spawnSync(
+          process.execPath,
+          [
+            RECEIPT_CHECKER,
+            "--phase",
+            "pre_u030",
+            "--runner",
+            join(attempt, "runner-contract-receipt.json"),
+            "--product",
+            join(attempt, "product-release-receipt.json"),
+          ],
+          { encoding: "utf8" },
+        );
+        assert.equal(checker.status, 0, checker.stderr + checker.stdout);
         assert.equal(existsSync(join(attempt, "source")), false);
       } finally {
         spawnSync("git", ["worktree", "prune", "--expire", "now"]);

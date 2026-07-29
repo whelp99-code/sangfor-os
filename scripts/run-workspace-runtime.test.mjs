@@ -87,8 +87,8 @@ function scaffoldWorkspace(root, { name, nvmrc, packageManager = "pnpm@10.28.1" 
   });
 }
 
-/** Fake repo with three workspaces + copied wrapper for drift fixtures. */
-function makeFakeRepo({ rootNvm = "20", engNvm = "20", wfNvm = "22", rootName, engName, wfName } = {}) {
+/** Fake repo with all runtime workspaces + copied wrapper for drift fixtures. */
+function makeFakeRepo({ rootNvm = "20", engNvm = "20", wfNvm = "22", nonceNvm = "20", rootName, engName, wfName, nonceName } = {}) {
   const base = makeTemp();
   mkdirSync(join(base, "scripts"), { recursive: true });
   const wrapperDst = join(base, "scripts", "run-workspace-runtime.sh");
@@ -105,6 +105,10 @@ function makeFakeRepo({ rootNvm = "20", engNvm = "20", wfNvm = "22", rootName, e
   scaffoldWorkspace(join(base, "services", "sangfor-mcp-workflow"), {
     name: wfName ?? "sangfor-mcp-workflow",
     nvmrc: wfNvm,
+  });
+  scaffoldWorkspace(join(base, "services", "production-nonce-authority"), {
+    name: nonceName ?? "@sangfor/production-nonce-authority",
+    nvmrc: nonceNvm,
   });
   return { base, wrapper: wrapperDst };
 }
@@ -124,6 +128,7 @@ for (const [ws, major, pkg] of [
   ["root", "20", "sangfor-agentic-os"],
   ["engineer", "20", "sangfor-engineer-mcp"],
   ["workflow", "22", "sangfor-mcp-workflow"],
+  ["nonce", "20", "@sangfor/production-nonce-authority"],
 ]) {
   test(`repo-external cwd: ${ws} resolves cwd/package/major`, () => {
     assert.ok(existsSync(WRAPPER), "wrapper must exist for this fixture (GREEN path)");

@@ -122,6 +122,30 @@ services:
     networks: [backend]
     restart: "no"
 
+  bootstrap:
+    image: ${API_IMAGE_REF:-sangfor-api:local}
+    command: ["node", "--import", "tsx", "/app/scripts/provision-production-bootstrap.mjs"]
+    environment:
+      DATABASE_URL: postgresql://sangfor:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sangfor_os}
+      DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID}
+      DEFAULT_TENANT_SLUG: ${DEFAULT_TENANT_SLUG}
+      DEFAULT_COMPANY_ID: ${DEFAULT_COMPANY_ID}
+      DEFAULT_COMPANY_SLUG: ${DEFAULT_COMPANY_SLUG}
+      DEFAULT_PROJECT_ID: ${DEFAULT_PROJECT_ID}
+      DEFAULT_PROJECT_SLUG: ${DEFAULT_PROJECT_SLUG}
+      PRODUCTION_OPERATOR_USER_ID: ${PRODUCTION_OPERATOR_USER_ID}
+      PRODUCTION_OPERATOR_EMAIL: ${PRODUCTION_OPERATOR_EMAIL}
+    volumes:
+      - type: bind
+        source: ./scripts/provision-production-bootstrap.mjs
+        target: /app/scripts/provision-production-bootstrap.mjs
+        read_only: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [backend]
+    restart: "no"
+
   app-role-init:
     image: postgres:16-alpine
     environment:
@@ -165,7 +189,7 @@ services:
         scoped_count="$$(PGPASSWORD="$$SANGFOR_RUNTIME_DB_PASSWORD" PGOPTIONS="-c app.tenant_id=$$DEFAULT_TENANT_ID -c app.company_id=$$DEFAULT_COMPANY_ID -c app.project_id=$$DEFAULT_PROJECT_ID" psql -U sangfor_runtime_login -Atc 'SELECT count(*) FROM projects')"
         test "$$scoped_count" = "1"
     depends_on:
-      migrate:
+      bootstrap:
         condition: service_completed_successfully
     networks: [backend]
     restart: "no"

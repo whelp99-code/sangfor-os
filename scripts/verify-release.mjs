@@ -1,5 +1,5 @@
 /**
- * U007 — structured three-workspace release verifier.
+ * U007 — structured release verifier for root, engineer, workflow, and nonce authority.
  * Internal authoritative invocation (inside detached mirror only):
  *   bash scripts/run-workspace-runtime.sh root -- corepack pnpm verify:release
  * Trailing argv / --scope / step filters → exit 64.
@@ -41,12 +41,17 @@ const EXPECTED_STEP_IDS = [
   "workflow-unit",
   "workflow-integration",
   "workflow-build",
+  "nonce-lint",
+  "nonce-typecheck",
+  "nonce-unit",
+  "nonce-build",
 ];
 
 const SCOPE_CWD = {
   root: ".",
   engineer: "services/sangfor-engineer-mcp",
   workflow: "services/sangfor-mcp-workflow",
+  nonce: "services/production-nonce-authority",
 };
 
 function fail(code, msg) {
@@ -66,15 +71,15 @@ export function validateManifestSemantics(manifest) {
   if (manifest.schemaVersion !== 1) {
     throw Object.assign(new Error("schemaVersion must be 1"), { exitCode: 64 });
   }
-  if (!Array.isArray(manifest.steps) || manifest.steps.length !== 15) {
-    throw Object.assign(new Error("exactly 15 steps"), { exitCode: 64 });
+  if (!Array.isArray(manifest.steps) || manifest.steps.length !== 19) {
+    throw Object.assign(new Error("exactly 19 steps"), { exitCode: 64 });
   }
   const ids = manifest.steps.map((s) => s.id);
   if (JSON.stringify(ids) !== JSON.stringify(EXPECTED_STEP_IDS)) {
     throw Object.assign(new Error("step id order mismatch"), { exitCode: 64 });
   }
 
-  const kindsByScope = { root: [], engineer: [], workflow: [] };
+  const kindsByScope = { root: [], engineer: [], workflow: [], nonce: [] };
   for (const step of manifest.steps) {
     const fields = [
       "id",
@@ -100,7 +105,7 @@ export function validateManifestSemantics(manifest) {
         });
       }
     }
-    if (!["root", "engineer", "workflow"].includes(step.scope)) {
+    if (!["root", "engineer", "workflow", "nonce"].includes(step.scope)) {
       throw Object.assign(new Error("bad scope"), { exitCode: 64 });
     }
     if (SCOPE_CWD[step.scope] !== step.cwd) {
@@ -157,8 +162,10 @@ export function validateManifestSemantics(manifest) {
     }
   }
 
-  for (const scope of ["root", "engineer", "workflow"]) {
-    const expected = ["lint", "typecheck", "unit", "integration", "build"];
+  for (const scope of ["root", "engineer", "workflow", "nonce"]) {
+    const expected = scope === "nonce"
+      ? ["lint", "typecheck", "unit", "build"]
+      : ["lint", "typecheck", "unit", "integration", "build"];
     if (JSON.stringify(kindsByScope[scope]) !== JSON.stringify(expected)) {
       throw Object.assign(new Error(`kind order for ${scope}`), { exitCode: 64 });
     }
