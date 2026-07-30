@@ -75,6 +75,7 @@ node "$DEPLOYMENT_SOURCE/scripts/verify-production-readiness.mjs" --candidate-sh
 printf '%s\n' "$VERIFICATION_JSON"
 APP_DOMAIN="$(printf '%s' "$VERIFICATION_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).appDomain))')"
 BACKUP_DIR="$(printf '%s' "$VERIFICATION_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).backupDir))')"
+DURABLE_RECEIPT="${BACKUP_DIR}/$(basename "$SIGNED_RECEIPT")"
 API_IMAGE="$(printf '%s' "$VERIFICATION_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).apiImage))')"
 WEB_IMAGE="$(printf '%s' "$VERIFICATION_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).webImage))')"
 export IMAGE_TAG="${EXPECTED_SHA}"
@@ -97,8 +98,12 @@ curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors 
 node -e 'const fs=require("fs"),crypto=require("crypto"),pathModule=require("path"); const [path,candidate,deployment,project,apiTag,apiId,webTag,webId,backup,domain,composePath,archivePath,sourceDir]=process.argv.slice(1); const hash=p=>crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex"); fs.writeFileSync(path, JSON.stringify({schemaVersion:3,candidateSha:candidate,deploymentId:deployment,projectName:project,imageTags:{api:apiTag,web:webTag},imageIds:{api:apiId,web:webId},composeArtifact:pathModule.basename(composePath),composeSha256:hash(composePath),sourceArchive:pathModule.basename(archivePath),sourceArchiveSha256:hash(archivePath),sourceDirectory:pathModule.basename(sourceDir),backup:`${backup}/predeploy-${deployment}.dump`,domain,deployedAt:new Date().toISOString()},null,2)+"\n",{mode:0o600})' \
   "$UNSIGNED_RECEIPT" "$EXPECTED_SHA" "$DEPLOYMENT_ID" "$PROJECT_NAME" "${API_IMAGE}:${EXPECTED_SHA}" "$API_IMAGE_ID" "${WEB_IMAGE}:${EXPECTED_SHA}" "$WEB_IMAGE_ID" "$BACKUP_DIR" "$APP_DOMAIN" "$DEPLOYMENT_COMPOSE" "$DEPLOYMENT_ARCHIVE" "$DEPLOYMENT_SOURCE"
 node "$DEPLOYMENT_SOURCE/scripts/production-deployment-receipt.mjs" sign --input "$UNSIGNED_RECEIPT" --output "$SIGNED_RECEIPT"
+# .local-prod is scratch and gets reclaimed; the release evidence has to outlive it, so it lands
+# beside the pre-deploy dump it references.
+install -m 600 "$SIGNED_RECEIPT" "$DURABLE_RECEIPT"
 rm -f "$UNSIGNED_RECEIPT"
 trap - EXIT
 echo "Production deployment completed for $EXPECTED_SHA"
 echo "Health: https://${APP_DOMAIN}/health"
 echo "Signed receipt: ${SIGNED_RECEIPT}"
+echo "Durable receipt: ${DURABLE_RECEIPT}"
