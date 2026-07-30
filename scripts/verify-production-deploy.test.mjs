@@ -69,7 +69,7 @@ function assertDeploymentPermissionContract(deploy) {
 
 function validComposeModel() {
   const runtimeEnvironment = { DATABASE_URL: "postgresql://sangfor_runtime_login@postgres/sangfor?options=-c%20app.tenant_id%3Dtenant-prod", SANGFOR_PROCESS_PROFILE: "production", AUTH_BYPASS_ENABLED: "0", API_KEY_BYPASS_ENABLED: "0", AUTH_PROFILE: "production" };
-  const bootstrapEnvironment = { DATABASE_URL: "postgresql://sangfor:admin@postgres/sangfor", DEFAULT_TENANT_ID: "tenant-prod", DEFAULT_TENANT_SLUG: "tenant-prod", DEFAULT_COMPANY_ID: "company-prod", DEFAULT_COMPANY_SLUG: "company-prod", DEFAULT_PROJECT_ID: "project-prod", DEFAULT_PROJECT_SLUG: "project-prod", PRODUCTION_OPERATOR_USER_ID: "operator-prod", PRODUCTION_OPERATOR_EMAIL: "operator-prod@production.sangfor.com" };
+  const bootstrapEnvironment = { DATABASE_URL: "postgresql://sangfor:admin@postgres/sangfor", DEFAULT_TENANT_ID: "tenant-prod", DEFAULT_TENANT_SLUG: "tenant-prod", DEFAULT_COMPANY_ID: "company-prod", DEFAULT_COMPANY_SLUG: "company-prod", DEFAULT_PROJECT_ID: "project-prod", DEFAULT_PROJECT_SLUG: "project-prod", PRODUCTION_OPERATOR_USER_ID: "operator-prod", PRODUCTION_OPERATOR_EMAIL: "operator-prod@production.sangfor.com", PRODUCTION_OPERATOR_ROLE: "system_admin" };
   return {
     services: {
       postgres: { healthcheck: {}, ports: [] },

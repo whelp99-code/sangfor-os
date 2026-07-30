@@ -135,6 +135,7 @@ services:
       DEFAULT_PROJECT_SLUG: ${DEFAULT_PROJECT_SLUG}
       PRODUCTION_OPERATOR_USER_ID: ${PRODUCTION_OPERATOR_USER_ID}
       PRODUCTION_OPERATOR_EMAIL: ${PRODUCTION_OPERATOR_EMAIL}
+      PRODUCTION_OPERATOR_ROLE: ${PRODUCTION_OPERATOR_ROLE:-system_admin}
     volumes:
       - type: bind
         source: ./scripts/provision-production-bootstrap.mjs

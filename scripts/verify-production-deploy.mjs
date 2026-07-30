@@ -142,7 +142,7 @@ export function validateComposeModel(model) {
   const bootstrapDatabaseUrl = bootstrap?.environment?.DATABASE_URL;
   if (typeof bootstrapDatabaseUrl !== "string" || !bootstrapDatabaseUrl.startsWith("postgresql://sangfor:")) issues.push("bootstrap: DATABASE_URL must use the admin database role");
   const bootstrapEnvironmentKeys = Object.keys(bootstrap?.environment ?? {}).sort();
-  const expectedBootstrapEnvironmentKeys = ["DATABASE_URL", "DEFAULT_COMPANY_ID", "DEFAULT_COMPANY_SLUG", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "DEFAULT_TENANT_ID", "DEFAULT_TENANT_SLUG", "PRODUCTION_OPERATOR_EMAIL", "PRODUCTION_OPERATOR_USER_ID"].sort();
+  const expectedBootstrapEnvironmentKeys = ["DATABASE_URL", "DEFAULT_COMPANY_ID", "DEFAULT_COMPANY_SLUG", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "DEFAULT_TENANT_ID", "DEFAULT_TENANT_SLUG", "PRODUCTION_OPERATOR_EMAIL", "PRODUCTION_OPERATOR_ROLE", "PRODUCTION_OPERATOR_USER_ID"].sort();
   if (bootstrapEnvironmentKeys.join(",") !== expectedBootstrapEnvironmentKeys.join(",")) issues.push("bootstrap: environment must contain only the admin URL and bootstrap identities");
   const expectedBootstrapCommand = ["node", "--import", "tsx", "/app/scripts/provision-production-bootstrap.mjs"];
   const bootstrapCommand = bootstrap?.command;
