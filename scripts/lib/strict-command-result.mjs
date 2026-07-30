@@ -15,6 +15,22 @@ export function hashOutput(text) {
   return createHash("sha256").update(text ?? "", "utf8").digest("hex");
 }
 
+/** CSI sequences, OSC strings terminated by BEL or ST, and lone two-byte escapes. */
+const ANSI_ESCAPE =
+  /\u001B\[[0-9;?]*[ -/]*[@-~]|\u001B\][^\u0007\u001B]*(?:\u0007|\u001B\\)|\u001B[ -/]+[0-~]|\u001B[@-Z\\-_]/gu;
+
+/**
+ * TERM reaches mirror children through the env allowlist, so a colorizing
+ * terminal makes runners emit the same counts wrapped in escape sequences.
+ * Parsing must not depend on which terminal the operator happened to use.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function stripAnsi(text = "") {
+  return String(text).replace(ANSI_ESCAPE, "");
+}
+
 /**
  * @param {string} stdout
  * @param {string} stderr
@@ -33,7 +49,7 @@ export function hashOutput(text) {
  * }}
  */
 export function parseTestCounts(stdout = "", stderr = "") {
-  const text = `${stdout}\n${stderr}`;
+  const text = stripAnsi(`${stdout}\n${stderr}`);
   const lower = text.toLowerCase();
 
   const noTestsPhrase =
