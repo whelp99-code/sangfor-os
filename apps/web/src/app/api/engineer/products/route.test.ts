@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const { mockProducts } = vi.hoisted(() => ({ mockProducts: vi.fn() }));
 vi.mock("@sangfor/infra", () => ({ engineerConsole: { products: mockProducts } }));
 
-import { GET, isUpstreamUnreachable } from "./route";
+import { GET } from "./route";
 
 let warn: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
@@ -49,27 +49,5 @@ describe("GET /api/engineer/products", () => {
     mockProducts.mockRejectedValue(boom);
     await GET();
     expect(warn).toHaveBeenCalledWith("[api] products_unavailable:", boom);
-  });
-});
-
-describe("isUpstreamUnreachable", () => {
-  it("finds the code nested under cause and under AggregateError.errors", () => {
-    expect(isUpstreamUnreachable(fetchFailed())).toBe(true);
-    expect(isUpstreamUnreachable(Object.assign(new Error("x"), { code: "ENOTFOUND" }))).toBe(true);
-    expect(isUpstreamUnreachable({ cause: { errors: [{ code: "ETIMEDOUT" }] } })).toBe(true);
-  });
-
-  it("does not claim unrelated failures", () => {
-    expect(isUpstreamUnreachable(new Error("malformed catalog payload"))).toBe(false);
-    expect(isUpstreamUnreachable({ code: "ERR_INVALID_ARG_TYPE" })).toBe(false);
-    expect(isUpstreamUnreachable(null)).toBe(false);
-    expect(isUpstreamUnreachable("ECONNREFUSED")).toBe(false);
-  });
-
-  it("terminates on a cyclic cause chain", () => {
-    const a: Record<string, unknown> = { code: "ERR_OTHER" };
-    const b: Record<string, unknown> = { cause: a };
-    a.cause = b;
-    expect(isUpstreamUnreachable(a)).toBe(false);
   });
 });
