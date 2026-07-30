@@ -58,7 +58,12 @@ function assertDeploymentPermissionContract(deploy) {
     'chmod 600 "$DEPLOYMENT_ARCHIVE"',
     'install -m 600 "$DEPLOYMENT_SOURCE/docker-compose.production.yml" "$DEPLOYMENT_COMPOSE"',
     'chmod -R a-w "$DEPLOYMENT_SOURCE"',
+    'install -m 600 "$SIGNED_RECEIPT" "$DURABLE_RECEIPT"',
   ], "production deployment permission command allowlist");
+  const durable = deploy.indexOf('install -m 600 "$SIGNED_RECEIPT" "$DURABLE_RECEIPT"');
+  assert.ok(durable >= 0, "the signed receipt must be copied somewhere that outlives .local-prod");
+  assert.ok(deploy.indexOf('DURABLE_RECEIPT="${BACKUP_DIR}/') >= 0, "the durable copy must live beside the backups");
+  assert.ok(deploy.indexOf("receipt.mjs\" sign") < durable, "the receipt must be signed before it is copied");
   assert.ok(/^DEPLOYMENT_USER="\$\(stat /mu.test(deploy), "deployment user must be derived from the checkout owner");
   const accessCall = deploy.indexOf("grant_docker_bind_mount_access\n");
   assert.ok(accessCall >= 0, "Docker bind access helper must be called");
