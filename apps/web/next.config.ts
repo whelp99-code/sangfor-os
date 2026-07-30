@@ -26,6 +26,8 @@ if (
 
 const nextConfig: NextConfig = {
   distDir,
+  // Caddy strips Server; the framework banner is the remaining fingerprint.
+  poweredByHeader: false,
   allowedDevOrigins: ["127.0.0.1"],
   output: "standalone",
   transpilePackages: ["@sangfor/agent", "@sangfor/business", "@sangfor/db", "@sangfor/health", "@sangfor/infra", "@sangfor/shared"],
