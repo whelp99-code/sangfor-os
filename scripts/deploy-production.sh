@@ -49,10 +49,13 @@ DEPLOYMENT_ARCHIVE="${DEPLOYMENT_DIR}/${DEPLOYMENT_ID}.source.tar"
 DEPLOYMENT_COMPOSE="${DEPLOYMENT_DIR}/${DEPLOYMENT_ID}.compose.yml"
 UNSIGNED_RECEIPT="${DEPLOYMENT_DIR}/${DEPLOYMENT_ID}.unsigned.json"
 SIGNED_RECEIPT="${DEPLOYMENT_DIR}/${DEPLOYMENT_ID}.json"
-allow_docker_bind_mount_traversal() {
-  # Docker Desktop needs directory search permission to resolve the read-only bind sources.
-  # `a+x` permits traversal only; it does not allow directory listing or writes.
-  chmod a+x "$ROOT/.local-prod" "$DEPLOYMENT_RUNTIME_ROOT" "$DEPLOYMENT_SOURCE"
+DEPLOYMENT_USER="$(stat -f '%Su' "$ROOT" 2>/dev/null || stat -c '%U' "$ROOT")"
+grant_docker_bind_mount_access() {
+  # Docker Desktop resolves bind sources as the desktop user, not as root, and refuses any
+  # path component that user does not own regardless of its mode; `a+x` does not satisfy it.
+  # Handing the runtime tree over leaves the 0700 modes and the read-only source intact.
+  chown "$DEPLOYMENT_USER" "$ROOT/.local-prod"
+  chown -R "$DEPLOYMENT_USER" "$DEPLOYMENT_RUNTIME_ROOT"
 }
 mkdir -p "$DEPLOYMENT_DIR" "$DEPLOYMENT_RUNTIME_ROOT" "$DEPLOYMENT_SOURCE"
 chmod 700 "$ROOT/.local-prod" "$DEPLOYMENT_DIR" "$DEPLOYMENT_RUNTIME_ROOT" "$DEPLOYMENT_SOURCE"
@@ -65,7 +68,7 @@ tar -xf "$DEPLOYMENT_ARCHIVE" -C "$DEPLOYMENT_SOURCE"
 )
 install -m 600 "$DEPLOYMENT_SOURCE/docker-compose.production.yml" "$DEPLOYMENT_COMPOSE"
 chmod -R a-w "$DEPLOYMENT_SOURCE"
-allow_docker_bind_mount_traversal
+grant_docker_bind_mount_access
 node "$DEPLOYMENT_SOURCE/scripts/production-deployment-receipt.mjs" preflight
 VERIFICATION_JSON="$(node "$DEPLOYMENT_SOURCE/scripts/verify-production-deploy.mjs" --env-file "$ENV_FILE")"
 node "$DEPLOYMENT_SOURCE/scripts/verify-production-readiness.mjs" --candidate-sha "$EXPECTED_SHA" --final-acceptance "$FINAL_ACCEPTANCE" --external-receipt "$EXTERNAL_RECEIPT"

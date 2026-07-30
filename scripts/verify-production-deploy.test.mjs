@@ -52,16 +52,19 @@ function environmentWithTemplateKeyrings() {
 function assertDeploymentPermissionContract(deploy) {
   const permissionCommands = deploy.match(/^\s*(?:chmod|install|chown|chgrp|setfacl|umask)\b.*$/gmu) ?? [];
   assert.deepEqual(permissionCommands, [
-    '  chmod a+x "$ROOT/.local-prod" "$DEPLOYMENT_RUNTIME_ROOT" "$DEPLOYMENT_SOURCE"',
+    '  chown "$DEPLOYMENT_USER" "$ROOT/.local-prod"',
+    '  chown -R "$DEPLOYMENT_USER" "$DEPLOYMENT_RUNTIME_ROOT"',
     'chmod 700 "$ROOT/.local-prod" "$DEPLOYMENT_DIR" "$DEPLOYMENT_RUNTIME_ROOT" "$DEPLOYMENT_SOURCE"',
     'chmod 600 "$DEPLOYMENT_ARCHIVE"',
     'install -m 600 "$DEPLOYMENT_SOURCE/docker-compose.production.yml" "$DEPLOYMENT_COMPOSE"',
     'chmod -R a-w "$DEPLOYMENT_SOURCE"',
   ], "production deployment permission command allowlist");
-  const traversalCall = deploy.indexOf("allow_docker_bind_mount_traversal\n");
-  assert.ok(traversalCall >= 0, "Docker bind traversal helper must be called");
-  assert.ok(deploy.indexOf("chmod -R a-w \"$DEPLOYMENT_SOURCE\"") < traversalCall, "source must be immutable before traversal is granted");
-  assert.ok(traversalCall < deploy.indexOf('"${COMPOSE[@]}"'), "Docker traversal must be granted before the first Compose command");
+  assert.ok(/^DEPLOYMENT_USER="\$\(stat /mu.test(deploy), "deployment user must be derived from the checkout owner");
+  const accessCall = deploy.indexOf("grant_docker_bind_mount_access\n");
+  assert.ok(accessCall >= 0, "Docker bind access helper must be called");
+  assert.ok(deploy.indexOf("chmod -R a-w \"$DEPLOYMENT_SOURCE\"") < accessCall, "source must be immutable before ownership is handed over");
+  assert.ok(accessCall < deploy.indexOf('"${COMPOSE[@]}"'), "Docker bind access must be granted before the first Compose command");
+  assert.ok(!/chmod a\+x/u.test(deploy), "bind access must come from ownership, not from widening the mode");
 }
 
 function validComposeModel() {
