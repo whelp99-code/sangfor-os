@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { provisionProductionBootstrap, validateProductionBootstrapConfig } from "./provision-production-bootstrap.mjs";
+import { BUSINESS_ROLE_CODES, provisionProductionBootstrap, validateProductionBootstrapConfig } from "./provision-production-bootstrap.mjs";
 
 function validEnvironment() {
   return {
@@ -34,7 +35,7 @@ function fakeDatabase(seed = {}, transactionErrors = []) {
     company: { findUnique: record("company", "findUnique", value("companyById")), findMany: record("company", "findMany", value("companiesBySlug")), create: record("company", "create", (arguments_) => arguments_.data) },
     project: { findUnique: record("project", "findUnique", value("projectById")), create: record("project", "create", (arguments_) => arguments_.data) },
     user: { findUnique: record("user", "findUnique", value("operatorById")), create: record("user", "create", (arguments_) => arguments_.data) },
-    userCompanyRole: { findUnique: record("userCompanyRole", "findUnique", value("existingRole")), create: record("userCompanyRole", "create", (arguments_) => arguments_.data) },
+    userCompanyRole: { findMany: record("userCompanyRole", "findMany", () => seed.existingRoles ?? []), create: record("userCompanyRole", "create", (arguments_) => arguments_.data) },
     projectMember: { findUnique: record("projectMember", "findUnique", value("existingMembership")), create: record("projectMember", "create", (arguments_) => arguments_.data) },
   };
   return {
@@ -98,7 +99,7 @@ describe("production bootstrap provisioner", () => {
       projectBySlug: { id: config.projectId, companyId: config.companyId, slug: config.projectSlug },
       operatorById: { id: config.operatorUserId, email: config.operatorEmail, status: "active", disabledAt: null },
       operatorByEmail: { id: config.operatorUserId, email: config.operatorEmail, status: "active", disabledAt: null },
-      existingRole: { status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null },
+      existingRoles: [{ role: "system_admin", status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null }],
       existingMembership: { status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null },
     });
 
@@ -114,7 +115,7 @@ describe("production bootstrap provisioner", () => {
       companyById: { id: config.companyId, tenantId: config.tenantId, slug: config.companySlug }, companiesBySlug: [{ id: config.companyId, tenantId: config.tenantId, slug: config.companySlug }],
       projectById: { id: config.projectId, companyId: config.companyId, slug: config.projectSlug }, projectBySlug: { id: config.projectId, companyId: config.companyId, slug: config.projectSlug },
       operatorById: { id: config.operatorUserId, email: config.operatorEmail, status: "active", disabledAt: null }, operatorByEmail: { id: config.operatorUserId, email: config.operatorEmail, status: "active", disabledAt: null },
-      existingRole: { status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null }, existingMembership: { status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null },
+      existingRoles: [{ role: "system_admin", status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null }], existingMembership: { status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null },
     }, [{ code: "P2034" }]);
 
     assert.deepEqual(await provisionProductionBootstrap(config, fake.database, { now: () => activeFrom }), { ok: true });
@@ -141,5 +142,58 @@ describe("production bootstrap provisioner", () => {
       (error) => error?.code === "P2025",
     );
     assert.equal(fake.calls.filter((call) => call.model === "$transaction").length, 1);
+  });
+
+  it("pins the inlined role vocabulary to @sangfor/auth", () => {
+    // The script is bind-mounted alone at runtime, so it cannot import the package. Read the
+    // canonical list straight from source rather than depending on a build artifact.
+    const source = readFileSync(new URL("../packages/auth/src/capability-policy.ts", import.meta.url), "utf8");
+    const block = source.match(/BUSINESS_ROLE_CODES = Object\.freeze\(\[([\s\S]*?)\]/u)[1];
+    const canonical = [...block.matchAll(/'([a-z_]+)'/gu)].map((m) => m[1]);
+    assert.ok(canonical.length > 0, "canonical role list must parse");
+    assert.deepEqual(BUSINESS_ROLE_CODES, canonical);
+
+    assert.equal(validateProductionBootstrapConfig(validEnvironment()).operatorRole, "system_admin");
+    for (const role of canonical) {
+      assert.equal(validateProductionBootstrapConfig({ ...validEnvironment(), PRODUCTION_OPERATOR_ROLE: role }).operatorRole, role);
+    }
+    assert.throws(() => validateProductionBootstrapConfig({ ...validEnvironment(), PRODUCTION_OPERATOR_ROLE: "president" }), /unknown business role/u);
+  });
+
+  it("provisions the configured operator role", async () => {
+    const config = validateProductionBootstrapConfig({ ...validEnvironment(), PRODUCTION_OPERATOR_ROLE: "ceo" });
+    const fake = fakeDatabase();
+    const activeFrom = new Date("2026-07-30T00:00:00.000Z");
+
+    assert.deepEqual(await provisionProductionBootstrap(config, fake.database, { now: () => activeFrom }), { ok: true });
+    const roleCreate = fake.calls.find((call) => call.model === "userCompanyRole" && call.operation === "create");
+    assert.equal(roleCreate.arguments.data.role, "ceo");
+  });
+
+  it("refuses to add a second company role when the operator already holds a different one", async () => {
+    const config = validateProductionBootstrapConfig({ ...validEnvironment(), PRODUCTION_OPERATOR_ROLE: "system_admin" });
+    const activeFrom = new Date("2026-07-30T00:00:00.000Z");
+    const fake = fakeDatabase({ existingRoles: [{ role: "ceo", status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null }] });
+
+    await assert.rejects(
+      provisionProductionBootstrap(config, fake.database, { now: () => activeFrom }),
+      /operator company role differs from PRODUCTION_OPERATOR_ROLE/u,
+    );
+    assert.equal(fake.calls.some((call) => call.model === "userCompanyRole" && call.operation === "create"), false);
+  });
+
+  it("fails closed when the operator already holds more than one company role", async () => {
+    const config = validateProductionBootstrapConfig(validEnvironment());
+    const activeFrom = new Date("2026-07-30T00:00:00.000Z");
+    const fake = fakeDatabase({ existingRoles: [
+      { role: "ceo", status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null },
+      { role: "system_admin", status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null },
+    ] });
+
+    await assert.rejects(
+      provisionProductionBootstrap(config, fake.database, { now: () => activeFrom }),
+      /operator already holds more than one company role/u,
+    );
+    assert.equal(fake.calls.some((call) => call.operation === "create"), false);
   });
 });
