@@ -16,6 +16,24 @@ const REQUIRED_CONFIG_KEYS = [
   "PRODUCTION_OPERATOR_EMAIL",
 ];
 
+/** Mirrors BUSINESS_ROLE_CODES from @sangfor/auth. This script is bind-mounted into the
+ * runtime image on its own, so it cannot import the package; a unit test pins the two lists
+ * together. */
+export const BUSINESS_ROLE_CODES = [
+  "ceo",
+  "sales_manager",
+  "account_manager",
+  "presales_engineer",
+  "solution_architect",
+  "finance_manager",
+  "delivery_engineer",
+  "support_engineer",
+  "security_officer",
+  "system_admin",
+];
+
+const DEFAULT_OPERATOR_ROLE = "system_admin";
+
 const stableNames = {
   tenant: "Production Tenant",
   company: "Production Company",
@@ -55,6 +73,10 @@ export function validateProductionBootstrapConfig(environment) {
   else if (email && !emailPattern.test(email)) issues.push("PRODUCTION_OPERATOR_EMAIL: invalid email");
   else if (email && reservedEmailDomainPattern.test(email.slice(email.lastIndexOf("@") + 1))) issues.push("PRODUCTION_OPERATOR_EMAIL: reserved email domain");
 
+  const roleRaw = typeof environment.PRODUCTION_OPERATOR_ROLE === "string" ? environment.PRODUCTION_OPERATOR_ROLE.trim() : "";
+  const operatorRole = roleRaw || DEFAULT_OPERATOR_ROLE;
+  if (!BUSINESS_ROLE_CODES.includes(operatorRole)) issues.push("PRODUCTION_OPERATOR_ROLE: unknown business role");
+
   if (issues.length > 0) configurationError(issues);
   return /** @type {const} */ ({
     tenantId: config.DEFAULT_TENANT_ID,
@@ -65,6 +87,7 @@ export function validateProductionBootstrapConfig(environment) {
     projectSlug: config.DEFAULT_PROJECT_SLUG,
     operatorUserId: config.PRODUCTION_OPERATOR_USER_ID,
     operatorEmail: config.PRODUCTION_OPERATOR_EMAIL,
+    operatorRole,
   });
 }
 
@@ -99,7 +122,7 @@ export async function provisionProductionBootstrap(config, database, { now = () 
       // A fresh Serializable transaction repeats every exact-state check after each conflict.
       return await database.$transaction(async (transaction) => {
         const activeFrom = now();
-        const [tenantById, tenantBySlug, companyById, companiesBySlug, projectById, projectBySlug, operatorById, operatorByEmail, existingRole, existingMembership] = await Promise.all([
+        const [tenantById, tenantBySlug, companyById, companiesBySlug, projectById, projectBySlug, operatorById, operatorByEmail, existingRoles, existingMembership] = await Promise.all([
           transaction.tenant.findUnique({ where: { id: config.tenantId }, select: { id: true, slug: true, status: true } }),
           transaction.tenant.findUnique({ where: { slug: config.tenantSlug }, select: { id: true, slug: true, status: true } }),
           transaction.company.findUnique({ where: { id: config.companyId }, select: { id: true, tenantId: true, slug: true } }),
@@ -108,7 +131,7 @@ export async function provisionProductionBootstrap(config, database, { now = () 
           transaction.project.findUnique({ where: { slug: config.projectSlug }, select: { id: true, companyId: true, slug: true } }),
           transaction.user.findUnique({ where: { id: config.operatorUserId }, select: { id: true, email: true, status: true, disabledAt: true } }),
           transaction.user.findUnique({ where: { email: config.operatorEmail }, select: { id: true, email: true, status: true, disabledAt: true } }),
-          transaction.userCompanyRole.findUnique({ where: { userId_companyId_role: { userId: config.operatorUserId, companyId: config.companyId, role: "system_admin" } }, select: { status: true, validFrom: true, expiresAt: true, revokedAt: true } }),
+          transaction.userCompanyRole.findMany({ where: { userId: config.operatorUserId, companyId: config.companyId }, select: { role: true, status: true, validFrom: true, expiresAt: true, revokedAt: true } }),
           transaction.projectMember.findUnique({ where: { projectId_userId: { projectId: config.projectId, userId: config.operatorUserId } }, select: { status: true, validFrom: true, expiresAt: true, revokedAt: true } }),
         ]);
 
@@ -135,14 +158,21 @@ export async function provisionProductionBootstrap(config, database, { now = () 
           requireActiveOperator(operatorById);
         }
 
-        if (existingRole) requireActiveAssignment(existingRole, "system_admin assignment", activeFrom);
+        // Runtime resolution rejects an operator holding more than one active company role, so a
+        // second assignment locks the portal instead of widening it. Refuse to add one.
+        requireExact(existingRoles.length <= 1, "operator already holds more than one company role");
+        const existingRole = existingRoles[0];
+        if (existingRole) {
+          requireExact(existingRole.role === config.operatorRole, "operator company role differs from PRODUCTION_OPERATOR_ROLE");
+          requireActiveAssignment(existingRole, `${config.operatorRole} assignment`, activeFrom);
+        }
         if (existingMembership) requireActiveAssignment(existingMembership, "project membership", activeFrom);
 
         if (!tenantExists) await transaction.tenant.create({ data: { id: config.tenantId, slug: config.tenantSlug, name: stableNames.tenant, status: "active" } });
         if (!companyExists) await transaction.company.create({ data: { id: config.companyId, tenantId: config.tenantId, slug: config.companySlug, name: stableNames.company } });
         if (!projectExists) await transaction.project.create({ data: { id: config.projectId, companyId: config.companyId, slug: config.projectSlug, name: stableNames.project, description: "Production bootstrap project" } });
         if (!operatorExists) await transaction.user.create({ data: { id: config.operatorUserId, email: config.operatorEmail, name: stableNames.operator, status: "active", disabledAt: null, disabledReason: null } });
-        if (!existingRole) await transaction.userCompanyRole.create({ data: { userId: config.operatorUserId, companyId: config.companyId, role: "system_admin", status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null } });
+        if (!existingRole) await transaction.userCompanyRole.create({ data: { userId: config.operatorUserId, companyId: config.companyId, role: config.operatorRole, status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null } });
         if (!existingMembership) await transaction.projectMember.create({ data: { projectId: config.projectId, userId: config.operatorUserId, role: "member", status: "active", validFrom: activeFrom, expiresAt: null, revokedAt: null } });
 
         return { ok: true };
