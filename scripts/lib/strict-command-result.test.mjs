@@ -4,6 +4,7 @@ import {
   evaluateCommandResult,
   evaluateSample,
   parseTestCounts,
+  stripAnsi,
 } from "./strict-command-result.mjs";
 
 describe("strict-command-result", () => {
@@ -114,5 +115,61 @@ describe("strict-command-result", () => {
     assert.equal(r.counts.fixme, 0);
     assert.equal(r.counts.flaky, 0);
     assert.equal(r.counts.retry, 0);
+  });
+
+  // A colorizing TERM reaches mirror children through the env allowlist, so the
+  // same run must parse identically whether or not the runner emitted color.
+  const COLOURED_VITEST =
+    "\u001B[2m Test Files \u001B[22m \u001B[1m\u001B[32m1 passed\u001B[39m\u001B[22m\u001B[90m (1)\u001B[39m\n" +
+    "\u001B[2m      Tests \u001B[22m \u001B[1m\u001B[32m5 passed\u001B[39m\u001B[22m\u001B[90m (5)\u001B[39m\n";
+
+  it("parses a colorized vitest summary exactly like a plain one", () => {
+    const coloured = parseTestCounts(COLOURED_VITEST);
+    const plain = parseTestCounts(" Test Files  1 passed (1)\n      Tests  5 passed (5)\n");
+    assert.deepEqual(coloured, plain);
+    assert.equal(coloured.total, 5);
+    assert.equal(coloured.passed, 5);
+    assert.equal(coloured.failed, 0);
+    assert.equal(coloured.parseable, true);
+  });
+
+  it("PASS: colorized vitest output is not unparseable_output", () => {
+    const r = evaluateCommandResult({
+      exitCode: 0,
+      stdout: COLOURED_VITEST,
+      policy: "strict-test",
+    });
+    assert.equal(r.verdict, "PASS");
+    assert.notEqual(r.reason, "unparseable_output");
+  });
+
+  it("parses a colorized node --test summary", () => {
+    const c = parseTestCounts(
+      "\u001B[32m# tests 3\u001B[39m\n\u001B[32m# pass 3\u001B[39m\n\u001B[31m# fail 0\u001B[39m\n",
+    );
+    assert.equal(c.total, 3);
+    assert.equal(c.passed, 3);
+    assert.equal(c.failed, 0);
+  });
+
+  it("strips OSC title sequences and lone two-byte escapes", () => {
+    assert.equal(stripAnsi("\u001B]0;window title\u0007Tests  1 passed (1)"), "Tests  1 passed (1)");
+    assert.equal(stripAnsi("\u001B(BTests  1 passed (1)"), "Tests  1 passed (1)");
+    assert.equal(stripAnsi("plain text"), "plain text");
+  });
+
+  it("hashes the raw bytes, not the stripped text", () => {
+    const coloured = evaluateCommandResult({
+      exitCode: 0,
+      stdout: COLOURED_VITEST,
+      policy: "strict-test",
+    });
+    const plain = evaluateCommandResult({
+      exitCode: 0,
+      stdout: " Test Files  1 passed (1)\n      Tests  5 passed (5)\n",
+      policy: "strict-test",
+    });
+    assert.deepEqual(coloured.counts, plain.counts);
+    assert.notEqual(coloured.outputHash, plain.outputHash);
   });
 });
