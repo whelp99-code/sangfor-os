@@ -3,26 +3,32 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.jmpark.sangfor.mail-classify</string>
+  <string>com.jmpark.sangfor.mail-learn</string>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
     <string>/Volumes/DevSpace/Playground/sangfor-os/scripts/launchd/run-cron.sh</string>
     <string>--path</string>
-    <string>/api/mail-candidates</string>
+    <string>/api/mail-learn</string>
     <string>--method</string>
     <string>POST</string>
     <string>--body</string>
-    <string>{"limit":50}</string>
+    <string>{}</string>
   </array>
   <key>StartCalendarInterval</key>
-  <dict>
-    <key>Minute</key>
-    <integer>5</integer>
-  </dict>
+  <array>
+    <dict>
+      <key>Minute</key>
+      <integer>3</integer>
+    </dict>
+    <dict>
+      <key>Minute</key>
+      <integer>33</integer>
+    </dict>
+  </array>
   <key>StandardOutPath</key>
-  <string>/Volumes/DevSpace/Playground/sangfor-os/.agents/results/kpi/mail-classify.launchd.log</string>
+  <string>/Volumes/DevSpace/Playground/sangfor-os/.agents/results/kpi/mail-learn.launchd.log</string>
   <key>StandardErrorPath</key>
-  <string>/Volumes/DevSpace/Playground/sangfor-os/.agents/results/kpi/mail-classify.launchd.err.log</string>
+  <string>/Volumes/DevSpace/Playground/sangfor-os/.agents/results/kpi/mail-learn.launchd.err.log</string>
 </dict>
 </plist>

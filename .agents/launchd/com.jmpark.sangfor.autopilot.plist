@@ -7,8 +7,13 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>-lc</string>
-    <string>curl -sS -f --max-time 180 -X POST http://localhost:3101/api/autopilot/run -H 'content-type: application/json' -d '{"limit":20}'</string>
+    <string>/Volumes/DevSpace/Playground/sangfor-os/scripts/launchd/run-cron.sh</string>
+    <string>--path</string>
+    <string>/api/autopilot/run</string>
+    <string>--method</string>
+    <string>POST</string>
+    <string>--body</string>
+    <string>{"limit":20}</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict>
@@ -16,8 +21,8 @@
     <integer>20</integer>
   </dict>
   <key>StandardOutPath</key>
-  <string>/Users/jmpark/Playground/sangfor-os/.agents/results/kpi/autopilot.launchd.log</string>
+  <string>/Volumes/DevSpace/Playground/sangfor-os/.agents/results/kpi/autopilot.launchd.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/jmpark/Playground/sangfor-os/.agents/results/kpi/autopilot.launchd.err.log</string>
+  <string>/Volumes/DevSpace/Playground/sangfor-os/.agents/results/kpi/autopilot.launchd.err.log</string>
 </dict>
 </plist>
