@@ -39,6 +39,14 @@ x-runtime-environment: &runtime-environment
   INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON: ${INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON}
   EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID: ${EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID}
   EXTERNAL_ACTION_RECEIPT_KEYS_JSON: ${EXTERNAL_ACTION_RECEIPT_KEYS_JSON}
+  # Outlook delegated OAuth. Without these the mail-import cron reaches the
+  # endpoint but `syncOutlook` reports "Outlook not connected". The redirect
+  # URI is derived from APP_DOMAIN so it always matches the value registered
+  # on the Entra app; overriding it means re-registering there too.
+  OUTLOOK_CLIENT_ID: ${OUTLOOK_CLIENT_ID}
+  OUTLOOK_CLIENT_SECRET: ${OUTLOOK_CLIENT_SECRET}
+  OUTLOOK_TENANT_ID: ${OUTLOOK_TENANT_ID}
+  OUTLOOK_REDIRECT_URI: ${OUTLOOK_REDIRECT_URI:-https://${APP_DOMAIN}/api/mail/oauth/callback}
 
 services:
   postgres:
