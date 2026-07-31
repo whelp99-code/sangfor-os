@@ -182,7 +182,7 @@ export class OutlookSyncService {
   }
 }
 
-import { getDelegatedConnection, syncDelegatedOutlook, type FinanceFetch } from './outlook-graph'
+import { getDelegatedConnection, syncDelegatedOutlook, type FinanceFetch, type HometaxScanStats } from './outlook-graph'
 
 export type SyncMode = 'delegated' | 'app-only'
 
@@ -201,7 +201,7 @@ export interface SyncResult {
   inbox?: number
   sent?: number
   account?: string
-  taxInvoices?: { scanned: number; created: number; duplicate: number; failed: number }
+  taxInvoices?: HometaxScanStats
   error?: string
   fallbackMode?: boolean
 }

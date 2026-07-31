@@ -318,23 +318,41 @@ async function searchHometaxMessageIds(
   return out.slice(0, cap);
 }
 
+export interface HometaxScanStats {
+  scanned: number;
+  created: number;
+  duplicate: number;
+  failed: number;
+  /** Refused by the CFO API's authorization gate rather than broken. */
+  unauthorized: number;
+}
+
 /**
  * Scan the whole mailbox for Hometax e-tax-invoice mails, decrypt + ingest each
  * via the CFO API (idempotent on the NTS approval number). Best-effort: a single
  * mail's failure never aborts the batch. `skipped_not_ours` is not tallied (a
  * not-ours invoice is a no-op, not a failure).
+ *
+ * Uploading an invoice is a privileged finance write, so the CFO API demands a
+ * capability-bearing session with fresh MFA. An unattended run — the launchd mail
+ * sync — cannot satisfy that and is refused 401/403. That is the control working,
+ * not a malfunction, so those are counted as `unauthorized`: folding them into
+ * `failed` reported sixteen broken invoices on every cron pass and would have
+ * buried a genuine failure among them.
  */
 export async function scanHometaxTaxInvoices(
   token: string,
   financeFetch: FinanceFetch = cfoFetch,
-): Promise<{ scanned: number; created: number; duplicate: number; failed: number }> {
-  const stats = { scanned: 0, created: 0, duplicate: 0, failed: 0 };
+): Promise<HometaxScanStats> {
+  const stats: HometaxScanStats = { scanned: 0, created: 0, duplicate: 0, failed: 0, unauthorized: 0 };
   const messages = await searchHometaxMessageIds(token);
+  let loggedRefusal = false;
   for (const m of messages) {
     stats.scanned++;
     try {
       const html = await fetchMessageAttachmentHtml(token, m.id);
       if (!html) {
+        console.warn(`[hometax] no e-tax-invoice attachment on message ${m.id}`);
         stats.failed++;
         continue;
       }
@@ -346,6 +364,18 @@ export async function scanHometaxTaxInvoices(
       else if (res.status === "duplicate") stats.duplicate++;
       else if (res.status === "failed") stats.failed++;
     } catch (err) {
+      const status = err !== null && typeof err === "object" && "status" in err ? err.status : undefined;
+      if (status === 401 || status === 403) {
+        // Identical for every message in the batch; one line is enough.
+        if (!loggedRefusal) {
+          console.warn(
+            `[hometax] CFO API refused invoice upload (${status}) — a privileged finance write needs an attended, MFA-verified session`,
+          );
+          loggedRefusal = true;
+        }
+        stats.unauthorized++;
+        continue;
+      }
       console.warn(`[hometax] ingest failed for message ${m.id}:`, err);
       stats.failed++;
     }
@@ -360,7 +390,7 @@ export async function scanHometaxTaxInvoices(
  */
 export async function syncDelegatedOutlook(
   opts: { maxMessages?: number; financeFetch?: FinanceFetch } = {},
-): Promise<{ synced: number; inbox: number; sent: number; account?: string; taxInvoices?: { scanned: number; created: number; duplicate: number; failed: number } }> {
+): Promise<{ synced: number; inbox: number; sent: number; account?: string; taxInvoices?: HometaxScanStats }> {
   const maxMessages = opts.maxMessages ?? DEFAULT_MAX_MESSAGES;
   const account = await prisma.mailAccount.findFirst({
     where: { provider: "outlook", refreshToken: { not: null } },
@@ -412,7 +442,7 @@ export async function syncDelegatedOutlook(
   // Never breaks mail sync.
   const taxInvoices = await scanHometaxTaxInvoices(token, opts.financeFetch).catch((err) => {
     console.warn("[hometax] tax-invoice scan failed:", err);
-    return { scanned: 0, created: 0, duplicate: 0, failed: 0 };
+    return { scanned: 0, created: 0, duplicate: 0, failed: 0, unauthorized: 0 };
   });
 
   return {

@@ -41,9 +41,14 @@ export function financeCallerFor(request: Request) {
 
     const response = await proxyFinanceRequest(proxied, method);
     if (!response.ok) {
-      // The upstream body can carry finance detail; keep it server-side.
+      // The upstream body can carry finance detail; keep it server-side. The
+      // status travels on the error so callers can tell "not allowed to do this"
+      // apart from "this broke" — a privileged finance write refuses an
+      // unattended session by design, which is not a malfunction.
       console.error(`[financeCaller] ${method} ${path} -> ${response.status}`);
-      throw new Error(`finance call failed (${response.status})`);
+      throw Object.assign(new Error(`finance call failed (${response.status})`), {
+        status: response.status,
+      });
     }
     return response.json() as Promise<T>;
   };
