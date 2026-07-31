@@ -45,6 +45,10 @@ export const OUTLOOK_SCOPES = [
   "email",
   "https://graph.microsoft.com/Mail.Read",
   "https://graph.microsoft.com/User.Read",
+  // syncCalendarMeetings reads /me/calendarView and refuses to run when the
+  // connected mailbox's granted scope lacks this, so it has to be consented
+  // together with mail — asking for it later would force a second consent.
+  "https://graph.microsoft.com/Calendars.Read",
 ];
 
 export function isOutlookOAuthConfigured(): boolean {
