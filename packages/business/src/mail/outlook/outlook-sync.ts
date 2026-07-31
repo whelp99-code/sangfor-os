@@ -182,16 +182,13 @@ export class OutlookSyncService {
   }
 }
 
-import { getDelegatedConnection, syncDelegatedOutlook, type FinanceFetch, type HometaxScanStats } from './outlook-graph'
+import { getDelegatedConnection, syncDelegatedOutlook, type HometaxScanStats } from './outlook-graph'
 
 export type SyncMode = 'delegated' | 'app-only'
 
 export interface SyncOutlookOptions {
   preferDelegated?: boolean
   accessToken?: string
-  /** Injected by callers that hold a session, so Hometax invoices can reach the
-   *  CFO API with a signed finance principal instead of a bare API key. */
-  financeFetch?: FinanceFetch
 }
 
 export interface SyncResult {
@@ -212,7 +209,7 @@ export async function syncOutlook(options: SyncOutlookOptions = {}): Promise<Syn
     const connection = await getDelegatedConnection()
     if (connection.connected) {
       try {
-        const result = await syncDelegatedOutlook({ financeFetch: options.financeFetch })
+        const result = await syncDelegatedOutlook()
         return { success: true, mode: 'delegated', ...result }
       } catch (error) {
         console.error('[outlook] sync_failed:', error instanceof Error ? error.stack ?? error.message : error)
