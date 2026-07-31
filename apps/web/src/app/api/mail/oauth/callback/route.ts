@@ -5,7 +5,14 @@ import { connectOutlookAccount, exchangeCodeForToken } from "@/lib/outlook";
 // for tokens, persist them on the MailAccount, then return to the connection page.
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
-  const dest = new URL("/settings/mail-connection", request.url);
+  // Behind Caddy the container listens on HOSTNAME=0.0.0.0, so `request.url`
+  // carries that internal origin. Building the redirect from it sent the
+  // browser to http://0.0.0.0:3101 — an unreachable address — even though the
+  // token exchange had already succeeded, so a working connection looked like
+  // a failed one. Prefer the configured public origin; a forwarded header
+  // would be client-controlled, which is the wrong thing to trust for a
+  // redirect target.
+  const dest = new URL("/settings/mail-connection", process.env.NEXT_PUBLIC_APP_URL || request.url);
 
   const oauthError = url.searchParams.get("error");
   if (oauthError) {
