@@ -71,6 +71,33 @@ describe("renderLaunchdPlists", () => {
         assert.ok(Number.isInteger(entry.Minute), `${job.name} schedule entry lacks Minute`);
         assert.ok(entry.Minute >= 0 && entry.Minute <= 59, `${job.name} Minute out of range`);
       }
+    }
+  });
+});
+
+describe("job set composition", () => {
+  it("passes each job's script to the shared wrapper", () => {
+    // The wrapper takes the script as an argument so the endpoint jobs and the
+    // watchdog share one copy of the PATH/node resolution.
+    for (const job of LAUNCHD_JOBS) {
+      const plist = renderLaunchdPlist(job, { root: ROOT });
+      assert.ok(plist.includes(`<string>${job.script}</string>`), `${job.name} omits its script`);
+      assert.match(job.script, /^scripts\/.+\.mjs$/u);
+    }
+  });
+
+  it("schedules a watchdog often enough to catch a failure within a sync interval", () => {
+    const watchdog = jobNamed("watchdog");
+    assert.equal(watchdog.script, "scripts/production-watchdog.mjs");
+    // mail-sync runs twice an hour; a watchdog that ran less often than that
+    // could report healthy for an hour after the stack stopped.
+    assert.ok(watchdog.schedule.length >= 4);
+    assert.deepEqual(watchdog.args, []);
+  });
+
+  it("gives the watchdog no endpoint arguments, unlike the endpoint jobs", () => {
+    for (const job of LAUNCHD_JOBS) {
+      if (job.name === "watchdog") continue;
       assert.ok(job.args.includes("--path"), `${job.name} does not target an endpoint`);
     }
   });

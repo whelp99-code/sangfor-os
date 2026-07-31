@@ -58,7 +58,8 @@ jobs:
             scripts/production-auth-rotation-race.test.mjs \
             scripts/verify-acceptance.test.mjs \
             scripts/verify-staging-equivalent.test.mjs \
-            scripts/launchd/render-launchd-plists.test.mjs
+            scripts/launchd/render-launchd-plists.test.mjs \
+            scripts/production-watchdog.test.mjs
       - name: False-green scan
         run: bash scripts/run-workspace-runtime.sh root -- node scripts/check-no-false-green-tests.mjs
 

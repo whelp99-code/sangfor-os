@@ -8,6 +8,7 @@
   <array>
     <string>/bin/bash</string>
     <string>/Volumes/DevSpace/Playground/sangfor-os/scripts/launchd/run-cron.sh</string>
+    <string>scripts/launchd/cron-call.mjs</string>
     <string>--path</string>
     <string>/api/daily-report?brief=1</string>
     <string>--method</string>

@@ -31,6 +31,7 @@ memory/agent-handoffs/
 .agents/results/replay/
 .agents/results/kpi/*.launchd.log
 .agents/results/kpi/*.launchd.err.log
+.agents/results/kpi/watchdog-status.json
 .env.bak*
 
 # oma docs generated artifacts

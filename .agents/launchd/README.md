@@ -1,18 +1,18 @@
 # launchd jobs
 
-These are the scheduled jobs that drive the production automation loop, plus two
-host-level helpers. The files here are a record of what is installed — not an
-input to a separate templating step.
+These are the scheduled jobs that drive the production automation loop and watch
+over it, plus two host-level helpers. The files here are a record of what is
+installed — not an input to a separate templating step.
 
 ## Installing
 
-The five automation-loop jobs are generated, never hand-edited:
+The six generated jobs are never hand-edited:
 
 ```bash
 node scripts/launchd/render-launchd-plists.mjs --check                    # list the job set
 node scripts/launchd/render-launchd-plists.mjs --out-dir .agents/launchd  # refresh this directory
 node scripts/launchd/render-launchd-plists.mjs --out-dir ~/Library/LaunchAgents
-for j in mail-sync mail-learn mail-classify autopilot daily-briefing; do
+for j in mail-sync mail-learn mail-classify autopilot daily-briefing watchdog; do
   launchctl bootout   "gui/$(id -u)/com.jmpark.sangfor.$j" 2>/dev/null
   launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.jmpark.sangfor.$j.plist"
 done
@@ -30,9 +30,25 @@ Production publishes nothing but Caddy on :80/:443 — web and api are
 `expose`-only. A job also cannot simply curl through Caddy: the proxy requires a
 DB-backed session for every non-public `/api` path. `scripts/launchd/run-cron.sh`
 resolves docker and a Node 20 binary (launchd starts jobs with a minimal PATH and
-no nvm), then hands off to `cron-call.mjs`, which signs a short-lived operator
-session, refreshes the single `cron-session-operator` row, and calls the endpoint
-over Caddy.
+no nvm), then runs the script named as its first argument. The endpoint jobs pass
+`cron-call.mjs`, which signs a short-lived operator session, refreshes the single
+`cron-session-operator` row, and calls the endpoint over Caddy; the watchdog
+passes `production-watchdog.mjs`. The script is an argument rather than hardcoded
+so both kinds share one copy of that resolution.
+
+## The watchdog
+
+`watchdog` runs at :08/:23/:38/:53 and checks the five containers, the five
+endpoint jobs' last exit codes, Caddy ingress, backup freshness, and whether mail
+is still landing. On any finding it writes
+`.agents/results/kpi/watchdog-status.json`, raises a macOS notification, and
+exits non-zero so `launchctl list` shows it too. It also posts to Telegram or
+Slack when `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` or `SLACK_WEBHOOK_URL` are
+set — neither is configured today, so alerts currently reach this host only.
+Setting either variable is all that is needed to make them reach a phone.
+
+Before this existed, a job that started failing at 03:00 stayed failing until
+somebody happened to run `launchctl list`.
 
 ## Mail pipeline order
 
