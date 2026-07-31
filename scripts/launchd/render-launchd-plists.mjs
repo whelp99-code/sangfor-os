@@ -32,10 +32,13 @@ const at = (...minutes) => minutes.map((minute) => ({ Minute: minute }));
 /** Weekday (Mon–Fri) entries at a fixed time. */
 const weekdaysAt = (hour, minute) =>
   [1, 2, 3, 4, 5].map((Weekday) => ({ Weekday, Hour: hour, Minute: minute }));
+/** Once a day at a fixed time. */
+const dailyAt = (hour, minute) => [{ Hour: hour, Minute: minute }];
 
 /** Every job runs through run-cron.sh; `script` says what that wrapper then executes. */
-const CRON_CALL = "scripts/launchd/cron-call.mjs";
+export const CRON_CALL = "scripts/launchd/cron-call.mjs";
 const WATCHDOG = "scripts/production-watchdog.mjs";
+const BACKUP = "scripts/production-backup.mjs";
 
 export const LAUNCHD_JOBS = [
   {
@@ -82,6 +85,16 @@ export const LAUNCHD_JOBS = [
     // runs `launchctl list`.
     schedule: at(8, 23, 38, 53),
     note: "Check containers, jobs, ingress, backup freshness and mail liveness; alert on findings.",
+  },
+  {
+    name: "backup",
+    script: BACKUP,
+    args: [],
+    // Daily, well inside the 26h staleness threshold the watchdog enforces, in a
+    // quiet window. Without this the watchdog would eventually report a stale
+    // backup with nothing on the host that ever makes a fresh one.
+    schedule: dailyAt(3, 10),
+    note: "Take a verified logical backup of the production database and prune old ones.",
   },
 ];
 
