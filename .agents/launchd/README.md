@@ -6,13 +6,13 @@ installed — not an input to a separate templating step.
 
 ## Installing
 
-The six generated jobs are never hand-edited:
+The seven generated jobs are never hand-edited:
 
 ```bash
 node scripts/launchd/render-launchd-plists.mjs --check                    # list the job set
 node scripts/launchd/render-launchd-plists.mjs --out-dir .agents/launchd  # refresh this directory
 node scripts/launchd/render-launchd-plists.mjs --out-dir ~/Library/LaunchAgents
-for j in mail-sync mail-learn mail-classify autopilot daily-briefing watchdog; do
+for j in mail-sync mail-learn mail-classify autopilot daily-briefing watchdog backup; do
   launchctl bootout   "gui/$(id -u)/com.jmpark.sangfor.$j" 2>/dev/null
   launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.jmpark.sangfor.$j.plist"
 done
@@ -49,6 +49,18 @@ Setting either variable is all that is needed to make them reach a phone.
 
 Before this existed, a job that started failing at 03:00 stayed failing until
 somebody happened to run `launchctl list`.
+
+## Backups
+
+`backup` runs daily at 03:10 and takes a logical dump of the production
+database, refusing to keep one that `pg_restore --list` cannot read back or that
+is implausibly small. It writes a sha256 beside each dump and prunes anything
+older than 14 days while never dropping below 5 copies.
+
+This exists because the watchdog's staleness check needed something to satisfy
+it: the only backup on this host had been taken by hand, and a day's mail had
+already sat unbacked-up for about seventeen hours. Recovery being proven is worth
+nothing for data nobody dumped.
 
 ## Mail pipeline order
 

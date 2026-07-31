@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { LAUNCHD_JOBS, renderLaunchdPlist, renderLaunchdPlists } from "./render-launchd-plists.mjs";
+import { CRON_CALL, LAUNCHD_JOBS, renderLaunchdPlist, renderLaunchdPlists } from "./render-launchd-plists.mjs";
 
 const ROOT = "/srv/sangfor-os";
 
@@ -95,10 +95,24 @@ describe("job set composition", () => {
     assert.deepEqual(watchdog.args, []);
   });
 
-  it("gives the watchdog no endpoint arguments, unlike the endpoint jobs", () => {
+  it("gives endpoint arguments to the cron-call jobs and to nothing else", () => {
+    // A local script that was handed --path would silently ignore it; an endpoint
+    // job without one would call the wrong URL.
     for (const job of LAUNCHD_JOBS) {
-      if (job.name === "watchdog") continue;
-      assert.ok(job.args.includes("--path"), `${job.name} does not target an endpoint`);
+      if (job.script === CRON_CALL) {
+        assert.ok(job.args.includes("--path"), `${job.name} does not target an endpoint`);
+      } else {
+        assert.deepEqual(job.args, [], `${job.name} should take no endpoint arguments`);
+      }
     }
+  });
+
+  it("schedules a backup well inside the staleness threshold the watchdog enforces", () => {
+    // The watchdog calls a backup stale after 26h. Nothing else on the host
+    // creates one, so a daily job is what keeps that check satisfiable.
+    const backup = jobNamed("backup");
+    assert.equal(backup.script, "scripts/production-backup.mjs");
+    assert.equal(backup.schedule.length, 1);
+    assert.ok(Number.isInteger(backup.schedule[0].Hour));
   });
 });
