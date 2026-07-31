@@ -7,8 +7,11 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>-lc</string>
-    <string>curl -sS -f --max-time 60 "http://localhost:3101/api/daily-report?brief=1"</string>
+    <string>/Volumes/DevSpace/Playground/sangfor-os/scripts/launchd/run-cron.sh</string>
+    <string>--path</string>
+    <string>/api/daily-report?brief=1</string>
+    <string>--method</string>
+    <string>GET</string>
   </array>
   <key>StartCalendarInterval</key>
   <array>
@@ -54,8 +57,8 @@
     </dict>
   </array>
   <key>StandardOutPath</key>
-  <string>/Users/jmpark/Playground/sangfor-os/.agents/results/kpi/daily-briefing.launchd.log</string>
+  <string>/Volumes/DevSpace/Playground/sangfor-os/.agents/results/kpi/daily-briefing.launchd.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/jmpark/Playground/sangfor-os/.agents/results/kpi/daily-briefing.launchd.err.log</string>
+  <string>/Volumes/DevSpace/Playground/sangfor-os/.agents/results/kpi/daily-briefing.launchd.err.log</string>
 </dict>
 </plist>
