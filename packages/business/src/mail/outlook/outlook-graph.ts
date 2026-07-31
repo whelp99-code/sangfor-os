@@ -25,6 +25,20 @@ import { appendAuditEvent } from "../../governance/audit-db";
 import { deriveChainScopeKey } from "../../governance/audit-chain";
 import { extractMailBody } from "./mail-body";
 
+/**
+ * How Hometax ingestion reaches the CFO API.
+ *
+ * The default `cfoFetch` authenticates with the shared API key alone, which
+ * apps/api refuses for finance routes: `middleware/finance-access.ts` requires a
+ * signed FINANCE / `human_delegation` internal principal, and only a caller that
+ * holds a real session can mint one. Callers that have a request in hand inject
+ * one instead — see `apps/web/src/lib/finance-caller.ts`.
+ */
+export type FinanceFetch = <T>(
+  path: string,
+  init?: { method?: string; body?: string },
+) => Promise<T>;
+
 const AUTH_HOST = "https://login.microsoftonline.com";
 const GRAPH = "https://graph.microsoft.com/v1.0";
 
@@ -312,6 +326,7 @@ async function searchHometaxMessageIds(
  */
 export async function scanHometaxTaxInvoices(
   token: string,
+  financeFetch: FinanceFetch = cfoFetch,
 ): Promise<{ scanned: number; created: number; duplicate: number; failed: number }> {
   const stats = { scanned: 0, created: 0, duplicate: 0, failed: 0 };
   const messages = await searchHometaxMessageIds(token);
@@ -323,9 +338,9 @@ export async function scanHometaxTaxInvoices(
         stats.failed++;
         continue;
       }
-      const res = await cfoFetch<{ status: string; taxInvoiceId?: string }>(
+      const res = await financeFetch<{ status: string; taxInvoiceId?: string }>(
         "tax-invoices/upload-html",
-        { method: "POST", body: JSON.stringify({ html }) },
+        { method: "POST", body: JSON.stringify({ html, sourceMessageId: m.id }) },
       );
       if (res.status === "created") stats.created++;
       else if (res.status === "duplicate") stats.duplicate++;
@@ -344,7 +359,7 @@ export async function scanHometaxTaxInvoices(
  * and share a `conversationId` so they can be learned as one thread.
  */
 export async function syncDelegatedOutlook(
-  opts: { maxMessages?: number } = {},
+  opts: { maxMessages?: number; financeFetch?: FinanceFetch } = {},
 ): Promise<{ synced: number; inbox: number; sent: number; account?: string; taxInvoices?: { scanned: number; created: number; duplicate: number; failed: number } }> {
   const maxMessages = opts.maxMessages ?? DEFAULT_MAX_MESSAGES;
   const account = await prisma.mailAccount.findFirst({
@@ -395,7 +410,7 @@ export async function syncDelegatedOutlook(
   // Best-effort tax-invoice ingestion across ALL folders (Hometax mails are
   // auto-filed outside the Inbox, so the folder sync above doesn't see them).
   // Never breaks mail sync.
-  const taxInvoices = await scanHometaxTaxInvoices(token).catch((err) => {
+  const taxInvoices = await scanHometaxTaxInvoices(token, opts.financeFetch).catch((err) => {
     console.warn("[hometax] tax-invoice scan failed:", err);
     return { scanned: 0, created: 0, duplicate: 0, failed: 0 };
   });
