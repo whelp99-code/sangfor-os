@@ -33,36 +33,55 @@ const at = (...minutes) => minutes.map((minute) => ({ Minute: minute }));
 const weekdaysAt = (hour, minute) =>
   [1, 2, 3, 4, 5].map((Weekday) => ({ Weekday, Hour: hour, Minute: minute }));
 
+/** Every job runs through run-cron.sh; `script` says what that wrapper then executes. */
+const CRON_CALL = "scripts/launchd/cron-call.mjs";
+const WATCHDOG = "scripts/production-watchdog.mjs";
+
 export const LAUNCHD_JOBS = [
   {
     name: "mail-sync",
+    script: CRON_CALL,
     args: ["--path", "/api/mail-import", "--method", "POST", "--body", "{}"],
     schedule: at(0, 30),
     note: "Pull inbox and sent mail from the connected mailbox.",
   },
   {
     name: "mail-learn",
+    script: CRON_CALL,
     args: ["--path", "/api/mail-learn", "--method", "POST", "--body", "{}"],
     schedule: at(3, 33),
     note: "Group synced mail into insight threads. Must run after mail-sync and before mail-classify.",
   },
   {
     name: "mail-classify",
+    script: CRON_CALL,
     args: ["--path", "/api/mail-candidates", "--method", "POST", "--body", '{"limit":50}'],
     schedule: at(5),
     note: "Classify insight threads into business candidates.",
   },
   {
     name: "autopilot",
+    script: CRON_CALL,
     args: ["--path", "/api/autopilot/run", "--method", "POST", "--body", '{"limit":20}'],
     schedule: at(20),
     note: "Run one autopilot pass over pending candidates.",
   },
   {
     name: "daily-briefing",
+    script: CRON_CALL,
     args: ["--path", "/api/daily-report?brief=1", "--method", "GET"],
     schedule: weekdaysAt(8, 5),
     note: "Weekday morning briefing.",
+  },
+  {
+    name: "watchdog",
+    script: WATCHDOG,
+    args: [],
+    // Every quarter hour: often enough that a stopped container or a failing job
+    // is noticed within one mail-sync interval rather than whenever someone next
+    // runs `launchctl list`.
+    schedule: at(8, 23, 38, 53),
+    note: "Check containers, jobs, ingress, backup freshness and mail liveness; alert on findings.",
   },
 ];
 
@@ -91,7 +110,7 @@ function renderSchedule(schedule) {
 
 export function renderLaunchdPlist(job, { root = REPO_ROOT } = {}) {
   const logDir = `${root}/.agents/results/kpi`;
-  const argv = [`${root}/scripts/launchd/run-cron.sh`, ...job.args];
+  const argv = [`${root}/scripts/launchd/run-cron.sh`, job.script, ...job.args];
   const args = argv.map((value) => `    <string>${xmlEscape(value)}</string>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
