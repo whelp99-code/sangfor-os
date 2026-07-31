@@ -70,3 +70,10 @@ How every agent thinks, executes, and reports here. Rule numbers (F1–F14) are 
 - Dev ports: web 3101, api 3200, postgres 5434, redis 6380 — full map in [PORT-MAPPING.yaml](PORT-MAPPING.yaml). Start: `pnpm docker:dev && pnpm dev`; MCP stack: `make up`.
 
 <!-- MANUAL: Notes below this line are preserved on regeneration -->
+
+## DevSpace Project Context
+- Project inventory: /Volumes/DevSpace/Orca-JARVIS/PROJECT_INVENTORY.md
+- Code graph: codebase-memory MCP (`search_graph`, `get_architecture`, `trace_path`)
+- 30 projects indexed; 10 with source, 20 empty (dirs only, files lost from sparsebundle)
+- This repo's graph project is `Volumes-DevSpace-Playground-sangfor-os` (canonical root). A separate `.../sangfor-os/main-fork` entry indexes the `local-recovery/main-fork` worktree — query the canonical one unless you specifically want that worktree.
+
