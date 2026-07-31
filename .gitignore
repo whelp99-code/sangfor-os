@@ -29,6 +29,8 @@ memory/agent-handoffs/
 # Local DB snapshots + replay run artifacts (large / mail-derived; not for VCS)
 .agents/backups/
 .agents/results/replay/
+.agents/results/kpi/*.launchd.log
+.agents/results/kpi/*.launchd.err.log
 .env.bak*
 
 # oma docs generated artifacts

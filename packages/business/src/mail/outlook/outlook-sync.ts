@@ -6,6 +6,20 @@ export interface OutlookConfig {
   tenantId: string
 }
 
+/** The subset of a Graph message this sync reads; every field is optional
+ *  because `$select` results omit anything the mailbox does not set. */
+export interface GraphMailMessage {
+  id?: string
+  subject?: string
+  from?: { emailAddress?: { address?: string } }
+  bodyPreview?: string
+  body?: { content?: string }
+  receivedDateTime?: string
+  importance?: string
+  isRead?: boolean
+  hasAttachments?: boolean
+}
+
 export class OutlookSyncService {
   private config: OutlookConfig | null = null
   private accessToken: string | null = null
@@ -51,18 +65,19 @@ export class OutlookSyncService {
     }
   }
 
-  async fetchMessages(top: number = 50): Promise<any[]> {
+  async fetchMessages(top: number = 50): Promise<GraphMailMessage[]> {
     const token = await this.getAccessToken()
     if (!token) return []
-    try {
-      const res = await fetch(`https://graph.microsoft.com/v1.0/me/messages?$top=${top}&$select=id,subject,from,toRecipients,receivedDateTime,bodyPreview,body,importance,isRead,hasAttachments`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const data = await res.json() as { value?: any[] }
-      return data.value || []
-    } catch {
-      return []
-    }
+    const res = await fetch(`https://graph.microsoft.com/v1.0/me/messages?$top=${top}&$select=id,subject,from,toRecipients,receivedDateTime,bodyPreview,body,importance,isRead,hasAttachments`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    // `/me` resolves only for a delegated token; with an app-only token Graph
+    // answers 400. Reading `value` off that error body yielded [] and the sync
+    // then reported a successful run of zero mail, so a mailbox that was never
+    // connected looked identical to an empty inbox.
+    if (!res.ok) throw new Error(`Graph ${res.status}: ${(await res.text()).slice(0, 200)}`)
+    const data = await res.json() as { value?: GraphMailMessage[] }
+    return data.value || []
   }
 
   async syncToDatabase(): Promise<{ synced: number }> {
@@ -210,6 +225,16 @@ export async function syncOutlook(options: SyncOutlookOptions = {}): Promise<Syn
       fallbackMode: true,
     }
   }
-  const result = await sync.syncToDatabase()
-  return { success: true, mode: 'app-only', ...result }
+  try {
+    const result = await sync.syncToDatabase()
+    return { success: true, mode: 'app-only', ...result }
+  } catch (error) {
+    console.error('[outlook] app_only_sync_failed:', error instanceof Error ? error.stack ?? error.message : error)
+    return {
+      success: false,
+      mode: 'app-only',
+      error: 'App-only sync cannot read mail — Graph rejects /me without a delegated token. Connect a mailbox.',
+      fallbackMode: true,
+    }
+  }
 }
