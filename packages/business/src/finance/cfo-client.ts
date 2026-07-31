@@ -27,7 +27,13 @@ export async function cfoFetch<T = unknown>(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[cfoFetch] upstream ${res.status}:`, text);
-    throw new Error(`재무 데이터를 불러오지 못했습니다. (${res.status})`);
+    // The status travels on the error so callers can tell an authorization
+    // refusal apart from a genuine failure. apps/api answers 401
+    // INTERNAL_PRINCIPAL_REQUIRED here for finance routes, because this client
+    // carries only the shared API key.
+    throw Object.assign(new Error(`재무 데이터를 불러오지 못했습니다. (${res.status})`), {
+      status: res.status,
+    });
   }
   return res.json() as Promise<T>;
 }
