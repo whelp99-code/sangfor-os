@@ -105,6 +105,12 @@ const res = await fetch(url, {
   method,
   headers: {
     "Authorization": `Bearer ${token}`,
+    // Route handlers read the session through `extractSessionToken`, which
+    // accepts either header — but server-side helpers such as lib/cfo-client
+    // read it via next/headers `cookies()`. Bearer alone made every Hometax
+    // tax-invoice ingest inside mail-import fail 401 while the mail sync
+    // itself succeeded, so send the same session both ways.
+    "Cookie": `session=${token}`,
     "Content-Type": "application/json",
   },
   body: method !== "GET" ? body : undefined,
