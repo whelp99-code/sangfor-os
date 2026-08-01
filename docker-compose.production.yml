@@ -21,6 +21,10 @@ x-runtime-environment: &runtime-environment
   JWT_SECRET: ${JWT_SECRET}
   USER_JWT_ACTIVE_KID: ${USER_JWT_ACTIVE_KID}
   USER_JWT_KEYRING_JSON: ${USER_JWT_KEYRING_JSON}
+  # Seals the stored TOTP secret. Optional: absent, MFA enrollment and step-up
+  # report MFA_NOT_CONFIGURED and privileged routes stay closed, which is the
+  # behaviour that predates the feature.
+  MFA_TOTP_KEY: ${MFA_TOTP_KEY:-}
   USER_JWT_ROTATION_OWNER: security-auth
   USER_JWT_ISSUER: ${USER_JWT_ISSUER:-sangfor-os}
   USER_JWT_AUDIENCE: ${USER_JWT_AUDIENCE:-sangfor-os-runtime}

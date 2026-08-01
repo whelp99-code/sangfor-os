@@ -45,6 +45,7 @@ function userJwtEnv(): Record<string, string> {
 function contextHeader(overrides: { userId?: string; tenantId?: string; companyId?: string; projectId?: string; mfaVerifiedAt?: Date | null } = {}) {
   return signInternalContext({
     ok: true,
+    sessionId: "jti-test",
     userId: overrides.userId ?? "user-1",
     tenantId: overrides.tenantId ?? "tenant-1",
     companyId: overrides.companyId ?? "company-1",

@@ -32,6 +32,11 @@ const PRIVILEGED: Record<RouteCapabilityKey, RouteCapabilityDefinition> = {
 
 const AUTHENTICATED: Record<RouteCapabilityKey, RouteCapabilityDefinition> = {
   "apps/web/src/app/api/auth/logout/route.ts": { capabilityClass: "authenticated" },
+  // Establishing a second factor cannot itself demand one: a user with no factor
+  // could never reach the route that creates one. Both are session-bound and act
+  // only on the caller's own credential row.
+  "apps/web/src/app/api/auth/mfa/enroll/route.ts": { capabilityClass: "authenticated" },
+  "apps/web/src/app/api/auth/mfa/verify/route.ts": { capabilityClass: "authenticated" },
 };
 
 const POST_U048_GOVERNED: Record<RouteCapabilityKey, RouteCapabilityDefinition> = {

@@ -49,6 +49,16 @@ model UserCredential {
   failedAttempts      Int       @default(0) @map("failed_attempts")
   lockedUntil         DateTime? @map("locked_until")
   lastAuthenticatedAt DateTime? @map("last_authenticated_at")
+  // Second factor. `totpSecret` is sealed with AES-256-GCM before it lands here:
+  // unlike the password it must be recoverable to verify, so plaintext would make
+  // a database read a permanent 2FA bypass — the precise thing the digest above
+  // exists to prevent. A secret only counts once `totpConfirmedAt` proves the
+  // enrollee produced a code from it. `totpLastCounter` is the replay ledger; a
+  // TOTP code stays valid for a whole step, so without it an observed code is
+  // reusable until it expires.
+  totpSecret          String?   @map("totp_secret")
+  totpConfirmedAt     DateTime? @map("totp_confirmed_at")
+  totpLastCounter     Int?      @map("totp_last_counter")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
