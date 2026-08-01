@@ -340,6 +340,7 @@ describe("revokeSession", () => {
 describe("internal context signing", () => {
   const evaluation = {
     ok: true as const,
+    sessionId: "jti-1",
     userId: "user-1",
     tenantId: "tenant-1",
     companyId: "company-1",

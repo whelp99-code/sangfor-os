@@ -167,6 +167,7 @@ describe('evaluateSession — RED characterization', () => {
     const result = evaluateSession({ token: token(), session: session(), user: user() }, NOW, null);
     expect(result).toEqual({
       ok: true,
+      sessionId: 'jti-1',
       userId: 'user-1',
       tenantId: 't1',
       companyId: 'c1',
@@ -184,6 +185,7 @@ describe('evaluateSession — RED characterization', () => {
     );
     expect(result).toEqual({
       ok: true,
+      sessionId: 'jti-1',
       userId: 'user-1',
       tenantId: 't1',
       companyId: 'c1',

@@ -37,7 +37,7 @@ describe("route-capability-registry — static classification proof", () => {
     const derived = deriveCurrentCoverageSet();
     const registryKeys = Object.keys(ROUTE_CAPABILITY_REGISTRY).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     expect(registryKeys).toEqual(derived);
-    expect(registryKeys).toHaveLength(127);
+    expect(registryKeys).toHaveLength(129);
   });
 
   it("every registered route file actually exists on disk under apps/web", () => {

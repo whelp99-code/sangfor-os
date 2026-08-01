@@ -115,6 +115,7 @@ function authedRequest(options: {
     ]);
     headers[INTERNAL_CONTEXT_HEADER] = signInternalContext({
       ok: true,
+      sessionId: "jti-test",
       userId,
       tenantId: SESSION_SCOPE.tenantId,
       companyId: SESSION_SCOPE.companyId,

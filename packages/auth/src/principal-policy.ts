@@ -57,6 +57,9 @@ export type SessionDenyReason =
 export type SessionEvaluation =
   | {
       readonly ok: true;
+      /** The evaluated session's jti. Callers that mutate session state — an MFA
+       *  step-up, a revoke — must act on exactly the session they verified. */
+      readonly sessionId: string;
       readonly userId: string;
       readonly tenantId: string;
       readonly companyId: string;
@@ -139,6 +142,7 @@ export function evaluateSession(
 
   return {
     ok: true,
+    sessionId: session.id,
     userId: session.userId,
     tenantId: session.tenantId,
     companyId: session.companyId,
