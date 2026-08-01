@@ -38,14 +38,19 @@ test("TOTP enrollment, step-up and replay refusal behave the same against real P
     await withIsolatedPostgres(
       { runId: `mfa-totp-${Date.now()}`, ownerUnit: "auth-mfa", purpose: "totp-flow", evidenceDir, imageDigest, migrate: true },
       async ({ migrationDatabaseUrl }) => {
+        const env = {
+          PATH: process.env.PATH,
+          HOME: process.env.HOME,
+          DATABASE_URL: migrationDatabaseUrl,
+          MFA_TOTP_KEY: randomBytes(32).toString("base64"),
+        };
+        // The lane does not build workspaces for us, and the script imports the
+        // package entrypoints rather than their sources.
+        await spawnCommand(["pnpm", "--filter", "@sangfor/db...", "build"], env);
+        await spawnCommand(["pnpm", "--filter", "@sangfor/auth...", "build"], env);
         const output = await spawnCommand(
           ["pnpm", "--filter", "@sangfor/web", "exec", "tsx", "../../scripts/mfa-totp-flow.ts"],
-          {
-            PATH: process.env.PATH,
-            HOME: process.env.HOME,
-            DATABASE_URL: migrationDatabaseUrl,
-            MFA_TOTP_KEY: randomBytes(32).toString("base64"),
-          },
+          env,
         );
         assert.match(output, /MFA_TOTP_FLOW=PASS/u);
       },
