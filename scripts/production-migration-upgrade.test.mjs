@@ -47,6 +47,8 @@ test("upgrades an already-applied password credential migration", { timeout: 180
     assert.notEqual(invalid.status, 0);
     assert.match(invalid.stderr, /user_credentials_version_check/u);
   } finally {
-    spawnSync("docker", ["rm", "-f", name], { encoding: "utf8" });
+    // -v as well: the image declares PGDATA as a VOLUME, so every run without it
+    // strands a ~39 MB anonymous volume that nothing later reclaims.
+    spawnSync("docker", ["rm", "-f", "-v", name], { encoding: "utf8" });
   }
 });
