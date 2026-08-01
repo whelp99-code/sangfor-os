@@ -77,3 +77,11 @@ How every agent thinks, executes, and reports here. Rule numbers (F1–F14) are 
 - 30 projects indexed; 10 with source, 20 empty (dirs only, files lost from sparsebundle)
 - This repo's graph project is `Volumes-DevSpace-Playground-sangfor-os` (canonical root). A separate `.../sangfor-os/main-fork` entry indexes the `local-recovery/main-fork` worktree — query the canonical one unless you specifically want that worktree.
 
+
+## Obsidian Vault
+- Path: /Users/jmpark/Library/Mobile Documents/iCloud~md~obsidian/Documents/제피란더스
+- Daily Ops: `Daily Ops/YYYY-MM-DD.md` (일일 프로젝트 현황)
+- Project notes: `Daily Ops/Projects/<name>.md` (프로젝트별 이력)
+- Agent work logs: `Agent Logs/YYYY-MM-DD/<session>.md` (에이전트 작업 기록)
+- MCP: obsidian-mcp-rs (read/write/search) — 새 세션에서 자동 로드
+
