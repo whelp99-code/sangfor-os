@@ -11,12 +11,20 @@
     <string>scripts/production-backup.mjs</string>
   </array>
   <key>StartCalendarInterval</key>
-  <dict>
-    <key>Hour</key>
-    <integer>3</integer>
-    <key>Minute</key>
-    <integer>10</integer>
-  </dict>
+  <array>
+    <dict>
+      <key>Hour</key>
+      <integer>3</integer>
+      <key>Minute</key>
+      <integer>10</integer>
+    </dict>
+    <dict>
+      <key>Hour</key>
+      <integer>15</integer>
+      <key>Minute</key>
+      <integer>10</integer>
+    </dict>
+  </array>
   <key>StandardOutPath</key>
   <string>/Volumes/DevSpace/Playground/sangfor-os/.agents/results/kpi/backup.launchd.log</string>
   <key>StandardErrorPath</key>

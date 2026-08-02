@@ -107,12 +107,26 @@ describe("job set composition", () => {
     }
   });
 
-  it("schedules a backup well inside the staleness threshold the watchdog enforces", () => {
-    // The watchdog calls a backup stale after 26h. Nothing else on the host
-    // creates one, so a daily job is what keeps that check satisfiable.
+  it("leaves no gap wider than the staleness threshold, even if one fire is missed", () => {
+    // The watchdog calls a backup stale after 26h and nothing else on the host
+    // creates one. A single daily window is not enough: one missed fire — which
+    // has happened — puts the newest backup past the threshold. Two windows mean
+    // the worst-case gap after a miss is still under it.
     const backup = jobNamed("backup");
     assert.equal(backup.script, "scripts/production-backup.mjs");
-    assert.equal(backup.schedule.length, 1);
-    assert.ok(Number.isInteger(backup.schedule[0].Hour));
+    assert.ok(backup.schedule.length >= 2, "one window cannot survive a missed fire");
+    const minutes = backup.schedule
+      .map((entry) => {
+        assert.ok(Number.isInteger(entry.Hour), "a backup window needs a fixed hour");
+        return entry.Hour * 60 + entry.Minute;
+      })
+      .sort((a, b) => a - b);
+    const gaps = minutes.map((minute, index) =>
+      index === 0 ? minute + 1440 - minutes[minutes.length - 1] : minute - minutes[index - 1],
+    );
+    // Worst case: the largest gap is missed entirely, so the next success is two
+    // gaps away from the last one.
+    const worstCaseHours = (Math.max(...gaps) + Math.max(...gaps)) / 60;
+    assert.ok(worstCaseHours < 26, `a missed fire leaves ${worstCaseHours}h without a backup`);
   });
 });
