@@ -62,7 +62,8 @@ jobs:
             scripts/production-watchdog.test.mjs \
             scripts/production-backup.test.mjs \
             scripts/mfa-totp-flow.test.mjs \
-            scripts/nonce-authority-canary.test.mjs
+            scripts/nonce-authority-canary.test.mjs \
+            scripts/sign-external-approval.test.mjs
       - name: False-green scan
         run: bash scripts/run-workspace-runtime.sh root -- node scripts/check-no-false-green-tests.mjs
 
