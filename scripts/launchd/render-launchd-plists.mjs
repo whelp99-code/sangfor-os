@@ -90,10 +90,12 @@ export const LAUNCHD_JOBS = [
     name: "backup",
     script: BACKUP,
     args: [],
-    // Daily, well inside the 26h staleness threshold the watchdog enforces, in a
-    // quiet window. Without this the watchdog would eventually report a stale
-    // backup with nothing on the host that ever makes a fresh one.
-    schedule: dailyAt(3, 10),
+    // Twice, twelve hours apart. One window was not enough: this host sleeps
+    // aggressively, the 2026-08-02 03:10 fire returned launchd exit 78 with an
+    // empty stderr — it never got far enough to log anything — and the backup
+    // went 46 hours stale before the watchdog's 26h threshold caught it. A second
+    // window means a single missed fire cannot breach that threshold.
+    schedule: [...dailyAt(3, 10), ...dailyAt(15, 10)],
     note: "Take a verified logical backup of the production database and prune old ones.",
   },
 ];
