@@ -102,6 +102,11 @@ describe("U075 perf:smoke safety contract", () => {
     )).toThrow("lease-bound T-PERF");
   });
 
+  // The dynamic `import("./seed")` below transitively loads prisma, the
+  // business kernel, and the web password-credential lib. Under campaign load
+  // that import alone can exceed vitest's 5s default test timeout (T-PERF
+  // failed at 60/63 step results on candidate 48356e46). Explicit because the
+  // default is load-dependent, not a limit.
   it("seeds a production-profile password credential for the performance principal", async () => {
     const { seedPerformanceCredential } = await import("./seed");
     const hashPassword = vi.fn().mockResolvedValue("$scrypt$v1$digest");
@@ -110,7 +115,7 @@ describe("U075 perf:smoke safety contract", () => {
     expect(hashPassword).toHaveBeenCalledWith("performance-password");
     expect(createCredential).toHaveBeenCalledWith({ userId: "u075-user-ceo", passwordDigest: "$scrypt$v1$digest" });
     await expect(seedPerformanceCredential(undefined, { hashPassword, createCredential })).rejects.toThrow("AUTH_DEMO_PASSWORD");
-  });
+  }, 30_000);
 
   it("rejects non-loopback PORT", async () => {
     process.env.TASK_RUN_ID = "test-run";
