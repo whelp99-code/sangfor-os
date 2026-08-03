@@ -294,17 +294,43 @@ export async function runStagingEquivalent({
       ACCEPTANCE_EVIDENCE_DIR: browserDir,
     } });
     const fixtureDir = path.join(path.dirname(postgres.receiptPath), "fixtures");
-    const fixtureEnv = {
+
+    // The builds consume no UX_FIXTURE_* values (they only matter to the
+    // running services and the playwright specs), so they run first: the
+    // fixture session TTL is only 15 minutes from issuance, and preparing the
+    // fixtures before the builds let that window expire mid-build on a loaded
+    // host, which bounced all 30 release specs to /login on candidate
+    // d3c3c021 (builds took 16.4 minutes there). Building first means the TTL
+    // starts when the services actually come up.
+    const buildEnv = {
       ...base,
-      NODE_ENV: "test",
+      NODE_ENV: "production",
       DATABASE_URL: postgres.migrationDatabaseUrl,
-      TASK_OWNED_DATABASE_URL: postgres.migrationDatabaseUrl,
-      UX_FIXTURE_MODE: "u076-final",
-      UX_FIXTURE_OUTPUT_DIR: fixtureDir,
+      TASK_OWNED_DATABASE_URL: postgres.databaseUrl,
+      SANGFOR_APP_DATABASE_URL: postgres.databaseUrl,
     };
+    for (const argv of [
+      ["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "--filter", "@sangfor/api", "build"],
+      ["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "--filter", "@sangfor/web", "build"],
+    ]) {
+      const build = await spawnCommand(argv, { cwd: mirrorRoot, env: buildEnv, stream: true });
+      if (build.code !== 0) throw new FinalAcceptanceError(`staging build failed: ${build.stderr.slice(-2000)}`);
+    }
+
     const fixture = await spawnCommand(
       ["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "prepare:ux-fixtures"],
-      { cwd: mirrorRoot, env: fixtureEnv, stream: true },
+      {
+        cwd: mirrorRoot,
+        env: {
+          ...base,
+          NODE_ENV: "test",
+          DATABASE_URL: postgres.migrationDatabaseUrl,
+          TASK_OWNED_DATABASE_URL: postgres.migrationDatabaseUrl,
+          UX_FIXTURE_MODE: "u076-final",
+          UX_FIXTURE_OUTPUT_DIR: fixtureDir,
+        },
+        stream: true,
+      },
     );
     if (fixture.code !== 0) throw new FinalAcceptanceError(`fixture preparation failed: ${fixture.stderr.slice(-2000)}`);
     const fixtureReceipt = JSON.parse(await readFile(path.join(fixtureDir, "ux-fixtures-receipt.json"), "utf8"));
@@ -316,14 +342,6 @@ export async function runStagingEquivalent({
       TASK_OWNED_DATABASE_URL: postgres.databaseUrl,
       SANGFOR_APP_DATABASE_URL: postgres.databaseUrl,
     };
-
-    for (const argv of [
-      ["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "--filter", "@sangfor/api", "build"],
-      ["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "--filter", "@sangfor/web", "build"],
-    ]) {
-      const build = await spawnCommand(argv, { cwd: mirrorRoot, env: runtimeEnv, stream: true });
-      if (build.code !== 0) throw new FinalAcceptanceError(`staging build failed: ${build.stderr.slice(-2000)}`);
-    }
 
     const phaseAChildren = [
       startService(["bash", "scripts/run-workspace-runtime.sh", "root", "--", "corepack", "pnpm", "--filter", "@sangfor/api", "start"], { cwd: mirrorRoot, env: runtimeEnv }),
