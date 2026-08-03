@@ -82,6 +82,10 @@ fi
 
 echo "== AC-DOD-09 staging verification =="
 COMMANDS_FILE="$(mktemp)"
+# mktemp runs as root and produces a root-owned 0600 file, but the verifier is
+# deliberately run as the invoking user below. Hand the file over or the write
+# dies with EACCES before any approval can be recorded.
+chown "$APPROVED_BY" "$COMMANDS_FILE"
 trap 'rm -f "$COMMANDS_FILE"' EXIT
 sudo -u "${SUDO_USER:-root}" "$NODE_BIN" scripts/record-approval-commands.mjs --output "$COMMANDS_FILE"
 
