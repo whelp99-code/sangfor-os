@@ -85,8 +85,15 @@ describe("U053: engineer-eligibility integration tests", () => {
           prisma,
         );
 
+        // The certification-evidence scope guard rejects verified_at values in
+        // the future relative to the database's own clock. Under Docker, the
+        // container clock can trail the host clock by a second or two after an
+        // NTP jump, so a host-side `new Date()` flakily reads as "future" and
+        // kills the campaign. Taking the timestamp from the database itself
+        // makes the insert clock-consistent by construction.
+        const [{ now: dbNow }] = await prisma.$queryRaw<[{ now: Date }]>`SELECT now() AS now`;
         await prisma.certificationEvidence.create({
-          data: { id: "ev-u053-1", certificationId: cert.id, artifactVersionId: artVer.versionId, issuer: "Sangfor", verifiedAt: new Date(), verifiedByAssignmentId: verifier.id },
+          data: { id: "ev-u053-1", certificationId: cert.id, artifactVersionId: artVer.versionId, issuer: "Sangfor", verifiedAt: dbNow, verifiedByAssignmentId: verifier.id },
         });
         await prisma.engineerCertification.update({ where: { id: cert.id }, data: { status: "active", revision: 1, issuedAt: new Date(), expiresAt: null } });
 
