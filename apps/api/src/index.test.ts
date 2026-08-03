@@ -237,6 +237,11 @@ function onTerminationSignal(): void {
   void teardown();
 }
 
+// The dynamic `import('./index')` below pulls in the whole Express app. With
+// a cold vitest transform cache and sibling test files running concurrently,
+// that import alone can exceed vitest's 10s default hook timeout, so this
+// suite flakily timed out in a U076 campaign after passing in isolation.
+// The timeout is explicit because the default is load-dependent, not a limit.
 beforeAll(async () => {
   vi.stubEnv('NODE_ENV', 'test');
   vi.stubEnv('DATABASE_URL', 'postgresql://u002:u002@127.0.0.1:1/u002_gate33');
@@ -283,7 +288,7 @@ beforeAll(async () => {
   assignedPort = address.port;
   baseUrl = `http://127.0.0.1:${assignedPort}`;
   console.log(`[U013 api-http] assigned port ${assignedPort}`);
-});
+}, 30_000);
 
 afterAll(async () => {
   process.off('SIGTERM', onTerminationSignal);
