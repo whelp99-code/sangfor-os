@@ -58,6 +58,9 @@ export function stageDisplay(stage: string): { idx: number; label: string } {
 // ---------------------------------------------------------------------------
 export type StageChipGroup = { label: string; enumValues: string[] };
 
+// ③ 결과제출 / ⑥ 딜리버리는 work-phase only (no OpportunityStage enum value),
+// so they are intentionally absent from filter chips. Labels keep the ①②④⑤
+// numbering so the board stays aligned with the work-path chevron.
 export const STAGE_CHIP_GROUPS: StageChipGroup[] = [
   { label: "① 제안", enumValues: ["LEAD", "QUALIFIED", "PROPOSAL"] },
   { label: "② PoC", enumValues: ["POC"] },

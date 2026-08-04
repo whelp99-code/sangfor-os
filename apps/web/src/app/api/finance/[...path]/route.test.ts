@@ -52,7 +52,7 @@ const userJwtEnv = () => {
   const timestamp = new Date(Date.now() - 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
   const secret = Buffer.alloc(32, 9).toString("base64url");
   return {
-    USER_JWT_ACTIVE_KID: "web-session", USER_JWT_ROTATION_OWNER: "security-auth", USER_JWT_ISSUER: "sangfor-os", USER_JWT_AUDIENCE: "sangfor-os-runtime", USER_JWT_TTL_SECONDS: "900", USER_JWT_CLOCK_SKEW_SECONDS: "30",
+    USER_JWT_ACTIVE_KID: "web-session", USER_JWT_ROTATION_OWNER: "security-auth", USER_JWT_ISSUER: "sangfor-os", USER_JWT_AUDIENCE: "sangfor-os-runtime", USER_JWT_TTL_SECONDS: "28800", USER_JWT_CLOCK_SKEW_SECONDS: "30",
     USER_JWT_KEYRING_JSON: JSON.stringify({ version: "sangfor.user-jwt-keyring/v1", keys: [{ kid: "web-session", state: "active", secretBase64Url: secret, activatedAt: timestamp, demotedAt: null, verifyUntil: null, retiredAt: null }] }),
   };
 };

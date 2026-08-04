@@ -122,10 +122,11 @@ export async function getBusinessRoleDashboard(input: BusinessRoleDashboardInput
   }
 
   if (role !== authContext.businessRole) {
-    const hasCanonicalAdminAuthority =
-      authContext.businessRole === "system_admin"
-      && authContext.permissions.includes("system.admin");
-    if (!hasCanonicalAdminAuthority) {
+    // Executive operators (ceo) carry system.admin and need to open the
+    // security/sales/delivery hub panels, which request a fixed lens role.
+    // Identity still comes from the session; this only unlocks the lens.
+    const hasExecutiveAuthority = authContext.permissions.includes("system.admin");
+    if (!hasExecutiveAuthority) {
       throw new BusinessRoleDashboardError("DASHBOARD_ROLE_FORBIDDEN", 403);
     }
   }

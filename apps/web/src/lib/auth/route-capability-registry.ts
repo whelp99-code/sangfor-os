@@ -16,13 +16,13 @@ import type { RouteCapabilityClass, RouteCapabilityDefinition } from "@sangfor/a
 export type RouteCapabilityKey = string;
 
 const PRIVILEGED: Record<RouteCapabilityKey, RouteCapabilityDefinition> = {
-  "apps/web/src/app/api/finance/[...path]/route.ts": { capabilityClass: "privileged", permission: "finance.write" },
+  "apps/web/src/app/api/finance/[...path]/route.ts": { capabilityClass: "company-scoped", permission: "finance.write" },
   "apps/web/src/app/api/mcp/tools/route.ts": { capabilityClass: "privileged", permission: "system.admin" },
   "apps/web/src/app/api/settings/llm/route.ts": { capabilityClass: "privileged", permission: "system.admin" },
   "apps/web/src/app/api/ops/apm-test/route.ts": { capabilityClass: "privileged", permission: "system.admin" },
   "apps/web/src/app/api/github/pr/route.ts": { capabilityClass: "privileged", permission: "system.admin" },
   "apps/web/src/app/api/autopilot/config/route.ts": { capabilityClass: "privileged", permission: "system.admin" },
-  "apps/web/src/app/api/engineer/rag/route.ts": { capabilityClass: "privileged", permission: "system.admin" },
+  "apps/web/src/app/api/engineer/rag/route.ts": { capabilityClass: "project-assigned", permission: "catalog.read" },
   "apps/web/src/app/api/engineer/domain-proposal/route.ts": { capabilityClass: "privileged", permission: "system.admin" },
   "apps/web/src/app/api/aios-v3/workflow/route.ts": { capabilityClass: "privileged", permission: "system.admin" },
   "apps/web/src/app/api/portal/route.ts": { capabilityClass: "privileged", permission: "system.admin" },

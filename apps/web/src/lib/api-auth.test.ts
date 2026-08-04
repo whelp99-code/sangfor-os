@@ -32,7 +32,7 @@ function validUserJwtEnv(): Record<string, string> {
     USER_JWT_ROTATION_OWNER: "security-auth",
     USER_JWT_ISSUER: "sangfor-os",
     USER_JWT_AUDIENCE: "sangfor-os-runtime",
-    USER_JWT_TTL_SECONDS: "900",
+    USER_JWT_TTL_SECONDS: "28800",
     USER_JWT_CLOCK_SKEW_SECONDS: "30",
     USER_JWT_KEYRING_JSON: JSON.stringify({
       version: "sangfor.user-jwt-keyring/v1",

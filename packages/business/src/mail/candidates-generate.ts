@@ -69,7 +69,7 @@ function candidateLooksPolicyExcluded(
   const mailIntelligence = asRecord(metadata.mailIntelligence);
   const candidateText = `${candidate.title}\n${candidate.summary}\n${String(mailIntelligence.summary ?? "")}`.toLowerCase();
   const explicitBusinessSignal = /고객사|견적\s*요청|계약\s*조건|검증\s*요청|quote\s+request|please\s+send\s+(a\s+)?quote|proposal\s+request/i.test(candidateText);
-  const promotionalSignal = /\b(unsubscribe|newsletter|promo|promotion|marketing)\b|뉴스레터|홍보/.test(candidateText);
+  const promotionalSignal = /\b(unsubscribe|newsletter|promo|promotion|marketing|subscription|billing|renewal)\b|뉴스레터|홍보|(광고)|구독|청구|요금|프로모션|microsoft\s*365|your\s+microsoft/.test(candidateText);
   const autopilotMarketing =
     /\bautopilot\b/.test(candidateText) &&
     /\bcrew\b|wallet|\$\d|shipped/.test(candidateText);

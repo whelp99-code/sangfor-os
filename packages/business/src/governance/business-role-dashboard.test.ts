@@ -76,7 +76,7 @@ describe("U063: business-role-dashboard unit tests", () => {
     expect(mocks.withRlsTransaction).not.toHaveBeenCalled();
   });
 
-  it("rejects cross-role requests without canonical explicit admin authority", async () => {
+  it("rejects cross-role requests without system.admin authority", async () => {
     await expect(getBusinessRoleDashboard({ authContext: CTX, requestedRole: "sales_manager" }))
       .rejects.toMatchObject({ code: "DASHBOARD_ROLE_FORBIDDEN", httpStatus: 403 });
     await expect(getBusinessRoleDashboard({
@@ -86,18 +86,24 @@ describe("U063: business-role-dashboard unit tests", () => {
     expect(mocks.withRlsTransaction).not.toHaveBeenCalled();
   });
 
-  it("allows a cross-role request only for canonical explicit admin authority", async () => {
+  it("allows a cross-role lens when the session carries system.admin (ceo/exec)", async () => {
     mocks.withRlsTransaction.mockImplementation(async (_s: unknown, cb: (tx: unknown) => Promise<unknown>) => {
       return cb({ opportunity: { count: vi.fn(async () => 7) } });
     });
 
-    const res = await getBusinessRoleDashboard({
+    const asAdmin = await getBusinessRoleDashboard({
       authContext: { ...CTX, businessRole: "system_admin", permissions: ["system.admin"] },
       requestedRole: "ceo",
     });
+    expect(asAdmin.role).toBe("ceo");
+    expect(asAdmin.landing).toBe("/dashboard");
+    expect(asAdmin.metrics["activeOpportunities"]?.value).toBe(7);
 
-    expect(res.role).toBe("ceo");
-    expect(res.landing).toBe("/dashboard");
-    expect(res.metrics["activeOpportunities"]?.value).toBe(7);
+    const asCeo = await getBusinessRoleDashboard({
+      authContext: { ...CTX, businessRole: "ceo", permissions: ["system.admin"] },
+      requestedRole: "security_officer",
+    });
+    expect(asCeo.role).toBe("security_officer");
+    expect(asCeo.landing).toBe("/security");
   });
 });

@@ -53,7 +53,7 @@ function validUserJwtEnv(): Record<string, string> {
     USER_JWT_ROTATION_OWNER: "security-auth",
     USER_JWT_ISSUER: "sangfor-os",
     USER_JWT_AUDIENCE: "sangfor-os-runtime",
-    USER_JWT_TTL_SECONDS: "900",
+    USER_JWT_TTL_SECONDS: "28800",
     USER_JWT_CLOCK_SKEW_SECONDS: "30",
     USER_JWT_KEYRING_JSON: JSON.stringify({
       version: "sangfor.user-jwt-keyring/v1",
@@ -209,7 +209,7 @@ describe("POST /api/auth/login with a configured USER_JWT_* keyring", () => {
 
     const setCookie = response.headers.get("set-cookie") ?? "";
     expect(setCookie).toContain(`session=${body.token}`);
-    expect(setCookie).toMatch(/Max-Age=900\b/);
+    expect(setCookie).toMatch(/Max-Age=28800\b/);
     expect(setCookie).not.toMatch(/Max-Age=604800\b/);
     expect(setCookie.toLowerCase()).toContain("httponly");
     expect(setCookie.toLowerCase()).toContain("samesite=lax");

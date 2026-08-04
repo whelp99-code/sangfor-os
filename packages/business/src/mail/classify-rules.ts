@@ -108,7 +108,12 @@ export function isInternalDomain(domain: string | undefined, policy: MailPolicyL
 export function isSystemSenderDomain(domain: string | undefined, policy: MailPolicyLookup = STATIC_POLICY_LOOKUP) {
   if (!domain) return false;
   const normalized = normalizePolicyKey(domain);
-  return SYSTEM_SENDER_DOMAINS.has(normalized) || domainMatches(normalized, policy.systemSenderDomains);
+  if (SYSTEM_SENDER_DOMAINS.has(normalized) || domainMatches(normalized, policy.systemSenderDomains)) return true;
+  // Subdomains of hard-coded system senders (mails.microsoft.com under microsoft.com).
+  for (const root of SYSTEM_SENDER_DOMAINS) {
+    if (normalized === root || normalized.endsWith(`.${root}`)) return true;
+  }
+  return false;
 }
 
 export function isKnownPartnerDomain(domain: string | undefined, policy: MailPolicyLookup = STATIC_POLICY_LOOKUP) {
@@ -307,7 +312,7 @@ export function classifyMailCandidateDocument(input: {
   const text = normalizedText(input.title, input.body);
   const summary = compactSummary(input.body);
   const domain = domainFromEmail(header.email);
-  const promotional = /\b(unsubscribe|newsletter|promo|promotion|marketing)\b|뉴스레터|홍보/i.test(text);
+  const promotional = /\b(unsubscribe|newsletter|promo|promotion|marketing|subscription|billing|renewal)\b|뉴스레터|홍보|(광고)|구독|청구|요금|프로모션|microsoft\s*365|your\s+microsoft/i.test(text);
   if (promotional) {
     return {
       header,
@@ -453,7 +458,7 @@ export function isPromotionalThread(thread: ThreadLike) {
   const messages = extractThreadMessages(thread);
   if (messages.some((message) => message.isPromotional === true)) return true;
   const text = textFromThread(thread);
-  const marketingSignal = /\b(unsubscribe|newsletter|wallet|shipped|launch|promo|promotion|marketing)\b|\$\d+/i.test(text);
+  const marketingSignal = /\b(unsubscribe|newsletter|wallet|shipped|launch|promo|promotion|marketing|subscription|billing|renewal)\b|\$\d+|뉴스레터|홍보|\(광고\)|구독|청구|요금|프로모션|microsoft\s*365|your\s+microsoft/i.test(text);
   const explicitBusinessSignal = /견적\s*요청|계약\s*조건|검증\s*요청|고객사|purchase\s+order|quote\s+request/i.test(text);
   return marketingSignal && !explicitBusinessSignal;
 }
