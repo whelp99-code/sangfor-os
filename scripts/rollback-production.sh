@@ -39,6 +39,8 @@ tar -xf "$SOURCE_ARCHIVE" -C "$ROLLBACK_SOURCE"
 chmod -R a-w "$ROLLBACK_SOURCE"
 COMPOSE=(docker compose --project-name "$PROJECT_NAME" --project-directory "$ROLLBACK_SOURCE" --env-file "$ENV_FILE" -f "$DEPLOYMENT_COMPOSE")
 "${COMPOSE[@]}" up -d --no-build --no-deps api web
-curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --connect-timeout 5 "https://${APP_DOMAIN}/health" >/dev/null
-curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --connect-timeout 5 "https://${APP_DOMAIN}/login" >/dev/null
+# Caddy's local PKI is self-signed for aios.localhost; -k scopes the exception
+# to reachability the same way production-watchdog does.
+curl --fail -k --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --connect-timeout 5 "https://${APP_DOMAIN}/health" >/dev/null
+curl --fail -k --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --connect-timeout 5 "https://${APP_DOMAIN}/login" >/dev/null
 echo "Application images rolled back to ${TARGET_SHA}; database remains on additive forward migrations."
