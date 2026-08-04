@@ -97,7 +97,7 @@ function mintToken(overrides: { sub?: string; tenantId?: string; companyId?: str
       audience: 'sangfor-os-runtime',
       algorithm: 'HS256',
       claimsVersion: 'sangfor.user-session/v1',
-      ttlSeconds: 900,
+      ttlSeconds: 28_800,
       clockSkewSeconds: 30,
       rotationOwner: 'security-auth',
       activeKid: ACTIVE_KID,
