@@ -92,8 +92,10 @@ WEB_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$WEB_IMAGE_REF")"
 export API_IMAGE_REF="$API_IMAGE_ID"
 export WEB_IMAGE_REF="$WEB_IMAGE_ID"
 "${COMPOSE[@]}" up -d --wait api web caddy
-curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --connect-timeout 5 "https://${APP_DOMAIN}/health" >/dev/null
-curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --connect-timeout 5 "https://${APP_DOMAIN}/login" >/dev/null
+# Caddy's local PKI is self-signed for aios.localhost; -k scopes the exception
+# to reachability the same way production-watchdog does.
+curl --fail -k --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --connect-timeout 5 "https://${APP_DOMAIN}/health" >/dev/null
+curl --fail -k --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --connect-timeout 5 "https://${APP_DOMAIN}/login" >/dev/null
 "${COMPOSE[@]}" ps
 node -e 'const fs=require("fs"),crypto=require("crypto"),pathModule=require("path"); const [path,candidate,deployment,project,apiTag,apiId,webTag,webId,backup,domain,composePath,archivePath,sourceDir]=process.argv.slice(1); const hash=p=>crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex"); fs.writeFileSync(path, JSON.stringify({schemaVersion:3,candidateSha:candidate,deploymentId:deployment,projectName:project,imageTags:{api:apiTag,web:webTag},imageIds:{api:apiId,web:webId},composeArtifact:pathModule.basename(composePath),composeSha256:hash(composePath),sourceArchive:pathModule.basename(archivePath),sourceArchiveSha256:hash(archivePath),sourceDirectory:pathModule.basename(sourceDir),backup:`${backup}/predeploy-${deployment}.dump`,domain,deployedAt:new Date().toISOString()},null,2)+"\n",{mode:0o600})' \
   "$UNSIGNED_RECEIPT" "$EXPECTED_SHA" "$DEPLOYMENT_ID" "$PROJECT_NAME" "${API_IMAGE}:${EXPECTED_SHA}" "$API_IMAGE_ID" "${WEB_IMAGE}:${EXPECTED_SHA}" "$WEB_IMAGE_ID" "$BACKUP_DIR" "$APP_DOMAIN" "$DEPLOYMENT_COMPOSE" "$DEPLOYMENT_ARCHIVE" "$DEPLOYMENT_SOURCE"
