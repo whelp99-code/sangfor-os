@@ -18,7 +18,7 @@ export const SANGFOR_JWT_AUDIENCE = 'sangfor-os-runtime' as const;
 export const SANGFOR_JWT_ALGORITHM = 'HS256' as const;
 export const SANGFOR_JWT_TYPE = 'JWT' as const;
 export const SANGFOR_JWT_CLAIMS_VERSION = 'sangfor.user-session/v1' as const;
-export const SANGFOR_JWT_TTL_SECONDS = 900 as const;
+export const SANGFOR_JWT_TTL_SECONDS = 28_800 as const; // 8h — operator sessions must outlive a work block
 export const SANGFOR_JWT_CLOCK_SKEW_SECONDS = 30 as const;
 
 /** Old-key verify window: TTL + skew, per the rotation contract (D+930). */

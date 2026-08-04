@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 import { buildProtectedHeader, resolveVerificationKey, signSessionJwt, verifySessionJwt } from './session-jwt';
 
 const D = 1_700_000_000;
-const VERIFY_UNTIL = D + 900 + 30;
+const VERIFY_UNTIL = D + 28_800 + 30;
 
 function secretOfLength(bytes: number, fill = 7): string {
   return Buffer.alloc(bytes, fill).toString('base64url');
@@ -73,7 +73,7 @@ function buildConfig(keys: UserJwtKeyringEntry[], parseNow = D - 1, envOverrides
     USER_JWT_ROTATION_OWNER: 'security-auth',
     USER_JWT_ISSUER: SANGFOR_JWT_ISSUER,
     USER_JWT_AUDIENCE: SANGFOR_JWT_AUDIENCE,
-    USER_JWT_TTL_SECONDS: '900',
+    USER_JWT_TTL_SECONDS: '28800',
     USER_JWT_CLOCK_SKEW_SECONDS: '30',
     USER_JWT_KEYRING_JSON: JSON.stringify({ version: USER_JWT_KEYRING_VERSION, keys }),
     ...envOverrides,
@@ -110,7 +110,7 @@ function validClaims(overrides: Record<string, unknown> = {}) {
     sub: 'user-1',
     jti: 'jti-1',
     iat: D - 100,
-    exp: D - 100 + 900,
+    exp: D - 100 + 28_800,
     nbf: D - 100,
     ...overrides,
   };
@@ -142,11 +142,11 @@ describe('signSessionJwt', () => {
     expect(claimsOf(a).jti.length).toBeGreaterThan(0);
   });
 
-  it('sets exp = iat + 900 and rejects a blank sub', () => {
+  it('sets exp = iat + 28_800 and rejects a blank sub', () => {
     const token = signSessionJwt({ sub: 'user-1', nowSeconds: D }, activeOnlyConfig);
     const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
     expect(claims.iat).toBe(D);
-    expect(claims.exp).toBe(D + 900);
+    expect(claims.exp).toBe(D + 28_800);
     expect(() => signSessionJwt({ sub: '  ' }, activeOnlyConfig)).toThrow();
   });
 
@@ -167,33 +167,33 @@ describe('verifySessionJwt — protected header', () => {
   });
 
   it('rejects alg=none', () => {
-    const token = craftToken({ alg: 'none', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 900, nbf: D }), ACTIVE_SECRET_BYTES);
+    const token = craftToken({ alg: 'none', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 28_800, nbf: D }), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects alg=HS384', () => {
-    const token = craftToken({ alg: 'HS384', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 900, nbf: D }), ACTIVE_SECRET_BYTES);
+    const token = craftToken({ alg: 'HS384', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 28_800, nbf: D }), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects a missing header field', () => {
     const token = craftFromRawSegments(
       JSON.stringify({ alg: 'HS256', typ: 'JWT' }),
-      JSON.stringify(validClaims({ iat: D, exp: D + 900, nbf: D })),
+      JSON.stringify(validClaims({ iat: D, exp: D + 28_800, nbf: D })),
       ACTIVE_SECRET_BYTES,
     );
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects an extra header field (crit)', () => {
-    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT', crit: ['b64'] }, validClaims({ iat: D, exp: D + 900, nbf: D }), ACTIVE_SECRET_BYTES);
+    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT', crit: ['b64'] }, validClaims({ iat: D, exp: D + 28_800, nbf: D }), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects a remote-key header (jku)', () => {
     const token = craftToken(
       { alg: 'HS256', kid: 'active-1', typ: 'JWT', jku: 'https://evil.example/keys.json' },
-      validClaims({ iat: D, exp: D + 900, nbf: D }),
+      validClaims({ iat: D, exp: D + 28_800, nbf: D }),
       ACTIVE_SECRET_BYTES,
     );
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
@@ -201,12 +201,12 @@ describe('verifySessionJwt — protected header', () => {
 
   it('rejects duplicate JSON keys in the header', () => {
     const headerRaw = '{"alg":"HS256","kid":"active-1","typ":"JWT","alg":"none"}';
-    const token = craftFromRawSegments(headerRaw, JSON.stringify(validClaims({ iat: D, exp: D + 900, nbf: D })), ACTIVE_SECRET_BYTES);
+    const token = craftFromRawSegments(headerRaw, JSON.stringify(validClaims({ iat: D, exp: D + 28_800, nbf: D })), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects duplicate JSON keys in the payload', () => {
-    const payloadRaw = JSON.stringify(validClaims({ iat: D, exp: D + 900, nbf: D })).replace('"sub":"user-1"', '"sub":"user-1","sub":"attacker"');
+    const payloadRaw = JSON.stringify(validClaims({ iat: D, exp: D + 28_800, nbf: D })).replace('"sub":"user-1"', '"sub":"user-1","sub":"attacker"');
     const token = craftFromRawSegments(JSON.stringify({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }), payloadRaw, ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
@@ -237,20 +237,20 @@ describe('verifySessionJwt — kid selection', () => {
   it('rejects a missing kid', () => {
     const token = craftFromRawSegments(
       JSON.stringify({ alg: 'HS256', typ: 'JWT' }),
-      JSON.stringify(validClaims({ iat: D, exp: D + 900, nbf: D })),
+      JSON.stringify(validClaims({ iat: D, exp: D + 28_800, nbf: D })),
       ACTIVE_SECRET_BYTES,
     );
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects an unknown kid', () => {
-    const token = craftToken({ alg: 'HS256', kid: 'unknown-kid', typ: 'JWT' }, validClaims({ iat: D, exp: D + 900, nbf: D }), ACTIVE_SECRET_BYTES);
+    const token = craftToken({ alg: 'HS256', kid: 'unknown-kid', typ: 'JWT' }, validClaims({ iat: D, exp: D + 28_800, nbf: D }), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects a retired kid even with the correct historical secret', () => {
     const cfg = buildConfig([activeEntry(), retiredEntry()], D - 1);
-    const token = craftToken({ alg: 'HS256', kid: 'retired-1', typ: 'JWT' }, validClaims({ iat: D - 39_000, exp: D - 39_000 + 900, nbf: D - 39_000 }), ACTIVE_SECRET_BYTES);
+    const token = craftToken({ alg: 'HS256', kid: 'retired-1', typ: 'JWT' }, validClaims({ iat: D - 39_000, exp: D - 39_000 + 28_800, nbf: D - 39_000 }), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, cfg, D - 1)).toBeNull();
   });
 
@@ -262,44 +262,44 @@ describe('verifySessionJwt — kid selection', () => {
 
 describe('verifySessionJwt — claims pinning', () => {
   it('rejects a wrong issuer', () => {
-    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ iss: 'evil-issuer', iat: D, exp: D + 900, nbf: D }), ACTIVE_SECRET_BYTES);
+    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ iss: 'evil-issuer', iat: D, exp: D + 28_800, nbf: D }), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects a wrong audience', () => {
-    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ aud: 'evil-audience', iat: D, exp: D + 900, nbf: D }), ACTIVE_SECRET_BYTES);
+    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ aud: 'evil-audience', iat: D, exp: D + 28_800, nbf: D }), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects a wrong claims version', () => {
-    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ ver: 'sangfor.user-session/v0', iat: D, exp: D + 900, nbf: D }), ACTIVE_SECRET_BYTES);
+    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ ver: 'sangfor.user-session/v0', iat: D, exp: D + 28_800, nbf: D }), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
-  it('rejects a wrong ttl (exp != iat + 900)', () => {
-    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 901, nbf: D }), ACTIVE_SECRET_BYTES);
+  it('rejects a wrong ttl (exp != iat + 28_800)', () => {
+    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 28_801, nbf: D }), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects a token accepted only past the allowed clock skew', () => {
-    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 900, nbf: D }), ACTIVE_SECRET_BYTES);
-    expect(verifySessionJwt(token, activeOnlyConfig, D + 900 + 31)).toBeNull();
-    expect(verifySessionJwt(token, activeOnlyConfig, D + 900 + 30)).not.toBeNull();
+    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 28_800, nbf: D }), ACTIVE_SECRET_BYTES);
+    expect(verifySessionJwt(token, activeOnlyConfig, D + 28_800 + 31)).toBeNull();
+    expect(verifySessionJwt(token, activeOnlyConfig, D + 28_800 + 30)).not.toBeNull();
   });
 
   it('rejects a missing jti', () => {
-    const raw = JSON.stringify(validClaims({ iat: D, exp: D + 900, nbf: D })).replace(/,"jti":"jti-1"/, '');
+    const raw = JSON.stringify(validClaims({ iat: D, exp: D + 28_800, nbf: D })).replace(/,"jti":"jti-1"/, '');
     const token = craftFromRawSegments(JSON.stringify({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }), raw, ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects a blank jti', () => {
-    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ jti: '', iat: D, exp: D + 900, nbf: D }), ACTIVE_SECRET_BYTES);
+    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ jti: '', iat: D, exp: D + 28_800, nbf: D }), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects a missing sub', () => {
-    const raw = JSON.stringify(validClaims({ iat: D, exp: D + 900, nbf: D })).replace(/"sub":"user-1",/, '');
+    const raw = JSON.stringify(validClaims({ iat: D, exp: D + 28_800, nbf: D })).replace(/"sub":"user-1",/, '');
     const token = craftFromRawSegments(JSON.stringify({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }), raw, ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
@@ -310,26 +310,26 @@ describe('verifySessionJwt — claims pinning', () => {
   });
 
   it('rejects a not-yet-valid (future nbf) token', () => {
-    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 900, nbf: D + 500 }), ACTIVE_SECRET_BYTES);
+    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 28_800, nbf: D + 500 }), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 10)).toBeNull();
     expect(verifySessionJwt(token, activeOnlyConfig, D + 500)).not.toBeNull();
   });
 
   it('rejects nbf outside [iat, exp]', () => {
-    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 900, nbf: D + 901 }), ACTIVE_SECRET_BYTES);
-    expect(verifySessionJwt(token, activeOnlyConfig, D + 901)).toBeNull();
+    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 28_800, nbf: D + 28_801 }), ACTIVE_SECRET_BYTES);
+    expect(verifySessionJwt(token, activeOnlyConfig, D + 28_801)).toBeNull();
   });
 
   it('rejects iat before the signing key was activated', () => {
     const cfg = buildConfig([activeEntry({ activatedAt: rfc3339(D + 100) })], D + 99);
-    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 900, nbf: D }), ACTIVE_SECRET_BYTES);
+    const token = craftToken({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }, validClaims({ iat: D, exp: D + 28_800, nbf: D }), ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, cfg, D + 200)).toBeNull();
   });
 
   it('rejects a tampered payload (signature mismatch)', () => {
     const token = signSessionJwt({ sub: 'user-1', nowSeconds: D }, activeOnlyConfig);
     const [h, , s] = token.split('.');
-    const tamperedPayload = b64url(JSON.stringify({ ...validClaims({ iat: D, exp: D + 900, nbf: D }), sub: 'attacker' }));
+    const tamperedPayload = b64url(JSON.stringify({ ...validClaims({ iat: D, exp: D + 28_800, nbf: D }), sub: 'attacker' }));
     expect(verifySessionJwt(`${h}.${tamperedPayload}.${s}`, activeOnlyConfig, D + 1)).toBeNull();
   });
 
@@ -341,13 +341,13 @@ describe('verifySessionJwt — claims pinning', () => {
   });
 
   it('rejects a legacy BusinessRole claim forged into the payload (extra field, strict schema — never authoritative)', () => {
-    const raw = JSON.stringify({ ...validClaims({ iat: D, exp: D + 900, nbf: D }), businessRole: 'system_admin' });
+    const raw = JSON.stringify({ ...validClaims({ iat: D, exp: D + 28_800, nbf: D }), businessRole: 'system_admin' });
     const token = craftFromRawSegments(JSON.stringify({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }), raw, ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
 
   it('rejects an unrecognized role value (schema-pinned enum)', () => {
-    const raw = JSON.stringify({ ...validClaims({ iat: D, exp: D + 900, nbf: D }), role: 'superadmin' });
+    const raw = JSON.stringify({ ...validClaims({ iat: D, exp: D + 28_800, nbf: D }), role: 'superadmin' });
     const token = craftFromRawSegments(JSON.stringify({ alg: 'HS256', kid: 'active-1', typ: 'JWT' }), raw, ACTIVE_SECRET_BYTES);
     expect(verifySessionJwt(token, activeOnlyConfig, D + 1)).toBeNull();
   });
@@ -356,7 +356,7 @@ describe('verifySessionJwt — claims pinning', () => {
     const token = signSessionJwt({ sub: 'user-1', role: 'viewer', nowSeconds: D }, activeOnlyConfig);
     const [h, p, s] = token.split('.');
     const escalatedPayload = b64url(
-      JSON.stringify({ ...validClaims({ iat: D, exp: D + 900, nbf: D }), role: 'admin' }),
+      JSON.stringify({ ...validClaims({ iat: D, exp: D + 28_800, nbf: D }), role: 'admin' }),
     );
     // Same signature as the legitimately-issued viewer token — an attacker who
     // cannot recompute a valid signature over the escalated payload.
@@ -375,7 +375,7 @@ describe('rotation — active -> verify_only -> secret-free retired', () => {
     const cfg = buildConfig([activeEntry({ kid: 'active-2', secretBase64Url: secretOfLength(32, 3) }), verifyOnlyEntry()], D + 1, { USER_JWT_ACTIVE_KID: 'active-2' });
     const preRotationToken = craftToken(
       { alg: 'HS256', kid: 'verify-1', typ: 'JWT' },
-      validClaims({ iat: D - 500, exp: D - 500 + 900, nbf: D - 500 }),
+      validClaims({ iat: D - 500, exp: D - 500 + 28_800, nbf: D - 500 }),
       VERIFY_SECRET_BYTES,
     );
     expect(verifySessionJwt(preRotationToken, cfg, D + 5)).not.toBeNull();
@@ -385,35 +385,35 @@ describe('rotation — active -> verify_only -> secret-free retired', () => {
     const cfg = buildConfig([activeEntry({ kid: 'active-2', secretBase64Url: secretOfLength(32, 3) }), verifyOnlyEntry()], D + 1, { USER_JWT_ACTIVE_KID: 'active-2' });
     const postDemotionToken = craftToken(
       { alg: 'HS256', kid: 'verify-1', typ: 'JWT' },
-      validClaims({ iat: D, exp: D + 900, nbf: D }),
+      validClaims({ iat: D, exp: D + 28_800, nbf: D }),
       VERIFY_SECRET_BYTES,
     );
     expect(verifySessionJwt(postDemotionToken, cfg, D + 5)).toBeNull();
   });
 
-  it('rejects a verify_only token whose exp extends past the D+900 cutoff', () => {
+  it('rejects a verify_only token whose exp extends past the D+28800 cutoff', () => {
     const cfg = buildConfig([activeEntry({ kid: 'active-2', secretBase64Url: secretOfLength(32, 3) }), verifyOnlyEntry()], D + 1, { USER_JWT_ACTIVE_KID: 'active-2' });
-    // exp inflated past iat+900 (and past D+900) — caught by ttl pinning, which
-    // is exactly what makes exp<=D+900 an automatic consequence of iat<D here.
+    // exp inflated past iat+900 (and past D+28800) — caught by ttl pinning, which
+    // is exactly what makes exp<=D+28800 an automatic consequence of iat<D here.
     const overhangToken = craftToken(
       { alg: 'HS256', kid: 'verify-1', typ: 'JWT' },
-      validClaims({ iat: D - 1, exp: D + 901, nbf: D - 1 }),
+      validClaims({ iat: D - 1, exp: D + 28_801, nbf: D - 1 }),
       VERIFY_SECRET_BYTES,
     );
     expect(verifySessionJwt(overhangToken, cfg, D + 5)).toBeNull();
   });
 
-  it('rejects verification once the verifier clock passes D+930 (verify after cutoff)', () => {
+  it('rejects verification once the verifier clock passes D+28830 (verify after cutoff)', () => {
     const cfg = buildConfig([activeEntry({ kid: 'active-2', secretBase64Url: secretOfLength(32, 3) }), verifyOnlyEntry()], D + 1, { USER_JWT_ACTIVE_KID: 'active-2' });
     const preRotationToken = craftToken(
       { alg: 'HS256', kid: 'verify-1', typ: 'JWT' },
-      validClaims({ iat: D - 500, exp: D - 500 + 900, nbf: D - 500 }),
+      validClaims({ iat: D - 500, exp: D - 500 + 28_800, nbf: D - 500 }),
       VERIFY_SECRET_BYTES,
     );
     expect(verifySessionJwt(preRotationToken, cfg, D + 400)).not.toBeNull();
     // The key-selection cutoff itself (independent of any single token's own
-    // exp+skew, which is always at least a second tighter than D+930 given
-    // the strict iat<D rule): resolvable at/through D+930, gone just after.
+    // exp+skew, which is always at least a second tighter than D+28830 given
+    // the strict iat<D rule): resolvable at/through D+28830, gone just after.
     expect(resolveVerificationKey('verify-1', cfg, VERIFY_UNTIL)).not.toBeNull();
     expect(resolveVerificationKey('verify-1', cfg, VERIFY_UNTIL + 1)).toBeNull();
   });
@@ -423,7 +423,7 @@ describe('rotation — active -> verify_only -> secret-free retired', () => {
     expect(cfg.retiredKids.has('retired-1')).toBe(true);
     const forged = craftToken(
       { alg: 'HS256', kid: 'retired-1', typ: 'JWT' },
-      validClaims({ iat: D - 39_500, exp: D - 39_500 + 900, nbf: D - 39_500 }),
+      validClaims({ iat: D - 39_500, exp: D - 39_500 + 28_800, nbf: D - 39_500 }),
       ACTIVE_SECRET_BYTES,
     );
     expect(verifySessionJwt(forged, cfg, D - 39_000)).toBeNull();

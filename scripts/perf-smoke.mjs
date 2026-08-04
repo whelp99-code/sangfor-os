@@ -157,7 +157,7 @@ function jwtEnv() {
     USER_JWT_ROTATION_OWNER: "security-auth",
     USER_JWT_ISSUER: "sangfor-os",
     USER_JWT_AUDIENCE: "sangfor-os-runtime",
-    USER_JWT_TTL_SECONDS: "900",
+    USER_JWT_TTL_SECONDS: "28800",
     USER_JWT_CLOCK_SKEW_SECONDS: "30",
     USER_JWT_KEYRING_JSON: JSON.stringify({ version: "sangfor.user-jwt-keyring/v1", keys: [{ kid: "u075-performance-key", state: "active", secretBase64Url, activatedAt: "2026-01-01T00:00:00Z", demotedAt: null, verifyUntil: null, retiredAt: null }] }),
     AUTH_DEMO_PASSWORD: "u075-performance-password",

@@ -68,7 +68,7 @@ function setValidUserJwtEnv() {
   setEnv("USER_JWT_ROTATION_OWNER", "security-auth");
   setEnv("USER_JWT_ISSUER", "sangfor-os");
   setEnv("USER_JWT_AUDIENCE", "sangfor-os-runtime");
-  setEnv("USER_JWT_TTL_SECONDS", "900");
+  setEnv("USER_JWT_TTL_SECONDS", "28800");
   setEnv("USER_JWT_CLOCK_SKEW_SECONDS", "30");
   setEnv(
     "USER_JWT_KEYRING_JSON",

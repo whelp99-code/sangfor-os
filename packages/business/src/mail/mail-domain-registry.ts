@@ -35,9 +35,17 @@ export const KNOWN_PARTNER_DOMAINS = new Set([
   'nexias.co.kr',
 ]);
 
-/** 시스템 발신자 (자동화, 빌링 등) */
+/** 시스템 발신자 (자동화, 빌링, 벤더 마케팅 플랫폼) */
 export const SYSTEM_SENDER_DOMAINS = new Set([
   'bill36524.com',
+  // Microsoft 365 marketing / account / subscription mail hosts
+  'microsoft.com',
+  'mails.microsoft.com',
+  'email.microsoft.com',
+  'accountprotection.microsoft.com',
+  'communication.microsoft.com',
+  'email.windows.com',
+  'microsoftemail.com',
 ]);
 
 /** 한국어 회사명 매핑 (메일 분류에 사용) */

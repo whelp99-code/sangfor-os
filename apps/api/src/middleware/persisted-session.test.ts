@@ -25,7 +25,7 @@ function userJwtEnv(): Record<string, string> {
     USER_JWT_ROTATION_OWNER: 'security-auth',
     USER_JWT_ISSUER: 'sangfor-os',
     USER_JWT_AUDIENCE: 'sangfor-os-runtime',
-    USER_JWT_TTL_SECONDS: '900',
+    USER_JWT_TTL_SECONDS: '28800',
     USER_JWT_CLOCK_SKEW_SECONDS: '30',
     USER_JWT_KEYRING_JSON: JSON.stringify({
       version: 'sangfor.user-jwt-keyring/v1',
@@ -97,7 +97,7 @@ function mintToken(overrides: { sub?: string; tenantId?: string; companyId?: str
       audience: 'sangfor-os-runtime',
       algorithm: 'HS256',
       claimsVersion: 'sangfor.user-session/v1',
-      ttlSeconds: 900,
+      ttlSeconds: 28_800,
       clockSkewSeconds: 30,
       rotationOwner: 'security-auth',
       activeKid: ACTIVE_KID,

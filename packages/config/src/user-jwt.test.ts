@@ -17,7 +17,7 @@ import {
 } from './user-jwt';
 
 const D = 1_700_000_000;
-const VERIFY_UNTIL = D + 900 + 30;
+const VERIFY_UNTIL = D + 28_800 + 30;
 
 function secretOfLength(bytes: number): string {
   return Buffer.alloc(bytes, 7).toString('base64url');
@@ -93,7 +93,7 @@ describe('constants', () => {
     expect(SANGFOR_JWT_ALGORITHM).toBe('HS256');
     expect(SANGFOR_JWT_TYPE).toBe('JWT');
     expect(SANGFOR_JWT_CLAIMS_VERSION).toBe('sangfor.user-session/v1');
-    expect(SANGFOR_JWT_TTL_SECONDS).toBe(900);
+    expect(SANGFOR_JWT_TTL_SECONDS).toBe(28_800);
     expect(SANGFOR_JWT_CLOCK_SKEW_SECONDS).toBe(30);
     expect(USER_JWT_KEYRING_VERSION).toBe('sangfor.user-jwt-keyring/v1');
     expect(USER_JWT_ROTATION_OWNER_EXPECTED).toBe('security-auth');
@@ -198,7 +198,7 @@ describe('parseUserJwtConfig — key-shape failures', () => {
   it('rejects a verify_only entry with activatedAt >= demotedAt', () =>
     expectFail(baseEnv({}, [activeEntry(), verifyOnlyEntry({ activatedAt: rfc3339(D), demotedAt: rfc3339(D) })])));
   it('rejects a verify_only entry whose verifyUntil != demotedAt + 930', () =>
-    expectFail(baseEnv({}, [activeEntry(), verifyOnlyEntry({ verifyUntil: rfc3339(D + 900) })])));
+    expectFail(baseEnv({}, [activeEntry(), verifyOnlyEntry({ verifyUntil: rfc3339(D + 28_800) })])));
   it('rejects an overdue verify_only entry still present at startup (now > verifyUntil)', () =>
     expectFail(baseEnv({}, [activeEntry(), verifyOnlyEntry()]), VERIFY_UNTIL + 1));
 
