@@ -99,6 +99,10 @@ RECEIPT="$ATTEMPT_DIR/external-receipt.json"
   --key-id "$KEY_ID" \
   --approved-by "$APPROVED_BY" \
   --output "$RECEIPT"
+# Signer runs as root; hand the receipt back so the operator can inspect it
+# without another elevation (0600 stays, ownership returns to APPROVED_BY).
+chown "$APPROVED_BY" "$RECEIPT"
+chmod 600 "$RECEIPT"
 
 echo "== deploying =="
 exec ./scripts/deploy-production.sh \
