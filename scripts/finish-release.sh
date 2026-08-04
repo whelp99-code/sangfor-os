@@ -81,10 +81,11 @@ else
 fi
 
 echo "== AC-DOD-09 staging verification =="
-COMMANDS_FILE="$(mktemp)"
-# mktemp runs as root and produces a root-owned 0600 file, but the verifier is
-# deliberately run as the invoking user below. Hand the file over or the write
-# dies with EACCES before any approval can be recorded.
+COMMANDS_FILE="$(mktemp "$ATTEMPT_DIR/external-commands.XXXXXX")"
+# mktemp under root targets root's TMPDIR (/var/folders/zz/…, mode 0700),
+# which the invoking user cannot traverse even after the file is handed over,
+# so the verifier below dies with EACCES. Anchor the file in the attempt
+# directory — user-owned and traversable — then give it to the user.
 chown "$APPROVED_BY" "$COMMANDS_FILE"
 trap 'rm -f "$COMMANDS_FILE"' EXIT
 sudo -u "${SUDO_USER:-root}" "$NODE_BIN" scripts/record-approval-commands.mjs --output "$COMMANDS_FILE"
