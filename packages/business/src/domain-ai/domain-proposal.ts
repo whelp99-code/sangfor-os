@@ -161,7 +161,7 @@ export async function generateDomainProposal(
           buildChatCompletionRequestBody({
             model: getOpenAiModel(),
             jsonMode: true,
-            maxCompletionTokens: 1200,
+            maxCompletionTokens: 4000,
             messages: [
               { role: 'system', content: sys },
               { role: 'user', content: usr },
