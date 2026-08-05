@@ -30,6 +30,8 @@ import {
   toInputJson,
 } from "./classify-rules";
 import { classifyMailInsightThreadHybrid } from "./classify-ai";
+import { groundTruthFor } from "./ground-truth-registry";
+import { isVendorDomain } from "./mail-entity-quality";
 import { listMailDerivedCandidates } from "./candidates-update";
 import { recordDecision } from "../governance/ai-decision";
 import { caseRefFor } from "../infrastructure/case-ref";
@@ -125,6 +127,27 @@ function candidateLooksPolicyExcluded(
       matchedPolicyMemories: matchedPolicyMemories(policy, [
         { memoryType: "system_sender_domain", key: domain ?? "" },
       ]),
+      participantDomains: domain ? [domain] : [],
+    } satisfies PolicyDecision;
+  }
+  if (domain && isVendorDomain(domain)) {
+    return {
+      decision: "exclude",
+      entityRole: "unknown",
+      reason: "existing candidate sender domain is a known vendor/SaaS we consume",
+      candidateName: entityName,
+      matchedPolicyMemories: [],
+      participantDomains: [domain],
+    } satisfies PolicyDecision;
+  }
+  const gt = domain ? groundTruthFor(domain) : undefined;
+  if (gt && (gt.classification === "vendor" || gt.classification === "system")) {
+    return {
+      decision: "exclude",
+      entityRole: gt.classification === "system" ? "system_sender" : "unknown",
+      reason: `ground-truth ${gt.classification}: ${gt.evidence}`,
+      candidateName: entityName,
+      matchedPolicyMemories: [],
       participantDomains: domain ? [domain] : [],
     } satisfies PolicyDecision;
   }
@@ -552,6 +575,32 @@ export async function generateMailDerivedCandidatesHybrid(
         output: toInputJson(excluded),
       });
     }
+    if (classified.excluded.length > 0 && classified.candidates.length === 0) {
+      const openRows = await prisma.mailDerivedCandidate.findMany({
+        where: {
+          status: { in: ["proposed", "needs_revalidation"] },
+          OR: [
+            { mailInsightThreadId: thread.id },
+            ...(thread.knowledgeDocumentId ? [{ knowledgeDocumentId: thread.knowledgeDocumentId }] : []),
+          ],
+        },
+        select: { id: true, metadata: true },
+      });
+      for (const row of openRows) {
+        await prisma.mailDerivedCandidate.update({
+          where: { id: row.id },
+          data: {
+            status: "knowledge_only",
+            metadata: toInputJson({
+              ...asRecord(row.metadata),
+              policyDecision: classified.excluded[0],
+              classificationMethod: "hybrid",
+              aiFirstExcludedAt: new Date().toISOString(),
+            }),
+          },
+        });
+      }
+    }
 
     for (const candidate of classified.candidates) {
       if (candidate.candidateType === "customer" || candidate.candidateType === "partner") {
@@ -561,33 +610,87 @@ export async function generateMailDerivedCandidatesHybrid(
           continue;
         }
       }
+      // AI-first: refresh any open/knowledge candidate on the same thread.
       const existing = await prisma.mailDerivedCandidate.findFirst({
         where: {
-          candidateType: candidate.candidateType,
+          status: { in: ["proposed", "needs_revalidation", "knowledge_only"] },
           OR: [
             { mailInsightThreadId: thread.id },
             ...(thread.knowledgeDocumentId ? [{ knowledgeDocumentId: thread.knowledgeDocumentId }] : []),
           ],
         },
+        orderBy: [{ updatedAt: "desc" }],
       });
       if (existing) {
-        if (!existing.mailInsightThreadId) {
+        const aiClassification = (candidate as Record<string, unknown>).aiClassification;
+        const nextStatus = isProjectCandidateType(candidate.candidateType)
+          ? "needs_revalidation"
+          : "proposed";
+        const nextMeta = toInputJson({
+          ...asRecord(existing.metadata),
+          threadInsightId: thread.id,
+          threadKey: thread.threadKey,
+          mailIntelligence: candidate.mailIntelligence,
+          policyDecision: candidate.policyDecision,
+          aiClassification,
+          confidenceBreakdown: candidate.confidenceBreakdown,
+          classificationMethod: "hybrid",
+          aiFirstUpdatedAt: new Date().toISOString(),
+        });
+        const baseData = {
+          mailInsightThreadId: existing.mailInsightThreadId ?? thread.id,
+          title: candidate.title,
+          summary: candidate.summary,
+          confidence: candidate.confidence,
+          status: nextStatus,
+          metadata: nextMeta,
+        } as const;
+
+        // knowledgeDocumentId+candidateType is unique — only change type when free.
+        if (existing.candidateType !== candidate.candidateType) {
+          const typeTaken = await prisma.mailDerivedCandidate.findFirst({
+            where: {
+              id: { not: existing.id },
+              candidateType: candidate.candidateType,
+              OR: [
+                ...(thread.knowledgeDocumentId
+                  ? [{ knowledgeDocumentId: thread.knowledgeDocumentId }]
+                  : []),
+                { mailInsightThreadId: thread.id },
+              ],
+            },
+            select: { id: true, metadata: true },
+          });
+          if (typeTaken) {
+            await prisma.mailDerivedCandidate.update({
+              where: { id: typeTaken.id },
+              data: baseData,
+            });
+            await prisma.mailDerivedCandidate.update({
+              where: { id: existing.id },
+              data: {
+                status: "knowledge_only",
+                metadata: toInputJson({
+                  ...asRecord(existing.metadata),
+                  supersededBy: typeTaken.id,
+                  classificationMethod: "hybrid",
+                  aiFirstSupersededAt: new Date().toISOString(),
+                }),
+              },
+            });
+          } else {
+            await prisma.mailDerivedCandidate.update({
+              where: { id: existing.id },
+              data: { ...baseData, candidateType: candidate.candidateType },
+            });
+          }
+        } else {
           await prisma.mailDerivedCandidate.update({
             where: { id: existing.id },
-            data: {
-              mailInsightThreadId: thread.id,
-              metadata: toInputJson({
-                ...asRecord(existing.metadata),
-                threadInsightId: thread.id,
-                threadKey: thread.threadKey,
-                mailIntelligence: candidate.mailIntelligence,
-                policyDecision: candidate.policyDecision,
-                aiClassification: (candidate as Record<string, unknown>).aiClassification,
-              }),
-            },
+            data: baseData,
           });
         }
-        skipped += 1;
+        skipped += 1; // counted as refresh-not-create
         continue;
       }
 

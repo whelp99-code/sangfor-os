@@ -536,7 +536,7 @@ function shouldKeepRevalidationAsKnowledgeOnly(revalidation: AiRevalidationResul
   ]
     .join(" ")
     .toLowerCase();
-  return /external_marketing|marketing content|newsletter|promo|no actual customer|마케팅|홍보/.test(text);
+  return /external_marketing|marketing content|newsletter|promo|promotion|subscription|billing|renewal|no actual customer|마케팅|홍보|\(광고\)|구독|청구|요금|프로모션|웨비나|webinar|modusign|microsoft\s*365|your\s+microsoft/.test(text);
 }
 
 const revalidateMailDerivedCandidateSchema = z.object({

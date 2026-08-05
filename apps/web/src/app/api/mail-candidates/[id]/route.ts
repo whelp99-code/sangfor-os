@@ -20,6 +20,7 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("revalidate"),
     expectedUpdatedAt: z.string().datetime({ offset: true }),
+    force: z.boolean().optional(),
   }).strict(),
   z.object({
     action: z.literal("reject"),
@@ -143,6 +144,7 @@ export async function PATCH(request: Request, { params }: Params) {
       const result = await revalidateMailDerivedCandidate(auth.ctx, id, {
         expectedUpdatedAt: parsed.data.expectedUpdatedAt,
         idempotencyKey,
+        force: parsed.data.force === true,
       });
       return NextResponse.json(result);
     }
