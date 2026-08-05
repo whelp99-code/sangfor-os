@@ -694,6 +694,25 @@ export async function generateMailDerivedCandidatesHybrid(
         continue;
       }
 
+      // (knowledgeDocumentId, candidateType) is unique. The open-status query
+      // above deliberately ignores closed rows, so when no open candidate
+      // exists but a closed one (rejected/converted) still occupies the key,
+      // a fresh create would violate the unique index and crash the whole
+      // generation run. Leave the closed row untouched and skip re-derivation.
+      if (thread.knowledgeDocumentId) {
+        const closedCollision = await prisma.mailDerivedCandidate.findFirst({
+          where: {
+            candidateType: candidate.candidateType,
+            knowledgeDocumentId: thread.knowledgeDocumentId,
+          },
+          select: { id: true },
+        });
+        if (closedCollision) {
+          skipped += 1;
+          continue;
+        }
+      }
+
       const createdCandidate = await prisma.mailDerivedCandidate.create({
         data: {
           knowledgeDocumentId: thread.knowledgeDocumentId,
