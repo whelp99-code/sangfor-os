@@ -512,6 +512,7 @@ export async function generateMailDerivedCandidatesHybrid(
 ) {
   const parsed = generateMailCandidatesSchema.parse(input);
   const projectSlug = parsed.projectSlug ?? (await resolveDefaultProjectSlug());
+  await loadLlmConfigFromDb(); // web-saved OpenAI-compatible key/model (Codex Spark, etc.)
   await seedDefaultMailPolicyMemory(projectSlug);
   const projectId = await resolveProjectId(projectSlug);
   const policy = await buildMailPolicyLookup(projectSlug);

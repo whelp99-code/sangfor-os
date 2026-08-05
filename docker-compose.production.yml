@@ -25,6 +25,9 @@ x-runtime-environment: &runtime-environment
   # report MFA_NOT_CONFIGURED and privileged routes stay closed, which is the
   # behaviour that predates the feature.
   MFA_TOTP_KEY: ${MFA_TOTP_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+  OPENAI_MODEL: ${OPENAI_MODEL:-}
   USER_JWT_ROTATION_OWNER: security-auth
   USER_JWT_ISSUER: ${USER_JWT_ISSUER:-sangfor-os}
   USER_JWT_AUDIENCE: ${USER_JWT_AUDIENCE:-sangfor-os-runtime}
