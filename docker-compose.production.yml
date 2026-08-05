@@ -14,11 +14,6 @@ x-runtime-environment: &runtime-environment
   AUTH_BYPASS_ENABLED: "0"
   API_KEY_BYPASS_ENABLED: "0"
   WHELP99_ENFORCE_SAFE_TOOLS: "true"
-  # LLM endpoints (OpenAI-compatible; e.g. local 9router proxy). Required by
-  # the finance chatbot, mail classification, and proposal generation.
-  OPENAI_API_KEY: ${OPENAI_API_KEY}
-  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
-  OPENAI_MODEL: ${OPENAI_MODEL}
   API_KEY: ${API_KEY}
   FINANCE_API_KEY: ${FINANCE_API_KEY}
   SANGFOR_API_KEY: ${SANGFOR_API_KEY}
