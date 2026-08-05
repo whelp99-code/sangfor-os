@@ -1,4 +1,4 @@
-import { getOpenAiApiKey, getOpenAiModel } from '@sangfor/business/openai-config';
+import { getOpenAiApiKey, getOpenAiChatCompletionsUrl, getOpenAiModel } from '@sangfor/business/openai-config';
 import { prisma } from '@sangfor/db';
 
 export interface ChatTool {
@@ -189,7 +189,7 @@ export class ChatbotService {
       ...history.slice(-6).map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
       { role: 'user' as const, content: message },
     ];
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch(getOpenAiChatCompletionsUrl(), {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: getOpenAiModel(), messages, tools, tool_choice: 'auto' }),
