@@ -14,6 +14,7 @@ import {
   upsertMailInsightThreads,
 } from "@sangfor/business";
 import { getOpenAiApiKey } from "@sangfor/business/openai-config";
+import { loadLlmConfigFromDb } from "@sangfor/business";
 import { sanitizeText } from "./outlook";
 
 const UPSERT_BATCH = 50;
@@ -99,6 +100,7 @@ export async function learnFromMailbox(): Promise<{
   }
 
   const limit = Math.min(2000, threads.length);
+  await loadLlmConfigFromDb();
   const candidates = getOpenAiApiKey()
     ? await generateMailDerivedCandidatesHybrid({ projectSlug, limit })
     : await generateMailDerivedCandidates({ projectSlug, limit });
