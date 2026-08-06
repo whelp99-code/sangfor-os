@@ -1,10 +1,18 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   cosineSimilarity,
   hybridScore,
   recallHybrid,
+  recallSemanticFromDb,
+  safeEmbed,
 } from "./domain-embedding";
 import type { DomainMemoryRecord, RecallQuery } from "./domain-memory";
+
+// DB 로드 레이어만 모킹 — 스코어/recall 은 실제 순수 함수로 검증한다.
+vi.mock("./domain-memory", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./domain-memory")>();
+  return { ...actual, loadDomainMemories: vi.fn(async () => [] as DomainMemoryRecord[]) };
+});
 
 function rec(overrides: Partial<DomainMemoryRecord>): DomainMemoryRecord {
   return {
@@ -74,6 +82,12 @@ describe("hybridScore", () => {
     const reverted = rec({ tags: [], outcome: "human-reverted", embedding: [1, 0, 0] });
     expect(hybridScore(query, [1, 0, 0], reverted, { embeddingWeight: 1 })).toBe(0);
   });
+  it("keeps the full tag score when query/record embedding dims differ (mixed embedders)", () => {
+    const tagged = rec({ tags: ["firewall"], embedding: [1, 0, 0] });
+    const mixed = hybridScore(query, [1, 0], tagged);
+    expect(mixed).toBe(hybridScore(query, null, tagged));
+    expect(mixed).toBeGreaterThan(0);
+  });
 });
 
 describe("recallHybrid", () => {
@@ -97,5 +111,42 @@ describe("recallHybrid", () => {
     ];
     const out = recallHybrid(query, [1, 0], candidates, 5, { embeddingWeight: 1 });
     expect(out.map((r) => r.key)).toEqual(["deal-y"]);
+  });
+});
+
+describe("safeEmbed", () => {
+  it("returns the vector on success", async () => {
+    expect(await safeEmbed(async () => [1, 2], "x")).toEqual([1, 2]);
+  });
+
+  it("returns null when the embedder throws", async () => {
+    const failing = async (): Promise<number[]> => {
+      throw new Error("embedder down");
+    };
+    expect(await safeEmbed(failing, "x")).toBeNull();
+  });
+
+  it("returns null for an empty vector", async () => {
+    expect(await safeEmbed(async () => [], "x")).toBeNull();
+  });
+});
+
+describe("recallSemanticFromDb", () => {
+  it("degrades to tag-only recall when the embedder throws (offline-safe)", async () => {
+    const { loadDomainMemories } = await import("./domain-memory");
+    (loadDomainMemories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      rec({ key: "tagged", tags: ["firewall"] }),
+    ]);
+    const failing = async (): Promise<number[]> => {
+      throw new Error("no network");
+    };
+    const out = await recallSemanticFromDb({
+      domain: "sales",
+      tags: ["firewall"],
+      queryText: "anything",
+      embed: failing,
+      projectSlug: "unit-test-project",
+    });
+    expect(out.map((r) => r.key)).toEqual(["tagged"]);
   });
 });

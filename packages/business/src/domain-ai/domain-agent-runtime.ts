@@ -10,13 +10,15 @@ import {
 import { checkColorGate, type ColorKey } from "./color-agent";
 import { renderCharter } from "./domain-charter";
 import {
-  recallFromDb,
   recordDomainDecision,
   upsertDomainMemory,
   type DomainMemoryRecord,
   type DomainOutcome,
   buildMemoryTags,
 } from "./domain-memory";
+import { recallSemanticFromDb, safeEmbed, type Embedder } from "./domain-embedding";
+import { resolveEmbedder } from "./domain-embedder-openai";
+import { embeddingTextFor } from "./domain-embedder";
 import {
   createDefaultDomainGenerator,
   type DefaultGeneratorOptions,
@@ -73,6 +75,8 @@ export interface DomainRuntimeDeps {
   evaluateGate?: ColorGateEvaluator;
   projectSlug?: string;
   recallTopK?: number;
+  /** 시맨틱 recall·학습 저장용 임베더. 생략하면 `resolveEmbedder()` (임베딩 엔드포인트 → OpenAI → hash 폴백). */
+  embed?: Embedder;
   /** 학습 저장 끄기 (드라이런). 기본 false. */
   skipLearning?: boolean;
   /**
@@ -143,13 +147,21 @@ export async function runDomainStage(
   const projectSlug = deps.projectSlug ?? (await resolveDefaultProjectSlug());
   const evaluateGate = deps.evaluateGate ?? defaultGate;
   const generate = resolveDomainGenerator(deps);
+  const embed = deps.embed ?? resolveEmbedder();
 
   // 1) recall (도메인 격리)
   // A-4: union raw case tags with the shared buildMemoryTags vocabulary so
   // human-confirmed memories (written domain:/entity:/intent: by
   // recordHumanDecision) are visible to runtime recall, not only agent-raw tags.
   const recallTags = [...c.tags, ...buildMemoryTags({ domain, entityType: "case" })];
-  const recalled = await recallFromDb({ domain, tags: recallTags }, projectSlug, deps.recallTopK ?? 3);
+  const recalled = await recallSemanticFromDb({
+    domain,
+    tags: recallTags,
+    queryText: embeddingTextFor({ label: c.subject, tags: c.tags, summary: c.content }),
+    embed,
+    projectSlug,
+    topK: deps.recallTopK ?? 3,
+  });
 
   // 2) prompt → 3) generate (LLM 주입; 미주입 시 권장 기본 생성기)
   const prompt = buildDomainPrompt(domain, c, recalled);
@@ -177,17 +189,25 @@ export async function runDomainStage(
 
   // 7) 학습 (게이트 통과 케이스만 누적)
   if (!deps.skipLearning && gatePass) {
+    const memoryLabel = `${def.label} — ${c.subject}`;
+    const memoryTags = [...c.tags, ...buildMemoryTags({ domain, entityType: "case", intentTag: outcome })];
+    // best-effort 임베딩 — 실패 시 태그만 저장하고 학습 쓰기를 막지 않는다.
+    const embedding = await safeEmbed(
+      embed,
+      embeddingTextFor({ label: memoryLabel, tags: memoryTags, summary: artifact.summary }),
+    );
     await upsertDomainMemory({
       projectSlug,
       domain,
       memoryType: "case",
       key: `${domain}:${c.id}`,
-      label: `${def.label} — ${c.subject}`,
-      tags: [...c.tags, ...buildMemoryTags({ domain, entityType: "case", intentTag: outcome })],
+      label: memoryLabel,
+      tags: memoryTags,
       valueJson: { subject: c.subject, produces: artifact.produces, summary: artifact.summary },
       outcome,
       source: "agent",
       confidence: 90,
+      ...(embedding ? { embedding } : {}),
     });
   }
 

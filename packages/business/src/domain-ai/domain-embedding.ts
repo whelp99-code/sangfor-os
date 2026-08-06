@@ -21,6 +21,16 @@ import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 export type Embedder = (text: string) => Promise<number[]>;
 
+/** Best-effort 임베딩 — 실패(임베더 다운·키 없음)나 빈 벡터면 null. 호출 경로를 절대 막지 않는다. */
+export async function safeEmbed(embed: Embedder, text: string): Promise<number[] | null> {
+  try {
+    const vec = await embed(text);
+    return vec.length > 0 ? vec : null;
+  } catch {
+    return null;
+  }
+}
+
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length === 0 || a.length !== b.length) return 0;
   let dot = 0;
@@ -52,7 +62,9 @@ export function hybridScore(
   const hasEmbedding =
     !!queryEmbedding && queryEmbedding.length > 0 && !!record.embedding && record.embedding.length > 0;
 
-  if (!hasEmbedding) return tagScore;
+  // 임베더 차원 불일치(예: hash 256 vs openai 1536 혼재)면 의미 점수만 제외하고
+  // 태그 점수는 온전히 유지 — 이질 임베딩이 기존 recall 을 끌어내리지 않는다.
+  if (!hasEmbedding || queryEmbedding!.length !== record.embedding!.length) return tagScore;
 
   // 반려/되돌림(negative outcome)은 의미유사도로도 되살리지 않는다 — 태그 경로와 동일한 negative-learning 억제.
   if (record.domain !== query.domain) return 0;
@@ -100,7 +112,8 @@ export async function recallSemanticFromDb(input: {
   options?: HybridRecallOptions;
 }): Promise<DomainMemoryRecord[]> {
   const candidates = await loadDomainMemories(input.domain, input.projectSlug ?? (await resolveDefaultProjectSlug()));
-  const queryEmbedding = await input.embed(input.queryText);
+  // 임베더 실패(네트워크·키 없음) 시 태그 전용 하이브리드로 우아하게 저하.
+  const queryEmbedding = await safeEmbed(input.embed, input.queryText);
   // A-4: always include the shared vocabulary tags so buildMemoryTags-written
   // memories are recallable regardless of what raw tags the caller passed.
   const tags = [...input.tags, ...buildMemoryTags({ domain: input.domain })];
