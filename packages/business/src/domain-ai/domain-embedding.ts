@@ -26,7 +26,9 @@ export async function safeEmbed(embed: Embedder, text: string): Promise<number[]
   try {
     const vec = await embed(text);
     return vec.length > 0 ? vec : null;
-  } catch {
+  } catch (err) {
+    // 실패 증거를 남기고 저하 — 오퍼레이터가 임베더 다운을 알아챌 수 있어야 한다.
+    console.warn(`[domain-embedder] embed_failed: ${(err as Error)?.message ?? err}`);
     return null;
   }
 }

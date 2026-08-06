@@ -36,6 +36,11 @@ describe("real embedding provider", () => {
       vi.unstubAllEnvs();
     }
   });
+
+  it("prefers an explicit embedding endpoint over the OpenAI key", () => {
+    expect(describeEmbedder({ baseUrl: "http://embed.local/v1", apiKey: "sk-x" })).toBe("embedding-endpoint");
+    expect(describeEmbedder({ baseUrl: "http://embed.local/v1", apiKey: "" })).toBe("embedding-endpoint");
+  });
 });
 
 describe("default domain generator (structured→text→stub)", () => {
