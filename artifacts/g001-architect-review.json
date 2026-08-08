@@ -1,0 +1,106 @@
+{
+  "sourceHash": "sha256:11dbaf19a841a128f3daf5acb06c78289f898e24403a9c63daa93268f32ee0f2",
+  "changeSet": "a95cc66..e599f5e (commits b4461ca, e599f5e); HEAD verified e599f5e3466c1345f12937864d4c4e39e916f14c on whelp99-code/daggertooth",
+  "architectureStatus": "CLEAR",
+  "productStatus": "CLEAR",
+  "codeStatus": "WATCH",
+  "recommendation": "APPROVE",
+  "evidence": "Read-only review of the frozen tree (HEAD == e599f5e, working tree is the snapshot; only .gjc/, artifacts/, and a foreign untracked __qq__/ dir present). LAYERING: domain-embedding.ts owns the Embedder type (domain-embedding.ts:22), safeEmbed (:25-34), pure scoring cosineSimilarity/hybridScore/recallHybrid (:36-104), and recallSemanticFromDb (:107-129); it imports no concrete embedder, so no cycle. domain-embedder.ts holds the deterministic hash embedder + embeddingTextFor (:8-35). domain-embedder-openai.ts holds the OpenAI-compatible HTTP embedder + resolveEmbedder/describeEmbedder env chain (:17-64) in precedence EMBEDDING_BASE_URL -> OPENAI_API_KEY -> hash fallback; endpoint preference is locked and tested (domain-polish.test.ts:40-43). DEPENDENCY DIRECTION: all new imports stay inside packages/business/src/domain-ai or point down to platform/openai-config; apps/web imports @sangfor/business only (apps -> business -> @sangfor/db + @sangfor/shared), never the reverse; package.json dependency list unchanged in the diff. DATA FLOW: runDomainStage resolves the embedder once (domain-agent-runtime.ts:150) and reuses it for recall (:157-164) and the learning upsert (:195-211); generateDomainProposal does safeEmbed -> recallHybrid (domain-proposal.ts:145-153); recordHumanDecision does safeEmbed -> conditional spread (project-decision.ts:75-90). Degraded equivalence: recallHybrid(query, null, ...) is behaviorally identical to the old recallDomainMemories - identical suppressedKeys cross-suppression (domain-embedding.ts:89-91 vs domain-memory.ts:119-123), hybridScore returns pure tagScore when queryEmbedding is null (domain-embedding.ts:69), same score>0 filter / score-desc-then-createdAt-desc sort / topK slice; excludeCaseRef (the only API difference) has zero production callers (only domain-memory.test.ts:125). OPERATIONAL RISK: per-request embedding calls = runDomainStage up to 2 (recall + learning upsert), generateDomainProposal 1, recordHumanDecision 1; both routes call with empty deps so the resolveEmbedder() env chain governs production (apps/web/src/app/api/engineer/domain-proposal/route.ts:55, apps/web/src/app/api/projects/[id]/generate/route.ts:30). Failure evidence for operators is emitted on every degradation (console.warn '[domain-embedder] embed_failed:', domain-embedding.ts:31) and observed live in the test run. DIM GUARD: hybridScore returns FULL tagScore on query/record dim mismatch (domain-embedding.ts:67-69); DB stores Float[] with no dim constraint (packages/db/prisma/schema.prisma:2096-2118), so mixed hash-256/openai-1536 rows coexist and are guarded at score time. ACCEPTANCE CRITERIA all verified met by passing tests (see criteria section below). DEAD CODE: recallFromDb sole remaining caller is scripts/domain-pipeline-demo.ts:18,51 (the tag-only V1 demo), intentional; recallDomainMemories stays live via recallFromDb and its own unit tests. VERIFICATION: pnpm vitest run on the four touched test files -> 40 passed | 1 skipped (CI_INTEGRATION-gated), Duration 1.54s; stderr shows the embed_failed warnings proving degradation paths fire.",
+  "commands": [
+    "git rev-parse HEAD  (== e599f5e3466c1345f12937864d4c4e39e916f14c)",
+    "git diff a95cc66..e599f5e --stat  (10 files, +297/-33)",
+    "git log --oneline a95cc66..e599f5e  (b4461ca, e599f5e)",
+    "git diff a95cc66..e599f5e  (full diff read end-to-end)",
+    "read packages/business/src/domain-ai/domain-embedding.ts:1-129",
+    "read packages/business/src/domain-ai/domain-agent-runtime.ts:1-261",
+    "read packages/business/src/domain-ai/domain-proposal.ts:1-319",
+    "read packages/business/src/domain-ai/project-decision.ts:1-179",
+    "read packages/business/src/domain-ai/domain-memory.ts:1-273",
+    "read packages/business/src/domain-ai/domain-embedder.ts:1-35",
+    "read packages/business/src/domain-ai/domain-embedder-openai.ts:1-64",
+    "read packages/business/src/platform/openai-config.ts and platform/llm/config.ts",
+    "read packages/business/scripts/{domain-pipeline-demo,smoke-embedder-wiring,backfill-domain-embeddings}.ts",
+    "read apps/web/src/app/api/engineer/domain-proposal/route.ts and apps/web/src/app/api/projects/[id]/{generate,domain-decision}/route.ts",
+    "read packages/db/prisma/schema.prisma:2096-2128 (DomainMemory model)",
+    "read packages/business/vitest.config.ts, package.json, src/test/setup.ts, src/domain-ai/index.ts",
+    "pnpm vitest run src/domain-ai/{domain-embedding,domain-agent-runtime,domain-proposal,domain-polish}.test.ts  -> 40 passed | 1 skipped",
+    "repo-wide search: recallFromDb / recallDomainMemories / recallSemanticFromDb / recallHybrid / safeEmbed / resolveEmbedder / excludeCaseRef callers"
+  ],
+  "criteria": {
+    "c1_runDomainStage_recall_hybrid": "MET. runDomainStage uses recallSemanticFromDb (domain-agent-runtime.ts:157-164); graceful degradation via safeEmbed in recallSemanticFromDb (domain-embedding.ts:117-118, null -> pure tag scoring); domain isolation preserved via scoreDomainMemory (domain-memory.ts:87) and hybridScore (domain-embedding.ts:72); negative-outcome suppression preserved via hybridScore:74 and recallHybrid suppressedKeys (:89-91); top-K preserved: deps.recallTopK ?? 3 (:163). Tests: domain-agent-runtime.test.ts:98-108 (semantic wiring), :121-139 (failing embedder -> tag-only recall still returns memories); domain-embedding.test.ts:134-151 (offline degradation) - all pass.",
+    "c2_write_path_best_effort": "MET. runDomainStage learning upsert: safeEmbed then ...(embedding ? { embedding } : {}) (domain-agent-runtime.ts:195-211); recordHumanDecision: same pattern (project-decision.ts:75-90); safeEmbed never throws (catch-all + empty-vector guard, domain-embedding.ts:25-34) so the write is structurally unblockable. Tests: store 256-dim hash at domain-agent-runtime.test.ts:110-119; skip-on-failure at :121-138 (expect.not.objectContaining({ embedding: expect.anything() })) - both pass. WATCH: recordHumanDecision path itself lacks a unit test (see findings F1).",
+    "c3_proposal_recall_hybrid": "MET. generateDomainProposal builds queryTags via buildMemoryTags, embeds via safeEmbed(deps?.embed ?? resolveEmbedder()), recalls via recallHybrid (domain-proposal.ts:144-153); same degradation and tag-vocabulary conditions as C1. Test: domain-proposal.test.ts:93-127 (failing embedder still recalls the tag-matched human memory into the LLM prompt) - passes.",
+    "c4_dim_guard": "MET. hybridScore returns full tagScore when query/record dims differ (domain-embedding.ts:67-69); DB stores Float[] with no dim constraint (schema.prisma:2109). Test: domain-embedding.test.ts:85-90 asserts mixed-dim score equals the no-embedding score and stays > 0 - passes.",
+    "c5_tests": "MET for injection (deps.embed in domain-agent-runtime.test.ts:132 and domain-proposal.test.ts:123), failure degradation (3 tests across runtime/embedding/proposal), dim mismatch (domain-embedding.test.ts:85-90), write-path store/skip (domain-agent-runtime.test.ts:110-138). stubEnv hygiene adequate: module-level vi.stubEnv is safe under vitest default per-file isolation and documented (domain-agent-runtime.test.ts:12-15); domain-polish.test.ts uses try/finally + unstubAllEnvs (:28-37). WATCH items F1/F2 cover the recordHumanDecision gap and the unpinned integration file."
+  },
+  "blockers": [
+    {
+      "severity": "WATCH",
+      "area": "code/test-adequacy",
+      "title": "recordHumanDecision has no embedder injection point and no unit coverage of its write-path store/skip semantics",
+      "finding": "recordHumanDecision (project-decision.ts) is the only one of the three rewired production callsites with no deps.embed injection, so criterion 5's 'write-path embedding store/skip' is directly unit-tested for only one of the two write paths this change touched. The shared safeEmbed contract is unit-tested and runDomainStage covers the identical conditional-spread pattern, so residual risk is low.",
+      "evidence": [
+        "packages/business/src/domain-ai/project-decision.ts:75-90 - hardcoded resolveEmbedder(), no deps parameter (contrast domain-agent-runtime.ts:79,150 and domain-proposal.ts:133,146 which expose deps.embed)",
+        "packages/business/src/domain-ai/project-decision.test.ts - no env pinning and no embedding assertions; the integration tests (:73-150, CI_INTEGRATION=1 only) exercise the write but never assert embedding presence/absence and would make real network embedding calls if OPENAI_API_KEY/EMBEDDING_BASE_URL are set",
+        "packages/business/src/domain-ai/domain-agent-runtime.test.ts:12-15 - sibling file explicitly pins env with the rule that tests must not hit the network; project-decision.test.ts does not follow it"
+      ],
+      "fixDirection": "Add an optional embed dep to recordHumanDecision (mirroring the other two callsites) plus a skip/store unit test, or vi.mock('./domain-embedder-openai') in project-decision.test.ts."
+    },
+    {
+      "severity": "WATCH",
+      "area": "architecture/operational",
+      "title": "No timeout/AbortSignal on the embedding HTTP call",
+      "finding": "safeEmbed catches thrown errors but a hanging (connection-accepted, never-responding) endpoint would block runDomainStage recall, generateDomainProposal recall, and recordHumanDecision writes indefinitely. This matches the pre-existing fetch-without-timeout pattern used by the LLM path (withBackoff retries but has no deadline), and the dominant down-endpoint failure mode (connection refused) fails fast and degrades correctly, so this is a hardening item, not a merge blocker.",
+      "evidence": [
+        "packages/business/src/domain-ai/domain-embedder-openai.ts:24-28 - bare fetch, no AbortSignal/timeout",
+        "packages/business/src/domain-ai/domain-embedding.ts:25-34 - safeEmbed catches exceptions only; no deadline enforcement",
+        "packages/business/src/mail/ai-classify-batch.ts:13-62 - withBackoff has retries but no timeout (pre-existing pattern)",
+        "affected routes: apps/web/src/app/api/engineer/domain-proposal/route.ts:55, apps/web/src/app/api/projects/[id]/generate/route.ts:30, apps/web/src/app/api/projects/[id]/domain-decision/route.ts:13"
+      ],
+      "fixDirection": "Wrap the embedding fetch in AbortSignal.timeout(...) or pass a deadline through ResolveEmbedderOptions."
+    },
+    {
+      "severity": "WATCH",
+      "area": "code/semantics",
+      "title": "Failed update keeps the stale prior embedding instead of clearing it",
+      "finding": "When safeEmbed fails on an UPDATE of an existing row, upsertDomainMemory omits the embedding field so the row keeps its previous (now potentially content-stale) embedding. This is defensible best-effort semantics (do not destroy a known-good vector) but it is undocumented and the dim-guard does not cover same-embedder staleness.",
+      "evidence": [
+        "packages/business/src/domain-ai/domain-memory.ts:171 - ...(input.embedding ? { embedding: input.embedding } : {}) means omitted-on-failure = keep-old-value on the update branch",
+        "packages/business/src/domain-ai/domain-agent-runtime.ts:210 and project-decision.ts:89 - callers rely on this omission behavior"
+      ],
+      "fixDirection": "Document the keep-old-vector semantics on upsertDomainMemory, or explicitly decide whether a failed update should null the embedding."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "WATCH",
+      "file": "packages/business/src/domain-ai/project-decision.ts",
+      "evidence": "project-decision.ts:75-90 (no deps.embed), project-decision.test.ts (no embedding assertions, no env pin; integration at :73-150 is CI_INTEGRATION-gated)",
+      "note": "Only write path in the diff without an injection point or a store/skip unit test; see blocker 1."
+    },
+    {
+      "severity": "WATCH",
+      "file": "packages/business/src/domain-ai/domain-embedder-openai.ts",
+      "evidence": "domain-embedder-openai.ts:24-28 (fetch without AbortSignal); domain-embedding.ts:25-34 (safeEmbed has no deadline)",
+      "note": "Hanging endpoint can stall the recall and write paths; matches pre-existing withBackoff no-timeout pattern; see blocker 2."
+    },
+    {
+      "severity": "WATCH",
+      "file": "packages/business/src/domain-ai/domain-memory.ts",
+      "evidence": "domain-memory.ts:171 (conditional spread keeps old embedding on failed update); domain-agent-runtime.ts:210, project-decision.ts:89",
+      "note": "Undocumented keep-old-vector-on-failure semantics; see blocker 3."
+    },
+    {
+      "severity": "INFO",
+      "file": "packages/business/src/domain-ai/domain-memory.ts",
+      "evidence": "recallDomainMemories domain-memory.ts:113-137 vs recallHybrid domain-embedding.ts:82-104; recallFromDb sole caller scripts/domain-pipeline-demo.ts:18,51",
+      "note": "~15 lines of intentional duplication between V1 recallDomainMemories and V2 recallHybrid. Acceptable: V1 stays for the demo script and the two scoring semantics should not be coupled. recallFromDb remaining usage is intentional and verified."
+    },
+    {
+      "severity": "INFO",
+      "file": "packages/business/src/domain-ai/domain-polish.test.ts",
+      "evidence": "domain-polish.test.ts:14-43 hosts resolveEmbedder/describeEmbedder cases",
+      "note": "Embedder tests live in domain-polish.test.ts (pre-existing placement); the diff only added a case. Minor naming smell not introduced by this change."
+    }
+  ]
+}

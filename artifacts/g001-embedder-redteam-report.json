@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "kind": "api-package-test-report",
+  "sourceHash": "sha256:11dbaf19a841a128f3daf5acb06c78289f898e24403a9c63daa93268f32ee0f2",
+  "changeSet": "a95cc66..e599f5e (b4461ca wire resolved embedder into production memory paths; e599f5e keep failure evidence when safeEmbed degrades, lock endpoint preference)",
+  "surface": "package (@sangfor/business domain-ai embedder wiring) — API/package-level test artifacts, no GUI",
+  "generatedAt": "2026-08-07T01:46:00+09:00",
+  "commands": [
+    {
+      "id": "cmd-unit-redteam",
+      "command": "pnpm --filter @sangfor/business exec vitest run src/domain-ai/__qq__/g001-red-team.test.ts",
+      "output": "Test Files 1 passed (1); Tests 12 passed (12)"
+    },
+    {
+      "id": "cmd-integration-redteam",
+      "command": "CI_INTEGRATION=1 DATABASE_URL=postgresql://sangfor:sangfor_password@localhost:5434/sangfor_os_test pnpm --filter @sangfor/business exec vitest run src/domain-ai/__qq__/g001-red-team.integration.test.ts",
+      "output": "Test Files 1 passed (1); Tests 7 passed (7)"
+    },
+    {
+      "id": "cmd-smoke-script",
+      "command": "DATABASE_URL=postgresql://sangfor:sangfor_password@localhost:5434/sangfor_os_test pnpm --filter @sangfor/business exec tsx scripts/smoke-embedder-wiring.ts",
+      "output": "active embedder: hash; write: stored embedding dim=256; read: round-tripped embedding dim=256; recall: semantic hybrid found the smoke row; [domain-embedder] embed_failed: embedder down; degrade: tag-only recall works when the embedder fails"
+    },
+    {
+      "id": "cmd-regression-unit",
+      "command": "pnpm --filter @sangfor/business exec vitest run src/domain-ai/domain-embedding.test.ts src/domain-ai/domain-agent-runtime.test.ts src/domain-ai/domain-proposal.test.ts src/domain-ai/domain-polish.test.ts src/domain-ai/domain-memory.test.ts src/domain-ai/domain-v3.test.ts",
+      "output": "Test Files 6 passed (6); Tests 76 passed | 1 skipped (77) — skipped test is the CI_INTEGRATION-gated DomainDecisionLog persistence test"
+    },
+    {
+      "id": "cmd-full-combined-integration",
+      "command": "CI_INTEGRATION=1 DATABASE_URL=postgresql://sangfor:sangfor_password@localhost:5434/sangfor_os_test pnpm --filter @sangfor/business exec vitest run src/domain-ai/__qq__/g001-red-team.test.ts src/domain-ai/__qq__/g001-red-team.integration.test.ts src/domain-ai/domain-embedding.test.ts src/domain-ai/domain-agent-runtime.test.ts src/domain-ai/domain-proposal.test.ts src/domain-ai/domain-polish.test.ts src/domain-ai/domain-memory.test.ts src/domain-ai/domain-v3.test.ts",
+      "output": "Test Files 8 passed (8); Tests 96 passed (96)"
+    },
+    {
+      "id": "cmd-typecheck",
+      "command": "cd packages/business && pnpm exec tsc --noEmit -p tsconfig.json",
+      "output": "exit 0, zero diagnostics (includes new __qq__ files)"
+    },
+    {
+      "id": "cmd-residue-check",
+      "command": "psql sangfor_os_test -c \"select count(*) from domain_memories where key like '%g001rt%' or key like 'smoke:%'\" -c \"select count(*) from domain_decision_logs where case_ref like '%g001rt%'\"",
+      "output": "0 / 0 — all red-team and smoke rows cleaned up"
+    }
+  ],
+  "results": [
+    {
+      "id": "rt1-dim-mismatch",
+      "scenario": "dim-mismatch attack: DB row seeded with 3-dim embedding, recalled via recallSemanticFromDb/recallHybrid with a 256-dim query embedding",
+      "expected": "record keeps FULL tag score (equal to null-embedding score), never a degraded blend, never zeroed; still recalled",
+      "verdict": "passed",
+      "evidence": "unit: g001-red-team.test.ts 'dim-mismatch attack (unit)' — hybridScore(query, q256, rec3d) === hybridScore(query, null, rec3d) === scoreDomainMemory(query, rec3d) > 0; recallHybrid returns the row. integration: g001-red-team.integration.test.ts 'dim-mismatch attack' — real domain_memories row with embedding [0.5,0.5,0.7071] found by recallSemanticFromDb (topK=50); score equality re-verified on the loaded record. Code guard: packages/business/src/domain-ai/domain-embedding.ts:66-69."
+    },
+    {
+      "id": "rt2-embedder-down",
+      "scenario": "embedder-down attack: throwing embedder injected into runDomainStage (unit-mocked and real-DB integration)",
+      "expected": "recall still returns tag matches; learning upsert called WITHOUT embedding key; warning '[domain-embedder] embed_failed' emitted",
+      "verdict": "passed",
+      "evidence": "unit: runDomainStage with failing embedder → recalled contains tag-matched row; upsertDomainMemory called once, Object.keys(arg) does NOT contain 'embedding'; console.warn '[domain-embedder] embed_failed' captured (>=1). integration: real runDomainStage against sangfor_os_test → result.recalled contains seeded row; persisted learning row sales:<caseId> has embedding length 0; warn spy captured embed_failed. safeEmbed source: domain-embedding.ts:25-34."
+    },
+    {
+      "id": "rt3-poisoned-row",
+      "scenario": "poisoned-row attack: rejected and human-reverted rows seeded with PERFECT embedding similarity (identical vector to query embedding, cosine 1.0)",
+      "expected": "negative-outcome rows never recalled; control approved row with same vector IS recalled (embedding path live)",
+      "verdict": "passed",
+      "evidence": "unit: recallHybrid with perfect vector → poisoned rows excluded, control returned; poisoned alone → []. integration: rows seeded via prisma with the exact hash vector of the query text; recallSemanticFromDb returned <RUN>:pois-ctrl and excluded <RUN>:pois-rej and <RUN>:pois-rev. Suppression enforced by recallHybrid suppressedKeys (domain-embedding.ts:90-93) + NEGATIVE_OUTCOMES."
+    },
+    {
+      "id": "rt4-domain-isolation",
+      "scenario": "domain-isolation attack: cfo-domain row seeded with the exact sales query embedding (perfect similarity)",
+      "expected": "cfo row never surfaces for a sales query; sales control row surfaces",
+      "verdict": "passed",
+      "evidence": "unit: hybridScore returns 0 for cross-domain record on BOTH embedding and tag paths; recallHybrid → []. integration: <RUN>:iso-cfo absent and <RUN>:iso-sales present in recallSemanticFromDb(domain='sales'). Isolation enforced at loadDomainMemories (where domain) and hybridScore (domain-embedding.ts:72)."
+    },
+    {
+      "id": "rt5-write-path-roundtrip",
+      "scenario": "write-path real-DB round trip: upsertDomainMemory stores hash embedding → loadDomainMemories round-trip → semantic recall and degraded (throwing embedder) recall both find the row",
+      "expected": "embedding stored (256-dim), round-trips within float tolerance, both recall modes find the row, row cleaned up",
+      "verdict": "passed",
+      "evidence": "integration test 'write-path round trip': stored vector length 256, max element delta after round trip < 1e-12 (float8 tail-digit rounding — see findings), semantic recall and degraded recall both contain the key. Independent confirmation via scripts/smoke-embedder-wiring.ts run against sangfor_os_test: 'write: stored embedding dim=256 / read: round-tripped embedding dim=256 / recall: semantic hybrid found the smoke row / degrade: tag-only recall works when the embedder fails'. Residue check: 0 rows left (script self-cleans + afterAll cleanup verified via psql)."
+    },
+    {
+      "id": "rt6-resolver-precedence",
+      "scenario": "resolver precedence: describeEmbedder returns embedding-endpoint > openai > hash per env configuration",
+      "expected": "endpoint wins even with an OpenAI key present; openai next; hash last",
+      "verdict": "passed",
+      "evidence": "unit (red-team file): describeEmbedder({baseUrl,apiKey:'sk-x'})='embedding-endpoint'; ({baseUrl,apiKey:''})='embedding-endpoint'; ({apiKey:'sk-x'})='openai'; ({apiKey:''})='hash'. Existing suite domain-polish.test.ts 4/4 passed including 'prefers an explicit embedding endpoint over the OpenAI key'. Source: domain-embedder-openai.ts:53-64."
+    },
+    {
+      "id": "rt7-empty-vector",
+      "scenario": "empty-vector embedder: safeEmbed returns null for [] (no store, no crash)",
+      "expected": "null returned, no exception; runDomainStage with an empty-vector embedder still writes learning WITHOUT embedding",
+      "verdict": "passed",
+      "evidence": "unit: safeEmbed(async () => [], 'anything') → null; runDomainStage with empty-vector embedder → recall degrades to tags, upsertDomainMemory called without embedding key. domain-embedding.ts:25-34."
+    },
+    {
+      "id": "rt8-record-human-decision-write-path",
+      "scenario": "recordHumanDecision (project-decision.ts) write path stores a best-effort embedding without blocking the write (acceptance criterion 2, second leg)",
+      "expected": "decision recorded, DomainMemory row with source='human' exists and carries a 256-dim hash embedding in this keyless environment",
+      "verdict": "passed",
+      "evidence": "integration test 'recordHumanDecision write path': decisionId truthy, memory row eng:<engId>:sales has source='human', outcome='approved', embedding.length=256. Code: project-decision.ts:76-90 (safeEmbed(resolveEmbedder(), ...) + conditional spread)."
+    },
+    {
+      "id": "regression-existing-suites",
+      "scenario": "no-regression run of all changed-file suites (domain-embedding, domain-agent-runtime, domain-proposal, domain-polish, domain-memory, domain-v3)",
+      "expected": "all green",
+      "verdict": "passed",
+      "evidence": "unit mode: 76 passed | 1 skipped (integration-gated). Combined integration mode (red-team + regression): 8 files, 96/96 passed."
+    },
+    {
+      "id": "typecheck-package",
+      "scenario": "packages/business typecheck including new __qq__ QA files",
+      "expected": "zero diagnostics",
+      "verdict": "passed",
+      "evidence": "pnpm exec tsc --noEmit -p tsconfig.json → exit 0, no output."
+    }
+  ],
+  "contractCoverage": [
+    {
+      "criterion": 1,
+      "text": "runDomainStage recall switched to resolveEmbedder()-injected hybrid semantic recall; graceful tag-only degradation when embedder fails/offline, preserving domain isolation, negative-outcome suppression, top-K",
+      "status": "passed",
+      "evidence": "domain-agent-runtime.ts:150 (embed = deps.embed ?? resolveEmbedder()), :157-167 (recallSemanticFromDb). Degradation proven by rt2 (unit+integration) and 'degraded recall preserves top-K' unit test (5 candidates → exactly 3, newest-first). Domain isolation rt4, negative suppression rt3."
+    },
+    {
+      "criterion": 2,
+      "text": "runDomainStage learning upsert and recordHumanDecision compute best-effort embeddings; embedder failure omits the embedding but never blocks the write",
+      "status": "passed",
+      "evidence": "domain-agent-runtime.ts:192-210 and project-decision.ts:76-90 both use safeEmbed + conditional spread. Store path: unit test 'working injected embedder: learning upsert stores a 256-dim hash embedding' + rt8 (recordHumanDecision 256-dim stored). Skip path: rt2 (unit asserts no embedding key; integration asserts stored row embedding length 0) + safeEmbed unit tests."
+    },
+    {
+      "criterion": 3,
+      "text": "generateDomainProposal proposal recall hybridized under the same conditions",
+      "status": "passed",
+      "evidence": "domain-proposal.ts:144-153 — safeEmbed(deps?.embed ?? resolveEmbedder(), embeddingTextFor(...)) → recallHybrid. Degradation: existing test 'recalls tag-matched memories into the prompt even when the embedder fails (hybrid degradation)' passed in regression run."
+    },
+    {
+      "criterion": 4,
+      "text": "dim-mismatched records (hash 256 vs openai 1536 mixing) excluded from semantic score but keep full tag score in recallHybrid/hybridScore",
+      "status": "passed",
+      "evidence": "Guard at domain-embedding.ts:66-69 (returns tagScore on length mismatch). Proven by rt1 at pure-function level (score equality with null embedding and scoreDomainMemory) and DB level (3-dim row recalled with full tag score)."
+    },
+    {
+      "criterion": 5,
+      "text": "unit tests cover injection, failure degradation, dim mismatch, write-path embedding store/skip",
+      "status": "passed",
+      "evidence": "Injection: domain-agent-runtime.test.ts 'stores a best-effort hash embedding with the learning upsert' (256-dim) + red-team unit suite. Failure degradation: domain-embedding.test.ts recallSemanticFromDb offline-safe, domain-agent-runtime.test.ts degrade test, domain-proposal.test.ts recall-degradation test. Dim mismatch: domain-embedding.test.ts 'keeps the full tag score when query/record embedding dims differ'. Write-path store/skip: runtime test (store) + degrade test asserting expect.not.objectContaining({embedding}) (skip). All suites green: 76 passed | 1 skipped."
+    }
+  ],
+  "planCodeMismatches": [],
+  "findings": [
+    "NON-BLOCKER: Postgres Float[] round-trip changes the last significant digit (~1e-16 relative; e.g. 0.47140452079103173 → 0.4714045207910317). Exact vector equality across a DB round trip is not achievable; semantic behavior is unaffected (cosine similarity ≈ 1.0). The shipped smoke script only asserts dimension equality, which is consistent with this. Red-team suite asserts max-delta < 1e-12 instead.",
+    "NON-BLOCKER: hybridScore's dim-mismatch early return (tagScore) executes before its outcome-0 guards, so a dim-mismatched negative-outcome row can return a positive tagScore from hybridScore directly. Every production recall path goes through recallHybrid, whose suppressedKeys set zeroes negative-outcome rows regardless (proven end-to-end by rt3). No reachable regression.",
+    "NON-BLOCKER: no shipped unit test asserts embedding store/skip specifically for the recordHumanDecision leg (its integration test predates the change and does not inspect the embedding column). The QA lane covers this via rt8 (integration, 256-dim stored) and the shared safeEmbed unit tests; the skip-on-failure path for this leg relies on the same proven safeEmbed contract.",
+    "NON-BLOCKER: backfill-domain-embeddings.ts change is comment-only; verified base commit a95cc66 already used resolveEmbedder(), so the new comment documents actual behavior (stale-comment fix, not a mismatch)."
+  ],
+  "blockers": []
+}
