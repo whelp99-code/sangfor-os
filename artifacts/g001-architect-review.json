@@ -1,106 +1,81 @@
 {
-  "sourceHash": "sha256:11dbaf19a841a128f3daf5acb06c78289f898e24403a9c63daa93268f32ee0f2",
-  "changeSet": "a95cc66..e599f5e (commits b4461ca, e599f5e); HEAD verified e599f5e3466c1345f12937864d4c4e39e916f14c on whelp99-code/daggertooth",
+  "reviewGeneration": 3,
+  "deltaOnly": true,
+  "sourceHash": "sha256:2995e2dc70c3f3fcd21769e544c706b63175c32f63efd910e64089dbeed95b10",
+  "priorGenerationSourceHash": "sha256:db04bd8bdf3696e09e8bbbefe82fc252d6f6a9a6f589c08817c72546ca7e33bd",
+  "changeSet": "a4d52ef..5dc221d delta review; HEAD verified 5dc221d8521cc1b9418d258f2837f2d6bc7bab5c on whelp99-code/daggertooth",
+  "deltaPaths": [
+    "packages/business/src/domain-ai/domain-memory.ts",
+    "packages/business/src/domain-ai/domain-memory.embedding.test.ts"
+  ],
+  "outOfScopeDeltaPaths": [
+    "packages/business/src/domain-ai/__qa__/g001-red-team-gen2-timeout.test.ts (new, QA lane's own coverage of the gen-2 timeout fix; no product source touched)",
+    "packages/business/src/domain-ai/__qa__/g001-red-team.integration.test.ts (+47 lines, QA lane's own CI_INTEGRATION-gated real-DB coverage; no product source touched)"
+  ],
   "architectureStatus": "CLEAR",
   "productStatus": "CLEAR",
-  "codeStatus": "WATCH",
+  "codeStatus": "CLEAR",
   "recommendation": "APPROVE",
-  "evidence": "Read-only review of the frozen tree (HEAD == e599f5e, working tree is the snapshot; only .gjc/, artifacts/, and a foreign untracked __qq__/ dir present). LAYERING: domain-embedding.ts owns the Embedder type (domain-embedding.ts:22), safeEmbed (:25-34), pure scoring cosineSimilarity/hybridScore/recallHybrid (:36-104), and recallSemanticFromDb (:107-129); it imports no concrete embedder, so no cycle. domain-embedder.ts holds the deterministic hash embedder + embeddingTextFor (:8-35). domain-embedder-openai.ts holds the OpenAI-compatible HTTP embedder + resolveEmbedder/describeEmbedder env chain (:17-64) in precedence EMBEDDING_BASE_URL -> OPENAI_API_KEY -> hash fallback; endpoint preference is locked and tested (domain-polish.test.ts:40-43). DEPENDENCY DIRECTION: all new imports stay inside packages/business/src/domain-ai or point down to platform/openai-config; apps/web imports @sangfor/business only (apps -> business -> @sangfor/db + @sangfor/shared), never the reverse; package.json dependency list unchanged in the diff. DATA FLOW: runDomainStage resolves the embedder once (domain-agent-runtime.ts:150) and reuses it for recall (:157-164) and the learning upsert (:195-211); generateDomainProposal does safeEmbed -> recallHybrid (domain-proposal.ts:145-153); recordHumanDecision does safeEmbed -> conditional spread (project-decision.ts:75-90). Degraded equivalence: recallHybrid(query, null, ...) is behaviorally identical to the old recallDomainMemories - identical suppressedKeys cross-suppression (domain-embedding.ts:89-91 vs domain-memory.ts:119-123), hybridScore returns pure tagScore when queryEmbedding is null (domain-embedding.ts:69), same score>0 filter / score-desc-then-createdAt-desc sort / topK slice; excludeCaseRef (the only API difference) has zero production callers (only domain-memory.test.ts:125). OPERATIONAL RISK: per-request embedding calls = runDomainStage up to 2 (recall + learning upsert), generateDomainProposal 1, recordHumanDecision 1; both routes call with empty deps so the resolveEmbedder() env chain governs production (apps/web/src/app/api/engineer/domain-proposal/route.ts:55, apps/web/src/app/api/projects/[id]/generate/route.ts:30). Failure evidence for operators is emitted on every degradation (console.warn '[domain-embedder] embed_failed:', domain-embedding.ts:31) and observed live in the test run. DIM GUARD: hybridScore returns FULL tagScore on query/record dim mismatch (domain-embedding.ts:67-69); DB stores Float[] with no dim constraint (packages/db/prisma/schema.prisma:2096-2118), so mixed hash-256/openai-1536 rows coexist and are guarded at score time. ACCEPTANCE CRITERIA all verified met by passing tests (see criteria section below). DEAD CODE: recallFromDb sole remaining caller is scripts/domain-pipeline-demo.ts:18,51 (the tag-only V1 demo), intentional; recallDomainMemories stays live via recallFromDb and its own unit tests. VERIFICATION: pnpm vitest run on the four touched test files -> 40 passed | 1 skipped (CI_INTEGRATION-gated), Duration 1.54s; stderr shows the embed_failed warnings proving degradation paths fire.",
+  "evidence": "Delta-only re-review of the 2 in-scope product/test files at HEAD=5dc221d (working tree confirmed to equal the frozen snapshot; git diff a4d52ef..5dc221d read in full). The sole gen-2 blocker (doc claimed 'empty array is also ignored' but the guard `input.embedding ? {...} : {}` treated [] as truthy and would have written it) is now fixed at the CODE level, not just the comment: the guard at domain-memory.ts:181 is now `...(input.embedding && input.embedding.length > 0 ? { embedding: input.embedding } : {})`, which correctly excludes the embedding key from the upsert payload for both undefined and empty-array inputs. The doc comment at domain-memory.ts:167 was updated in lockstep to '생략하거나 빈 배열이면 기존 벡터를 유지한다' (omitted OR empty array both keep the existing vector) -- this now accurately describes the code. A new inline comment at domain-memory.ts:179-180 explains why the length check is necessary (JS truthy-[] pitfall) and cross-references safeEmbed's null-for-empty-vector contract. VERIFICATION POINT 1 (guard matches documented semantics): CONFIRMED -- both branches of the condition (undefined, []) now correctly omit the embedding key; verified directly by domain-memory.embedding.test.ts's two negative-assertion tests (below), both passing. VERIFICATION POINT 2 (create branch not broken): CONFIRMED -- the create call at domain-memory.ts:193-199 spreads the same `data` object (`create: { projectId, domain, memoryType, key, ...data }`), so when `data` omits the embedding key (undefined or [] input), Prisma's schema default `embedding Float[] @default([])` (packages/db/prisma/schema.prisma:2109, verified in gen-1 review, unchanged) fills it in on create -- this is the same pre-existing mechanism used before this delta and before the gen-1/gen-2 fixes; the length-guard change only affects which inputs are excluded, not how the create/update payload construction itself works, so the create path is unaffected and still valid. For the literal `embedding: []` input specifically, the resulting created row's embedding value is functionally `[]` either way (explicit vs. Prisma default), so there is no create-branch regression at all, only the intended update-branch fix (no longer clobbering an existing vector with an explicit []). Confirmed via domain-memory.embedding.test.ts test 1, which asserts both update.embedding and create.embedding equal the supplied vector for the real-vector case, proving the spread-into-create mechanism still works end to end. VERIFICATION POINT 3 (test coverage non-tautological): CONFIRMED -- domain-memory.embedding.test.ts mocks only @sangfor/db (prisma.domainMemory.upsert, prisma.project.findUniqueOrThrow) and invokes the real, unmocked upsertDomainMemory; the three tests capture mocks.upsert.mock.calls[0][0] and assert the actual update/create payload shape: exact-value equality for the supplied-vector case (update.embedding / create.embedding both equal [0.1,0.2,0.3]), and hard key-absence (.not.toHaveProperty('embedding')) for both the omitted case and the []-input case on both update and create sub-objects. These assertions exercise the real conditional-spread logic under test, not a mock's canned return value -- non-tautological. VERIFICATION POINT 4 (no other truthy-array guard of the same shape remains): CONFIRMED via full-file grep of domain-memory.ts for conditional-spread and ternary patterns -- the only other optional-array field in the same object literal is `tags: input.tags ?? []` (domain-memory.ts:172), which uses nullish-coalescing (not a truthy-then-conditional-spread) and has a different, correct semantic (an empty tags array is a legitimate 'no tags' value that should always be written, unlike embedding's 'no update signal' semantic) -- not the same bug pattern and not a regression. No second occurrence of the fixed pattern exists in the touched module. TEST RUN: re-ran the 3 directly relevant test files focused -- 29 passed, 0 failed, 1.05s (domain-memory.embedding.test.ts: 3/3, domain-memory.test.ts: 22/22 unaffected by the change, project-decision.embedding.test.ts: 4/4 still green since it never exercised the []-literal path). Matches the leader's reported gate results (typecheck 0 errors, lint 0 errors, business vitest 146 files / 1024 passed / 0 failed), not re-run.",
   "commands": [
-    "git rev-parse HEAD  (== e599f5e3466c1345f12937864d4c4e39e916f14c)",
-    "git diff a95cc66..e599f5e --stat  (10 files, +297/-33)",
-    "git log --oneline a95cc66..e599f5e  (b4461ca, e599f5e)",
-    "git diff a95cc66..e599f5e  (full diff read end-to-end)",
-    "read packages/business/src/domain-ai/domain-embedding.ts:1-129",
-    "read packages/business/src/domain-ai/domain-agent-runtime.ts:1-261",
-    "read packages/business/src/domain-ai/domain-proposal.ts:1-319",
-    "read packages/business/src/domain-ai/project-decision.ts:1-179",
-    "read packages/business/src/domain-ai/domain-memory.ts:1-273",
-    "read packages/business/src/domain-ai/domain-embedder.ts:1-35",
-    "read packages/business/src/domain-ai/domain-embedder-openai.ts:1-64",
-    "read packages/business/src/platform/openai-config.ts and platform/llm/config.ts",
-    "read packages/business/scripts/{domain-pipeline-demo,smoke-embedder-wiring,backfill-domain-embeddings}.ts",
-    "read apps/web/src/app/api/engineer/domain-proposal/route.ts and apps/web/src/app/api/projects/[id]/{generate,domain-decision}/route.ts",
-    "read packages/db/prisma/schema.prisma:2096-2128 (DomainMemory model)",
-    "read packages/business/vitest.config.ts, package.json, src/test/setup.ts, src/domain-ai/index.ts",
-    "pnpm vitest run src/domain-ai/{domain-embedding,domain-agent-runtime,domain-proposal,domain-polish}.test.ts  -> 40 passed | 1 skipped",
-    "repo-wide search: recallFromDb / recallDomainMemories / recallSemanticFromDb / recallHybrid / safeEmbed / resolveEmbedder / excludeCaseRef callers"
+    "git rev-parse HEAD  (== 5dc221d8521cc1b9418d258f2837f2d6bc7bab5c)",
+    "git status --short  (M artifacts/*.json from prior generations, .gjc/ untracked; product tree matches HEAD)",
+    "git diff a4d52ef..5dc221d --stat  (4 files touched repo-wide; scoped this review to the 2 in-scope product/test files, noted the 2 QA-lane-only __qa__ files as out of scope)",
+    "git diff a4d52ef..5dc221d -- domain-memory.ts domain-memory.embedding.test.ts  (full delta read end-to-end via artifact recovery)",
+    "read packages/business/src/domain-ai/domain-memory.ts:139-208 (full upsertDomainMemory function + create/update payload construction, post-delta)",
+    "read packages/business/src/domain-ai/domain-memory.embedding.test.ts:1-67 (full new test file)",
+    "search domain-memory.ts for conditional-spread / ternary patterns  -> confirmed only one instance (embedding), tags uses ?? not the same pattern",
+    "pnpm vitest run src/domain-ai/{domain-memory.embedding,domain-memory,project-decision.embedding}.test.ts  -> 29 passed, 0 failed, 1.05s",
+    "skimmed packages/business/src/domain-ai/__qa__/g001-red-team-gen2-timeout.test.ts and the __qa__ integration test diff for cross-reference (QA lane's own coverage of the already-resolved gen-2 timeout fix; no product source touched in either file, out of this generation's file scope)"
   ],
-  "criteria": {
-    "c1_runDomainStage_recall_hybrid": "MET. runDomainStage uses recallSemanticFromDb (domain-agent-runtime.ts:157-164); graceful degradation via safeEmbed in recallSemanticFromDb (domain-embedding.ts:117-118, null -> pure tag scoring); domain isolation preserved via scoreDomainMemory (domain-memory.ts:87) and hybridScore (domain-embedding.ts:72); negative-outcome suppression preserved via hybridScore:74 and recallHybrid suppressedKeys (:89-91); top-K preserved: deps.recallTopK ?? 3 (:163). Tests: domain-agent-runtime.test.ts:98-108 (semantic wiring), :121-139 (failing embedder -> tag-only recall still returns memories); domain-embedding.test.ts:134-151 (offline degradation) - all pass.",
-    "c2_write_path_best_effort": "MET. runDomainStage learning upsert: safeEmbed then ...(embedding ? { embedding } : {}) (domain-agent-runtime.ts:195-211); recordHumanDecision: same pattern (project-decision.ts:75-90); safeEmbed never throws (catch-all + empty-vector guard, domain-embedding.ts:25-34) so the write is structurally unblockable. Tests: store 256-dim hash at domain-agent-runtime.test.ts:110-119; skip-on-failure at :121-138 (expect.not.objectContaining({ embedding: expect.anything() })) - both pass. WATCH: recordHumanDecision path itself lacks a unit test (see findings F1).",
-    "c3_proposal_recall_hybrid": "MET. generateDomainProposal builds queryTags via buildMemoryTags, embeds via safeEmbed(deps?.embed ?? resolveEmbedder()), recalls via recallHybrid (domain-proposal.ts:144-153); same degradation and tag-vocabulary conditions as C1. Test: domain-proposal.test.ts:93-127 (failing embedder still recalls the tag-matched human memory into the LLM prompt) - passes.",
-    "c4_dim_guard": "MET. hybridScore returns full tagScore when query/record dims differ (domain-embedding.ts:67-69); DB stores Float[] with no dim constraint (schema.prisma:2109). Test: domain-embedding.test.ts:85-90 asserts mixed-dim score equals the no-embedding score and stays > 0 - passes.",
-    "c5_tests": "MET for injection (deps.embed in domain-agent-runtime.test.ts:132 and domain-proposal.test.ts:123), failure degradation (3 tests across runtime/embedding/proposal), dim mismatch (domain-embedding.test.ts:85-90), write-path store/skip (domain-agent-runtime.test.ts:110-138). stubEnv hygiene adequate: module-level vi.stubEnv is safe under vitest default per-file isolation and documented (domain-agent-runtime.test.ts:12-15); domain-polish.test.ts uses try/finally + unstubAllEnvs (:28-37). WATCH items F1/F2 cover the recordHumanDecision gap and the unpinned integration file."
+  "verificationPoints": {
+    "p1_guardMatchesDocumentedSemantics": "CONFIRMED. domain-memory.ts:181 now reads `...(input.embedding && input.embedding.length > 0 ? { embedding: input.embedding } : {})`; the doc at :167 now says omitted OR empty array both keep the existing vector, which is exactly what the length-guarded condition produces for undefined and [] inputs. Verified by domain-memory.embedding.test.ts's 'leaves the column untouched when embedding is omitted' and 'treats an empty vector as no embedding' tests, both passing.",
+    "p2_createBranchNotBroken": "CONFIRMED. create: { projectId, domain, memoryType, key, ...data } (domain-memory.ts:193-199) spreads the identical data object used for update; when embedding is excluded from data, Prisma's schema default embedding Float[] @default([]) (schema.prisma:2109, unchanged) fills the column on create -- the same pre-existing mechanism, unaffected by this delta's guard change. Verified end-to-end by the supplied-vector test asserting both update.embedding and create.embedding equal the input vector.",
+    "p3_testCoverageNonTautological": "CONFIRMED. Only @sangfor/db is mocked; the real upsertDomainMemory runs and its actual prisma.domainMemory.upsert call argument (both update and create sub-objects) is captured and asserted -- exact-value equality for the real-vector case, hard key-absence for the omitted/empty cases. Exercises the real conditional-spread logic, not a stub's canned output.",
+    "p4_noOtherTruthyArrayGuardRemains": "CONFIRMED. Full-file search of domain-memory.ts found exactly one conditional-spread of this shape (now fixed for embedding); the only other optional-array field, tags, uses ?? [] (nullish coalescing to a legitimate default), a different and correct pattern, not the same bug."
   },
-  "blockers": [
+  "blockers": [],
+  "resolvedLedger": [
     {
-      "severity": "WATCH",
-      "area": "code/test-adequacy",
-      "title": "recordHumanDecision has no embedder injection point and no unit coverage of its write-path store/skip semantics",
-      "finding": "recordHumanDecision (project-decision.ts) is the only one of the three rewired production callsites with no deps.embed injection, so criterion 5's 'write-path embedding store/skip' is directly unit-tested for only one of the two write paths this change touched. The shared safeEmbed contract is unit-tested and runDomainStage covers the identical conditional-spread pattern, so residual risk is low.",
+      "genFiledIn": 2,
+      "title": "New doc comment's 'empty array is also ignored' claim did not match the truthy-[] guard",
+      "status": "RESOLVED at the code level (not just documentation)",
       "evidence": [
-        "packages/business/src/domain-ai/project-decision.ts:75-90 - hardcoded resolveEmbedder(), no deps parameter (contrast domain-agent-runtime.ts:79,150 and domain-proposal.ts:133,146 which expose deps.embed)",
-        "packages/business/src/domain-ai/project-decision.test.ts - no env pinning and no embedding assertions; the integration tests (:73-150, CI_INTEGRATION=1 only) exercise the write but never assert embedding presence/absence and would make real network embedding calls if OPENAI_API_KEY/EMBEDDING_BASE_URL are set",
-        "packages/business/src/domain-ai/domain-agent-runtime.test.ts:12-15 - sibling file explicitly pins env with the rule that tests must not hit the network; project-decision.test.ts does not follow it"
-      ],
-      "fixDirection": "Add an optional embed dep to recordHumanDecision (mirroring the other two callsites) plus a skip/store unit test, or vi.mock('./domain-embedder-openai') in project-decision.test.ts."
+        "domain-memory.ts:181 -- guard changed from `input.embedding ? {...} : {}` to `input.embedding && input.embedding.length > 0 ? {...} : {}`",
+        "domain-memory.ts:167 -- doc comment updated to match: '생략하거나 빈 배열이면 기존 벡터를 유지한다'",
+        "domain-memory.ts:179-180 -- new inline comment explains the JS truthy-[] rationale and cross-references safeEmbed's null-for-empty-vector contract",
+        "domain-memory.embedding.test.ts -- 3 new hermetic tests (supplied vector, omitted, empty vector) directly proving the fixed guard behavior on both update and create payloads; all pass"
+      ]
     },
     {
-      "severity": "WATCH",
-      "area": "architecture/operational",
+      "genFiledIn": 1,
+      "title": "recordHumanDecision embedder injection + write-path test gap",
+      "status": "RESOLVED (carried forward from gen 2, unaffected by this delta)"
+    },
+    {
+      "genFiledIn": 1,
       "title": "No timeout/AbortSignal on the embedding HTTP call",
-      "finding": "safeEmbed catches thrown errors but a hanging (connection-accepted, never-responding) endpoint would block runDomainStage recall, generateDomainProposal recall, and recordHumanDecision writes indefinitely. This matches the pre-existing fetch-without-timeout pattern used by the LLM path (withBackoff retries but has no deadline), and the dominant down-endpoint failure mode (connection refused) fails fast and degrades correctly, so this is a hardening item, not a merge blocker.",
-      "evidence": [
-        "packages/business/src/domain-ai/domain-embedder-openai.ts:24-28 - bare fetch, no AbortSignal/timeout",
-        "packages/business/src/domain-ai/domain-embedding.ts:25-34 - safeEmbed catches exceptions only; no deadline enforcement",
-        "packages/business/src/mail/ai-classify-batch.ts:13-62 - withBackoff has retries but no timeout (pre-existing pattern)",
-        "affected routes: apps/web/src/app/api/engineer/domain-proposal/route.ts:55, apps/web/src/app/api/projects/[id]/generate/route.ts:30, apps/web/src/app/api/projects/[id]/domain-decision/route.ts:13"
-      ],
-      "fixDirection": "Wrap the embedding fetch in AbortSignal.timeout(...) or pass a deadline through ResolveEmbedderOptions."
-    },
-    {
-      "severity": "WATCH",
-      "area": "code/semantics",
-      "title": "Failed update keeps the stale prior embedding instead of clearing it",
-      "finding": "When safeEmbed fails on an UPDATE of an existing row, upsertDomainMemory omits the embedding field so the row keeps its previous (now potentially content-stale) embedding. This is defensible best-effort semantics (do not destroy a known-good vector) but it is undocumented and the dim-guard does not cover same-embedder staleness.",
-      "evidence": [
-        "packages/business/src/domain-ai/domain-memory.ts:171 - ...(input.embedding ? { embedding: input.embedding } : {}) means omitted-on-failure = keep-old-value on the update branch",
-        "packages/business/src/domain-ai/domain-agent-runtime.ts:210 and project-decision.ts:89 - callers rely on this omission behavior"
-      ],
-      "fixDirection": "Document the keep-old-vector semantics on upsertDomainMemory, or explicitly decide whether a failed update should null the embedding."
+      "status": "RESOLVED (carried forward from gen 2, unaffected by this delta; domain-embedder-openai.ts is untouched in a4d52ef..5dc221d)"
     }
   ],
-  "findings": [
+  "findings": [],
+  "crossLaneObservations": [
     {
-      "severity": "WATCH",
-      "file": "packages/business/src/domain-ai/project-decision.ts",
-      "evidence": "project-decision.ts:75-90 (no deps.embed), project-decision.test.ts (no embedding assertions, no env pin; integration at :73-150 is CI_INTEGRATION-gated)",
-      "note": "Only write path in the diff without an injection point or a store/skip unit test; see blocker 1."
-    },
-    {
-      "severity": "WATCH",
-      "file": "packages/business/src/domain-ai/domain-embedder-openai.ts",
-      "evidence": "domain-embedder-openai.ts:24-28 (fetch without AbortSignal); domain-embedding.ts:25-34 (safeEmbed has no deadline)",
-      "note": "Hanging endpoint can stall the recall and write paths; matches pre-existing withBackoff no-timeout pattern; see blocker 2."
-    },
-    {
-      "severity": "WATCH",
-      "file": "packages/business/src/domain-ai/domain-memory.ts",
-      "evidence": "domain-memory.ts:171 (conditional spread keeps old embedding on failed update); domain-agent-runtime.ts:210, project-decision.ts:89",
-      "note": "Undocumented keep-old-vector-on-failure semantics; see blocker 3."
-    },
-    {
-      "severity": "INFO",
-      "file": "packages/business/src/domain-ai/domain-memory.ts",
-      "evidence": "recallDomainMemories domain-memory.ts:113-137 vs recallHybrid domain-embedding.ts:82-104; recallFromDb sole caller scripts/domain-pipeline-demo.ts:18,51",
-      "note": "~15 lines of intentional duplication between V1 recallDomainMemories and V2 recallHybrid. Acceptable: V1 stays for the demo script and the two scoring semantics should not be coupled. recallFromDb remaining usage is intentional and verified."
-    },
-    {
-      "severity": "INFO",
-      "file": "packages/business/src/domain-ai/domain-polish.test.ts",
-      "evidence": "domain-polish.test.ts:14-43 hosts resolveEmbedder/describeEmbedder cases",
-      "note": "Embedder tests live in domain-polish.test.ts (pre-existing placement); the diff only added a case. Minor naming smell not introduced by this change."
+      "note": "The QA lane's new packages/business/src/domain-ai/__qa__/g001-red-team-gen2-timeout.test.ts documents an asymmetry in the gen-2 timeout fix: an explicit timeoutMs=0 is honored verbatim (no floor), unlike the EMBEDDING_TIMEOUT_MS env-fallback path which floors non-positive values to the 10s default (test at __qa__/g001-red-team-gen2-timeout.test.ts:135-145, self-labeled '[finding] ... non-blocking ... no production caller passes timeoutMs today'). This concerns domain-embedder-openai.ts, which is NOT part of this generation's delta (a4d52ef..5dc221d touches only domain-memory.ts and the two test files listed in deltaPaths) and was already reviewed CLEAR/RESOLVED in generation 2. Noted for completeness only; it does not affect this generation's architectureStatus/productStatus/codeStatus verdict since the relevant file was not touched in this delta."
     }
+  ],
+  "changed_files": [],
+  "decisions": [
+    "Read-only lane: no product or test files modified. Scoped the verdict strictly to the 2 files named in the assignment (domain-memory.ts, domain-memory.embedding.test.ts); noted but did not deep-review the 2 QA-lane-only __qa__ test files since they are red-team QA's own artifacts targeting the already-resolved gen-2 timeout fix, not new product source.",
+    "Verdict calibration: architecture, product, and code all CLEAR because the sole gen-2 blocker is verified fixed at the code level across all four requested verification angles (semantics match, create branch intact, tests non-tautological, no duplicate guard bug), with passing hermetic tests as evidence. No new findings originate from this delta's actual file changes.",
+    "Recommendation APPROVE with an empty blockers array, per the assignment's 'if everything is genuinely clean' instruction -- this is not a rubber stamp: each of the 4 requested verification points was independently checked against the code (guard logic, Prisma default behavior, test assertion targets, and a full-file scan for a second occurrence of the same bug shape).",
+    "Overwrote artifacts/g001-architect-review.json with the gen-3 shape (reviewGeneration:3, deltaOnly:true, new sourceHash/priorGenerationSourceHash, deltaPaths) and an updated resolvedLedger carrying all prior-generation closures forward."
+  ],
+  "verification": [
+    "git rev-parse HEAD == 5dc221d8521cc1b9418d258f2837f2d6bc7bab5c",
+    "git diff a4d52ef..5dc221d for the 2 in-scope files read in full",
+    "pnpm vitest run on the 3 directly relevant test files -> 29 passed, 0 failed, 1.05s; did not re-run project-wide gates per instructions (leader already reported typecheck 0 errors, lint 0 errors, business vitest 146 files / 1024 passed / 0 failed at this snapshot)",
+    "full-file search of domain-memory.ts confirmed no second occurrence of the truthy-array-guard bug pattern",
+    "artifacts/g001-architect-review.json written and overwritten with the gen-3 verdict"
   ]
 }
