@@ -1,84 +1,80 @@
 {
   "schemaVersion": 1,
   "kind": "api-package-test-report",
-  "reviewGeneration": 3,
+  "reviewGeneration": 4,
   "deltaOnly": true,
-  "sourceHash": "sha256:2995e2dc70c3f3fcd21769e544c706b63175c32f63efd910e64089dbeed95b10",
-  "priorGenerationSourceHash": "sha256:db04bd8bdf3696e09e8bbbefe82fc252d6f6a9a6f589c08817c72546ca7e33bd",
-  "changeSet": "a4d52ef..5dc221d (5dc221d fix(domain-ai): treat an empty embedding as no embedding instead of wiping the stored vector). Full frozen range: a95cc66..5dc221d.",
+  "sourceHash": "sha256:c405a63cc3888ae2eda84df2d53f1b19d1255bf594169b5d530815252b842ef6",
+  "priorGenerationSourceHash": "sha256:2995e2dc70c3f3fcd21769e544c706b63175c32f63efd910e64089dbeed95b10",
+  "changeSet": "6c07521..7eeb519 (7eeb519 test(domain-ai): pin proposal test env and cover the live semantic recall path). Test-only delta. Full frozen range: a95cc66..7eeb519.",
   "surface": "package (@sangfor/business domain-ai embedder wiring) — API/package-level test artifacts, no GUI",
-  "generatedAt": "2026-08-08T21:56:00+09:00",
+  "generatedAt": "2026-08-08T22:28:00+09:00",
   "delta": {
     "filesChanged": [
-      "packages/business/src/domain-ai/domain-memory.ts — upsertDomainMemory's embedding spread guard changed from truthiness (`input.embedding ? ... : {}`) to length (`input.embedding && input.embedding.length > 0 ? ... : {}`). Before this fix, `embedding: []` was truthy in JS and WROTE an empty array into the column, wiping any previously accumulated vector on every embedder-down write pass.",
-      "packages/business/src/domain-ai/domain-memory.embedding.test.ts — new file, prisma-mocked payload assertions: real embedding writes, omitted embedding leaves the column untouched, and (the fix under test) an empty array also leaves it untouched"
+      "packages/business/src/domain-ai/domain-proposal.test.ts — TEST-ONLY. Added module-scope `vi.stubEnv('OPENAI_API_KEY', '')` and `vi.stubEnv('EMBEDDING_BASE_URL', '')` (forces the hash embedder fallback so the suite never dials real HTTP even on a machine with those keys set). Added a new case: 'recalls a zero-tag-overlap memory on embedding similarity alone (semantic path is live)' — a candidate with `tags: []` and `embedding: [1,0,0]` is recalled via `generateDomainProposal({..., embed: async () => [1,0,0]})` and its label lands in the LLM prompt, proving the hybrid semantic path (not the tag path) drove the recall."
     ],
+    "productCodeTouched": false,
     "qaFilesCarriedForward": [
-      "packages/business/src/domain-ai/__qa__/g001-red-team-gen2-timeout.test.ts (committed unmodified at 5dc221d — matches this lane's gen2 output verbatim)",
-      "packages/business/src/domain-ai/__qa__/g001-red-team.integration.test.ts (committed unmodified at 5dc221d — matches this lane's gen2 extension verbatim)"
+      "packages/business/src/domain-ai/__qa__/g001-red-team.test.ts, g001-red-team.integration.test.ts, g001-red-team-gen2-timeout.test.ts, g001-red-team-gen3-wipe.test.ts (all committed unmodified at 7eeb519 — no product/test change in this generation touches their subject matter)"
     ],
     "qaFilesAdded": [
-      "packages/business/src/domain-ai/__qa__/g001-red-team-gen3-wipe.test.ts (new, this generation): 3 tests — direct-DB empty-vector wipe attack (with real-vector overwrite control), end-to-end two-pass runDomainStage wipe attack, create-branch sanity"
+      "packages/business/src/domain-ai/__qa__/g001-red-team-gen4-hermeticity.test.ts (new, this generation): 4 tests — hermeticity fetch-spy proof under a hostile pre-set environment (with and without the shipped vi.stubEnv('') pin, as a positive/negative control pair), and anti-tautology proof that the shipped zero-tag-overlap case cannot pass without its embedding term (hybridScore/recallHybrid/scoreDomainMemory exercised directly)"
     ]
   },
   "commands": [
     {
-      "id": "cmd-gen3-wipe-integration",
-      "command": "CI_INTEGRATION=1 DATABASE_URL=postgresql://sangfor:sangfor_password@localhost:5434/sangfor_os_test pnpm --filter @sangfor/business exec vitest run src/domain-ai/__qa__/g001-red-team-gen3-wipe.test.ts",
-      "output": "Test Files 1 passed (1); Tests 3 passed (3)"
+      "id": "cmd-gen4-hermeticity-shell",
+      "command": "OPENAI_API_KEY=sk-bogus-should-never-be-used EMBEDDING_BASE_URL=http://127.0.0.1:9 pnpm --filter @sangfor/business exec vitest run src/domain-ai/domain-proposal.test.ts",
+      "output": "7 passed | 1 skipped (8) — Duration 468ms total (tests body only 6ms) — no hang, no failure, run against the shipped, unmodified test file with a genuinely hostile, unreachable endpoint pre-exported into the shell before vitest started"
     },
     {
-      "id": "cmd-gen3-combined-regression",
-      "command": "CI_INTEGRATION=1 DATABASE_URL=postgresql://sangfor:sangfor_password@localhost:5434/sangfor_os_test pnpm --filter @sangfor/business exec vitest run src/domain-ai/__qa__/g001-red-team.test.ts src/domain-ai/__qa__/g001-red-team-gen2-timeout.test.ts src/domain-ai/__qa__/g001-red-team.integration.test.ts src/domain-ai/__qa__/g001-red-team-gen3-wipe.test.ts src/domain-ai/domain-embedding.test.ts src/domain-ai/domain-agent-runtime.test.ts src/domain-ai/domain-proposal.test.ts src/domain-ai/domain-polish.test.ts src/domain-ai/domain-memory.test.ts src/domain-ai/domain-memory.embedding.test.ts src/domain-ai/domain-v3.test.ts src/domain-ai/project-decision.test.ts src/domain-ai/project-decision.embedding.test.ts",
-      "output": "Test Files 13 passed (13); Tests 131 passed (131); Duration ~6.9s"
+      "id": "cmd-gen4-hermeticity-fetchspy",
+      "command": "pnpm --filter @sangfor/business exec vitest run src/domain-ai/__qa__/g001-red-team-gen4-hermeticity.test.ts",
+      "output": "4 passed (4) — fetch-spy test confirms zero fetch() invocations under hostile process.env + the shipped vi.stubEnv('') idiom; control test confirms the same harness DOES detect and record a dial attempt (fetchSpy called once) when the protective stub is omitted, proving the fetch-spy is a valid witness and not a false negative"
+    },
+    {
+      "id": "cmd-gen4-full-regression",
+      "command": "CI_INTEGRATION=1 DATABASE_URL=postgresql://sangfor:sangfor_password@localhost:5434/sangfor_os_test pnpm --filter @sangfor/business exec vitest run src/domain-ai/__qa__/g001-red-team.test.ts src/domain-ai/__qa__/g001-red-team-gen2-timeout.test.ts src/domain-ai/__qa__/g001-red-team.integration.test.ts src/domain-ai/__qa__/g001-red-team-gen3-wipe.test.ts src/domain-ai/__qa__/g001-red-team-gen4-hermeticity.test.ts src/domain-ai/domain-embedding.test.ts src/domain-ai/domain-agent-runtime.test.ts src/domain-ai/domain-proposal.test.ts src/domain-ai/domain-polish.test.ts src/domain-ai/domain-memory.test.ts src/domain-ai/domain-memory.embedding.test.ts src/domain-ai/domain-v3.test.ts src/domain-ai/project-decision.test.ts src/domain-ai/project-decision.embedding.test.ts",
+      "output": "Test Files 14 passed (14); Tests 136 passed (136); Duration ~5.4s"
     },
     {
       "id": "cmd-typecheck",
       "command": "cd packages/business && pnpm exec tsc --noEmit -p tsconfig.json",
-      "output": "exit 0, zero diagnostics (includes all three __qa__ files)"
+      "output": "exit 0, zero diagnostics (includes the new gen4 __qa__ file)"
     },
     {
       "id": "cmd-residue-check",
       "command": "psql sangfor_os_test -c \"select count(*) from domain_memories where key like '%g001rt%' or key like 'smoke:%'\" -c \"select count(*) from domain_decision_logs where case_ref like '%g001rt%'\"",
-      "output": "0 / 0 both before and after this generation's run — no leftover rows"
+      "output": "0 / 0 before and after this generation's run — no leftover rows (this generation's own tests wrote no DB rows at all, since the new gen4 QA file is unit-only/no-DB)"
     }
   ],
   "contractCoverage": [
     {
       "criterion": 1,
-      "text": "empty-vector wipe attack against the REAL DB: seed a row with a real 256-dim embedding, upsert again with embedding:[] and with embedding omitted — vector must survive BOTH unchanged; a non-empty embedding must still overwrite it",
+      "text": "hermeticity: prove the suite makes no outbound HTTP even when OPENAI_API_KEY and EMBEDDING_BASE_URL are exported in the environment before vitest starts",
       "status": "passed",
       "evidence": [
-        "g001-red-team-gen3-wipe.test.ts 'direct-DB: an explicit empty array does NOT wipe an existing vector; a real vector still overwrites' — seeded 256-dim vector via upsertDomainMemory, then attacked with embedding:[] (row!.embedding toEqual the DB's own round-tripped reference, exact match — column literally untouched), then attacked with embedding omitted (same exact-match survival), then a real replacement vector overwrote it (max delta <1e-12 vs the new vector, delta >0.01 vs the old one — genuinely different, not stale)",
-        "domain-memory.ts:179 `...(input.embedding && input.embedding.length > 0 ? { embedding: input.embedding } : {})`",
-        "unit-level corroboration (shipped at 5dc221d): domain-memory.embedding.test.ts 'treats an empty vector as no embedding rather than wiping the stored one' — prisma-mocked, asserts neither update nor create payload carries the embedding key when embedding:[] is passed"
+        "Shell-level proof: ran the shipped, unmodified domain-proposal.test.ts with OPENAI_API_KEY and EMBEDDING_BASE_URL exported to a bogus API key and a closed local port (http://127.0.0.1:9) BEFORE invoking vitest. Suite completed in 468ms total (test bodies executed in 6ms), all non-skipped tests passed, no hang and no ECONNREFUSED-derived failure surfaced — consistent with the hash embedder being used throughout, never the openai/endpoint path.",
+        "Fetch-spy-level proof (stronger than timing alone): g001-red-team-gen4-hermeticity.test.ts reproduces the exact shipped idiom (hostile process.env values set first, then the same `vi.stubEnv('OPENAI_API_KEY','')` / `vi.stubEnv('EMBEDDING_BASE_URL','')` pair used in domain-proposal.test.ts:7-8) with `global.fetch` replaced by a spy that throws synchronously if ever called. describeEmbedder() reports 'hash' (not 'openai'/'embedding-endpoint'); resolveEmbedder()'s embedder resolves a vector in <50ms with zero fetch calls; a full generateDomainProposal() run (no deps.embed override, so it falls through to resolveEmbedder() exactly like the shipped semantic-hit case's internal call) also completes with zero fetch calls.",
+        "Negative control included to validate the fetch-spy is a real witness: the SAME hostile env WITHOUT the vi.stubEnv('') pin makes describeEmbedder() report something other than 'hash', and the fetch-spy DOES get called exactly once when the embedder is invoked (rejecting as expected against the closed port) — proving the spy would have caught a hermeticity violation had the pin been missing or broken."
       ]
     },
     {
       "criterion": 2,
-      "text": "end-to-end version: two runDomainStage passes on the SAME case key — working embedder then throwing embedder — the second pass must not clear the first pass's vector",
+      "text": "anti-tautology: confirm the new semantic-hit case would FAIL if the embedding term were removed — reasoning against hybridScore that tags:[] gives tagScore 0, so a null query embedding would drop the candidate entirely",
       "status": "passed",
       "evidence": [
-        "g001-red-team-gen3-wipe.test.ts 'end-to-end: a second runDomainStage pass with a throwing embedder does not wipe the vector the first pass wrote' — pass 1 (real hash embedder) wrote a 256-dim vector; pass 2 (throwing embedder, same case.id → same memory key sales:<caseId>) triggered safeEmbed→null→upsert with embedding omitted; DB row after pass 2 still has embedding.length===256 and toEqual (exact) the vector captured after pass 1"
+        "g001-red-team-gen4-hermeticity.test.ts exercises the shipped hybridScore/recallHybrid/scoreDomainMemory functions directly (not the shipped test file) against the exact candidate/query shape from the new case (tags: [], embedding: [1,0,0], query.tags: []): with queryEmbedding=[1,0,0] (cosine sim 1), hybridScore returns 0.7 (default embeddingWeight, tagScore=0) and recallHybrid returns the record. With queryEmbedding=null, hybridScore falls into the !hasEmbedding branch (domain-embedding.ts:64-69) and returns exactly tagScore=0; recallHybrid's `.filter((entry) => entry.score > 0)` (domain-embedding.ts:97) then drops the record from the result set entirely — it is not merely ranked lower, it is absent.",
+        "Independently corroborated at the scoreDomainMemory level: scoreDomainMemory(query, record) === 0 for this exact pair, both because query.tags.length === 0 (domain-memory.ts:89, an explicit early-return) and because record.tags is also empty (zero overlap either way) — two independent reasons the tag path alone can never surface this candidate.",
+        "Conclusion: the shipped assertion `expect(seen.join('\\n')).toContain('유사 딜 메모: 방화벽 갱신 할인 구조')` is load-bearing on the embedding term specifically — removing it would make the memory unrecallable and the assertion would fail, not merely weaken. Confirmed by direct library-function invocation rather than by editing the shipped test."
       ]
     },
     {
       "criterion": 3,
-      "text": "create-branch sanity: a brand-new key with embedding omitted must still insert successfully (Prisma @default([])) and load back with an empty embedding array",
+      "text": "regression: re-run the full red-team set and changed-file suites, plus the CI_INTEGRATION=1 real-DB set",
       "status": "passed",
       "evidence": [
-        "g001-red-team-gen3-wipe.test.ts 'create-branch sanity: a brand-new key with embedding omitted still inserts and loads back empty' — fresh key, embedding field never supplied, insert succeeds without error, DB row embedding===[] (Prisma column default), and loadDomainMemories() round-trips the same empty array"
-      ]
-    },
-    {
-      "criterion": 4,
-      "text": "re-run the full red-team set (gen1 7 cases + gen2 timeout/precedence cases) and the changed-file suites for regression",
-      "status": "passed",
-      "evidence": [
-        "gen1 unit (12) + gen1/gen2/gen3 integration (12, was 9) + gen2 timeout unit (13) + gen3 wipe integration (3, counted once, included in the 12 above via same command set) all green",
-        "changed-file suites: domain-embedding(17), domain-agent-runtime(13), domain-proposal(7), domain-polish(5), domain-memory(22), domain-memory.embedding(3, new this generation), domain-v3(14), project-decision(9), project-decision.embedding(4) — all green",
-        "combined run: 13 files, 131/131 passed, 0 failed, 0 skipped (CI_INTEGRATION=1)",
-        "typecheck clean; DB residue 0/0 before and after"
+        "14 test files, 136/136 tests passed in a single combined CI_INTEGRATION=1 run against sangfor_os_test: gen1 unit(12) + gen2 timeout unit(13) + gen1/gen2/gen3 integration(12) + gen3 wipe(3) + gen4 hermeticity(4, new) + domain-embedding(17) + domain-agent-runtime(13) + domain-proposal(8, includes the new shipped semantic-hit case) + domain-polish(5) + domain-memory(22) + domain-memory.embedding(3) + domain-v3(14) + project-decision(9) + project-decision.embedding(4)",
+        "typecheck clean (tsc --noEmit, zero diagnostics); DB residue 0/0 before and after (this generation's new file performs no DB writes)"
       ]
     }
   ],
@@ -88,7 +84,7 @@
     { "id": "gen1-rt3-poisoned-row", "scenario": "poisoned-row attack: rejected/human-reverted rows with PERFECT embedding similarity", "expected": "negative-outcome rows never recalled; control row recalled", "verdict": "passed", "evidence": "re-run green this generation." },
     { "id": "gen1-rt4-domain-isolation", "scenario": "domain-isolation attack: cfo row with perfect embedding vs sales query", "expected": "cfo row never surfaces for sales; sales control surfaces", "verdict": "passed", "evidence": "re-run green this generation." },
     { "id": "gen1-rt5-write-path-roundtrip", "scenario": "write-path real-DB round trip via upsertDomainMemory/loadDomainMemories/recallSemanticFromDb", "expected": "embedding stored (256-dim), round-trips within float tolerance, semantic + degraded recall both find it, row cleaned up", "verdict": "passed", "evidence": "re-run green this generation; residue check 0 rows." },
-    { "id": "gen1-rt6-resolver-precedence", "scenario": "resolver precedence: describeEmbedder returns embedding-endpoint > openai > hash", "expected": "endpoint wins over key; key wins over hash", "verdict": "passed", "evidence": "re-run green this generation (domain-polish.test.ts + red-team unit)." },
+    { "id": "gen1-rt6-resolver-precedence", "scenario": "resolver precedence: describeEmbedder returns embedding-endpoint > openai > hash", "expected": "endpoint wins over key; key wins over hash", "verdict": "passed", "evidence": "re-run green this generation; independently re-confirmed by gen4's hermeticity control test (describeEmbedder() != 'hash' once EMBEDDING_BASE_URL is set without the stub)." },
     { "id": "gen1-rt7-empty-vector", "scenario": "empty-vector embedder: safeEmbed returns null for []", "expected": "null returned, no exception; write path omits embedding", "verdict": "passed", "evidence": "re-run green this generation." },
     { "id": "gen1-rt8-record-human-decision-default", "scenario": "recordHumanDecision (no deps.embed) stores a best-effort embedding via resolveEmbedder() default", "expected": "256-dim hash embedding stored in this keyless environment", "verdict": "passed", "evidence": "re-run green this generation." },
     { "id": "gen2-case1-openai-branch-deadline", "scenario": "deadline enforcement, OPENAI_API_KEY branch: hanging fetchImpl + timeoutMs=25", "expected": "reject within bound, safeEmbed → null, no hang", "verdict": "passed", "evidence": "re-run green this generation." },
@@ -99,21 +95,28 @@
     { "id": "gen2-case3-no-dangling-abort", "scenario": "3 sequential calls on the same embedder instance", "expected": "each call succeeds independently — no shared/stale AbortSignal state", "verdict": "passed", "evidence": "re-run green this generation." },
     { "id": "gen2-case4-inject-fail-real-db", "scenario": "recordHumanDecision({...}, {embed: throwing}) against real Postgres", "expected": "decision recorded, memory row written with embedding.length===0", "verdict": "passed", "evidence": "re-run green this generation." },
     { "id": "gen2-case4-inject-ok-real-db", "scenario": "recordHumanDecision({...}, {embed: createHashEmbedder(33)}) against real Postgres", "expected": "memory row stores the injected 33-dim vector, not the environment's 256-dim default", "verdict": "passed", "evidence": "re-run green this generation." },
-    { "id": "gen2-finding-explicit-zero-timeout", "scenario": "explicit opts.timeoutMs=0 bypasses the env-style floor validation", "expected": "documented as a non-blocking finding (unreachable in production — no callsite passes timeoutMs)", "verdict": "passed", "evidence": "re-run green this generation; finding still applies unchanged (no code touched this delta)." },
-    { "id": "gen3-case1-direct-db-empty-array-attack", "scenario": "upsertDomainMemory(key, embedding: []) against a row with an existing 256-dim vector, real Postgres", "expected": "the existing vector survives unchanged (exact match against its own stored bytes); non-embedding fields (label, confidence) still update normally", "verdict": "passed", "evidence": "g001-red-team-gen3-wipe.test.ts — row.embedding toEqual the pre-attack stored reference after the attack; row.label reflects the new value, proving the write itself succeeded and only the embedding column was preserved." },
-    { "id": "gen3-case1-direct-db-omitted-attack", "scenario": "upsertDomainMemory(key, embedding omitted) against the same row, immediately after the empty-array attack", "expected": "vector still survives unchanged", "verdict": "passed", "evidence": "same test, second attack sub-case — row.embedding still toEqual the original stored reference." },
-    { "id": "gen3-case1-direct-db-real-overwrite-control", "scenario": "upsertDomainMemory(key, embedding: <new 256-dim vector>) as a control after both wipe attacks", "expected": "the guard is not a permanent write-once lock — a real vector must still overwrite", "verdict": "passed", "evidence": "same test, final control — new row's embedding matches the new vector within float8 round-trip tolerance (<1e-12) and differs from the original vector by >0.01 (genuinely replaced)." },
-    { "id": "gen3-case2-e2e-two-pass-wipe", "scenario": "runDomainStage called twice for the SAME case (same memory key): pass 1 with a real hash embedder, pass 2 with a throwing embedder", "expected": "pass 2's learning upsert must NOT clear the vector pass 1 wrote", "verdict": "passed", "evidence": "g001-red-team-gen3-wipe.test.ts — DB row after pass 1 has a 256-dim vector; DB row after pass 2 (embedder threw, safeEmbed→null, embedding omitted from the upsert call) still has the identical 256-dim vector (exact toEqual match)." },
-    { "id": "gen3-case3-create-branch-sanity", "scenario": "upsertDomainMemory on a brand-new key with embedding omitted entirely (never had a vector to protect)", "expected": "insert succeeds, embedding defaults to [] both in the DB and via loadDomainMemories()", "verdict": "passed", "evidence": "g001-red-team-gen3-wipe.test.ts — fresh row inserted without error; DB read shows embedding===[]; loadDomainMemories() round-trips the same empty array." },
-    { "id": "gen3-case4-full-regression", "scenario": "re-run of all 7 gen1 red-team cases + gen2 timeout/precedence cases + gen3 wipe cases + every changed-file suite, combined integration mode", "expected": "all green, no regression", "verdict": "passed", "evidence": "13 test files, 131/131 tests passed; typecheck clean; DB residue 0/0 before and after." }
+    { "id": "gen2-finding-explicit-zero-timeout", "scenario": "explicit opts.timeoutMs=0 bypasses the env-style floor validation", "expected": "documented as a non-blocking finding (unreachable in production — no callsite passes timeoutMs)", "verdict": "passed", "evidence": "re-run green this generation; finding still applies unchanged (no code touched by gen3 or gen4 deltas)." },
+    { "id": "gen3-case1-direct-db-empty-array-attack", "scenario": "upsertDomainMemory(key, embedding: []) against a row with an existing 256-dim vector, real Postgres", "expected": "the existing vector survives unchanged (exact match against its own stored bytes); non-embedding fields (label, confidence) still update normally", "verdict": "passed", "evidence": "re-run green this generation." },
+    { "id": "gen3-case1-direct-db-omitted-attack", "scenario": "upsertDomainMemory(key, embedding omitted) against the same row, immediately after the empty-array attack", "expected": "vector still survives unchanged", "verdict": "passed", "evidence": "re-run green this generation." },
+    { "id": "gen3-case1-direct-db-real-overwrite-control", "scenario": "upsertDomainMemory(key, embedding: <new 256-dim vector>) as a control after both wipe attacks", "expected": "the guard is not a permanent write-once lock — a real vector must still overwrite", "verdict": "passed", "evidence": "re-run green this generation." },
+    { "id": "gen3-case2-e2e-two-pass-wipe", "scenario": "runDomainStage called twice for the SAME case (same memory key): pass 1 with a real hash embedder, pass 2 with a throwing embedder", "expected": "pass 2's learning upsert must NOT clear the vector pass 1 wrote", "verdict": "passed", "evidence": "re-run green this generation." },
+    { "id": "gen3-case3-create-branch-sanity", "scenario": "upsertDomainMemory on a brand-new key with embedding omitted entirely (never had a vector to protect)", "expected": "insert succeeds, embedding defaults to [] both in the DB and via loadDomainMemories()", "verdict": "passed", "evidence": "re-run green this generation." },
+    { "id": "gen3-case4-full-regression", "scenario": "re-run of all gen1/gen2/gen3 cases + every changed-file suite, combined integration mode", "expected": "all green, no regression", "verdict": "passed", "evidence": "carried into this generation's combined run (see cmd-gen4-full-regression)." },
+    { "id": "gen4-case1-hermeticity-shell-timing", "scenario": "shell-level: run the SHIPPED, unmodified domain-proposal.test.ts with OPENAI_API_KEY and EMBEDDING_BASE_URL pre-exported to a bogus key / closed-port URL before vitest starts", "expected": "suite completes fast (no hang from a black-holed dial, no failure from ECONNREFUSED) — proves the module-scope vi.stubEnv('') pin wins regardless of the shell environment vitest was launched from", "verdict": "passed", "evidence": "Duration 468ms total (test bodies 6ms), 7 passed | 1 skipped, no failures — timestamped shell run, see cmd-gen4-hermeticity-shell." },
+    { "id": "gen4-case2-hermeticity-fetchspy", "scenario": "in-process: reproduce the shipped vi.stubEnv('') idiom against a hostile process.env with global.fetch replaced by a throw-on-call spy, exercising resolveEmbedder(), describeEmbedder(), and a full generateDomainProposal() call", "expected": "describeEmbedder()==='hash', embedder resolves <50ms, fetchSpy never called end-to-end", "verdict": "passed", "evidence": "g001-red-team-gen4-hermeticity.test.ts test 1 — all assertions passed." },
+    { "id": "gen4-case2-hermeticity-negative-control", "scenario": "same hostile env WITHOUT the vi.stubEnv('') pin — must show the embedder resolving to the openai/endpoint path and the fetch-spy actually firing", "expected": "describeEmbedder() != 'hash'; fetchSpy called exactly once when the embedder is invoked", "verdict": "passed", "evidence": "g001-red-team-gen4-hermeticity.test.ts test 2 — proves the fetch-spy witness in test 1 is not a false negative (the harness demonstrably CAN detect a real dial attempt)." },
+    { "id": "gen4-case3-anti-tautology-hybridscore", "scenario": "direct hybridScore/recallHybrid invocation against the shipped case's exact candidate/query shape (tags: [], embedding: [1,0,0]), with and without the queryEmbedding term", "expected": "with embedding: score=0.7, record recalled. Without embedding: score=0 exactly, record dropped from recallHybrid's result set entirely (not merely reranked)", "verdict": "passed", "evidence": "g001-red-team-gen4-hermeticity.test.ts test 3 — all assertions passed, including recallHybrid([...]).toHaveLength(0) for the no-embedding case." },
+    { "id": "gen4-case4-anti-tautology-scoredomainmemory", "scenario": "scoreDomainMemory(query, record) in isolation for the same tags:[] pair", "expected": "0, independent of hybridScore's branch logic (two independent zero-causes: empty query.tags AND empty record.tags)", "verdict": "passed", "evidence": "g001-red-team-gen4-hermeticity.test.ts test 4 — passed." },
+    { "id": "gen4-case5-full-regression", "scenario": "re-run of all gen1/gen2/gen3/gen4 cases + every changed-file suite (including the shipped domain-proposal.test.ts with its new case), combined integration mode", "expected": "all green, no regression", "verdict": "passed", "evidence": "14 test files, 136/136 tests passed; typecheck clean; DB residue 0/0 (see cmd-gen4-full-regression, cmd-typecheck, cmd-residue-check)." }
   ],
   "planCodeMismatches": [],
   "findings": [
-    "NON-BLOCKER (carried from gen2, unchanged): explicit opts.timeoutMs is honored verbatim with no floor/validation (0 or negative aborts near-instantly), asymmetric with the validated EMBEDDING_TIMEOUT_MS env path. Still verified unreachable in production this generation — no new callsite introduced. No code touched by this delta, so the finding stands as-is.",
-    "NON-BLOCKER (carried from gen1, re-verified): Postgres Float[] round-trip changes the last significant digit (~1e-16 relative). This generation's own gen3 wipe-attack test hit the exact same artifact when comparing a freshly-written vector against a fresh DB read — fixed by comparing against the DB's own previously-round-tripped bytes where an exact match is expected (untouched column) and by tolerance (<1e-12) where a genuinely new write is expected. No product-level implication.",
+    "NON-BLOCKER (carried from gen2, unchanged): explicit opts.timeoutMs is honored verbatim with no floor/validation (0 or negative aborts near-instantly), asymmetric with the validated EMBEDDING_TIMEOUT_MS env path. Still verified unreachable in production this generation — no new callsite introduced. No code touched by gen3 or gen4, finding stands as-is.",
+    "NON-BLOCKER (carried from gen1, re-verified): Postgres Float[] round-trip changes the last significant digit (~1e-16 relative). Not exercised again this generation (gen4 introduces no new DB writes), carried forward for completeness of the cross-generation record.",
     "NON-BLOCKER (carried from gen1, re-verified): hybridScore's dim-mismatch early return precedes its outcome-0 guard, but every production recall path routes through recallHybrid's suppressedKeys, which still zeroes negative-outcome rows end-to-end.",
-    "RESOLVED in gen2, re-verified in gen3: recordHumanDecision embedding store/skip now has both mocked-unit and real-DB integration coverage.",
-    "OBSERVATION (new, non-blocker): the fix's guard (`input.embedding && input.embedding.length > 0`) treats ANY empty array as 'no embedding', including a deliberate future intent to clear a vector. There is currently no product code path that ever wants to explicitly clear a stored embedding (deletion goes through row deletion, not embedding: []), so this is not reachable as a regression today; flagged only for awareness if a future feature needs an explicit-clear semantic (it would need a distinct sentinel, e.g. `null`, not `[]`)."
+    "NON-BLOCKER (carried from gen3, re-verified): the empty-vector wipe guard (domain-memory.ts, `input.embedding && input.embedding.length > 0`) treats any [] as 'no embedding' with no explicit-clear sentinel; not reachable as a regression today since no code path ever intentionally clears a stored embedding.",
+    "RESOLVED (gen2, re-verified gen3/gen4): recordHumanDecision embedding store/skip has both mocked-unit and real-DB integration coverage.",
+    "NON-BLOCKER (new, gen4 observation): the shipped domain-proposal.test.ts's env pin (`vi.stubEnv('OPENAI_API_KEY', '')` / `vi.stubEnv('EMBEDDING_BASE_URL', '')`) is scoped to that single test file (module-level `vi.stubEnv` calls apply for the lifetime of that test file's module instance, and vitest resets stubbed envs between files via its default isolation behavior). It does not protect OTHER test files in the same package from a hostile ambient environment unless they either carry the same pin themselves or never call resolveEmbedder()/generateDomainProposal() in the first place. Verified by grep this generation: domain-agent-runtime.test.ts and the gen1-3 __qa__ files (g001-red-team.test.ts, g001-red-team.integration.test.ts) each carry the identical stub pair; domain-polish.test.ts stubs EMBEDDING_BASE_URL per-test where it exercises resolveEmbedder(); project-decision.test.ts and project-decision.embedding.test.ts sidestep the issue entirely by importing the test-only `createHashEmbedder` from `./domain-embedder` and never calling the ambient `resolveEmbedder()` from `domain-embedder-openai.ts`, so no stub is needed there. This is a per-file discipline requirement, not a gap in the shipped fix; flagged only so a future new test file that DOES call resolveEmbedder()/generateDomainProposal() without copying this pin would silently regain live-HTTP risk on a machine with real keys set. Confirmed non-blocking for THIS delta since the shipped file is scoped correctly."
   ],
   "blockers": []
 }

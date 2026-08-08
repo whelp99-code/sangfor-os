@@ -1,81 +1,107 @@
 {
-  "reviewGeneration": 3,
+  "reviewGeneration": 4,
   "deltaOnly": true,
-  "sourceHash": "sha256:2995e2dc70c3f3fcd21769e544c706b63175c32f63efd910e64089dbeed95b10",
-  "priorGenerationSourceHash": "sha256:db04bd8bdf3696e09e8bbbefe82fc252d6f6a9a6f589c08817c72546ca7e33bd",
-  "changeSet": "a4d52ef..5dc221d delta review; HEAD verified 5dc221d8521cc1b9418d258f2837f2d6bc7bab5c on whelp99-code/daggertooth",
+  "sourceHash": "sha256:c405a63cc3888ae2eda84df2d53f1b19d1255bf594169b5d530815252b842ef6",
+  "priorGenerationSourceHash": "sha256:2995e2dc70c3f3fcd21769e544c706b63175c32f63efd910e64089dbeed95b10",
+  "changeSet": "6c07521..7eeb519 delta review (final generation, test-only delta); HEAD verified 7eeb519270bb9a280e505bf00340fda7e8a06e45 on whelp99-code/daggertooth",
   "deltaPaths": [
-    "packages/business/src/domain-ai/domain-memory.ts",
-    "packages/business/src/domain-ai/domain-memory.embedding.test.ts"
-  ],
-  "outOfScopeDeltaPaths": [
-    "packages/business/src/domain-ai/__qa__/g001-red-team-gen2-timeout.test.ts (new, QA lane's own coverage of the gen-2 timeout fix; no product source touched)",
-    "packages/business/src/domain-ai/__qa__/g001-red-team.integration.test.ts (+47 lines, QA lane's own CI_INTEGRATION-gated real-DB coverage; no product source touched)"
+    "packages/business/src/domain-ai/domain-proposal.test.ts"
   ],
   "architectureStatus": "CLEAR",
   "productStatus": "CLEAR",
   "codeStatus": "CLEAR",
   "recommendation": "APPROVE",
-  "evidence": "Delta-only re-review of the 2 in-scope product/test files at HEAD=5dc221d (working tree confirmed to equal the frozen snapshot; git diff a4d52ef..5dc221d read in full). The sole gen-2 blocker (doc claimed 'empty array is also ignored' but the guard `input.embedding ? {...} : {}` treated [] as truthy and would have written it) is now fixed at the CODE level, not just the comment: the guard at domain-memory.ts:181 is now `...(input.embedding && input.embedding.length > 0 ? { embedding: input.embedding } : {})`, which correctly excludes the embedding key from the upsert payload for both undefined and empty-array inputs. The doc comment at domain-memory.ts:167 was updated in lockstep to '생략하거나 빈 배열이면 기존 벡터를 유지한다' (omitted OR empty array both keep the existing vector) -- this now accurately describes the code. A new inline comment at domain-memory.ts:179-180 explains why the length check is necessary (JS truthy-[] pitfall) and cross-references safeEmbed's null-for-empty-vector contract. VERIFICATION POINT 1 (guard matches documented semantics): CONFIRMED -- both branches of the condition (undefined, []) now correctly omit the embedding key; verified directly by domain-memory.embedding.test.ts's two negative-assertion tests (below), both passing. VERIFICATION POINT 2 (create branch not broken): CONFIRMED -- the create call at domain-memory.ts:193-199 spreads the same `data` object (`create: { projectId, domain, memoryType, key, ...data }`), so when `data` omits the embedding key (undefined or [] input), Prisma's schema default `embedding Float[] @default([])` (packages/db/prisma/schema.prisma:2109, verified in gen-1 review, unchanged) fills it in on create -- this is the same pre-existing mechanism used before this delta and before the gen-1/gen-2 fixes; the length-guard change only affects which inputs are excluded, not how the create/update payload construction itself works, so the create path is unaffected and still valid. For the literal `embedding: []` input specifically, the resulting created row's embedding value is functionally `[]` either way (explicit vs. Prisma default), so there is no create-branch regression at all, only the intended update-branch fix (no longer clobbering an existing vector with an explicit []). Confirmed via domain-memory.embedding.test.ts test 1, which asserts both update.embedding and create.embedding equal the supplied vector for the real-vector case, proving the spread-into-create mechanism still works end to end. VERIFICATION POINT 3 (test coverage non-tautological): CONFIRMED -- domain-memory.embedding.test.ts mocks only @sangfor/db (prisma.domainMemory.upsert, prisma.project.findUniqueOrThrow) and invokes the real, unmocked upsertDomainMemory; the three tests capture mocks.upsert.mock.calls[0][0] and assert the actual update/create payload shape: exact-value equality for the supplied-vector case (update.embedding / create.embedding both equal [0.1,0.2,0.3]), and hard key-absence (.not.toHaveProperty('embedding')) for both the omitted case and the []-input case on both update and create sub-objects. These assertions exercise the real conditional-spread logic under test, not a mock's canned return value -- non-tautological. VERIFICATION POINT 4 (no other truthy-array guard of the same shape remains): CONFIRMED via full-file grep of domain-memory.ts for conditional-spread and ternary patterns -- the only other optional-array field in the same object literal is `tags: input.tags ?? []` (domain-memory.ts:172), which uses nullish-coalescing (not a truthy-then-conditional-spread) and has a different, correct semantic (an empty tags array is a legitimate 'no tags' value that should always be written, unlike embedding's 'no update signal' semantic) -- not the same bug pattern and not a regression. No second occurrence of the fixed pattern exists in the touched module. TEST RUN: re-ran the 3 directly relevant test files focused -- 29 passed, 0 failed, 1.05s (domain-memory.embedding.test.ts: 3/3, domain-memory.test.ts: 22/22 unaffected by the change, project-decision.embedding.test.ts: 4/4 still green since it never exercised the []-literal path). Matches the leader's reported gate results (typecheck 0 errors, lint 0 errors, business vitest 146 files / 1024 passed / 0 failed), not re-run.",
-  "commands": [
-    "git rev-parse HEAD  (== 5dc221d8521cc1b9418d258f2837f2d6bc7bab5c)",
-    "git status --short  (M artifacts/*.json from prior generations, .gjc/ untracked; product tree matches HEAD)",
-    "git diff a4d52ef..5dc221d --stat  (4 files touched repo-wide; scoped this review to the 2 in-scope product/test files, noted the 2 QA-lane-only __qa__ files as out of scope)",
-    "git diff a4d52ef..5dc221d -- domain-memory.ts domain-memory.embedding.test.ts  (full delta read end-to-end via artifact recovery)",
-    "read packages/business/src/domain-ai/domain-memory.ts:139-208 (full upsertDomainMemory function + create/update payload construction, post-delta)",
-    "read packages/business/src/domain-ai/domain-memory.embedding.test.ts:1-67 (full new test file)",
-    "search domain-memory.ts for conditional-spread / ternary patterns  -> confirmed only one instance (embedding), tags uses ?? not the same pattern",
-    "pnpm vitest run src/domain-ai/{domain-memory.embedding,domain-memory,project-decision.embedding}.test.ts  -> 29 passed, 0 failed, 1.05s",
-    "skimmed packages/business/src/domain-ai/__qa__/g001-red-team-gen2-timeout.test.ts and the __qa__ integration test diff for cross-reference (QA lane's own coverage of the already-resolved gen-2 timeout fix; no product source touched in either file, out of this generation's file scope)"
-  ],
-  "verificationPoints": {
-    "p1_guardMatchesDocumentedSemantics": "CONFIRMED. domain-memory.ts:181 now reads `...(input.embedding && input.embedding.length > 0 ? { embedding: input.embedding } : {})`; the doc at :167 now says omitted OR empty array both keep the existing vector, which is exactly what the length-guarded condition produces for undefined and [] inputs. Verified by domain-memory.embedding.test.ts's 'leaves the column untouched when embedding is omitted' and 'treats an empty vector as no embedding' tests, both passing.",
-    "p2_createBranchNotBroken": "CONFIRMED. create: { projectId, domain, memoryType, key, ...data } (domain-memory.ts:193-199) spreads the identical data object used for update; when embedding is excluded from data, Prisma's schema default embedding Float[] @default([]) (schema.prisma:2109, unchanged) fills the column on create -- the same pre-existing mechanism, unaffected by this delta's guard change. Verified end-to-end by the supplied-vector test asserting both update.embedding and create.embedding equal the input vector.",
-    "p3_testCoverageNonTautological": "CONFIRMED. Only @sangfor/db is mocked; the real upsertDomainMemory runs and its actual prisma.domainMemory.upsert call argument (both update and create sub-objects) is captured and asserted -- exact-value equality for the real-vector case, hard key-absence for the omitted/empty cases. Exercises the real conditional-spread logic, not a stub's canned output.",
-    "p4_noOtherTruthyArrayGuardRemains": "CONFIRMED. Full-file search of domain-memory.ts found exactly one conditional-spread of this shape (now fixed for embedding); the only other optional-array field, tags, uses ?? [] (nullish coalescing to a legitimate default), a different and correct pattern, not the same bug."
-  },
   "blockers": [],
-  "resolvedLedger": [
-    {
-      "genFiledIn": 2,
-      "title": "New doc comment's 'empty array is also ignored' claim did not match the truthy-[] guard",
-      "status": "RESOLVED at the code level (not just documentation)",
-      "evidence": [
-        "domain-memory.ts:181 -- guard changed from `input.embedding ? {...} : {}` to `input.embedding && input.embedding.length > 0 ? {...} : {}`",
-        "domain-memory.ts:167 -- doc comment updated to match: '생략하거나 빈 배열이면 기존 벡터를 유지한다'",
-        "domain-memory.ts:179-180 -- new inline comment explains the JS truthy-[] rationale and cross-references safeEmbed's null-for-empty-vector contract",
-        "domain-memory.embedding.test.ts -- 3 new hermetic tests (supplied vector, omitted, empty vector) directly proving the fixed guard behavior on both update and create payloads; all pass"
+  "verdictSummary": "Test-only delta (42 insertions, 0 deletions, 1 file, no product source touched) that closes both terminal-critic follow-ups. C1: module-scope `vi.stubEnv('OPENAI_API_KEY','')` / `vi.stubEnv('EMBEDDING_BASE_URL','')` now pins domain-proposal.test.ts to the same hash-fallback embedder the sibling domain-agent-runtime.test.ts already uses, closing a real gap -- 2 of the file's tests (the ones not injecting `deps.embed`) previously called `resolveEmbedder()` for real and would have issued a live OpenAI HTTP request on any machine with OPENAI_API_KEY set. C2: the new 'zero-tag-overlap, embedding-identical' test is a genuine, non-tautological proof that the semantic term alone -- not tag overlap -- surfaces the record. Focused re-run: 7 passed / 1 skipped, matching the reported gate output; did not re-run project-wide gates per instructions.",
+  "evidence": {
+    "c1_envPinEffectiveness": {
+      "status": "CONFIRMED",
+      "reasoning": "resolveEmbedder() (domain-embedder-openai.ts:67-72) is invoked at CALL time inside generateDomainProposal (domain-proposal.ts:146, `deps?.embed ?? resolveEmbedder()`), not at module load -- every test in the file re-triggers env resolution on each generateDomainProposal invocation. embeddingEndpoint() reads `process.env.EMBEDDING_BASE_URL` directly (domain-embedder-openai.ts:55) and getOpenAiApiKey()->resolveLlmConfig('openai') reads `process.env.OPENAI_API_KEY` directly (platform/llm/config.ts:18), both live reads with no module-level caching. vi.stubEnv mutates process.env itself (not the module registry), so vitest's per-file module isolation does not weaken the pin -- it operates below the isolation boundary and is set at the test file's top level (lines 7-8), before any test body executes, and is never unstubbed within the file, so it remains in effect for all 8 test cases including the 2 that call generateDomainProposal without an explicit `embed` override (the 'returns proposal from mock callLLM' and 'propagates callLLM error' tests) -- these previously had no env protection and would resolve a real OpenAI embedder on a machine with OPENAI_API_KEY set. With both vars pinned to empty string, embeddingEndpoint() returns null (line 56, `!baseUrl` true) and getOpenAiApiKey() returns undefined (empty string trimmed is falsy), so resolveEmbedder() falls through to createHashEmbedder(256) (domain-embedder-openai.ts:71) -- a pure local function, zero network I/O.",
+      "citations": [
+        "domain-proposal.test.ts:7-8 -- vi.stubEnv('OPENAI_API_KEY',''); vi.stubEnv('EMBEDDING_BASE_URL','')",
+        "domain-agent-runtime.test.ts:14-15 -- identical sibling pin, confirming pattern match",
+        "domain-proposal.ts:146 -- `deps?.embed ?? resolveEmbedder()` call-time resolution",
+        "domain-embedder-openai.ts:55-56,67-71 -- embeddingEndpoint()/resolveEmbedder() read process.env live, fall back to createHashEmbedder when both env vars are empty",
+        "platform/llm/config.ts:18 -- `process.env.OPENAI_API_KEY || \"\"` read at call time, no caching"
       ]
     },
+    "c2_semanticProofNonTautological": {
+      "status": "CONFIRMED",
+      "reasoning": "The injected candidate has `tags: []` (domain-proposal.test.ts:143) against a non-empty queryTags built by buildMemoryTags({domain:'sales', entityType:'proposal'}) (domain-proposal.ts:144). scoreDomainMemory (domain-memory.ts:86-99) computes `overlap = record.tags.filter(t => queryTags.has(t)).length` -- filtering an empty array always yields overlap=0, so `if (overlap === 0) return 0` fires at line 93: tagScore is exactly 0 for this record, not just low. hybridScore (domain-embedding.ts:56-79) then requires hasEmbedding (true: both queryEmbedding=[1,0,0] from the injected `embed: async () => [1,0,0]` and record.embedding=[1,0,0] are non-empty, same length 3 -- no dim-mismatch early return), passes the domain/status/negative-outcome gates (sales/sales, active, approved-not-negative), computes cosineSimilarity([1,0,0],[1,0,0])=1 (identical vectors), and returns `0.7*1 + 0.3*0 = 0.7` using the default embeddingWeight -- a score strictly attributable to the embedding term since the tag term's coefficient is multiplied by 0. recallHybrid's `score > 0` filter (domain-embedding.ts:97) admits the record purely on that 0.7, and its label is mapped into buildDomainPrompt's memoriesSection, matching the test's assertion `seen.join('\\n')).toContain('유사 딜 메모: 방화벽 갱신 할인 구조')`. This is a real, code-traced admission via the embedding term alone -- not a tautology (the assertion is on the LLM-call args actually built by production code, not a mocked return value).",
+      "citations": [
+        "domain-proposal.test.ts:134-169 -- new test, tags:[] + embedding:[1,0,0] candidate, embed returns [1,0,0]",
+        "domain-memory.ts:86-99 (scoreDomainMemory) -- overlap=0 on empty record.tags returns 0 at line 93",
+        "domain-embedding.ts:56-79 (hybridScore) -- dim-match branch computes cosine=1, weight=0.7 default, returns 0.7*1+0.3*0=0.7",
+        "domain-embedding.ts:82-104 (recallHybrid) -- score>0 filter admits the 0.7-scored record",
+        "domain-proposal.ts:153-159 -- recalled.map(r=>r.label) fed into buildDomainPrompt's memoriesSection"
+      ]
+    },
+    "c3_noProductCodeChanged": {
+      "status": "CONFIRMED",
+      "reasoning": "git diff 6c07521..7eeb519 --stat shows exactly 1 file changed, 42 insertions(+), 0 deletions(-): packages/business/src/domain-ai/domain-proposal.test.ts. A supplementary `git diff 6c07521..7eeb519 -- . ':!packages/business/src/domain-ai/domain-proposal.test.ts'` (excluding that one file) returned empty output, confirming zero other files -- product or otherwise -- changed in this delta.",
+      "citations": [
+        "git diff 6c07521..7eeb519 --stat -> 1 file changed, 42 insertions(+), 0 deletions(-)",
+        "git diff 6c07521..7eeb519 -- . ':!...domain-proposal.test.ts' -> empty (no other file touched)"
+      ]
+    }
+  },
+  "testRun": "pnpm vitest run src/domain-ai/domain-proposal.test.ts -> 7 passed / 1 skipped (the skipped case is the CI_INTEGRATION-gated real-DB integration describe block, correctly skipped without CI_INTEGRATION=1), 602ms. Matches the assignment's reported gate output (typecheck exit 0, lint exit 0, business vitest 146 files / 1025 passed / 0 failed, domain-proposal.test.ts 7 passed / 1 skipped). Did not re-run project-wide gates per instructions.",
+  "commands": [
+    "git rev-parse HEAD (== 7eeb519270bb9a280e505bf00340fda7e8a06e45)",
+    "git diff 6c07521..7eeb519 --stat (1 file, 42 insertions, 0 deletions)",
+    "read packages/business/src/domain-ai/domain-proposal.test.ts:1-205 (full file, post-delta)",
+    "read packages/business/src/domain-ai/domain-proposal.ts:1-163 (generateDomainProposal recall wiring, embed resolution call site)",
+    "search vi.stubEnv/OPENAI_API_KEY/EMBEDDING_BASE_URL in domain-agent-runtime.test.ts (sibling pin pattern comparison)",
+    "read packages/business/src/domain-ai/domain-embedder-openai.ts:1-79 (resolveEmbedder/embeddingEndpoint/createOpenAiEmbedder env-read call sites)",
+    "read packages/business/src/domain-ai/domain-embedding.ts:1-130 (hybridScore/recallHybrid/safeEmbed)",
+    "read packages/business/src/domain-ai/domain-memory.ts:86-100 (scoreDomainMemory overlap=0 short-circuit)",
+    "read packages/business/src/platform/openai-config.ts:1-48 and platform/llm/config.ts (getOpenAiApiKey -> resolveLlmConfig live process.env read, no caching)",
+    "pnpm vitest run src/domain-ai/domain-proposal.test.ts -> 7 passed / 1 skipped, 602ms",
+    "git diff 6c07521..7eeb519 -- . ':!...domain-proposal.test.ts' -> empty, confirming no other file in the delta"
+  ],
+  "resolvedLedger": [
     {
-      "genFiledIn": 1,
+      "genFiledIn": "terminal-critic (pre-gen-4)",
+      "title": "C1: domain-proposal.test.ts lacked the module-scope OPENAI_API_KEY/EMBEDDING_BASE_URL env pin present in the sibling domain-agent-runtime.test.ts, risking a real HTTP call on machines with a live key",
+      "status": "RESOLVED",
+      "evidence": ["domain-proposal.test.ts:5-8 -- pin added, matching the sibling pattern verbatim"]
+    },
+    {
+      "genFiledIn": "terminal-critic (pre-gen-4)",
+      "title": "C2: no test proved the embedding term alone (independent of tag overlap) could admit a candidate into recall",
+      "status": "RESOLVED",
+      "evidence": ["domain-proposal.test.ts:134-169 -- new zero-tag-overlap/identical-embedding test, traced end to end through scoreDomainMemory (tagScore=0) and hybridScore (0.7*cosine(1)+0.3*0=0.7) to recallHybrid's score>0 admission"]
+    },
+    {
+      "genFiledIn": 3,
+      "title": "New doc comment's 'empty array is also ignored' claim did not match the truthy-[] guard",
+      "status": "RESOLVED at the code level (carried forward, unaffected by this delta)"
+    },
+    {
+      "genFiledIn": 2,
       "title": "recordHumanDecision embedder injection + write-path test gap",
-      "status": "RESOLVED (carried forward from gen 2, unaffected by this delta)"
+      "status": "RESOLVED (carried forward, unaffected by this delta)"
     },
     {
       "genFiledIn": 1,
       "title": "No timeout/AbortSignal on the embedding HTTP call",
-      "status": "RESOLVED (carried forward from gen 2, unaffected by this delta; domain-embedder-openai.ts is untouched in a4d52ef..5dc221d)"
+      "status": "RESOLVED (carried forward, unaffected by this delta)"
     }
   ],
   "findings": [],
-  "crossLaneObservations": [
-    {
-      "note": "The QA lane's new packages/business/src/domain-ai/__qa__/g001-red-team-gen2-timeout.test.ts documents an asymmetry in the gen-2 timeout fix: an explicit timeoutMs=0 is honored verbatim (no floor), unlike the EMBEDDING_TIMEOUT_MS env-fallback path which floors non-positive values to the 10s default (test at __qa__/g001-red-team-gen2-timeout.test.ts:135-145, self-labeled '[finding] ... non-blocking ... no production caller passes timeoutMs today'). This concerns domain-embedder-openai.ts, which is NOT part of this generation's delta (a4d52ef..5dc221d touches only domain-memory.ts and the two test files listed in deltaPaths) and was already reviewed CLEAR/RESOLVED in generation 2. Noted for completeness only; it does not affect this generation's architectureStatus/productStatus/codeStatus verdict since the relevant file was not touched in this delta."
-    }
-  ],
   "changed_files": [],
   "decisions": [
-    "Read-only lane: no product or test files modified. Scoped the verdict strictly to the 2 files named in the assignment (domain-memory.ts, domain-memory.embedding.test.ts); noted but did not deep-review the 2 QA-lane-only __qa__ test files since they are red-team QA's own artifacts targeting the already-resolved gen-2 timeout fix, not new product source.",
-    "Verdict calibration: architecture, product, and code all CLEAR because the sole gen-2 blocker is verified fixed at the code level across all four requested verification angles (semantics match, create branch intact, tests non-tautological, no duplicate guard bug), with passing hermetic tests as evidence. No new findings originate from this delta's actual file changes.",
-    "Recommendation APPROVE with an empty blockers array, per the assignment's 'if everything is genuinely clean' instruction -- this is not a rubber stamp: each of the 4 requested verification points was independently checked against the code (guard logic, Prisma default behavior, test assertion targets, and a full-file scan for a second occurrence of the same bug shape).",
-    "Overwrote artifacts/g001-architect-review.json with the gen-3 shape (reviewGeneration:3, deltaOnly:true, new sourceHash/priorGenerationSourceHash, deltaPaths) and an updated resolvedLedger carrying all prior-generation closures forward."
+    "Read-only lane: no files modified except overwriting artifacts/g001-architect-review.json with the gen-4 shape.",
+    "Verified all three critic-facing claims (env pin effectiveness given call-time env resolution and vitest's process-global process.env scope, tagScore=0/embeddingWeight=0.7 arithmetic for the new semantic test, and single-file no-product-code-touched delta) by tracing the actual production code paths rather than trusting the assignment's description alone.",
+    "Verdict: all three statuses CLEAR, recommendation APPROVE, empty blockers array -- this is the final generation and both terminal-critic follow-ups (C1, C2) are genuinely and fully resolved with no new findings surfacing from the delta's actual content.",
+    "Full resolvedLedger carried forward across all 4 generations plus the terminal-critic items for a complete audit trail."
   ],
   "verification": [
-    "git rev-parse HEAD == 5dc221d8521cc1b9418d258f2837f2d6bc7bab5c",
-    "git diff a4d52ef..5dc221d for the 2 in-scope files read in full",
-    "pnpm vitest run on the 3 directly relevant test files -> 29 passed, 0 failed, 1.05s; did not re-run project-wide gates per instructions (leader already reported typecheck 0 errors, lint 0 errors, business vitest 146 files / 1024 passed / 0 failed at this snapshot)",
-    "full-file search of domain-memory.ts confirmed no second occurrence of the truthy-array-guard bug pattern",
-    "artifacts/g001-architect-review.json written and overwritten with the gen-3 verdict"
+    "git rev-parse HEAD == 7eeb519270bb9a280e505bf00340fda7e8a06e45",
+    "git diff 6c07521..7eeb519 --stat and full diff read for the single touched file",
+    "confirmed via a second scoped diff (excluding the test file) that no other file, product or otherwise, changed in this delta",
+    "pnpm vitest run src/domain-ai/domain-proposal.test.ts -> 7 passed / 1 skipped, 602ms, matching reported gate output",
+    "did not re-run project-wide typecheck/lint/full vitest suite per instructions",
+    "artifacts/g001-architect-review.json overwritten with the gen-4 shape and validated as parseable JSON"
   ]
 }
