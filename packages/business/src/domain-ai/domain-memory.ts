@@ -164,7 +164,7 @@ export async function upsertDomainMemory(input: {
   source?: string;
   confidence?: number;
   status?: string;
-  /** 생략하면 기존 벡터 유지(위 주석 참고). 빈 배열을 넘겨도 무시된다. */
+  /** 생략하거나 빈 배열이면 기존 벡터를 유지한다(위 주석 참고). */
   embedding?: number[];
 }) {
   const projectId = await resolveDomainProjectId(input.projectSlug);
@@ -176,7 +176,9 @@ export async function upsertDomainMemory(input: {
     source: input.source ?? "agent",
     confidence: input.confidence ?? 80,
     status: input.status ?? "active",
-    ...(input.embedding ? { embedding: input.embedding } : {}),
+    // `[]` 는 JS 에서 truthy 라 length 로 걸러야 한다 — 빈 벡터를 그대로 쓰면
+    // 이미 쌓인 임베딩이 지워진다. safeEmbed 도 빈 벡터를 "임베딩 없음"으로 취급한다.
+    ...(input.embedding && input.embedding.length > 0 ? { embedding: input.embedding } : {}),
   };
   return prisma.domainMemory.upsert({
     where: {

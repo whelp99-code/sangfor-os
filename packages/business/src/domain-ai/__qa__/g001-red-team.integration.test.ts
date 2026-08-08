@@ -307,4 +307,51 @@ describe.skipIf(!integration)("G001 red-team integration (real Postgres)", () =>
     // best-effort embedding was actually computed + stored (hash → 256 dims)
     expect(mem!.embedding.length).toBe(256);
   });
+
+  it("gen2 injection point: recordHumanDecision with a throwing deps.embed still records the decision and writes memory WITHOUT an embedding", async () => {
+    const engId = `${RUN}-hd-inject-fail`;
+    const failing = async (): Promise<number[]> => {
+      throw new Error("embedder down (red-team gen2 injection)");
+    };
+    const { decisionId } = await recordHumanDecision(
+      {
+        engagementId: engId,
+        domain: "sales",
+        outcome: "approved",
+        output: { proposalText: "gen2 injection failure probe" },
+        note: `red-team gen2 ${RUN}`,
+      },
+      { embed: failing },
+    );
+    expect(decisionId).toBeTruthy(); // write is never blocked by embedder failure
+
+    const memKey = `eng:${engId}:sales`;
+    const mem = await prisma.domainMemory.findFirst({ where: { key: memKey } });
+    expect(mem).not.toBeNull();
+    expect(mem!.source).toBe("human");
+    expect(mem!.embedding.length).toBe(0); // embedding column untouched (create default [])
+  });
+
+  it("gen2 injection point: recordHumanDecision with a WORKING deps.embed stores that exact vector (not resolveEmbedder()'s default)", async () => {
+    const engId = `${RUN}-hd-inject-ok`;
+    // distinct dimension (33) from the environment's default hash (256) — proves the
+    // injected embedder, not resolveEmbedder(), produced the stored vector.
+    const injected = createHashEmbedder(33);
+    const { decisionId } = await recordHumanDecision(
+      {
+        engagementId: engId,
+        domain: "sales",
+        outcome: "approved",
+        output: { proposalText: "gen2 injection success probe" },
+        note: `red-team gen2 ${RUN}`,
+      },
+      { embed: injected },
+    );
+    expect(decisionId).toBeTruthy();
+
+    const memKey = `eng:${engId}:sales`;
+    const mem = await prisma.domainMemory.findFirst({ where: { key: memKey } });
+    expect(mem).not.toBeNull();
+    expect(mem!.embedding.length).toBe(33); // came from the injected embedder, not the 256-dim default
+  });
 });
