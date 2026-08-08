@@ -12,6 +12,18 @@ export interface OpenAiEmbedderOptions {
   baseUrl?: string;
   apiKey?: string;
   fetchImpl?: typeof fetch;
+  /**
+   * 임베딩 HTTP 호출 마감(ms). 기본 EMBEDDING_TIMEOUT_MS, 없으면 10초.
+   * 멈춘(응답 없는) 엔드포인트가 recall·학습 쓰기를 무한정 붙잡지 못하게 한다 —
+   * 마감 초과는 throw 되고 safeEmbed 가 태그 전용으로 저하시킨다.
+   */
+  timeoutMs?: number;
+}
+
+function embedTimeoutMs(opts: OpenAiEmbedderOptions): number {
+  if (opts.timeoutMs !== undefined) return opts.timeoutMs;
+  const parsed = Number.parseInt(process.env.EMBEDDING_TIMEOUT_MS ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 10_000;
 }
 
 export function createOpenAiEmbedder(opts: OpenAiEmbedderOptions = {}): Embedder {
@@ -25,6 +37,7 @@ export function createOpenAiEmbedder(opts: OpenAiEmbedderOptions = {}): Embedder
       method: "POST",
       headers: { "content-type": "application/json", ...getOpenAiAuthHeaders(apiKey) },
       body: JSON.stringify({ model, input: text }),
+      signal: AbortSignal.timeout(embedTimeoutMs(opts)),
     });
     if (!res.ok) throw new Error(`openai embeddings failed: ${res.status} ${res.statusText}`);
     const json = (await res.json()) as { data?: Array<{ embedding?: number[] }> };
@@ -46,6 +59,7 @@ function embeddingEndpoint(opts: ResolveEmbedderOptions): OpenAiEmbedderOptions 
     model: opts.model ?? process.env.EMBEDDING_MODEL ?? "nomic-embed-text",
     apiKey: opts.apiKey ?? process.env.EMBEDDING_API_KEY ?? "ollama",
     fetchImpl: opts.fetchImpl,
+    timeoutMs: opts.timeoutMs,
   };
 }
 

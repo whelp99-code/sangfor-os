@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createOpenAiEmbedder, resolveEmbedder, describeEmbedder } from "./domain-embedder-openai";
+import { safeEmbed } from "./domain-embedding";
 import { createDefaultDomainGenerator } from "./domain-default-generator";
 
 function mockFetch(handler: (url: string, init: RequestInit) => unknown) {
@@ -22,6 +23,25 @@ describe("real embedding provider", () => {
     expect(await embed("hello")).toEqual([0.1, 0.2, 0.3]);
     expect(body.model).toBe("m");
     expect(body.input).toBe("hello");
+  });
+
+  it("aborts a hanging embedding call at the deadline and degrades to no embedding", async () => {
+    const hanging = vi.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => reject(new Error("aborted by deadline")));
+        }),
+    ) as unknown as typeof fetch;
+    const embed = createOpenAiEmbedder({
+      apiKey: "k",
+      baseUrl: "http://x/v1",
+      fetchImpl: hanging,
+      timeoutMs: 20,
+    });
+
+    await expect(embed("hello")).rejects.toThrow();
+    // 멈춘 엔드포인트는 호출 경로를 붙잡지 않고 태그 전용 저하로 끝난다
+    expect(await safeEmbed(embed, "hello")).toBeNull();
   });
 
   it("resolveEmbedder falls back to hash when no key and no embedding endpoint (offline-usable)", async () => {

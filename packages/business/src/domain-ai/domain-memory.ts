@@ -144,7 +144,14 @@ export async function resolveDomainProjectId(slug?: string) {
   return project.id;
 }
 
-/** 도메인 메모리 1건 갱신/생성 (학습 누적). */
+/**
+ * 도메인 메모리 1건 갱신/생성 (학습 누적).
+ *
+ * `embedding` 생략 시 컬럼을 건드리지 않는다 — create 는 기본값 `[]`, update 는 기존 벡터를
+ * 그대로 둔다. 임베더가 일시적으로 죽어도 이미 쌓인 의미 검색 자산을 지우지 않기 위한
+ * 의도된 best-effort 시맨틱이며, 그 대가로 갱신된 label/tags 와 옛 벡터가 어긋날 수 있다.
+ * (내용이 바뀐 행의 벡터 재정렬은 scripts/backfill-domain-embeddings.ts 담당.)
+ */
 export async function upsertDomainMemory(input: {
   projectSlug?: string;
   domain: GtmDomain;
@@ -157,6 +164,7 @@ export async function upsertDomainMemory(input: {
   source?: string;
   confidence?: number;
   status?: string;
+  /** 생략하면 기존 벡터 유지(위 주석 참고). 빈 배열을 넘겨도 무시된다. */
   embedding?: number[];
 }) {
   const projectId = await resolveDomainProjectId(input.projectSlug);
