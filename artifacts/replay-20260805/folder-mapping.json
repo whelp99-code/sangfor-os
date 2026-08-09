@@ -1,0 +1,101 @@
+{
+  "folders": 44,
+  "engagements": 58,
+  "matched": 12,
+  "matches": [
+    {
+      "folder": "##서버견적모음",
+      "engagementId": "cmsg65pi60031p82cijk0buop",
+      "projectName": "본문이 2027년 예산 반영한 견적 금액 공유와 금액 제안 요청으로 구성됨. '예산', '러프한 금액', '금액 제안 부탁드립니다'는 견적/구매 논의 신호.",
+      "customer": null,
+      "score": 4
+    },
+    {
+      "folder": "202511 - 동국대학교 - VDI",
+      "engagementId": "cmsg68myf0080p8bxzdiuywk6",
+      "projectName": "[넥시아스] 베를로 - 동국대학교 aServer 견적",
+      "customer": null,
+      "score": 4
+    },
+    {
+      "folder": "202601 - GS건설 - WANO, IAG 교체",
+      "engagementId": "cmsg65pmz004lp82cdkm1zs2j",
+      "projectName": "[GSITM] (주)베를로_GS건설 VDI라이선스 공급(1Y) (26년~27년) - 견적 요청의 건",
+      "customer": null,
+      "score": 4
+    },
+    {
+      "folder": "202601 - 일지테크 - Total infra",
+      "engagementId": "cmsg6bvkr008gp8nvxwr2fhty",
+      "projectName": "[넥시아스] 베를로 - 일지테크 라이선스 파일 재발생",
+      "customer": null,
+      "score": 4
+    },
+    {
+      "folder": "202603 - GS건설 DT - VDI 견적",
+      "engagementId": "cmsg66o3b006np85j5zps5bww",
+      "projectName": "본문은 견적서 제출 연장 통보와 기한 내 업로드 요청으로, 견적 제출/구매 진행 맥락의 영업 절차이다. [베를로] GS건설 도입 대상 언급으로 최종 고객 중심의 기회 단계로 보인다.",
+      "customer": null,
+      "score": 10
+    },
+    {
+      "folder": "202603 - 포스코건설 - VDI",
+      "engagementId": "cmsg68mtp006gp8bxy2hto9c7",
+      "projectName": "포스코건설 서버 견적 요청 건에 대한 견적서 회신, 납기 안내, 추가 문의 요청 유도는 영업 진행성 대화",
+      "customer": null,
+      "score": 4
+    },
+    {
+      "folder": "202603 - 효성TNS 인도 - HCI - 일에이엔",
+      "engagementId": "cmsg67ri7005tp88w61zlifri",
+      "projectName": "[넥시아스] 효성ITX - 인카금융서비스 하드웨어 인포파일",
+      "customer": null,
+      "score": 4
+    },
+    {
+      "folder": "202604 - MSE - 일에이엔",
+      "engagementId": "cmsg69x0l004xp8fmotlfceuj",
+      "projectName": "일에이엔",
+      "customer": null,
+      "score": 4
+    },
+    {
+      "folder": "202605 - 일지테크 2공장 (CPQ) - Total infra",
+      "engagementId": "cmsg6bvkr008gp8nvxwr2fhty",
+      "projectName": "[넥시아스] 베를로 - 일지테크 라이선스 파일 재발생",
+      "customer": null,
+      "score": 4
+    },
+    {
+      "folder": "20260618 - 덕산홀딩스 - aSV Ent - 일에이엔",
+      "engagementId": "cmsg69x0l004xp8fmotlfceuj",
+      "projectName": "일에이엔",
+      "customer": null,
+      "score": 4
+    },
+    {
+      "folder": "20260706 - 게임조선 - HCI3노드",
+      "engagementId": "cmsg6bvg4006wp8nvnvllsowm",
+      "projectName": "[넥시아스] 베를로 - 디지틀조선일보 Sangfor HCI Renewal 견적 & 게임조선 Renewal 발주",
+      "customer": null,
+      "score": 4
+    },
+    {
+      "folder": "20260706 - 아이센스 - aSV Ent - 일에이엔",
+      "engagementId": "cmsg69x0l004xp8fmotlfceuj",
+      "projectName": "일에이엔",
+      "customer": null,
+      "score": 4
+    }
+  ],
+  "unmatchedFolders": [
+    "202603 - 선진엔지니어링 - HCI",
+    "20260327 - 서울도시가스 - HCI",
+    "202604 - KTIS - aSV Ent",
+    "202605 - 미래에셋자산운영 - aSV Ent",
+    "202605 - 범한 - HCI,DR",
+    "202605 - 이레IDS - VDI",
+    "20260611 - 성우하이텍 - HCI,hDR",
+    "20260722 - 넥스이노 "
+  ]
+}

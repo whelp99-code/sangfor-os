@@ -830,12 +830,12 @@ export type PolicyClassifyResult = ReturnType<typeof classifyMailInsightThread>;
 /**
  * Pure function: combine policy classification result with an AI result.
  *
- * Rules:
- * - null aiResult → return policyResult unchanged (+ aiClassification: null)
- * - category 'vendor' or 'exclude' → drop all candidates; move them to excluded
- * - category 'customer' or 'partner' with confidence ≥ 70 → correct any policy
- *   customer/partner candidate whose type differs, updating title prefix too
- * - all other categories → blend confidence (30% policy, 70% AI)
+ * AI-first hybrid:
+ * - null aiResult → policy only
+ * - AI vendor/exclude (any confidence) → drop candidates (rules may still exclude earlier)
+ * - AI customer/partner conf≥70 → correct type/title; confidence 15% policy + 85% AI
+ * - AI opportunity/poc/task conf≥65 with empty policy candidates → synthesize one AI candidate
+ * - otherwise blend confidence AI-heavy (15/85) and keep policy structure
  */
 export function combineHybridClassification(
   policyResult: PolicyClassifyResult,
@@ -845,18 +845,31 @@ export function combineHybridClassification(
     return { ...policyResult, aiClassification: null };
   }
 
-  // vendor or exclude: this thread must NOT produce customer/partner candidates
-  if (aiResult.category === 'vendor' || aiResult.category === 'exclude') {
-    const movedToExcluded: PolicyDecision[] = policyResult.candidates.map(c => ({
+  if (aiResult.category === "vendor" || aiResult.category === "exclude") {
+    const movedToExcluded: PolicyDecision[] = policyResult.candidates.map((c) => ({
       decision: "exclude" as const,
       entityRole: "unknown" as const,
-      reason: aiResult.category === 'vendor'
-        ? `AI classified as vendor (SaaS/tool we use): ${aiResult.reasoning}`
-        : `AI classified as exclude: ${aiResult.reasoning}`,
+      reason:
+        aiResult.category === "vendor"
+          ? `AI classified as vendor (SaaS/tool we use): ${aiResult.reasoning}`
+          : `AI classified as exclude: ${aiResult.reasoning}`,
       candidateName: c.title,
       matchedPolicyMemories: [],
       participantDomains: (c.policyDecision as PolicyDecision | undefined)?.participantDomains ?? [],
     }));
+    if (movedToExcluded.length === 0) {
+      movedToExcluded.push({
+        decision: "exclude",
+        entityRole: "unknown",
+        reason:
+          aiResult.category === "vendor"
+            ? `AI classified thread as vendor: ${aiResult.reasoning}`
+            : `AI classified thread as exclude: ${aiResult.reasoning}`,
+        candidateName: undefined,
+        matchedPolicyMemories: [],
+        participantDomains: [],
+      });
+    }
     return {
       candidates: [],
       excluded: [...policyResult.excluded, ...movedToExcluded],
@@ -864,38 +877,89 @@ export function combineHybridClassification(
     };
   }
 
-  // customer/partner correction: when AI is confident, correct mismatched types
+  const blend = (policyConf: number) =>
+    Math.min(100, Math.round(policyConf * 0.15 + aiResult.confidence * 0.85));
+
   const shouldCorrectType =
-    (aiResult.category === 'customer' || aiResult.category === 'partner') &&
+    (aiResult.category === "customer" || aiResult.category === "partner") &&
     aiResult.confidence >= 70;
 
-  const hybridCandidates = policyResult.candidates.map(c => {
+  type HybridCandidate = (typeof policyResult.candidates)[number] & {
+    aiClassification?: AiClassificationResult;
+    confidenceBreakdown?: Record<string, number>;
+  };
+  let hybridCandidates: HybridCandidate[] = policyResult.candidates.map((c) => {
     let candidateType = c.candidateType;
     let title = c.title;
 
     if (
       shouldCorrectType &&
-      (c.candidateType === 'customer' || c.candidateType === 'partner') &&
+      (c.candidateType === "customer" || c.candidateType === "partner") &&
       c.candidateType !== aiResult.category
     ) {
-      candidateType = aiResult.category as 'customer' | 'partner';
-      // Replace "Customer: " / "Partner: " prefix
-      const nameWithoutPrefix = c.title.replace(/^(Customer|Partner):\s*/i, '');
-      title = `${candidateType === 'customer' ? 'Customer' : 'Partner'}: ${nameWithoutPrefix}`;
+      candidateType = aiResult.category as "customer" | "partner";
+      const nameWithoutPrefix = c.title.replace(/^(Customer|Partner):\s*/i, "");
+      title = `${candidateType === "customer" ? "Customer" : "Partner"}: ${nameWithoutPrefix}`;
+    }
+
+    // AI project categories can retarget weak entity candidates when confident.
+    if (
+      (aiResult.category === "opportunity" || aiResult.category === "poc" || aiResult.category === "task") &&
+      aiResult.confidence >= 70 &&
+      (c.candidateType === "customer" || c.candidateType === "partner")
+    ) {
+      candidateType = aiResult.category;
+      title = `${aiResult.category === "opportunity" ? "Opportunity" : aiResult.category === "poc" ? "PoC" : "Task"}: ${c.title.replace(/^(Customer|Partner|Opportunity|PoC|Task):\s*/i, "")}`;
     }
 
     return {
       ...c,
       candidateType,
       title,
-      confidence: Math.min(100, Math.round((c.confidence * 0.3) + (aiResult.confidence * 0.7))),
+      confidence: blend(c.confidence),
       aiClassification: aiResult,
       confidenceBreakdown: {
         ...c.confidenceBreakdown,
         aiClassification: aiResult.confidence,
+        policyWeight: 15,
+        aiWeight: 85,
       },
     };
   });
+
+  if (
+    hybridCandidates.length === 0 &&
+    (aiResult.category === "opportunity" ||
+      aiResult.category === "poc" ||
+      aiResult.category === "task" ||
+      aiResult.category === "customer" ||
+      aiResult.category === "partner") &&
+    aiResult.confidence >= 65
+  ) {
+    const label =
+      aiResult.category === "customer"
+        ? "Customer"
+        : aiResult.category === "partner"
+          ? "Partner"
+          : aiResult.category === "opportunity"
+            ? "Opportunity"
+            : aiResult.category === "poc"
+              ? "PoC"
+              : "Task";
+    hybridCandidates = [{
+      candidateType: aiResult.category as "customer" | "partner" | "opportunity" | "poc" | "task",
+      title: `${label}: ${aiResult.reasoning.slice(0, 120)}`,
+      summary: aiResult.reasoning,
+      confidence: Math.min(95, Math.max(55, aiResult.confidence)),
+      matchedKeywords: ["ai-first"],
+      evidenceItems: [aiResult.reasoning],
+      nextActions: [],
+      sourceMessageIds: [],
+      mailIntelligence: { aiFirst: true, urgency: aiResult.urgency, sentiment: aiResult.sentiment },
+      confidenceBreakdown: { aiClassification: aiResult.confidence, policyWeight: 0, aiWeight: 100 },
+      aiClassification: aiResult,
+    }];
+  }
 
   return {
     candidates: hybridCandidates,
