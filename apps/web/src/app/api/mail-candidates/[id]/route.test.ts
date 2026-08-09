@@ -125,7 +125,7 @@ describe("GET/PATCH /api/mail-candidates/[id]", () => {
     });
   });
 
-  it("delegates revalidation with the same strict CAS/idempotency contract", async () => {
+  it("delegates non-forced revalidation with the same strict CAS/idempotency contract", async () => {
     const response = await PATCH(
       request({
         action: "revalidate",
@@ -138,6 +138,25 @@ describe("GET/PATCH /api/mail-candidates/[id]", () => {
     expect(mocks.revalidate).toHaveBeenCalledWith(SALES, "candidate-1", {
       expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
       idempotencyKey: "mail-candidate-command-1",
+      force: false,
+    });
+  });
+
+  it("delegates forced revalidation", async () => {
+    const response = await PATCH(
+      request({
+        action: "revalidate",
+        expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+        force: true,
+      }),
+      params(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.revalidate).toHaveBeenCalledWith(SALES, "candidate-1", {
+      expectedUpdatedAt: "2026-07-24T00:00:00.000Z",
+      idempotencyKey: "mail-candidate-command-1",
+      force: true,
     });
   });
 
