@@ -4,7 +4,7 @@
 
 ## Population input
 
-The population file is the frozen declaration of **all** AI rejects in one cycle. `schemaVersion` is exactly `mail-ai-reject-gate/v1`; `scope` is exactly `all_ai_rejects`; and `frozen` is exactly `true`. The immutable cycle metadata has a non-empty `cycleId` and `model`, at least one of `promptConfigId` or a 64-character hexadecimal `promptConfigHash`, and RFC3339-with-timezone `startedAt`/`endedAt` values (start no later than end).
+The population file is the frozen declaration of **all** AI rejects in one cycle. `schemaVersion` is exactly `mail-ai-reject-gate/v1`; `scope` is exactly `all_ai_rejects`; and `frozen` is exactly `true`. The immutable cycle metadata has a non-empty `cycleId` and `model`, at least one of `promptConfigId` or a 64-character hexadecimal `promptConfigHash`, and strict RFC3339-with-timezone `startedAt`/`endedAt` values (start no later than end). The validator independently checks the calendar date, clock fields, and timezone offset before parsing: it rejects rollover values such as month `13`, April `31`, a non-leap-year February `29`, `24:00:00`, and `+00:60`.
 
 ```json
 {
@@ -30,6 +30,10 @@ The population file is the frozen declaration of **all** AI rejects in one cycle
 ```
 
 Every candidate ID must be unique. Every row must have the exact AI decision `aiDecision: "reject"` (a manual or database status of `rejected` is not accepted), and `candidateType` is one of `task`, `opportunity`, or `poc`. There is no sample-size cap: the declared frozen population is a full census even when it contains more than 200 candidates. `evidenceRef` is opaque; the validator neither parses nor dereferences it.
+
+## Input resource bounds
+
+Each explicit input file is read as a bounded stream, with a maximum of **4 MiB (4,194,304 bytes)** and a **5-second** read deadline. The limit applies separately to the population and reviews files; the CLI still evaluates every row in an accepted, declared population rather than sampling it. A file exceeding either bound, a read timeout, an unreadable file, or malformed JSON produces the same single `INVALID` receipt and exit code `64` as other invalid input. Operators must retain a complete frozen manifest that fits this documented input contract; this local file check does not establish authenticated source completeness or a real production Gate 2 PASS.
 
 ### External source-origin prerequisite
 

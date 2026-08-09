@@ -475,6 +475,17 @@ describe("combineHybridClassification", () => {
     expect(combined.candidates.some(c => c.candidateType === "customer" && c.title.startsWith("Customer:"))).toBe(false);
   });
 
+  it("corrects a customer candidate to partner when AI confidence is above the 70 boundary", () => {
+    const policyResult = makeCustomerPolicyResult();
+    const customerCandidates = policyResult.candidates.filter(c => c.candidateType === "customer");
+
+    const combined = combineHybridClassification(policyResult, makeAiResult("partner", 71));
+    const corrected = combined.candidates.filter(c => c.candidateType === "partner" && c.title.startsWith("Partner:"));
+
+    expect(corrected.length).toBeGreaterThanOrEqual(customerCandidates.length);
+    expect(combined.candidates.some(c => c.candidateType === "customer" && c.title.startsWith("Customer:"))).toBe(false);
+  });
+
   it("does NOT correct customer→partner when AI confidence is below 70", () => {
     const policyResult = makeCustomerPolicyResult();
     const combined = combineHybridClassification(policyResult, makeAiResult("partner", 69));

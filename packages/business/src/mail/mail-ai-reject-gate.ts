@@ -62,7 +62,7 @@ export interface MailAiRejectGateReceipt {
 
 const CANDIDATE_TYPES = new Set<CandidateType>(["task", "opportunity", "poc"]);
 const LABELS = new Set<ReviewLabel>(["actual_opportunity", "not_opportunity", "insufficient_evidence"]);
-const RFC3339_WITH_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const RFC3339_WITH_OFFSET = /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})(?:\.\d+)?(?<timezone>Z|(?<offsetSign>[+-])(?<offsetHour>\d{2}):(?<offsetMinute>\d{2}))$/;
 const SHA256_HEX = /^[a-fA-F0-9]{64}$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -73,8 +73,38 @@ function nonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function daysInMonth(year: number, month: number): number {
+  if (month === 2) {
+    return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28;
+  }
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+}
+
+/**
+ * Validates every RFC3339 calendar and timezone component before Date.parse.
+ * Date.parse normalizes some impossible dates, which must never make gate input valid.
+ */
 function validTimestamp(value: unknown): value is string {
-  return nonEmptyString(value) && RFC3339_WITH_OFFSET.test(value) && !Number.isNaN(Date.parse(value));
+  if (!nonEmptyString(value)) return false;
+  const match = RFC3339_WITH_OFFSET.exec(value);
+  if (!match?.groups) return false;
+
+  const year = Number(match.groups.year);
+  const month = Number(match.groups.month);
+  const day = Number(match.groups.day);
+  const hour = Number(match.groups.hour);
+  const minute = Number(match.groups.minute);
+  const second = Number(match.groups.second);
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) return false;
+  if (hour > 23 || minute > 59 || second > 59) return false;
+
+  if (match.groups.timezone !== "Z") {
+    const offsetHour = Number(match.groups.offsetHour);
+    const offsetMinute = Number(match.groups.offsetMinute);
+    if (offsetHour > 23 || offsetMinute > 59) return false;
+  }
+
+  return !Number.isNaN(Date.parse(value));
 }
 
 function issue(code: string, detail: string, candidateId?: string): GateIssue {
