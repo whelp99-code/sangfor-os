@@ -3,7 +3,7 @@
  * 임베딩이 비어있는 행만 대상으로, label+tags+summary 로 임베딩을 계산해 저장.
  *
  * 실행: npx tsx packages/business/scripts/backfill-domain-embeddings.ts
- * 운영 임베딩으로 바꾸려면 createHashEmbedder 대신 실제 Embedder 를 주입.
+ * 임베더는 resolveEmbedder() 가 자동 해석: EMBEDDING_BASE_URL 엔드포인트 → OPENAI_API_KEY → 로컬 해시 폴백.
  */
 import { prisma } from "@sangfor/db";
 import { embeddingTextFor } from "../src/domain-ai/domain-embedder";

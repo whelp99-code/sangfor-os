@@ -1,0 +1,107 @@
+{
+  "reviewGeneration": 4,
+  "deltaOnly": true,
+  "sourceHash": "sha256:c405a63cc3888ae2eda84df2d53f1b19d1255bf594169b5d530815252b842ef6",
+  "priorGenerationSourceHash": "sha256:2995e2dc70c3f3fcd21769e544c706b63175c32f63efd910e64089dbeed95b10",
+  "changeSet": "6c07521..7eeb519 delta review (final generation, test-only delta); HEAD verified 7eeb519270bb9a280e505bf00340fda7e8a06e45 on whelp99-code/daggertooth",
+  "deltaPaths": [
+    "packages/business/src/domain-ai/domain-proposal.test.ts"
+  ],
+  "architectureStatus": "CLEAR",
+  "productStatus": "CLEAR",
+  "codeStatus": "CLEAR",
+  "recommendation": "APPROVE",
+  "blockers": [],
+  "verdictSummary": "Test-only delta (42 insertions, 0 deletions, 1 file, no product source touched) that closes both terminal-critic follow-ups. C1: module-scope `vi.stubEnv('OPENAI_API_KEY','')` / `vi.stubEnv('EMBEDDING_BASE_URL','')` now pins domain-proposal.test.ts to the same hash-fallback embedder the sibling domain-agent-runtime.test.ts already uses, closing a real gap -- 2 of the file's tests (the ones not injecting `deps.embed`) previously called `resolveEmbedder()` for real and would have issued a live OpenAI HTTP request on any machine with OPENAI_API_KEY set. C2: the new 'zero-tag-overlap, embedding-identical' test is a genuine, non-tautological proof that the semantic term alone -- not tag overlap -- surfaces the record. Focused re-run: 7 passed / 1 skipped, matching the reported gate output; did not re-run project-wide gates per instructions.",
+  "evidence": {
+    "c1_envPinEffectiveness": {
+      "status": "CONFIRMED",
+      "reasoning": "resolveEmbedder() (domain-embedder-openai.ts:67-72) is invoked at CALL time inside generateDomainProposal (domain-proposal.ts:146, `deps?.embed ?? resolveEmbedder()`), not at module load -- every test in the file re-triggers env resolution on each generateDomainProposal invocation. embeddingEndpoint() reads `process.env.EMBEDDING_BASE_URL` directly (domain-embedder-openai.ts:55) and getOpenAiApiKey()->resolveLlmConfig('openai') reads `process.env.OPENAI_API_KEY` directly (platform/llm/config.ts:18), both live reads with no module-level caching. vi.stubEnv mutates process.env itself (not the module registry), so vitest's per-file module isolation does not weaken the pin -- it operates below the isolation boundary and is set at the test file's top level (lines 7-8), before any test body executes, and is never unstubbed within the file, so it remains in effect for all 8 test cases including the 2 that call generateDomainProposal without an explicit `embed` override (the 'returns proposal from mock callLLM' and 'propagates callLLM error' tests) -- these previously had no env protection and would resolve a real OpenAI embedder on a machine with OPENAI_API_KEY set. With both vars pinned to empty string, embeddingEndpoint() returns null (line 56, `!baseUrl` true) and getOpenAiApiKey() returns undefined (empty string trimmed is falsy), so resolveEmbedder() falls through to createHashEmbedder(256) (domain-embedder-openai.ts:71) -- a pure local function, zero network I/O.",
+      "citations": [
+        "domain-proposal.test.ts:7-8 -- vi.stubEnv('OPENAI_API_KEY',''); vi.stubEnv('EMBEDDING_BASE_URL','')",
+        "domain-agent-runtime.test.ts:14-15 -- identical sibling pin, confirming pattern match",
+        "domain-proposal.ts:146 -- `deps?.embed ?? resolveEmbedder()` call-time resolution",
+        "domain-embedder-openai.ts:55-56,67-71 -- embeddingEndpoint()/resolveEmbedder() read process.env live, fall back to createHashEmbedder when both env vars are empty",
+        "platform/llm/config.ts:18 -- `process.env.OPENAI_API_KEY || \"\"` read at call time, no caching"
+      ]
+    },
+    "c2_semanticProofNonTautological": {
+      "status": "CONFIRMED",
+      "reasoning": "The injected candidate has `tags: []` (domain-proposal.test.ts:143) against a non-empty queryTags built by buildMemoryTags({domain:'sales', entityType:'proposal'}) (domain-proposal.ts:144). scoreDomainMemory (domain-memory.ts:86-99) computes `overlap = record.tags.filter(t => queryTags.has(t)).length` -- filtering an empty array always yields overlap=0, so `if (overlap === 0) return 0` fires at line 93: tagScore is exactly 0 for this record, not just low. hybridScore (domain-embedding.ts:56-79) then requires hasEmbedding (true: both queryEmbedding=[1,0,0] from the injected `embed: async () => [1,0,0]` and record.embedding=[1,0,0] are non-empty, same length 3 -- no dim-mismatch early return), passes the domain/status/negative-outcome gates (sales/sales, active, approved-not-negative), computes cosineSimilarity([1,0,0],[1,0,0])=1 (identical vectors), and returns `0.7*1 + 0.3*0 = 0.7` using the default embeddingWeight -- a score strictly attributable to the embedding term since the tag term's coefficient is multiplied by 0. recallHybrid's `score > 0` filter (domain-embedding.ts:97) admits the record purely on that 0.7, and its label is mapped into buildDomainPrompt's memoriesSection, matching the test's assertion `seen.join('\\n')).toContain('유사 딜 메모: 방화벽 갱신 할인 구조')`. This is a real, code-traced admission via the embedding term alone -- not a tautology (the assertion is on the LLM-call args actually built by production code, not a mocked return value).",
+      "citations": [
+        "domain-proposal.test.ts:134-169 -- new test, tags:[] + embedding:[1,0,0] candidate, embed returns [1,0,0]",
+        "domain-memory.ts:86-99 (scoreDomainMemory) -- overlap=0 on empty record.tags returns 0 at line 93",
+        "domain-embedding.ts:56-79 (hybridScore) -- dim-match branch computes cosine=1, weight=0.7 default, returns 0.7*1+0.3*0=0.7",
+        "domain-embedding.ts:82-104 (recallHybrid) -- score>0 filter admits the 0.7-scored record",
+        "domain-proposal.ts:153-159 -- recalled.map(r=>r.label) fed into buildDomainPrompt's memoriesSection"
+      ]
+    },
+    "c3_noProductCodeChanged": {
+      "status": "CONFIRMED",
+      "reasoning": "git diff 6c07521..7eeb519 --stat shows exactly 1 file changed, 42 insertions(+), 0 deletions(-): packages/business/src/domain-ai/domain-proposal.test.ts. A supplementary `git diff 6c07521..7eeb519 -- . ':!packages/business/src/domain-ai/domain-proposal.test.ts'` (excluding that one file) returned empty output, confirming zero other files -- product or otherwise -- changed in this delta.",
+      "citations": [
+        "git diff 6c07521..7eeb519 --stat -> 1 file changed, 42 insertions(+), 0 deletions(-)",
+        "git diff 6c07521..7eeb519 -- . ':!...domain-proposal.test.ts' -> empty (no other file touched)"
+      ]
+    }
+  },
+  "testRun": "pnpm vitest run src/domain-ai/domain-proposal.test.ts -> 7 passed / 1 skipped (the skipped case is the CI_INTEGRATION-gated real-DB integration describe block, correctly skipped without CI_INTEGRATION=1), 602ms. Matches the assignment's reported gate output (typecheck exit 0, lint exit 0, business vitest 146 files / 1025 passed / 0 failed, domain-proposal.test.ts 7 passed / 1 skipped). Did not re-run project-wide gates per instructions.",
+  "commands": [
+    "git rev-parse HEAD (== 7eeb519270bb9a280e505bf00340fda7e8a06e45)",
+    "git diff 6c07521..7eeb519 --stat (1 file, 42 insertions, 0 deletions)",
+    "read packages/business/src/domain-ai/domain-proposal.test.ts:1-205 (full file, post-delta)",
+    "read packages/business/src/domain-ai/domain-proposal.ts:1-163 (generateDomainProposal recall wiring, embed resolution call site)",
+    "search vi.stubEnv/OPENAI_API_KEY/EMBEDDING_BASE_URL in domain-agent-runtime.test.ts (sibling pin pattern comparison)",
+    "read packages/business/src/domain-ai/domain-embedder-openai.ts:1-79 (resolveEmbedder/embeddingEndpoint/createOpenAiEmbedder env-read call sites)",
+    "read packages/business/src/domain-ai/domain-embedding.ts:1-130 (hybridScore/recallHybrid/safeEmbed)",
+    "read packages/business/src/domain-ai/domain-memory.ts:86-100 (scoreDomainMemory overlap=0 short-circuit)",
+    "read packages/business/src/platform/openai-config.ts:1-48 and platform/llm/config.ts (getOpenAiApiKey -> resolveLlmConfig live process.env read, no caching)",
+    "pnpm vitest run src/domain-ai/domain-proposal.test.ts -> 7 passed / 1 skipped, 602ms",
+    "git diff 6c07521..7eeb519 -- . ':!...domain-proposal.test.ts' -> empty, confirming no other file in the delta"
+  ],
+  "resolvedLedger": [
+    {
+      "genFiledIn": "terminal-critic (pre-gen-4)",
+      "title": "C1: domain-proposal.test.ts lacked the module-scope OPENAI_API_KEY/EMBEDDING_BASE_URL env pin present in the sibling domain-agent-runtime.test.ts, risking a real HTTP call on machines with a live key",
+      "status": "RESOLVED",
+      "evidence": ["domain-proposal.test.ts:5-8 -- pin added, matching the sibling pattern verbatim"]
+    },
+    {
+      "genFiledIn": "terminal-critic (pre-gen-4)",
+      "title": "C2: no test proved the embedding term alone (independent of tag overlap) could admit a candidate into recall",
+      "status": "RESOLVED",
+      "evidence": ["domain-proposal.test.ts:134-169 -- new zero-tag-overlap/identical-embedding test, traced end to end through scoreDomainMemory (tagScore=0) and hybridScore (0.7*cosine(1)+0.3*0=0.7) to recallHybrid's score>0 admission"]
+    },
+    {
+      "genFiledIn": 3,
+      "title": "New doc comment's 'empty array is also ignored' claim did not match the truthy-[] guard",
+      "status": "RESOLVED at the code level (carried forward, unaffected by this delta)"
+    },
+    {
+      "genFiledIn": 2,
+      "title": "recordHumanDecision embedder injection + write-path test gap",
+      "status": "RESOLVED (carried forward, unaffected by this delta)"
+    },
+    {
+      "genFiledIn": 1,
+      "title": "No timeout/AbortSignal on the embedding HTTP call",
+      "status": "RESOLVED (carried forward, unaffected by this delta)"
+    }
+  ],
+  "findings": [],
+  "changed_files": [],
+  "decisions": [
+    "Read-only lane: no files modified except overwriting artifacts/g001-architect-review.json with the gen-4 shape.",
+    "Verified all three critic-facing claims (env pin effectiveness given call-time env resolution and vitest's process-global process.env scope, tagScore=0/embeddingWeight=0.7 arithmetic for the new semantic test, and single-file no-product-code-touched delta) by tracing the actual production code paths rather than trusting the assignment's description alone.",
+    "Verdict: all three statuses CLEAR, recommendation APPROVE, empty blockers array -- this is the final generation and both terminal-critic follow-ups (C1, C2) are genuinely and fully resolved with no new findings surfacing from the delta's actual content.",
+    "Full resolvedLedger carried forward across all 4 generations plus the terminal-critic items for a complete audit trail."
+  ],
+  "verification": [
+    "git rev-parse HEAD == 7eeb519270bb9a280e505bf00340fda7e8a06e45",
+    "git diff 6c07521..7eeb519 --stat and full diff read for the single touched file",
+    "confirmed via a second scoped diff (excluding the test file) that no other file, product or otherwise, changed in this delta",
+    "pnpm vitest run src/domain-ai/domain-proposal.test.ts -> 7 passed / 1 skipped, 602ms, matching reported gate output",
+    "did not re-run project-wide typecheck/lint/full vitest suite per instructions",
+    "artifacts/g001-architect-review.json overwritten with the gen-4 shape and validated as parseable JSON"
+  ]
+}

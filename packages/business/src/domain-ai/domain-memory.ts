@@ -144,7 +144,14 @@ export async function resolveDomainProjectId(slug?: string) {
   return project.id;
 }
 
-/** 도메인 메모리 1건 갱신/생성 (학습 누적). */
+/**
+ * 도메인 메모리 1건 갱신/생성 (학습 누적).
+ *
+ * `embedding` 생략 시 컬럼을 건드리지 않는다 — create 는 기본값 `[]`, update 는 기존 벡터를
+ * 그대로 둔다. 임베더가 일시적으로 죽어도 이미 쌓인 의미 검색 자산을 지우지 않기 위한
+ * 의도된 best-effort 시맨틱이며, 그 대가로 갱신된 label/tags 와 옛 벡터가 어긋날 수 있다.
+ * (내용이 바뀐 행의 벡터 재정렬은 scripts/backfill-domain-embeddings.ts 담당.)
+ */
 export async function upsertDomainMemory(input: {
   projectSlug?: string;
   domain: GtmDomain;
@@ -157,6 +164,7 @@ export async function upsertDomainMemory(input: {
   source?: string;
   confidence?: number;
   status?: string;
+  /** 생략하거나 빈 배열이면 기존 벡터를 유지한다(위 주석 참고). */
   embedding?: number[];
 }) {
   const projectId = await resolveDomainProjectId(input.projectSlug);
@@ -168,7 +176,9 @@ export async function upsertDomainMemory(input: {
     source: input.source ?? "agent",
     confidence: input.confidence ?? 80,
     status: input.status ?? "active",
-    ...(input.embedding ? { embedding: input.embedding } : {}),
+    // `[]` 는 JS 에서 truthy 라 length 로 걸러야 한다 — 빈 벡터를 그대로 쓰면
+    // 이미 쌓인 임베딩이 지워진다. safeEmbed 도 빈 벡터를 "임베딩 없음"으로 취급한다.
+    ...(input.embedding && input.embedding.length > 0 ? { embedding: input.embedding } : {}),
   };
   return prisma.domainMemory.upsert({
     where: {

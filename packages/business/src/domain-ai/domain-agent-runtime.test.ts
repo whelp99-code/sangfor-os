@@ -9,12 +9,17 @@ import {
 } from "./domain-agent-runtime";
 import type { DomainMemoryRecord } from "./domain-memory";
 
+// 임베더 해석을 hash 로 고정 — 셸에 OPENAI_API_KEY/EMBEDDING_BASE_URL 이 있어도
+// 테스트가 네트워크를 타면 안 된다.
+vi.stubEnv("OPENAI_API_KEY", "");
+vi.stubEnv("EMBEDDING_BASE_URL", "");
+
 // DB 레이어를 모킹해 런타임 로직만 검증 (DB 불필요).
 vi.mock("./domain-memory", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./domain-memory")>();
   return {
     ...actual,
-    recallFromDb: vi.fn(async () => [] as DomainMemoryRecord[]),
+    loadDomainMemories: vi.fn(async () => [] as DomainMemoryRecord[]),
     recordDomainDecision: vi.fn(async () => ({}) as never),
     upsertDomainMemory: vi.fn(async () => ({}) as never),
   };
@@ -90,9 +95,9 @@ describe("runDomainStage", () => {
     expect(result.persisted).toBeNull();
   });
 
-  it("passes recalled memories into the generator", async () => {
+  it("passes recalled memories into the generator via semantic recall", async () => {
     const memory = await import("./domain-memory");
-    (memory.recallFromDb as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+    (memory.loadDomainMemories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
       { domain: "sales", memoryType: "case", key: "k", label: "prior", tags: ["firewall"], outcome: "approved", confidence: 90, status: "active" },
     ]);
     const spyGen = vi.fn(createStubGenerator());
@@ -100,6 +105,69 @@ describe("runDomainStage", () => {
     expect(spyGen).toHaveBeenCalledWith(
       expect.objectContaining({ recalled: expect.arrayContaining([expect.objectContaining({ label: "prior" })]) }),
     );
+  });
+
+  it("stores a best-effort hash embedding with the learning upsert", async () => {
+    const memory = await import("./domain-memory");
+    const upsert = memory.upsertDomainMemory as ReturnType<typeof vi.fn>;
+    upsert.mockClear();
+    await runDomainStage("marketing", sampleCase, { generate: createStubGenerator() });
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "marketing:c1", embedding: expect.any(Array) }),
+    );
+    expect((upsert.mock.calls[0][0] as { embedding: number[] }).embedding).toHaveLength(256);
+  });
+
+  it("degrades to tag-only recall and omits embedding when the injected embedder fails", async () => {
+    const memory = await import("./domain-memory");
+    (memory.loadDomainMemories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { domain: "sales", memoryType: "case", key: "k2", label: "prior", tags: ["firewall"], outcome: "approved", confidence: 90, status: "active" },
+    ]);
+    const upsert = memory.upsertDomainMemory as ReturnType<typeof vi.fn>;
+    upsert.mockClear();
+    const failing = vi.fn(async () => {
+      throw new Error("embedder down");
+    }) as unknown as import("./domain-embedding").Embedder;
+    const spyGen = vi.fn(createStubGenerator());
+    await runDomainStage("sales", sampleCase, { generate: spyGen, embed: failing });
+    // 태그 경로가 살아있어 recall 은 계속 동작한다
+    expect(spyGen).toHaveBeenCalledWith(
+      expect.objectContaining({ recalled: expect.arrayContaining([expect.objectContaining({ label: "prior" })]) }),
+    );
+    // 학습 쓰기는 임베딩 없이 계속된다
+    expect(upsert).toHaveBeenCalledWith(expect.not.objectContaining({ embedding: expect.anything() }));
+  });
+
+  it("forwards recallOptions so embeddingWeight is tunable from the runtime", async () => {
+    const memory = await import("./domain-memory");
+    // 태그는 하나도 안 겹치고 임베딩만 완전 일치하는 후보 — 의미 점수로만 올라온다
+    const embeddingOnly = {
+      domain: "sales" as const,
+      memoryType: "case" as const,
+      key: "embed-only",
+      label: "embedding only",
+      tags: [] as string[],
+      outcome: "approved" as const,
+      confidence: 90,
+      status: "active",
+      embedding: [1, 0, 0],
+    };
+    const embed = async () => [1, 0, 0];
+
+    (memory.loadDomainMemories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([embeddingOnly]);
+    const withDefault = await runDomainStage("sales", sampleCase, {
+      generate: createStubGenerator(),
+      embed,
+    });
+    expect(withDefault.recalled.map((r) => r.key)).toEqual(["embed-only"]);
+
+    (memory.loadDomainMemories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([embeddingOnly]);
+    const tagsOnly = await runDomainStage("sales", sampleCase, {
+      generate: createStubGenerator(),
+      embed,
+      recallOptions: { embeddingWeight: 0 },
+    });
+    expect(tagsOnly.recalled).toEqual([]);
   });
 });
 
