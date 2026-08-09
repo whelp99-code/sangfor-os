@@ -363,6 +363,7 @@ npx tsx packages/business/scripts/verify-polish.ts            # 게이팅/대시
 npx tsx packages/business/scripts/seed-ai-models.ts           # AiModel 4종 시드(게이팅)
 npx tsx packages/business/scripts/domain-structured-e2e.ts    # 구조화 출력(opencode 필요)
 npx tsx packages/business/scripts/backfill-domain-embeddings.ts  # 임베딩 백필
+pnpm verify:mail-ai-reject-gate -- --population /path/frozen-rejects.json --reviews /path/reject-reviews.json  # Q8 AI reject census gate
 ```
 
 ### 품질 게이트 (머지 전)

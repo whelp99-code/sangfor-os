@@ -833,7 +833,7 @@ export type PolicyClassifyResult = ReturnType<typeof classifyMailInsightThread>;
  * AI-first hybrid:
  * - null aiResult → policy only
  * - AI vendor/exclude (any confidence) → drop candidates (rules may still exclude earlier)
- * - AI customer/partner conf≥60 → correct type/title; confidence 15% policy + 85% AI
+ * - AI customer/partner conf≥70 → correct type/title; confidence 15% policy + 85% AI
  * - AI opportunity/poc/task conf≥65 with empty policy candidates → synthesize one AI candidate
  * - otherwise blend confidence AI-heavy (15/85) and keep policy structure
  */
@@ -882,7 +882,7 @@ export function combineHybridClassification(
 
   const shouldCorrectType =
     (aiResult.category === "customer" || aiResult.category === "partner") &&
-    aiResult.confidence >= 60;
+    aiResult.confidence >= 70;
 
   type HybridCandidate = (typeof policyResult.candidates)[number] & {
     aiClassification?: AiClassificationResult;

@@ -467,7 +467,7 @@ describe("combineHybridClassification", () => {
     const customerCandidates = policyResult.candidates.filter(c => c.candidateType === "customer");
     expect(customerCandidates.length).toBeGreaterThan(0);
 
-    const combined = combineHybridClassification(policyResult, makeAiResult("partner", 80));
+    const combined = combineHybridClassification(policyResult, makeAiResult("partner", 70));
     const corrected = combined.candidates.filter(c => c.candidateType === "partner" && c.title.startsWith("Partner:"));
     // Every originally-customer candidate should now be partner
     expect(corrected.length).toBeGreaterThanOrEqual(customerCandidates.length);
@@ -477,7 +477,7 @@ describe("combineHybridClassification", () => {
 
   it("does NOT correct customer→partner when AI confidence is below 70", () => {
     const policyResult = makeCustomerPolicyResult();
-    const combined = combineHybridClassification(policyResult, makeAiResult("partner", 65));
+    const combined = combineHybridClassification(policyResult, makeAiResult("partner", 69));
     // candidateType unchanged
     expect(combined.candidates.some(c => c.candidateType === "customer")).toBe(true);
   });
