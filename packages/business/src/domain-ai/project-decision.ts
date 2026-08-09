@@ -2,6 +2,9 @@ import { Prisma, prisma } from "@sangfor/db";
 import { buildMemoryTags, recordDomainDecision, upsertDomainMemory } from "./domain-memory";
 import { promoteDomainProposalToDocument } from "./proposal-promote";
 import type { DomainKey } from "./artifact-domain-map";
+import { safeEmbed, type Embedder } from "./domain-embedding";
+import { resolveEmbedder } from "./domain-embedder-openai";
+import { embeddingTextFor } from "./domain-embedder";
 
 export type { DomainKey };
 
@@ -27,6 +30,10 @@ export interface RecordDecisionInput {
  */
 export async function recordHumanDecision(
   input: RecordDecisionInput,
+  deps?: {
+    /** 시맨틱 임베더(테스트 주입 가능). 기본: resolveEmbedder() 폴백 체인. */
+    embed?: Embedder;
+  },
 ): Promise<{ decisionId: string; documentId?: string }> {
   const { engagementId, domain, outcome, output, humanEdit, note } = input;
   const caseRef = "eng:" + engagementId;
@@ -65,17 +72,25 @@ export async function recordHumanDecision(
   // 3. Feed domain learning + promote on approved or corrected.
   if (outcome === "approved" || outcome === "corrected") {
     const memoryKey = caseRef + ":" + domain;
+    const memoryLabel = note ?? (outcome === "approved" ? "human approved" : "human corrected");
+    // Use shared tag vocabulary so recall queries can find these memories.
+    const memoryTags = buildMemoryTags({ domain, entityType: "proposal", intentTag: outcome });
+    // Best-effort semantic embedding — offline/no-key keeps tags only, never blocks the write.
+    const embedding = await safeEmbed(
+      deps?.embed ?? resolveEmbedder(),
+      embeddingTextFor({ label: memoryLabel, tags: memoryTags }),
+    );
     await upsertDomainMemory({
       domain,
       memoryType: "case",
       key: memoryKey,
-      label: note ?? (outcome === "approved" ? "human approved" : "human corrected"),
-      // Use shared tag vocabulary so recall queries can find these memories.
-      tags: buildMemoryTags({ domain, entityType: "proposal", intentTag: outcome }),
+      label: memoryLabel,
+      tags: memoryTags,
       valueJson: (humanEdit !== undefined ? humanEdit : proposalOutput) as Prisma.InputJsonValue,
       outcome,
       source: "human",
       confidence: outcome === "approved" ? 90 : 85,
+      ...(embedding ? { embedding } : {}),
     });
 
     // Promote to the unified document store (best-effort; skips when the

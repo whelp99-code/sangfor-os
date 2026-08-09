@@ -11,9 +11,11 @@ import { withBackoff } from '../mail/ai-classify-batch';
 import {
   recordDomainDecision,
   loadDomainMemories,
-  recallDomainMemories,
   buildMemoryTags,
 } from './domain-memory';
+import { recallHybrid, safeEmbed, type Embedder } from './domain-embedding';
+import { resolveEmbedder } from './domain-embedder-openai';
+import { embeddingTextFor } from './domain-embedder';
 import { verifyProposalColorGate, type ColorGateVerdict } from './color-gate-llm';
 import { Prisma, prisma } from '@sangfor/db';
 import { sanitizeJsonStrings } from '@sangfor/shared';
@@ -127,6 +129,8 @@ export async function generateDomainProposal(
     callLLM?: (system: string, user: string) => Promise<string>;
     /** injectable for tests; default: looks up via engagement→opportunity→project */
     getProjectSlug?: (engagementId: string) => Promise<string | undefined>;
+    /** 시맨틱 recall 용 임베더(테스트 주입 가능). 기본: resolveEmbedder() 폴백 체인. */
+    embed?: Embedder;
   },
 ): Promise<DomainProposal> {
   // 1. Load memories from DB
@@ -137,10 +141,16 @@ export async function generateDomainProposal(
   // stores (project-decision.ts writes domain:/entity:/intent: tags); passing
   // raw [domain, engagementName] never overlapped, so approved proposal
   // memories were unrecallable (Step 8 / ADR-001 D5).
-  const recalled = recallDomainMemories(
-    { domain: input.domain, tags: buildMemoryTags({ domain: input.domain, entityType: "proposal" }) },
-    memories,
+  const queryTags = buildMemoryTags({ domain: input.domain, entityType: "proposal" });
+  const queryEmbedding = await safeEmbed(
+    deps?.embed ?? resolveEmbedder(),
+    embeddingTextFor({
+      label: input.engagementName,
+      tags: queryTags,
+      summary: [input.customerName, input.contextNote].filter(Boolean).join(" "),
+    }),
   );
+  const recalled = recallHybrid({ domain: input.domain, tags: queryTags }, queryEmbedding, memories);
 
   // 3. Map to string array for prompt
   const recalledStrings = recalled.map((r) => r.label);

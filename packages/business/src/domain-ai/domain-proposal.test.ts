@@ -2,21 +2,19 @@ import { vi, describe, it, expect, afterAll, beforeAll } from 'vitest';
 import { buildDomainPrompt, generateDomainProposal, getPendingProposals } from './domain-proposal';
 import type { GenerateProposalInput } from './domain-proposal';
 
-vi.mock('./domain-memory', () => ({
-  loadDomainMemories: vi.fn().mockResolvedValue([]),
-  recallDomainMemories: vi.fn().mockReturnValue([]),
-  recordDomainDecision: vi.fn().mockResolvedValue({ id: 'mock-id' }),
-  // Real (pure) impl: generateDomainProposal now builds recall query tags via
-  // buildMemoryTags (Step 8), so the mock must export it or module load fails.
-  buildMemoryTags: (input: { domain: string; entityType?: string; intentTag?: string }) =>
-    [
-      `domain:${input.domain}`,
-      input.entityType ? `entity:${input.entityType}` : undefined,
-      input.intentTag ? `intent:${input.intentTag}` : undefined,
-    ]
-      .filter((t): t is string => Boolean(t))
-      .map((t) => t.toLowerCase()),
-}));
+// generateDomainProposal 는 임베더를 기본 해석하므로, 키가 설정된 머신에서
+// 단위 테스트가 실제 HTTP 를 타지 않도록 해시 폴백으로 고정한다.
+vi.stubEnv('OPENAI_API_KEY', '');
+vi.stubEnv('EMBEDDING_BASE_URL', '');
+
+vi.mock('./domain-memory', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./domain-memory')>();
+  return {
+    ...actual,
+    loadDomainMemories: vi.fn().mockResolvedValue([]),
+    recordDomainDecision: vi.fn().mockResolvedValue({ id: 'mock-id' }),
+  };
+});
 
 vi.mock('./color-gate-llm', () => ({
   verifyProposalColorGate: vi.fn().mockResolvedValue(undefined),
@@ -95,6 +93,79 @@ describe('generateDomainProposal', () => {
     };
     const mockGetProjectSlug = async () => 'test-project';
     await expect(generateDomainProposal(input, { callLLM: mockLLM, getProjectSlug: mockGetProjectSlug })).rejects.toThrow('API_FAIL');
+  });
+
+  it('recalls tag-matched memories into the prompt even when the embedder fails (hybrid degradation)', async () => {
+    const memory = await import('./domain-memory');
+    (memory.loadDomainMemories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        domain: 'sales',
+        memoryType: 'case',
+        key: 'eng:e_recall:sales',
+        label: '이전 결정: 할인율 10%',
+        tags: ['domain:sales', 'entity:proposal', 'intent:approved'],
+        outcome: 'approved',
+        confidence: 90,
+        status: 'active',
+        source: 'human',
+      },
+    ]);
+    const input: GenerateProposalInput = {
+      engagementId: 'e_recall',
+      domain: 'sales',
+      engagementName: '리콜 테스트 딜',
+    };
+    const seen: string[] = [];
+    const failing = async (): Promise<number[]> => {
+      throw new Error('embedder down');
+    };
+    const result = await generateDomainProposal(input, {
+      callLLM: async (sys, usr) => {
+        seen.push(sys, usr);
+        return '{"title":"T","bodyMarkdown":"B"}';
+      },
+      getProjectSlug: async () => 'test-project',
+      embed: failing,
+    });
+    expect(result.title).toBe('T');
+    expect(seen.join('\n')).toContain('이전 결정: 할인율 10%');
+  });
+
+  it('recalls a zero-tag-overlap memory on embedding similarity alone (semantic path is live)', async () => {
+    const memory = await import('./domain-memory');
+    (memory.loadDomainMemories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        domain: 'sales',
+        memoryType: 'case',
+        key: 'eng:e_semantic:sales',
+        label: '유사 딜 메모: 방화벽 갱신 할인 구조',
+        // 태그가 하나도 겹치지 않으므로 태그 점수는 0 — 임베딩만이 이 행을 끌어올린다
+        tags: [],
+        outcome: 'approved',
+        confidence: 90,
+        status: 'active',
+        source: 'human',
+        embedding: [1, 0, 0],
+      },
+    ]);
+    const input: GenerateProposalInput = {
+      engagementId: 'e_semantic',
+      domain: 'sales',
+      engagementName: '시맨틱 테스트 딜',
+    };
+    const seen: string[] = [];
+
+    const result = await generateDomainProposal(input, {
+      callLLM: async (sys, usr) => {
+        seen.push(sys, usr);
+        return '{"title":"T","bodyMarkdown":"B"}';
+      },
+      getProjectSlug: async () => 'test-project',
+      embed: async () => [1, 0, 0],
+    });
+
+    expect(result.title).toBe('T');
+    expect(seen.join('\n')).toContain('유사 딜 메모: 방화벽 갱신 할인 구조');
   });
 });
 

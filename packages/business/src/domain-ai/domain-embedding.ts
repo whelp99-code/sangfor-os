@@ -21,6 +21,18 @@ import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 export type Embedder = (text: string) => Promise<number[]>;
 
+/** Best-effort 임베딩 — 실패(임베더 다운·키 없음)나 빈 벡터면 null. 호출 경로를 절대 막지 않는다. */
+export async function safeEmbed(embed: Embedder, text: string): Promise<number[] | null> {
+  try {
+    const vec = await embed(text);
+    return vec.length > 0 ? vec : null;
+  } catch (err) {
+    // 실패 증거를 남기고 저하 — 오퍼레이터가 임베더 다운을 알아챌 수 있어야 한다.
+    console.warn(`[domain-embedder] embed_failed: ${(err as Error)?.message ?? err}`);
+    return null;
+  }
+}
+
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length === 0 || a.length !== b.length) return 0;
   let dot = 0;
@@ -52,7 +64,9 @@ export function hybridScore(
   const hasEmbedding =
     !!queryEmbedding && queryEmbedding.length > 0 && !!record.embedding && record.embedding.length > 0;
 
-  if (!hasEmbedding) return tagScore;
+  // 임베더 차원 불일치(예: hash 256 vs openai 1536 혼재)면 의미 점수만 제외하고
+  // 태그 점수는 온전히 유지 — 이질 임베딩이 기존 recall 을 끌어내리지 않는다.
+  if (!hasEmbedding || queryEmbedding!.length !== record.embedding!.length) return tagScore;
 
   // 반려/되돌림(negative outcome)은 의미유사도로도 되살리지 않는다 — 태그 경로와 동일한 negative-learning 억제.
   if (record.domain !== query.domain) return 0;
@@ -100,10 +114,13 @@ export async function recallSemanticFromDb(input: {
   options?: HybridRecallOptions;
 }): Promise<DomainMemoryRecord[]> {
   const candidates = await loadDomainMemories(input.domain, input.projectSlug ?? (await resolveDefaultProjectSlug()));
-  const queryEmbedding = await input.embed(input.queryText);
+  // 임베더 실패(네트워크·키 없음) 시 태그 전용 하이브리드로 우아하게 저하.
+  const queryEmbedding = await safeEmbed(input.embed, input.queryText);
   // A-4: always include the shared vocabulary tags so buildMemoryTags-written
   // memories are recallable regardless of what raw tags the caller passed.
-  const tags = [...input.tags, ...buildMemoryTags({ domain: input.domain })];
+  // 중복 제거 필수 — 호출자가 이미 domain:<d> 를 넘겼으면 태그가 겹쳐
+  // tagScore 의 분모(query.tags.length)만 부풀고 점수가 실제보다 낮아진다.
+  const tags = [...new Set([...input.tags, ...buildMemoryTags({ domain: input.domain })])];
   return recallHybrid(
     { domain: input.domain, tags },
     queryEmbedding,
