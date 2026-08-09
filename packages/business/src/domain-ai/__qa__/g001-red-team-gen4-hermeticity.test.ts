@@ -50,10 +50,16 @@ describe("G001 red-team gen4: hermeticity of the domain-proposal env pin", () =>
   });
 
   afterEach(() => {
-    process.env.OPENAI_API_KEY = originalApiKey;
-    process.env.EMBEDDING_BASE_URL = originalBaseUrl;
+    // 순서 중요: 먼저 stub 을 되돌린 뒤에 원래 env 를 복원해야 한다.
+    // 반대로 하면 unstubAllEnvs 가 적대적 스냅샷으로 덮어써 버린다.
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    // 원래 값이 없었으면 delete — 대입하면 문자열 "undefined" 가 남는다.
+    if (originalApiKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = originalApiKey;
+    if (originalBaseUrl === undefined) delete process.env.EMBEDDING_BASE_URL;
+    else process.env.EMBEDDING_BASE_URL = originalBaseUrl;
   });
 
   it("with hostile env pre-set, the same vi.stubEnv('') pattern the shipped file uses forces the hash fallback and NEVER calls fetch", async () => {
@@ -76,15 +82,13 @@ describe("G001 red-team gen4: hermeticity of the domain-proposal env pin", () =>
     expect(describeEmbedder()).toBe("hash");
 
     const embedder = resolveEmbedder();
-    const start = performance.now();
     const vec = await embedder("some proposal text");
-    const embedElapsedMs = performance.now() - start;
 
-    expect(vec.length).toBeGreaterThan(0);
     expect(fetchSpy).not.toHaveBeenCalled();
-    // A closed-port dial would still take real (if small) socket time; the
-    // hash embedder is pure computation and should be sub-millisecond-to-low-ms.
-    expect(embedElapsedMs).toBeLessThan(50);
+    // 네트워크를 타지 않았다는 증거는 fetch 스파이가 이미 준다. 추가로 로컬 해시
+    // 임베더의 결정론적 차원(256)을 확인해 원격 임베딩이 아님을 못 박는다.
+    // (벽시계 임계값은 부하 걸린 러너에서 흔들리므로 쓰지 않는다.)
+    expect(vec).toHaveLength(256);
 
     // End-to-end through generateDomainProposal itself (deps.embed NOT
     // supplied, so it falls through to resolveEmbedder() exactly like the

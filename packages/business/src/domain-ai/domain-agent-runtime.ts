@@ -16,7 +16,12 @@ import {
   type DomainOutcome,
   buildMemoryTags,
 } from "./domain-memory";
-import { recallSemanticFromDb, safeEmbed, type Embedder } from "./domain-embedding";
+import {
+  recallSemanticFromDb,
+  safeEmbed,
+  type Embedder,
+  type HybridRecallOptions,
+} from "./domain-embedding";
 import { resolveEmbedder } from "./domain-embedder-openai";
 import { embeddingTextFor } from "./domain-embedder";
 import {
@@ -77,6 +82,11 @@ export interface DomainRuntimeDeps {
   recallTopK?: number;
   /** 시맨틱 recall·학습 저장용 임베더. 생략하면 `resolveEmbedder()` (임베딩 엔드포인트 → OpenAI → hash 폴백). */
   embed?: Embedder;
+  /**
+   * 하이브리드 recall 가중치 등 조절 옵션. 생략하면 embeddingWeight 0.7.
+   * 오프라인 해시 폴백처럼 임베딩 품질이 낮은 환경에서는 낮춰 태그 신호를 키운다.
+   */
+  recallOptions?: HybridRecallOptions;
   /** 학습 저장 끄기 (드라이런). 기본 false. */
   skipLearning?: boolean;
   /**
@@ -161,6 +171,7 @@ export async function runDomainStage(
     embed,
     projectSlug,
     topK: deps.recallTopK ?? 3,
+    options: deps.recallOptions,
   });
 
   // 2) prompt → 3) generate (LLM 주입; 미주입 시 권장 기본 생성기)

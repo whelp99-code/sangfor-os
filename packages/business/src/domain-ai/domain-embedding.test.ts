@@ -149,4 +149,46 @@ describe("recallSemanticFromDb", () => {
     });
     expect(out.map((r) => r.key)).toEqual(["tagged"]);
   });
+
+  it("does not inflate the tag-score denominator when the caller already passed the domain tag", async () => {
+    const { loadDomainMemories } = await import("./domain-memory");
+    // A: 두 태그가 모두 겹치지만 임베딩 없음 → 순수 태그 점수.
+    // B: 태그는 하나도 안 겹치지만 임베딩이 완전 일치 → 0.7.
+    // 중복 제거가 없으면 A 의 분모가 3 이 되어 0.667 로 떨어지고 B 에게 밀린다.
+    (loadDomainMemories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      rec({ key: "tag-match", tags: ["firewall", "domain:sales"] }),
+      rec({ key: "embed-match", tags: [], embedding: [1, 0, 0] }),
+    ]);
+    const out = await recallSemanticFromDb({
+      domain: "sales",
+      // 호출자가 이미 domain:sales 를 포함해서 넘긴다 (runDomainStage 와 동일한 형태)
+      tags: ["firewall", "domain:sales"],
+      queryText: "anything",
+      embed: async () => [1, 0, 0],
+      projectSlug: "unit-test-project",
+    });
+    expect(out.map((r) => r.key)).toEqual(["tag-match", "embed-match"]);
+  });
+
+  it("honours an injected embeddingWeight so a similarity-only match can be excluded", async () => {
+    const { loadDomainMemories } = await import("./domain-memory");
+    (loadDomainMemories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      rec({ key: "embed-only", tags: [], embedding: [1, 0, 0] }),
+    ]);
+    const query = {
+      domain: "sales" as const,
+      tags: ["firewall"],
+      queryText: "anything",
+      embed: async () => [1, 0, 0],
+      projectSlug: "unit-test-project",
+    };
+    const withDefaultWeight = await recallSemanticFromDb(query);
+    expect(withDefaultWeight.map((r) => r.key)).toEqual(["embed-only"]);
+
+    (loadDomainMemories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      rec({ key: "embed-only", tags: [], embedding: [1, 0, 0] }),
+    ]);
+    const tagsOnly = await recallSemanticFromDb({ ...query, options: { embeddingWeight: 0 } });
+    expect(tagsOnly).toEqual([]);
+  });
 });

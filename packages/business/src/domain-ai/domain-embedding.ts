@@ -118,7 +118,9 @@ export async function recallSemanticFromDb(input: {
   const queryEmbedding = await safeEmbed(input.embed, input.queryText);
   // A-4: always include the shared vocabulary tags so buildMemoryTags-written
   // memories are recallable regardless of what raw tags the caller passed.
-  const tags = [...input.tags, ...buildMemoryTags({ domain: input.domain })];
+  // 중복 제거 필수 — 호출자가 이미 domain:<d> 를 넘겼으면 태그가 겹쳐
+  // tagScore 의 분모(query.tags.length)만 부풀고 점수가 실제보다 낮아진다.
+  const tags = [...new Set([...input.tags, ...buildMemoryTags({ domain: input.domain })])];
   return recallHybrid(
     { domain: input.domain, tags },
     queryEmbedding,

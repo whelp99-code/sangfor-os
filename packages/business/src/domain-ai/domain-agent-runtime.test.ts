@@ -137,6 +137,38 @@ describe("runDomainStage", () => {
     // 학습 쓰기는 임베딩 없이 계속된다
     expect(upsert).toHaveBeenCalledWith(expect.not.objectContaining({ embedding: expect.anything() }));
   });
+
+  it("forwards recallOptions so embeddingWeight is tunable from the runtime", async () => {
+    const memory = await import("./domain-memory");
+    // 태그는 하나도 안 겹치고 임베딩만 완전 일치하는 후보 — 의미 점수로만 올라온다
+    const embeddingOnly = {
+      domain: "sales" as const,
+      memoryType: "case" as const,
+      key: "embed-only",
+      label: "embedding only",
+      tags: [] as string[],
+      outcome: "approved" as const,
+      confidence: 90,
+      status: "active",
+      embedding: [1, 0, 0],
+    };
+    const embed = async () => [1, 0, 0];
+
+    (memory.loadDomainMemories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([embeddingOnly]);
+    const withDefault = await runDomainStage("sales", sampleCase, {
+      generate: createStubGenerator(),
+      embed,
+    });
+    expect(withDefault.recalled.map((r) => r.key)).toEqual(["embed-only"]);
+
+    (memory.loadDomainMemories as ReturnType<typeof vi.fn>).mockResolvedValueOnce([embeddingOnly]);
+    const tagsOnly = await runDomainStage("sales", sampleCase, {
+      generate: createStubGenerator(),
+      embed,
+      recallOptions: { embeddingWeight: 0 },
+    });
+    expect(tagsOnly.recalled).toEqual([]);
+  });
 });
 
 describe("runDomainPipeline", () => {
