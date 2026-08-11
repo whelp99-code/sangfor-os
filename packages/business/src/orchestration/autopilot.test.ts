@@ -236,6 +236,7 @@ describe("runAutopilotPass", () => {
       .mockResolvedValueOnce({ id: "rej-3" });
 
     prisma.mailDerivedCandidate.findMany.mockResolvedValue([]);
+    prisma.autonomyPolicy.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await runAutopilotPass(
       undefined,
@@ -243,7 +244,11 @@ describe("runAutopilotPass", () => {
     );
 
     expect(prisma.autonomyPolicy.updateMany).toHaveBeenCalledWith({
-      where: { domain: "sales", decisionType: "autopilot_approve" },
+      where: {
+        domain: "sales",
+        decisionType: "autopilot_approve",
+        mode: { not: "suggest" },
+      },
       data: { mode: "suggest" },
     });
 
@@ -265,22 +270,22 @@ describe("runAutopilotPass", () => {
       .mockResolvedValueOnce({ id: "rej-2" })
       .mockResolvedValueOnce({ id: "rej-3" });
     prisma.mailDerivedCandidate.findMany.mockResolvedValue([]);
-    // The governor already demoted this policy on an earlier pass.
-    prisma.autonomyPolicy.findUnique.mockResolvedValue({
-      id: "policy-1",
-      domain: "sales",
-      decisionType: "autopilot_approve",
-      mode: "suggest",
-      minAutonomy: 0,
-      minSamples: 0,
-    });
+    // The conditional update sees that the governor already demoted this policy.
+    prisma.autonomyPolicy.updateMany.mockResolvedValue({ count: 0 });
 
     const result = await runAutopilotPass(
       undefined,
       { prisma: prisma as unknown as AutopilotDeps["prisma"], env: defaultEnv() },
     );
 
-    expect(prisma.autonomyPolicy.updateMany).not.toHaveBeenCalled();
+    expect(prisma.autonomyPolicy.updateMany).toHaveBeenCalledWith({
+      where: {
+        domain: "sales",
+        decisionType: "autopilot_approve",
+        mode: { not: "suggest" },
+      },
+      data: { mode: "suggest" },
+    });
     expect(result.demoted).toEqual([]);
   });
 

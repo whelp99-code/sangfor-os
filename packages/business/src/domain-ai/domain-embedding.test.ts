@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import {
   cosineSimilarity,
   hybridScore,
@@ -14,6 +14,10 @@ import type { DomainMemoryRecord, RecallQuery } from "./domain-memory";
 vi.mock("./domain-memory", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./domain-memory")>();
   return { ...actual, loadDomainMemories: vi.fn(async () => [] as DomainMemoryRecord[]) };
+});
+
+beforeEach(() => {
+  resetEmbedderHealth();
 });
 
 function rec(overrides: Partial<DomainMemoryRecord>): DomainMemoryRecord {
@@ -141,10 +145,35 @@ describe("safeEmbed", () => {
     };
     expect(await safeEmbed(flaky, "x", { retryDelayMs: 0 })).toEqual([3, 4]);
     expect(calls).toBe(2);
+    expect(getEmbedderHealth()).toMatchObject({
+      consecutiveFailures: 0,
+      lastFailureReason: "transient_error",
+      lastFailureAt: expect.any(String),
+    });
+  });
+
+  it("does not retry a permanent provider rejection and stores only a safe reason code", async () => {
+    let calls = 0;
+    const rejected = async (): Promise<number[]> => {
+      calls += 1;
+      throw new Error("openai embeddings failed: 401 Bearer secret-value");
+    };
+
+    expect(await safeEmbed(rejected, "x", { retryDelayMs: 0 })).toBeNull();
+    expect(calls).toBe(1);
+    expect(getEmbedderHealth().lastFailureReason).toBe("authentication_error");
+  });
+
+  it("rejects invalid retry options before calling the embedder", async () => {
+    const embed = vi.fn(async () => [1]);
+
+    await expect(safeEmbed(embed, "x", { retries: -1 })).rejects.toThrow(
+      /retries must be a non-negative integer/,
+    );
+    expect(embed).not.toHaveBeenCalled();
   });
 
   it("exposes embedder failures as observable state rather than console-only noise", async () => {
-    resetEmbedderHealth();
     const failing = async (): Promise<number[]> => {
       throw new Error("embedder down");
     };
@@ -152,7 +181,9 @@ describe("safeEmbed", () => {
     expect(await safeEmbed(failing, "x", { retryDelayMs: 0 })).toBeNull();
     const afterFailure = getEmbedderHealth();
     expect(afterFailure.consecutiveFailures).toBe(1);
-    expect(afterFailure.lastFailureReason).toContain("embedder down");
+    expect(afterFailure.lastFailureReason).toBe("provider_error");
+    (afterFailure as { consecutiveFailures: number }).consecutiveFailures = 99;
+    expect(getEmbedderHealth().consecutiveFailures).toBe(1);
 
     expect(await safeEmbed(async () => [1], "x")).toEqual([1]);
     expect(getEmbedderHealth().consecutiveFailures).toBe(0);

@@ -75,14 +75,15 @@ export async function navigateToMenu(
   await page.goto(target, { waitUntil, timeout: 45_000 });
   await page.waitForTimeout(settleMs);
 
-  if (product === 'IAG' && await pageHas404(page)) {
+  const is404 = await pageHas404(page);
+  if (product === 'IAG' && is404) {
     const legacyHash = hashRoute.replace(/^\/#\//, '#');
     await page.evaluate((hash) => { window.location.hash = hash; }, legacyHash);
     await page.waitForTimeout(settleMs);
     return { corrected: true, is404: await pageHas404(page) };
   }
 
-  return { corrected: false, is404: false };
+  return { corrected: false, is404 };
 }
 
 async function captureMenu(
@@ -99,7 +100,7 @@ async function captureMenu(
     const navigation = await navigateToMenu(page, product, baseUrl, route.hashRoute);
 
     const domSummary = await captureDom(page);
-    const is404 = navigation.corrected ? navigation.is404 : await pageHas404(page);
+    const is404 = navigation.is404;
     const slug = route.id;
     const screenshotPath = join(outputDir, 'screenshots', `${slug}.png`);
     const domPath = join(outputDir, 'dom', `${slug}.json`);

@@ -69,4 +69,18 @@ describe('navigateToMenu IAG legacy-hash correction', () => {
     expect(page.evaluated).toEqual([]);
     expect(result).toEqual({ corrected: false, is404: false });
   });
+
+  it('reports a non-IAG 404 without attempting the IAG hash correction', async () => {
+    const page = fakePage([true]);
+
+    const result = await navigateToMenu(
+      page as never,
+      'EPP',
+      'https://device.invalid',
+      '/#/system/status',
+    );
+
+    expect(page.evaluated).toEqual([]);
+    expect(result).toEqual({ corrected: false, is404: true });
+  });
 });

@@ -3,6 +3,7 @@
  * Response is computed from the canonical @sangfor/health registry + real probes.
  * Never hard-codes fake hosts or static green statuses.
  */
+import { getEmbedderHealth } from "@sangfor/business";
 import { probeCanonicalHealth } from "@sangfor/health";
 
 export const dynamic = "force-dynamic";
@@ -22,10 +23,13 @@ export async function GET() {
       criticality: s.criticality,
       ownerWorkspace: s.ownerWorkspace,
       remediation: s.remediation,
+      consecutiveFailures: s.consecutiveFailures,
+      ...(s.recoveredAt ? { recoveredAt: s.recoveredAt } : {}),
       latencyMs: s.latencyMs,
       // detail is redacted in the registry; still omit if empty
       ...(s.detail ? { detail: s.detail } : {}),
     })),
+    embedder: getEmbedderHealth(),
     timestamp: report.timestamp,
   };
 

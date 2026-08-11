@@ -37,6 +37,16 @@ export interface EmbedderHealth {
   readonly lastFailureAt?: string;
 }
 
+type EmbedderFailureReason =
+  | "authentication_error"
+  | "empty_vector"
+  | "network_error"
+  | "provider_error"
+  | "provider_unavailable"
+  | "rate_limited"
+  | "timeout"
+  | "transient_error";
+
 /**
  * 임베더 상태 — 프로세스 로컬. console.warn 만으로는 임베더 장애가 관측되지 않아
  * recall 품질 저하의 원인을 사후에 추적할 수 없었다. 카운터로 승격해 호출자가
@@ -46,7 +56,7 @@ let embedderHealth: EmbedderHealth = { consecutiveFailures: 0 };
 
 /** 현재 임베더 상태 스냅숏. */
 export function getEmbedderHealth(): EmbedderHealth {
-  return embedderHealth;
+  return { ...embedderHealth };
 }
 
 /** 상태 초기화 — 테스트 격리용. */
@@ -55,6 +65,49 @@ export function resetEmbedderHealth(): void {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function classifyEmbedderFailure(error: unknown): {
+  readonly reason: EmbedderFailureReason;
+  readonly retryable: boolean;
+} {
+  const message = error instanceof Error ? error.message : String(error);
+  const status =
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof (error as { status?: unknown }).status === "number"
+      ? (error as { status: number }).status
+      : undefined;
+
+  if (
+    status === 401 ||
+    status === 403 ||
+    /\b(?:401|403)\b|no api key|unauthori[sz]ed|forbidden/i.test(message)
+  ) {
+    return { reason: "authentication_error", retryable: false };
+  }
+  if (status === 429 || /\b429\b|rate.?limit/i.test(message)) {
+    return { reason: "rate_limited", retryable: false };
+  }
+  if (
+    error instanceof DOMException && error.name === "TimeoutError" ||
+    /\babort(?:ed)?\b|deadline|\btimeout\b/i.test(message)
+  ) {
+    return { reason: "timeout", retryable: false };
+  }
+  if (status !== undefined && status >= 500) {
+    return { reason: "provider_unavailable", retryable: true };
+  }
+  if (/\btransient\b/i.test(message)) {
+    return { reason: "transient_error", retryable: true };
+  }
+  if (
+    /fetch failed|network|econnreset|econnrefused|eai_again|socket hang up/i.test(message)
+  ) {
+    return { reason: "network_error", retryable: true };
+  }
+  return { reason: "provider_error", retryable: false };
+}
 
 /**
  * Best-effort 임베딩 — 경계 재시도 후에도 실패하거나 빈 벡터면 null.
@@ -68,29 +121,53 @@ export async function safeEmbed(
 ): Promise<number[] | null> {
   const retries = options.retries ?? 1;
   const retryDelayMs = options.retryDelayMs ?? 200;
+  if (!Number.isInteger(retries) || retries < 0) {
+    throw new RangeError("retries must be a non-negative integer");
+  }
+  if (!Number.isFinite(retryDelayMs) || retryDelayMs < 0) {
+    throw new RangeError("retryDelayMs must be a finite non-negative number");
+  }
+
   let lastError: unknown;
+  let lastFailure:
+    | { readonly reason: EmbedderFailureReason; readonly retryable: boolean; readonly at: string }
+    | undefined;
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
       const vec = await embed(text);
       if (vec.length > 0) {
-        embedderHealth = { consecutiveFailures: 0 };
+        embedderHealth = {
+          ...embedderHealth,
+          consecutiveFailures: 0,
+          ...(lastFailure
+            ? { lastFailureReason: lastFailure.reason, lastFailureAt: lastFailure.at }
+            : {}),
+        };
         return vec;
       }
       // 빈 벡터는 재시도해도 같을 가능성이 높다 — 실패로 기록하되 즉시 중단.
       lastError = new Error("empty embedding vector");
+      lastFailure = {
+        reason: "empty_vector",
+        retryable: false,
+        at: new Date().toISOString(),
+      };
       break;
     } catch (err) {
       lastError = err;
-      if (attempt < retries && retryDelayMs > 0) await sleep(retryDelayMs);
+      const classified = classifyEmbedderFailure(err);
+      lastFailure = { ...classified, at: new Date().toISOString() };
+      if (attempt >= retries || !classified.retryable) break;
+      if (retryDelayMs > 0) await sleep(retryDelayMs);
     }
   }
 
-  const reason = (lastError as Error)?.message ?? String(lastError);
+  const reason = lastFailure?.reason ?? classifyEmbedderFailure(lastError).reason;
   embedderHealth = {
     consecutiveFailures: embedderHealth.consecutiveFailures + 1,
     lastFailureReason: reason,
-    lastFailureAt: new Date().toISOString(),
+    lastFailureAt: lastFailure?.at ?? new Date().toISOString(),
   };
   // 실패 증거를 남기고 저하 — 오퍼레이터가 임베더 다운을 알아챌 수 있어야 한다.
   console.warn(`[domain-embedder] embed_failed: ${reason}`);

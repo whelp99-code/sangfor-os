@@ -2,7 +2,7 @@
 
 > **목적**: 개발할 때마다 펴보는 단일 진입점. 시스템 지도 · 워크스트림 · 소스 인벤토리 · 명령어 · 데이터모델 · 알려진 이슈를 한 곳에.
 > **유지 규칙**: 작업이 끝날 때마다 이 문서를 갱신한다. 새 워크스트림은 §3에 한 섹션 추가, 명령은 §5, 파일은 §6, 모델 변경은 §7, 이슈는 §8. 맨 아래 **변경 이력** 한 줄 추가.
-> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-07-28
+> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-08-11
 
 > **Canonical requirement/acceptance 진입점**: [ID registry](01_SPEC/Requirement_ID_Registry.md) → [requirement source](01_SPEC/Requirements_MoSCoW.md) / [acceptance source](08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md) → [99-row machine manifest](12_VERIFICATION/acceptance-manifest.json) / [evidence schema](12_VERIFICATION/acceptance-evidence.schema.json). 구현 분모는 28 requirements와 71 acceptance이며 C1–C5/W1–W5는 제외한다.
 
@@ -566,3 +566,4 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **2026-07-13 (Antigravity 스킬 이식)**: Claude의 Fable 계열 스킬(fable-init, fable-agent, fable-dispatch)을 Antigravity 전역 스킬/플러그인으로 포팅 완료 — `~/.gemini/config/plugins/fable/` 하위에 설치. plugin.json, installed_version.json 및 chmod +x script 설정 검증 완료.
 - **2026-07-13 (R11-R15 인계)**: 권한·프로젝트 격리·동시성·AI fallback·반응형 교정과 R15 3-arm 교차검증을 완료했다. 구현 커밋, 검증 수치, QA 원복 상태, 프로덕션 기준선 drift 주의사항과 R16 재개 조건은 [`docs/plans/2026-07-13-r11-r15-claude-handoff.md`](plans/2026-07-13-r11-r15-claude-handoff.md)에 고정했다. 사용자 지시에 따라 R16-R20은 시작하지 않았다.
 - **2026-07-13 (R16-R20 실사용 5라운드)**: Sol 실행 + Grok 독립검토로 50개 시나리오를 수행했다. 연락처/파트너/작업 교정·보관 및 tenant 경계, 전환 409/force, 갱신·월마감·VAT 도달성, CFO 수치·계약·오류 진실성, 모바일·한국어·키보드 피드백을 개선했다. 기존 비격리 테스트가 운영 감사 로그 34행을 남기는 문제도 발견해 integration gate로 재발을 차단했으며, 로그 삭제는 승인 대기다. 상세 매트릭스와 잔여 위험은 [`docs/plans/2026-07-13-r16-r20-real-usage-qa.md`](plans/2026-07-13-r16-r20-real-usage-qa.md)에 기록했다.
+- **2026-08-11 (loop/graph P0–P5)**: 승인 호출자 해석을 API 공용 helper로 통합하고, canonical health에 연속 실패·검증 회복 신호를 추가해 unified-health에 노출했다. 임베더는 transient 오류만 1회 재시도하며 안전한 실패 코드와 마지막 실패 시각을 공개하고, approval readiness 거부는 `VALIDATION_REJECTED`로 구조화했다. U002 freshness 검사를 파라미터화하고 autopilot 강등을 조건부 단일 update로 원자화했으며, IAG legacy hash 보정 후 404를 재검증한다. deprecated workflow-run SSE 라우트는 live UI 소비자 때문에 유지한다.

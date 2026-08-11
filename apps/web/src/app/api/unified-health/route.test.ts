@@ -6,13 +6,17 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockProbeAll } = vi.hoisted(() => ({
+const { mockGetEmbedderHealth, mockProbeAll } = vi.hoisted(() => ({
+  mockGetEmbedderHealth: vi.fn(),
   mockProbeAll: vi.fn(),
 }));
 
 vi.mock("@sangfor/health", () => ({
   probeCanonicalHealth: mockProbeAll,
   FAKE_HEALTH_DOMAIN_PATTERN: /\.sangfor\.internal\b/i,
+}));
+vi.mock("@sangfor/business", () => ({
+  getEmbedderHealth: mockGetEmbedderHealth,
 }));
 
 import { GET } from "./route";
@@ -23,6 +27,12 @@ const routeSource = readFileSync(
 );
 
 beforeEach(() => {
+  mockGetEmbedderHealth.mockReset();
+  mockGetEmbedderHealth.mockReturnValue({
+    consecutiveFailures: 2,
+    lastFailureReason: "network_error",
+    lastFailureAt: "2026-01-01T00:00:00.000Z",
+  });
   mockProbeAll.mockReset();
 });
 
@@ -52,6 +62,8 @@ describe("GET /api/unified-health (U006)", () => {
           url: "http://localhost:3600/health",
           status: "ok",
           criticality: "critical",
+          consecutiveFailures: 0,
+          recoveredAt: "2026-01-01T00:00:00.000Z",
           latencyMs: 5,
           ownerWorkspace: "services/sangfor-engineer-mcp",
           remediation: "Check bridge process on WHELP99_MCP_BRIDGE port",
@@ -64,6 +76,15 @@ describe("GET /api/unified-health (U006)", () => {
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.overall).toBe("ok");
+    expect(body.services[0]).toMatchObject({
+      consecutiveFailures: 0,
+      recoveredAt: "2026-01-01T00:00:00.000Z",
+    });
+    expect(body.embedder).toEqual({
+      consecutiveFailures: 2,
+      lastFailureReason: "network_error",
+      lastFailureAt: "2026-01-01T00:00:00.000Z",
+    });
     expect(JSON.stringify(body)).not.toMatch(/\.sangfor\.internal\b/i);
     expect(mockProbeAll).toHaveBeenCalled();
   });
