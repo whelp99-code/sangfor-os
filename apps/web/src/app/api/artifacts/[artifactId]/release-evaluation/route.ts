@@ -1,33 +1,19 @@
-import { PRIVILEGED_MFA_MAX_AGE_SECONDS, verifySessionJwt } from "@sangfor/auth";
-import { ArtifactReleaseError, evaluateArtifactRelease, type ApprovalKernelCaller } from "@sangfor/business";
+import { ArtifactReleaseError, evaluateArtifactRelease } from "@sangfor/business";
 
 import { assertApiAccess } from "@/lib/api-auth";
-import { getWebSessionJwtConfig } from "@/lib/auth/config";
-import { evaluatePersistedSessionFromClaims } from "@/lib/auth/persisted-session";
-import { extractSessionToken } from "@/lib/auth/session";
 
 import { createApiErrorResponse, createApiResponse } from "../../../_lib/api-response";
+import { resolveApprovalKernelCaller } from "../../../_lib/resolve-caller";
 import { ApiError, API_ERRORS } from "../../../_lib/api-error";
 
 const ALLOWED_BODY_KEYS = new Set(["action", "artifactVersionId", "approvalId"]);
 function isPlainObject(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
-async function resolveCaller(request: Request): Promise<ApprovalKernelCaller | { error: ReturnType<typeof createApiErrorResponse> }> {
-  const token = extractSessionToken(request);
-  if (!token) return { error: createApiErrorResponse(API_ERRORS.UNAUTHORIZED()) };
-  let config;
-  try { config = getWebSessionJwtConfig(); } catch { return { error: createApiErrorResponse(API_ERRORS.UNAUTHORIZED()) }; }
-  const claims = verifySessionJwt(token, config);
-  if (!claims) return { error: createApiErrorResponse(API_ERRORS.UNAUTHORIZED()) };
-  const session = await evaluatePersistedSessionFromClaims(claims, new Date(), PRIVILEGED_MFA_MAX_AGE_SECONDS);
-  if (!session.ok) return { error: createApiErrorResponse(new ApiError(session.reason, "Authentication required", session.reason === "MFA_REQUIRED" || session.reason === "MFA_STALE" ? 403 : 401)) };
-  return { userId: session.userId, sessionId: claims.jti, scope: { tenantId: session.tenantId, companyId: session.companyId, projectId: session.projectId }, mfaVerifiedAt: session.mfaVerifiedAt };
-}
 
 export async function POST(request: Request, context: { params: Promise<{ artifactId: string }> }) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
-  const resolved = await resolveCaller(request);
-  if ("error" in resolved) return resolved.error;
+  const resolved = await resolveApprovalKernelCaller(request);
+  if (resolved instanceof Response) return resolved;
   let body: unknown;
   try { body = await request.json(); } catch { return createApiErrorResponse(API_ERRORS.VALIDATION_ERROR("invalid JSON body")); }
   if (!isPlainObject(body)) return createApiErrorResponse(API_ERRORS.VALIDATION_ERROR("request body must be a JSON object"));

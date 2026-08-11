@@ -1,31 +1,16 @@
-import { PRIVILEGED_MFA_MAX_AGE_SECONDS, verifySessionJwt } from "@sangfor/auth";
 import { WorkflowRuntimeError, createWorkflowDefinition, type ApprovalKernelCaller } from "@sangfor/business";
 
 import { assertApiAccess } from "@/lib/api-auth";
-import { getWebSessionJwtConfig } from "@/lib/auth/config";
-import { evaluatePersistedSessionFromClaims } from "@/lib/auth/persisted-session";
-import { extractSessionToken } from "@/lib/auth/session";
 
 import { ApiError, API_ERRORS } from "../_lib/api-error";
 import { createApiErrorResponse, createApiResponse } from "../_lib/api-response";
+import { resolveApprovalKernelCaller } from "../_lib/resolve-caller";
 
 export const dynamic = "force-dynamic";
 
 const ALLOWED_KEYS = new Set(["workflowKey", "name", "definitionArtifactVersionId"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
-
-async function resolveCaller(request: Request): Promise<ApprovalKernelCaller | Response> {
-  const token = extractSessionToken(request);
-  if (!token) return createApiErrorResponse(API_ERRORS.UNAUTHORIZED());
-  let config;
-  try { config = getWebSessionJwtConfig(); } catch { return createApiErrorResponse(API_ERRORS.UNAUTHORIZED()); }
-  const claims = verifySessionJwt(token, config);
-  if (!claims) return createApiErrorResponse(API_ERRORS.UNAUTHORIZED());
-  const session = await evaluatePersistedSessionFromClaims(claims, new Date(), PRIVILEGED_MFA_MAX_AGE_SECONDS);
-  if (!session.ok) return createApiErrorResponse(new ApiError(session.reason, "Authentication required", session.reason === "MFA_REQUIRED" || session.reason === "MFA_STALE" ? 403 : 401));
-  return { userId: session.userId, sessionId: claims.jti, scope: { tenantId: session.tenantId, companyId: session.companyId, projectId: session.projectId }, mfaVerifiedAt: session.mfaVerifiedAt };
-}
 
 function isResponse(value: ApprovalKernelCaller | Response): value is Response { return value instanceof Response; }
 
@@ -44,7 +29,7 @@ function runtimeError(error: WorkflowRuntimeError): Response { return createApiE
 export async function POST(request: Request) {
   const denied = assertApiAccess(request);
   if (denied) return denied;
-  const caller = await resolveCaller(request);
+  const caller = await resolveApprovalKernelCaller(request);
   if (isResponse(caller)) return caller;
   let body: unknown;
   try { body = await request.json(); } catch { return createApiErrorResponse(API_ERRORS.VALIDATION_ERROR("invalid JSON body")); }
