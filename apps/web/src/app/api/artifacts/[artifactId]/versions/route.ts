@@ -3,7 +3,7 @@ import { ArtifactServiceError, createArtifactVersion } from "@sangfor/business";
 import { assertApiAccess } from "@/lib/api-auth";
 
 import { createApiErrorResponse, createApiResponse } from "../../../_lib/api-response";
-import { resolveApprovalKernelCaller } from "../../../_lib/resolve-caller";
+import { resolveApprovalKernelCaller } from "@/lib/auth/resolve-caller";
 import { ApiError, API_ERRORS } from "../../../_lib/api-error";
 
 const ALLOWED_BODY_KEYS = new Set(["expectedCurrentVersionId", "expectedCurrentRevision", "content", "contentType", "metadata"]);

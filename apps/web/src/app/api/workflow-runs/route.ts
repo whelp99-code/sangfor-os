@@ -4,7 +4,7 @@ import { assertApiAccess } from "@/lib/api-auth";
 
 import { ApiError, API_ERRORS } from "../_lib/api-error";
 import { createApiErrorResponse, createApiResponse } from "../_lib/api-response";
-import { resolveApprovalKernelCaller } from "../_lib/resolve-caller";
+import { resolveApprovalKernelCaller } from "@/lib/auth/resolve-caller";
 
 export const dynamic = "force-dynamic";
 const ALLOWED_KEYS = new Set(["workflowDefinitionId", "idempotencyKey", "input", "runApprovalId"]);

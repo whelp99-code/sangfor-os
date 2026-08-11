@@ -5,8 +5,8 @@ import { getWebSessionJwtConfig } from "@/lib/auth/config";
 import { evaluatePersistedSessionFromClaims } from "@/lib/auth/persisted-session";
 import { extractSessionToken } from "@/lib/auth/session";
 
-import { ApiError, API_ERRORS } from "./api-error";
-import { createApiErrorResponse } from "./api-response";
+import { ApiError, API_ERRORS } from "@/app/api/_lib/api-error";
+import { createApiErrorResponse } from "@/app/api/_lib/api-response";
 
 /**
  * Resolves the server-derived {@link ApprovalKernelCaller} for governance-bearing routes
