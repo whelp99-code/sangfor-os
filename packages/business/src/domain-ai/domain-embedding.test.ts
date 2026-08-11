@@ -4,6 +4,8 @@ import {
   hybridScore,
   recallHybrid,
   recallSemanticFromDb,
+  getEmbedderHealth,
+  resetEmbedderHealth,
   safeEmbed,
 } from "./domain-embedding";
 import type { DomainMemoryRecord, RecallQuery } from "./domain-memory";
@@ -128,6 +130,32 @@ describe("safeEmbed", () => {
 
   it("returns null for an empty vector", async () => {
     expect(await safeEmbed(async () => [], "x")).toBeNull();
+  });
+
+  it("retries a transient embedder failure instead of degrading on the first error", async () => {
+    let calls = 0;
+    const flaky = async (): Promise<number[]> => {
+      calls += 1;
+      if (calls === 1) throw new Error("transient");
+      return [3, 4];
+    };
+    expect(await safeEmbed(flaky, "x", { retryDelayMs: 0 })).toEqual([3, 4]);
+    expect(calls).toBe(2);
+  });
+
+  it("exposes embedder failures as observable state rather than console-only noise", async () => {
+    resetEmbedderHealth();
+    const failing = async (): Promise<number[]> => {
+      throw new Error("embedder down");
+    };
+
+    expect(await safeEmbed(failing, "x", { retryDelayMs: 0 })).toBeNull();
+    const afterFailure = getEmbedderHealth();
+    expect(afterFailure.consecutiveFailures).toBe(1);
+    expect(afterFailure.lastFailureReason).toContain("embedder down");
+
+    expect(await safeEmbed(async () => [1], "x")).toEqual([1]);
+    expect(getEmbedderHealth().consecutiveFailures).toBe(0);
   });
 });
 

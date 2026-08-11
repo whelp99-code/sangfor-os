@@ -21,16 +21,80 @@ import { resolveDefaultProjectSlug } from "../infrastructure/default-project";
 
 export type Embedder = (text: string) => Promise<number[]>;
 
-/** Best-effort 임베딩 — 실패(임베더 다운·키 없음)나 빈 벡터면 null. 호출 경로를 절대 막지 않는다. */
-export async function safeEmbed(embed: Embedder, text: string): Promise<number[] | null> {
-  try {
-    const vec = await embed(text);
-    return vec.length > 0 ? vec : null;
-  } catch (err) {
-    // 실패 증거를 남기고 저하 — 오퍼레이터가 임베더 다운을 알아챌 수 있어야 한다.
-    console.warn(`[domain-embedder] embed_failed: ${(err as Error)?.message ?? err}`);
-    return null;
+export interface SafeEmbedOptions {
+  /** 재시도 횟수(기본 1). 0이면 재시도하지 않는다. */
+  readonly retries?: number;
+  /** 재시도 전 지연(ms, 기본 200). 테스트는 0을 주입한다. */
+  readonly retryDelayMs?: number;
+}
+
+export interface EmbedderHealth {
+  /** 연속 실패 횟수 — 성공 시 0으로 복귀. */
+  readonly consecutiveFailures: number;
+  /** 마지막 실패 사유(있으면). */
+  readonly lastFailureReason?: string;
+  /** 마지막 실패 시각(ISO). */
+  readonly lastFailureAt?: string;
+}
+
+/**
+ * 임베더 상태 — 프로세스 로컬. console.warn 만으로는 임베더 장애가 관측되지 않아
+ * recall 품질 저하의 원인을 사후에 추적할 수 없었다. 카운터로 승격해 호출자가
+ * (대시보드·헬스 라우트 등) 저하 상태를 읽을 수 있게 한다.
+ */
+let embedderHealth: EmbedderHealth = { consecutiveFailures: 0 };
+
+/** 현재 임베더 상태 스냅숏. */
+export function getEmbedderHealth(): EmbedderHealth {
+  return embedderHealth;
+}
+
+/** 상태 초기화 — 테스트 격리용. */
+export function resetEmbedderHealth(): void {
+  embedderHealth = { consecutiveFailures: 0 };
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Best-effort 임베딩 — 경계 재시도 후에도 실패하거나 빈 벡터면 null.
+ * 호출 경로를 절대 막지 않되, 일시적 장애는 재시도로 흡수하고 지속적 장애는
+ * {@link getEmbedderHealth} 로 관측 가능하게 남긴다.
+ */
+export async function safeEmbed(
+  embed: Embedder,
+  text: string,
+  options: SafeEmbedOptions = {},
+): Promise<number[] | null> {
+  const retries = options.retries ?? 1;
+  const retryDelayMs = options.retryDelayMs ?? 200;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const vec = await embed(text);
+      if (vec.length > 0) {
+        embedderHealth = { consecutiveFailures: 0 };
+        return vec;
+      }
+      // 빈 벡터는 재시도해도 같을 가능성이 높다 — 실패로 기록하되 즉시 중단.
+      lastError = new Error("empty embedding vector");
+      break;
+    } catch (err) {
+      lastError = err;
+      if (attempt < retries && retryDelayMs > 0) await sleep(retryDelayMs);
+    }
   }
+
+  const reason = (lastError as Error)?.message ?? String(lastError);
+  embedderHealth = {
+    consecutiveFailures: embedderHealth.consecutiveFailures + 1,
+    lastFailureReason: reason,
+    lastFailureAt: new Date().toISOString(),
+  };
+  // 실패 증거를 남기고 저하 — 오퍼레이터가 임베더 다운을 알아챌 수 있어야 한다.
+  console.warn(`[domain-embedder] embed_failed: ${reason}`);
+  return null;
 }
 
 export function cosineSimilarity(a: number[], b: number[]): number {
