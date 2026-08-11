@@ -53,6 +53,17 @@ export type UnifiedServiceHealth = {
   readonly remediation: string;
   readonly latencyMs?: number;
   readonly detail?: string;
+  /**
+   * Consecutive probes in which this target was neither `ok` nor `disabled`, counted
+   * across calls in this process. `0` once the target probes healthy again.
+   */
+  readonly consecutiveFailures: number;
+  /**
+   * ISO timestamp of the probe that verified recovery — set only on the probe where a
+   * previously failing target returned to `ok`, so a corrective action can be confirmed
+   * rather than assumed.
+   */
+  readonly recoveredAt?: string;
 };
 
 export type UnifiedHealthReport = {
@@ -81,6 +92,39 @@ export type ProbeCanonicalOptions = {
 
 const SECRET_KEY_RE =
   /(?:api[-_]?key|authorization|password|secret|token|credential|passwd|pwd)/i;
+
+/**
+ * Per-target failure streaks, process-local by design: this module has no datastore
+ * (Tier-0 dependency rule), so the tracker closes the measure -> judge -> re-verify loop
+ * within a process lifetime. Durable escalation belongs to a caller that owns persistence.
+ */
+const transitionState = new Map<string, { consecutiveFailures: number }>();
+
+/** Clears the streak table. Tests call this to isolate cases; production never needs it. */
+export function resetHealthTransitions(): void {
+  transitionState.clear();
+}
+
+/**
+ * Folds one probe outcome into the target's streak and reports whether THIS probe is the
+ * one that verified a recovery (previously failing, now `ok`).
+ */
+function recordTransition(
+  id: string,
+  status: UnifiedHealthStatus,
+): { consecutiveFailures: number; recovered: boolean } {
+  if (status === "disabled") return { consecutiveFailures: 0, recovered: false };
+
+  const previousFailures = transitionState.get(id)?.consecutiveFailures ?? 0;
+  if (status === "ok") {
+    transitionState.set(id, { consecutiveFailures: 0 });
+    return { consecutiveFailures: 0, recovered: previousFailures > 0 };
+  }
+
+  const consecutiveFailures = previousFailures + 1;
+  transitionState.set(id, { consecutiveFailures });
+  return { consecutiveFailures, recovered: false };
+}
 
 function isDisabledFlag(value: string | undefined): boolean {
   if (value === undefined) return false;
@@ -262,6 +306,7 @@ export async function probeCanonicalHealth(
       const safeUrl = redactHealthUrl(resolved.upstream);
 
       if (!enabled) {
+        transitionState.delete(entry.id);
         return {
           id: entry.id,
           name: entry.name,
@@ -270,6 +315,7 @@ export async function probeCanonicalHealth(
           criticality: entry.criticality,
           ownerWorkspace: entry.ownerWorkspace,
           remediation: entry.remediation,
+          consecutiveFailures: 0,
         };
       }
 
@@ -279,6 +325,7 @@ export async function probeCanonicalHealth(
       };
       const probed = await probeIntegrationTarget(resolved, probeOpts);
       const status = mapProbeStatus(probed.status);
+      const transition = recordTransition(entry.id, status);
       return {
         id: entry.id,
         name: entry.name,
@@ -287,6 +334,8 @@ export async function probeCanonicalHealth(
         criticality: entry.criticality,
         ownerWorkspace: entry.ownerWorkspace,
         remediation: entry.remediation,
+        consecutiveFailures: transition.consecutiveFailures,
+        ...(transition.recovered ? { recoveredAt: timestamp } : {}),
         latencyMs: probed.latencyMs,
         detail: redactHealthText(probed.details, env),
       };
