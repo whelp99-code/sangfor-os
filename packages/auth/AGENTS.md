@@ -11,6 +11,6 @@
 
 ## Dependencies
 - Depends on: `@sangfor/config`
-- Depended on by: `apps/api` (and web has its own session layer under `apps/web/src/lib/auth`)
+- Depended on by: `apps/api`, `apps/web` (which also keeps its own session layer under `apps/web/src/lib/auth`)
 
 <!-- MANUAL: Notes below this line are preserved on regeneration -->

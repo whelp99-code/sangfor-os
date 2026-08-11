@@ -11,10 +11,10 @@ This file is the agent entry point — a map, not an encyclopedia. Follow the po
 ```
 apps/       web  (Next.js 16, App Router) — the PRIMARY product backend
             api  (Express 4 REST)         — finance/CFO + webhooks/metrics/MCP edge
-packages/   business (domain core, hub) · db (Prisma, ~150 models, formal migrations)
+packages/   business (domain core, hub) · db (Prisma, ~200 models, formal migrations)
             agent · infra · auth · mail-intelligence · persona · shared · config · health · api-utils
 services/   sangfor-engineer-mcp (bridge :3600 · operator :3502 · mock :3400)
-            sangfor-mcp-workflow (:3500)
+            sangfor-mcp-workflow (:3500, Node 22) · production-nonce-authority (Cloudflare Worker, deploy-gate nonce consumer)
 ```
 
 Dependency direction (leaf → top): `config · db · shared · api-utils` → `auth · health · infra · mail-intelligence · persona` → `business` → `agent`. Clean DAG; `business` is the hub, `agent` the sink.
@@ -37,7 +37,7 @@ Dependency direction (leaf → top): `config · db · shared · api-utils` → `
 2. **Trust nothing from the request body.** Do not trust `tenantId`/`companyId`/approver identity from clients. Calculate quote margin/totals server-side. Multi-tenant + RLS by design.
 3. **AI output is a draft** until human-reviewed (human-in-loop learning is the product philosophy). AI drafts must not be treated as approved artifacts.
 4. **DB: additive & migration-first.** Schema changes are additive/nullable; formal `pnpm db:migrate:deploy` is the system of record; `db push --accept-data-loss` is banned. Before any schema edit run `git diff origin/main -- packages/db/prisma/schema.prisma`. Access Prisma only via `import { prisma } from "@sangfor/db"` — never `new PrismaClient()`.
-5. **Quality gate before merge:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. DB-dependent (integration) tests run under `CI_INTEGRATION=1`.
+5. **Quality gate before merge:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. DB-dependent (integration) tests run under `CI_INTEGRATION=1`. The authoritative full gate is `pnpm verify:release` (fixed 19-step manifest across root/engineer/workflow/nonce scopes; no partial runs).
 6. **Concurrent-worktree hazard.** Multiple worktrees share this root and can revert uncommitted edits (thrashing). Commit early to a dedicated branch; see DEV_REFERENCE §8.
 7. **Operational entrypoints are fail-closed.** Run `pnpm verify:operational-entrypoints`; use formal migrations and the U009 isolated restore drill, never `db push` or a direct restore script.
 
@@ -65,9 +65,10 @@ How every agent thinks, executes, and reports here. Rule numbers (F1–F14) are 
 - **F14 State residual risk.** Completion reports include known limits, unverified areas, and follow-ups.
 
 ## Working Here
-- pnpm workspace (`apps/*`, `packages/*`); `services/*` are standalone nested workspaces. Node 20 (`.nvmrc`).
+- pnpm workspace (`apps/*`, `packages/*`); `services/*` are standalone nested workspaces with their OWN `@sangfor/*` namespaces. Node 20 (`.nvmrc`) — exception: `services/sangfor-mcp-workflow` needs Node 22. Compiled packages (`auth`, `config`, `health`, `shared`) must be built before consumers typecheck; the rest are consumed from `src/`.
 - Primary product backend = `apps/web` route handlers (import `@sangfor/business`/`@sangfor/db` directly). `apps/api` owns finance/CFO (web proxies `/api/finance/*` → `:3200/api/cfo`), Outlook webhooks, metrics, MCP bridge.
 - Dev ports: web 3101, api 3200, postgres 5434, redis 6380 — full map in [PORT-MAPPING.yaml](PORT-MAPPING.yaml). Start: `pnpm docker:dev && pnpm dev`; MCP stack: `make up`.
+- Code navigation: layered stack — `rg` (text) → `sg`/ast-grep (structure) → `roam` (persistent call graph; `roam index` is incremental, `.roam/` is gitignored) → LSP (precise refs). Triage with the graph, confirm with LSP/source; details in the `code-graph` skill.
 
 <!-- MANUAL: Notes below this line are preserved on regeneration -->
 

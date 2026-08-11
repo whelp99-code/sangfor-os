@@ -20,6 +20,8 @@ corepack enable
 pnpm install
 ```
 
+**Node 22 required** (`engines: >=22 <23`) — this workspace differs from the repo root (Node 20). Use `bash scripts/run-workspace-runtime.sh workflow -- <cmd>` from the repo root for the pinned runtime.
+
 ## Validation
 
 ```bash

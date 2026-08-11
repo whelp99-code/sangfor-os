@@ -13,12 +13,12 @@
 
 ## Working Here
 - Each `src/<area>/` has its own barrel `index.ts`; the root `src/index.ts` re-exports all. Add new modules to the area barrel, and add a `package.json` subpath export only for deep-import entry points (see the `exports` map in `package.json`).
-- Areas: `crm/`, `finance/`, `governance/`, `mail/` (+`mail/outlook/`), `domain-ai/`, `orchestration/`, `skills/`, `phase14/`, `platform/llm/`, plus top-level modules (command-center, improvement-loop, engagement-center, dev-engine, …).
+- Areas: `catalog/`, `crm/`, `domain-ai/`, `finance/`, `governance/`, `infrastructure/`, `mail/` (+`mail/outlook/`), `orchestration/`, `platform/` (+`platform/llm/`), `skills/`, `support/`. Former top-level modules now live inside areas (command-center/improvement-loop → `orchestration/`, engagement-center → `crm/`, dev-engine → `infrastructure/`).
 - Colocate `*.test.ts` next to source; golden tests use `__snapshots__`/`__fixtures__`. DB-touching tests gate on `CI_INTEGRATION=1`.
 - LLM config resolves db → env → default via `src/platform/llm/config.ts`; hydrate before AI calls (see DEV_REFERENCE §3.E).
 
 ## Dependencies
 - Depends on: `@sangfor/shared`, `@sangfor/db`, `@sangfor/mail-intelligence`.
-- Depended on by: `apps/web` (66 route handlers), `apps/api`, `@sangfor/agent`.
+- Depended on by: `apps/web` (126 route handlers), `apps/api`, `@sangfor/agent`.
 
 <!-- MANUAL: Notes below this line are preserved on regeneration -->

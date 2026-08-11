@@ -2,7 +2,7 @@
 
 # @sangfor/db — Prisma data layer
 
-> The single Prisma client + schema for the whole platform (~150 models), plus row-level-security helpers and finance/CRM data scripts. A Tier-0 leaf: depends on no other `@sangfor/*` package.
+> The single Prisma client + schema for the whole platform (~200 models), plus row-level-security helpers and finance/CRM data scripts. A Tier-0 leaf: depends on no other `@sangfor/*` package.
 
 ## Constraints
 - **Migrations are the system of record.** `prisma/migrations/` holds formal timestamped migrations; CI runs `db:migrate:deploy`. `db push --accept-data-loss` is BANNED.
