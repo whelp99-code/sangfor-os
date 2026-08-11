@@ -129,6 +129,14 @@ export function validateComposeModel(model) {
   for (const service of requiredServices) if (!model.services?.[service]) issues.push(`missing service: ${service}`);
   for (const service of ["postgres", "redis", "api", "web"]) if (!model.services?.[service]?.healthcheck) issues.push(`missing healthcheck: ${service}`);
   for (const service of ["postgres", "redis", "api", "web"]) if ((model.services?.[service]?.ports?.length ?? 0) > 0) issues.push(`${service}: must not publish host ports`);
+  const redis = model.services?.redis;
+  const redisCommand = JSON.stringify(redis?.command ?? []);
+  const redisHealthcheck = JSON.stringify(redis?.healthcheck?.test ?? []);
+  const redisTmpfs = JSON.stringify(redis?.tmpfs ?? []);
+  if (redisCommand.includes("--requirepass")) issues.push("redis: credentials must not be passed through process arguments");
+  if (!redisCommand.includes("umask 077") || !redisCommand.includes("/run/redis/redis.conf") || !redisTmpfs.includes("/run/redis")) issues.push("redis: authentication config must use the protected runtime tmpfs");
+  if (redisHealthcheck.includes("redis-cli -a ") || redisHealthcheck.includes("redis-cli --pass")) issues.push("redis healthcheck: credentials must not be passed through process arguments");
+  if (!redisHealthcheck.includes("REDISCLI_AUTH=")) issues.push("redis healthcheck: must authenticate through REDISCLI_AUTH");
   if ((model.services?.caddy?.ports?.length ?? 0) !== 2) issues.push("caddy: expected HTTP and HTTPS ports");
   if (model.networks?.backend?.internal !== true) issues.push("backend network must remain internal");
   if (!model.services?.api?.environment?.DATABASE_URL?.includes("sangfor_runtime_login")) issues.push("api DATABASE_URL must use the non-DDL runtime role");

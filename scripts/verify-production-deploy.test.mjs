@@ -78,7 +78,12 @@ function validComposeModel() {
   return {
     services: {
       postgres: { healthcheck: {}, ports: [] },
-      redis: { healthcheck: {}, ports: [] },
+      redis: {
+        command: ["sh", "-ec", "umask 077\nprintf 'appendonly yes\\nrequirepass %s\\n' \"$$REDIS_PASSWORD\" > /run/redis/redis.conf\nexec redis-server /run/redis/redis.conf"],
+        healthcheck: { test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -qx PONG"] },
+        ports: [],
+        tmpfs: ["/run/redis:mode=0700"],
+      },
       backup: { restart: "no" },
       migrate: { restart: "no" },
       bootstrap: { command: ["node", "--import", "tsx", "/app/scripts/provision-production-bootstrap.mjs"], environment: bootstrapEnvironment, volumes: [{ type: "bind", source: "/deployment/scripts/provision-production-bootstrap.mjs", target: "/app/scripts/provision-production-bootstrap.mjs", read_only: true }], depends_on: { migrate: { condition: "service_completed_successfully" } }, restart: "no" },
@@ -126,6 +131,15 @@ describe("production deploy verifier", () => {
     const services = Object.fromEntries(["postgres", "redis", "migrate", "bootstrap", "app-role-init", "api", "web", "caddy"].map((name) => [name, {}]));
     services.postgres.ports = [{ published: 5432 }];
     assert.throws(() => validateComposeModel({ services }), /postgres: must not publish/u);
+  });
+  it("rejects Redis credentials passed through process arguments", () => {
+    const insecureServer = validComposeModel();
+    insecureServer.services.redis.command = ["sh", "-ec", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""];
+    assert.throws(() => validateComposeModel(insecureServer), /redis: credentials must not be passed through process arguments/u);
+
+    const insecureHealthcheck = validComposeModel();
+    insecureHealthcheck.services.redis.healthcheck.test = ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -qx PONG"];
+    assert.throws(() => validateComposeModel(insecureHealthcheck), /redis healthcheck: credentials must not be passed through process arguments/u);
   });
   it("requires the production process profile for both API and web", () => {
     const valid = validComposeModel();
