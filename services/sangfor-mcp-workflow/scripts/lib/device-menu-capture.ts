@@ -53,12 +53,21 @@ async function pageHas404(page: Page): Promise<boolean> {
   return page.getByText(/404\s*not\s*found/i).isVisible().catch(() => false);
 }
 
-async function navigateToMenu(
+/**
+ * Navigates to a product menu, applying the IAG legacy-hash correction when the modern
+ * route 404s.
+ *
+ * The correction is verified: if the page still shows 404 after the legacy hash is applied,
+ * the fallback is reported as failed rather than assumed to have worked, so a caller that
+ * captures evidence records a real navigation outcome instead of a corrected-but-broken page.
+ * Exported for unit testing with a fake page.
+ */
+export async function navigateToMenu(
   page: Page,
   product: SangforProduct,
   baseUrl: string,
   hashRoute: string,
-): Promise<void> {
+): Promise<{ corrected: boolean; is404: boolean }> {
   const target = buildMenuUrl(baseUrl, product, hashRoute);
   const waitUntil = product === 'IAG' ? 'networkidle' as const : 'domcontentloaded' as const;
   const settleMs = product === 'IAG' ? 6000 : 4000;
@@ -70,7 +79,10 @@ async function navigateToMenu(
     const legacyHash = hashRoute.replace(/^\/#\//, '#');
     await page.evaluate((hash) => { window.location.hash = hash; }, legacyHash);
     await page.waitForTimeout(settleMs);
+    return { corrected: true, is404: await pageHas404(page) };
   }
+
+  return { corrected: false, is404: false };
 }
 
 async function captureMenu(
@@ -84,10 +96,10 @@ async function captureMenu(
   const target = buildMenuUrl(baseUrl, product, route.hashRoute);
 
   try {
-    await navigateToMenu(page, product, baseUrl, route.hashRoute);
+    const navigation = await navigateToMenu(page, product, baseUrl, route.hashRoute);
 
     const domSummary = await captureDom(page);
-    const is404 = await pageHas404(page);
+    const is404 = navigation.corrected ? navigation.is404 : await pageHas404(page);
     const slug = route.id;
     const screenshotPath = join(outputDir, 'screenshots', `${slug}.png`);
     const domPath = join(outputDir, 'dom', `${slug}.json`);
