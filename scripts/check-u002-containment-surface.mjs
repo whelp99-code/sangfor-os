@@ -5753,22 +5753,41 @@ export function validateSurfaceQaLinks(surfaceQaPath, artifacts, attemptDir = di
   return { linkCount: seen.size, paths: bytewiseSorted(seen) };
 }
 
-export function assertRunnerFinalizationInputsFresh(attemptDir, attemptRootBinding) {
-  const forbidden = [
-    "finalization-manifest.json",
-    "receipt.json",
-    "surface-qa-review.md",
-    "final-code-review.md",
-    "review-handoffs/surface-qa.json",
-    "review-handoffs/final-code.json",
-  ];
-  for (const path of forbidden) {
+/**
+ * Shared freshness scan: every forbidden path must be absent before the phase runs.
+ *
+ * The root binding is re-asserted around every existence check so a root replaced
+ * mid-scan (TOCTOU) is caught rather than silently accepted, which is why the binding
+ * assertion appears before each entry and once more after the loop.
+ */
+function assertForbiddenPathsAbsent({ attemptRoot, paths, errorCode, exitCode, attemptRootBinding }) {
+  for (const path of paths) {
     if (attemptRootBinding) assertAttemptRootBinding(attemptRootBinding);
-    if (directoryEntryExists(resolveAttemptPath(attemptDir, path))) {
-      throw new SurfaceError("FINALIZATION_PHASE_ONE_NOT_FRESH", path, 68);
+    if (directoryEntryExists(resolveAttemptPath(attemptRoot, path))) {
+      throw new SurfaceError(errorCode, path, exitCode);
     }
   }
   if (attemptRootBinding) assertAttemptRootBinding(attemptRootBinding);
+}
+
+const FINALIZATION_PHASE_ONE_FORBIDDEN_PATHS = [
+  "finalization-manifest.json",
+  "receipt.json",
+  "surface-qa-review.md",
+  "final-code-review.md",
+  "review-handoffs/surface-qa.json",
+  "review-handoffs/final-code.json",
+];
+
+export function assertRunnerFinalizationInputsFresh(attemptDir, attemptRootBinding) {
+  const forbidden = FINALIZATION_PHASE_ONE_FORBIDDEN_PATHS;
+  assertForbiddenPathsAbsent({
+    attemptRoot: attemptDir,
+    paths: forbidden,
+    errorCode: "FINALIZATION_PHASE_ONE_NOT_FRESH",
+    exitCode: 68,
+    attemptRootBinding,
+  });
   return { checked: forbidden, created: [] };
 }
 
@@ -5778,13 +5797,13 @@ export function assertRunnerOutputPathsFresh(attemptDir, attemptRootBinding) {
     ...RUNNER_OWNED_OUTPUT_PATHS,
     ...RUNNER_FORBIDDEN_CONTROL_PATHS,
   ]);
-  for (const path of forbiddenPaths) {
-    if (attemptRootBinding) assertAttemptRootBinding(attemptRootBinding);
-    if (directoryEntryExists(resolveAttemptPath(attemptRoot, path))) {
-      throw new SurfaceError("RUNNER_OUTPUT_COLLISION", path, 64);
-    }
-  }
-  if (attemptRootBinding) assertAttemptRootBinding(attemptRootBinding);
+  assertForbiddenPathsAbsent({
+    attemptRoot,
+    paths: forbiddenPaths,
+    errorCode: "RUNNER_OUTPUT_COLLISION",
+    exitCode: 64,
+    attemptRootBinding,
+  });
   const rootEntries = bytewiseSorted(readdirSync(attemptRoot));
   const unexpectedEntries = rootEntries.filter((name) => name !== "controller-run-context.json");
   if (unexpectedEntries.length !== 0) {
