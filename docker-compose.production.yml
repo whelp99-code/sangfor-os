@@ -266,6 +266,7 @@ services:
     restart: unless-stopped
     environment:
       APP_DOMAIN: ${APP_DOMAIN}
+      HTTPS_PORT: ${HTTPS_PORT:-443}
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
