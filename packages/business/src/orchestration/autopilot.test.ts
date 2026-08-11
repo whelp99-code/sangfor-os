@@ -251,6 +251,39 @@ describe("runAutopilotPass", () => {
     expect(result.scanned).toBe(0);
   });
 
+  it("reversal auto-demote: an already-suggest policy is not demoted again", async () => {
+    const prisma = buildFakePrisma();
+    const now = new Date();
+
+    prisma.domainDecisionLog.findMany.mockResolvedValue([
+      { id: "ai-1", caseRef: "mail_candidate:r1", domain: "sales", createdAt: new Date(now.getTime() - 1000) },
+      { id: "ai-2", caseRef: "mail_candidate:r2", domain: "sales", createdAt: new Date(now.getTime() - 2000) },
+      { id: "ai-3", caseRef: "mail_candidate:r3", domain: "sales", createdAt: new Date(now.getTime() - 3000) },
+    ]);
+    prisma.domainDecisionLog.findFirst
+      .mockResolvedValueOnce({ id: "rej-1" })
+      .mockResolvedValueOnce({ id: "rej-2" })
+      .mockResolvedValueOnce({ id: "rej-3" });
+    prisma.mailDerivedCandidate.findMany.mockResolvedValue([]);
+    // The governor already demoted this policy on an earlier pass.
+    prisma.autonomyPolicy.findUnique.mockResolvedValue({
+      id: "policy-1",
+      domain: "sales",
+      decisionType: "autopilot_approve",
+      mode: "suggest",
+      minAutonomy: 0,
+      minSamples: 0,
+    });
+
+    const result = await runAutopilotPass(
+      undefined,
+      { prisma: prisma as unknown as AutopilotDeps["prisma"], env: defaultEnv() },
+    );
+
+    expect(prisma.autonomyPolicy.updateMany).not.toHaveBeenCalled();
+    expect(result.demoted).toEqual([]);
+  });
+
   it("reversal auto-demote: only 2 recent rows -> no demotion (needs 3)", async () => {
     const prisma = buildFakePrisma();
     const now = new Date();

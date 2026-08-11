@@ -87,6 +87,14 @@ async function checkReversalsAndDemote(
   const demoted: string[] = [];
 
   for (const domain of domains) {
+    // The reversal window keeps matching while those three decisions stay the most recent,
+    // so without this check every later pass re-demotes an already-demoted policy and
+    // repeats the warning. Report a demotion only when one actually happens.
+    const current = await client.autonomyPolicy.findUnique({
+      where: { domain_decisionType: { domain, decisionType: "autopilot_approve" } },
+    });
+    if (current?.mode === "suggest") continue;
+
     await client.autonomyPolicy.updateMany({
       where: { domain, decisionType: "autopilot_approve" },
       data: { mode: "suggest" },
