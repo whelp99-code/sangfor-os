@@ -57,6 +57,7 @@ const APPROVED_VALIDITY_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type ApprovalKernelErrorCode =
   | "VALIDATION_ERROR"
+  | "VALIDATION_REJECTED"
   | "UNKNOWN_DECISION"
   | "NOT_FOUND"
   | "FOREIGN_SCOPE"
@@ -74,6 +75,7 @@ export type ApprovalKernelErrorCode =
 
 const HTTP_STATUS_BY_CODE: Record<ApprovalKernelErrorCode, number> = {
   VALIDATION_ERROR: 422,
+  VALIDATION_REJECTED: 422,
   UNKNOWN_DECISION: 422,
   NOT_FOUND: 404,
   FOREIGN_SCOPE: 403,
@@ -367,7 +369,18 @@ export async function submitApprovalRequest(
   const run = async (client: TxClient): Promise<ApprovalRequestWithValidity> => {
     const now = new Date();
     const created = await createApprovalRequest(client, input, caller, now);
-    const ready = await readyApprovalRequest(client, { approvalId: created.id, expectedRevision: 0 });
+    let ready: ApprovalRequestWithValidity;
+    try {
+      ready = await readyApprovalRequest(client, { approvalId: created.id, expectedRevision: 0 });
+    } catch (error) {
+      if (error instanceof ApprovalKernelError) {
+        throw new ApprovalKernelError(
+          "VALIDATION_REJECTED",
+          `server-side approval validation rejected: ${error.message}`,
+        );
+      }
+      throw error;
+    }
 
     await appendAuditEvent(client, {
       scope: auditScope(caller.scope),

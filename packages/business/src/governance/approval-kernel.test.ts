@@ -299,6 +299,17 @@ describe("submitApprovalRequest — creation contract (§1)", () => {
     expect(validity.requiredQuorum).toBe(2);
   });
 
+  it("returns a typed validation rejection when pending@0 cannot become ready@1", async () => {
+    fakeDb.prisma.approvalRequest.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(createReady()).rejects.toMatchObject({
+      code: "VALIDATION_REJECTED",
+      httpStatus: 422,
+      message: expect.stringContaining("unable to CAS pending request"),
+    });
+    expect(fakeDb.raw().approvalRequest).toHaveLength(0);
+  });
+
   it("never lets a caller supply status or a readiness flag — the request type has no such fields", async () => {
     const withExtra = { ...createInput(), status: "approved", ready: true } as CreateApprovalRequestInput;
     const { request } = await submitApprovalRequest(withExtra, caller());
