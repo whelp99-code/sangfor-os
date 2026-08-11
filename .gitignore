@@ -15,7 +15,8 @@ __pycache__
 *.db
 .worktrees/
 
-# Tooling/session caches (oma, serena MCP)
+# Tooling/session caches (oma, serena MCP, roam code-graph)
+.roam/
 .omo/
 .serena/
 .superpowers/
