@@ -247,7 +247,7 @@ describe("runAutopilotPass", () => {
       where: {
         domain: "sales",
         decisionType: "autopilot_approve",
-        mode: { not: "suggest" },
+        mode: "auto",
       },
       data: { mode: "suggest" },
     });
@@ -256,7 +256,7 @@ describe("runAutopilotPass", () => {
     expect(result.scanned).toBe(0);
   });
 
-  it("reversal auto-demote: an already-suggest policy is not demoted again", async () => {
+  it("reversal auto-demote: a non-auto policy is never elevated to suggest", async () => {
     const prisma = buildFakePrisma();
     const now = new Date();
 
@@ -270,7 +270,7 @@ describe("runAutopilotPass", () => {
       .mockResolvedValueOnce({ id: "rej-2" })
       .mockResolvedValueOnce({ id: "rej-3" });
     prisma.mailDerivedCandidate.findMany.mockResolvedValue([]);
-    // The conditional update sees that the governor already demoted this policy.
+    // The conditional update finds no auto policy; observe/suggest/unknown modes must not move.
     prisma.autonomyPolicy.updateMany.mockResolvedValue({ count: 0 });
 
     const result = await runAutopilotPass(
@@ -282,7 +282,7 @@ describe("runAutopilotPass", () => {
       where: {
         domain: "sales",
         decisionType: "autopilot_approve",
-        mode: { not: "suggest" },
+        mode: "auto",
       },
       data: { mode: "suggest" },
     });

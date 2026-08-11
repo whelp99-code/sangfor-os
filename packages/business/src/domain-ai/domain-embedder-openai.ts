@@ -20,6 +20,16 @@ export interface OpenAiEmbedderOptions {
   timeoutMs?: number;
 }
 
+class OpenAiEmbedderResponseError extends Error {
+  readonly status: number;
+
+  constructor(status: number, statusText: string) {
+    super(`openai embeddings failed: ${status} ${statusText}`);
+    this.name = "OpenAiEmbedderResponseError";
+    this.status = status;
+  }
+}
+
 function embedTimeoutMs(opts: OpenAiEmbedderOptions): number {
   if (opts.timeoutMs !== undefined) return opts.timeoutMs;
   const parsed = Number.parseInt(process.env.EMBEDDING_TIMEOUT_MS ?? "", 10);
@@ -39,7 +49,7 @@ export function createOpenAiEmbedder(opts: OpenAiEmbedderOptions = {}): Embedder
       body: JSON.stringify({ model, input: text }),
       signal: AbortSignal.timeout(embedTimeoutMs(opts)),
     });
-    if (!res.ok) throw new Error(`openai embeddings failed: ${res.status} ${res.statusText}`);
+    if (!res.ok) throw new OpenAiEmbedderResponseError(res.status, res.statusText);
     const json = (await res.json()) as { data?: Array<{ embedding?: number[] }> };
     return json.data?.[0]?.embedding ?? [];
   };

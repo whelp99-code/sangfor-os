@@ -93,7 +93,7 @@ async function checkReversalsAndDemote(
       where: {
         domain,
         decisionType: "autopilot_approve",
-        mode: { not: "suggest" },
+        mode: "auto",
       },
       data: { mode: "suggest" },
     });

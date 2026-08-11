@@ -8,6 +8,7 @@ import {
   resetEmbedderHealth,
   safeEmbed,
 } from "./domain-embedding";
+import { createOpenAiEmbedder } from "./domain-embedder-openai";
 import type { DomainMemoryRecord, RecallQuery } from "./domain-memory";
 
 // DB 로드 레이어만 모킹 — 스코어/recall 은 실제 순수 함수로 검증한다.
@@ -162,6 +163,29 @@ describe("safeEmbed", () => {
     expect(await safeEmbed(rejected, "x", { retryDelayMs: 0 })).toBeNull();
     expect(calls).toBe(1);
     expect(getEmbedderHealth().lastFailureReason).toBe("authentication_error");
+  });
+
+  it("retries a production-shape provider 503 once and preserves its safe failure fact", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 503, statusText: "Service Unavailable" }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ data: [{ embedding: [5, 6] }] }),
+      );
+    const embed = createOpenAiEmbedder({
+      apiKey: "test-key",
+      baseUrl: "https://embedder.invalid/v1",
+      fetchImpl,
+    });
+
+    expect(await safeEmbed(embed, "x", { retryDelayMs: 0 })).toEqual([5, 6]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(getEmbedderHealth()).toMatchObject({
+      consecutiveFailures: 0,
+      lastFailureReason: "provider_unavailable",
+    });
   });
 
   it("rejects invalid retry options before calling the embedder", async () => {
