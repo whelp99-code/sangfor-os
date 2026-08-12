@@ -2,11 +2,7 @@
     default_sni {$APP_DOMAIN}
 }
 
-http://{$APP_DOMAIN} {
-    redir https://{$APP_DOMAIN}:{$HTTPS_PORT}{uri} permanent
-}
-
-https://{$APP_DOMAIN} {
+(app_proxy) {
     @api path /health /api/health /api/cfo /api/cfo/* /api/metrics /webhooks/* /events/*
     handle @api {
         reverse_proxy api:3200
@@ -24,4 +20,16 @@ https://{$APP_DOMAIN} {
         Permissions-Policy "camera=(), microphone=(), geolocation=()"
         -Server
     }
+}
+
+http://{$APP_DOMAIN} {
+    redir https://{$APP_DOMAIN}:{$HTTPS_PORT}{uri} permanent
+}
+
+https://{$APP_DOMAIN} {
+    import app_proxy
+}
+
+http://{$TAILSCALE_DOMAIN} {
+    import app_proxy
 }

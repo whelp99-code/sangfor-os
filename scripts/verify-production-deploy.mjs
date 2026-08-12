@@ -65,7 +65,7 @@ export function parseEnvFile(text) {
 }
 
 export function validateProductionEnvironment(env) {
-  const required = ["APP_DOMAIN", "BACKUP_DIR", "DEFAULT_TENANT_ID", "DEFAULT_TENANT_SLUG", "DEFAULT_COMPANY_ID", "DEFAULT_COMPANY_SLUG", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "PRODUCTION_OPERATOR_USER_ID", "PRODUCTION_OPERATOR_EMAIL", "POSTGRES_PASSWORD", "SANGFOR_APP_DB_PASSWORD", "SANGFOR_RUNTIME_DB_PASSWORD", "REDIS_PASSWORD", "API_KEY", "FINANCE_API_KEY", "SANGFOR_API_KEY", "SANGFOR_OPERATOR_PRINCIPAL_ID", "JWT_SECRET", "USER_JWT_ACTIVE_KID", "USER_JWT_KEYRING_JSON", "INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID", "INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON", "INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID", "INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON", "INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID", "INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON", "INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID", "INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON", "EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID", "EXTERNAL_ACTION_RECEIPT_KEYS_JSON"];
+  const required = ["APP_DOMAIN", "TAILSCALE_DOMAIN", "BACKUP_DIR", "DEFAULT_TENANT_ID", "DEFAULT_TENANT_SLUG", "DEFAULT_COMPANY_ID", "DEFAULT_COMPANY_SLUG", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "PRODUCTION_OPERATOR_USER_ID", "PRODUCTION_OPERATOR_EMAIL", "POSTGRES_PASSWORD", "SANGFOR_APP_DB_PASSWORD", "SANGFOR_RUNTIME_DB_PASSWORD", "REDIS_PASSWORD", "API_KEY", "FINANCE_API_KEY", "SANGFOR_API_KEY", "SANGFOR_OPERATOR_PRINCIPAL_ID", "JWT_SECRET", "USER_JWT_ACTIVE_KID", "USER_JWT_KEYRING_JSON", "INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID", "INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON", "INTERNAL_PRINCIPAL_SCHEDULER_ACTIVE_KID", "INTERNAL_PRINCIPAL_SCHEDULER_KEYRING_JSON", "INTERNAL_PRINCIPAL_WORKFLOW_ACTIVE_KID", "INTERNAL_PRINCIPAL_WORKFLOW_KEYRING_JSON", "INTERNAL_PRINCIPAL_ENGINEER_ACTIVE_KID", "INTERNAL_PRINCIPAL_ENGINEER_KEYRING_JSON", "EXTERNAL_ACTION_RECEIPT_ACTIVE_KEY_ID", "EXTERNAL_ACTION_RECEIPT_KEYS_JSON"];
   const issues = [];
   for (const key of required) {
     const value = env[key]?.trim();
@@ -73,6 +73,7 @@ export function validateProductionEnvironment(env) {
     else if (placeholderPattern.test(value)) issues.push(`${key}: placeholder`);
   }
   if (env.APP_DOMAIN && (!/^[a-z0-9.-]+(?::[0-9]+)?$/iu.test(env.APP_DOMAIN) || env.APP_DOMAIN.includes(".."))) issues.push("APP_DOMAIN: expected hostname without scheme or path");
+  if (env.TAILSCALE_DOMAIN && (!/^[a-z0-9.-]+$/iu.test(env.TAILSCALE_DOMAIN) || env.TAILSCALE_DOMAIN.includes(".."))) issues.push("TAILSCALE_DOMAIN: expected hostname without scheme, port, or path");
   if (env.BACKUP_DIR && !isAbsolute(env.BACKUP_DIR)) issues.push("BACKUP_DIR: must be absolute");
   for (const key of ["DEFAULT_TENANT_ID", "DEFAULT_TENANT_SLUG", "DEFAULT_COMPANY_ID", "DEFAULT_COMPANY_SLUG", "DEFAULT_PROJECT_ID", "DEFAULT_PROJECT_SLUG", "PRODUCTION_OPERATOR_USER_ID"]) {
     if (env[key] && !/^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$/u.test(env[key])) issues.push(`${key}: invalid identifier`);
@@ -138,6 +139,7 @@ export function validateComposeModel(model) {
   if (redisHealthcheck.includes("redis-cli -a ") || redisHealthcheck.includes("redis-cli --pass")) issues.push("redis healthcheck: credentials must not be passed through process arguments");
   if (!redisHealthcheck.includes("REDISCLI_AUTH=")) issues.push("redis healthcheck: must authenticate through REDISCLI_AUTH");
   if ((model.services?.caddy?.ports?.length ?? 0) !== 2) issues.push("caddy: expected HTTP and HTTPS ports");
+  if (!model.services?.caddy?.environment?.TAILSCALE_DOMAIN) issues.push("caddy: TAILSCALE_DOMAIN must be configured");
   if (model.networks?.backend?.internal !== true) issues.push("backend network must remain internal");
   if (!model.services?.api?.environment?.DATABASE_URL?.includes("sangfor_runtime_login")) issues.push("api DATABASE_URL must use the non-DDL runtime role");
   if (!model.services?.web?.environment?.DATABASE_URL?.includes("sangfor_runtime_login")) issues.push("web DATABASE_URL must use the non-DDL runtime role");
