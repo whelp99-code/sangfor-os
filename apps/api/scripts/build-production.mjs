@@ -1,7 +1,7 @@
 /**
  * U007 — clean apps/api/dist and build single ESM bundle via esbuild 0.28.1.
  */
-import { rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { copyFileSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
@@ -104,6 +104,11 @@ export async function buildProduction() {
 
   const metaPath = join(apiRoot, "dist/esbuild-meta.json");
   writeFileSync(metaPath, JSON.stringify(result.metafile, null, 2));
+  const vendorSource = join(apiRoot, "src/services/finance/hometax-securemail/vendor");
+  const vendorOutput = join(distDir, "vendor");
+  mkdirSync(vendorOutput, { recursive: true });
+  copyFileSync(join(vendorSource, "seed.js"), join(vendorOutput, "seed.js"));
+  copyFileSync(join(vendorSource, "aes.js"), join(vendorOutput, "aes.js"));
   validateMetafile(result.metafile, { apiRoot, repoRoot: monorepoRoot });
 
   process.stdout.write(

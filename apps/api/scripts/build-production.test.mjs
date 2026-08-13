@@ -5,9 +5,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildProduction, validateMetafile } from "./build-production.mjs";
+import { validateMetafile } from "./build-production.mjs";
 
 const apiRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+const buildScript = join(apiRoot, "scripts/build-production.mjs");
 
 function fileHash(p) {
   return createHash("sha256").update(readFileSync(p)).digest("hex");
@@ -27,13 +28,24 @@ describe("api build-production", () => {
         },
       ).stdout;
 
-      const meta = await buildProduction();
+      const firstBuild = spawnSync(process.execPath, [buildScript], {
+        cwd: join(apiRoot, "../.."),
+        encoding: "utf8",
+      });
+      assert.equal(firstBuild.status, 0, firstBuild.stderr);
+      const meta = JSON.parse(readFileSync(join(apiRoot, "dist/esbuild-meta.json"), "utf8"));
       assert.ok(existsSync(join(apiRoot, "dist/index.mjs")));
       assert.ok(existsSync(join(apiRoot, "dist/esbuild-meta.json")));
+      assert.ok(existsSync(join(apiRoot, "dist/vendor/seed.js")));
+      assert.ok(existsSync(join(apiRoot, "dist/vendor/aes.js")));
       validateMetafile(meta, { apiRoot, repoRoot: join(apiRoot, "../..") });
 
       const hash1 = fileHash(join(apiRoot, "dist/index.mjs"));
-      await buildProduction();
+      const secondBuild = spawnSync(process.execPath, [buildScript], {
+        cwd: join(apiRoot, "../.."),
+        encoding: "utf8",
+      });
+      assert.equal(secondBuild.status, 0, secondBuild.stderr);
       const hash2 = fileHash(join(apiRoot, "dist/index.mjs"));
       assert.equal(hash1, hash2, "clean rebuild hash stable");
 
