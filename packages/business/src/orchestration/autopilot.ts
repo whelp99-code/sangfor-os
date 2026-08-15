@@ -1,4 +1,8 @@
-import { Prisma, prisma } from "@sangfor/db";
+import {
+  AUTOPILOT_APPROVAL_DECISION_TYPE,
+  Prisma,
+  prisma,
+} from "@sangfor/db";
 
 import { getDomainAutonomy, type DomainKey } from "../domain-ai/project-decision";
 import { resolveAutonomyMode, autonomyFromComputed } from "./autonomy-policy";
@@ -92,18 +96,18 @@ async function checkReversalsAndDemote(
     const updated = await client.autonomyPolicy.updateMany({
       where: {
         domain,
-        decisionType: "autopilot_approve",
+        decisionType: AUTOPILOT_APPROVAL_DECISION_TYPE,
         mode: "auto",
       },
       data: { mode: "suggest" },
     });
     if (updated.count !== 1) continue;
 
-    const key = `${domain}:autopilot_approve`;
+    const key = `${domain}:${AUTOPILOT_APPROVAL_DECISION_TYPE}`;
     demoted.push(key);
     console.warn(
       `[autopilot] auto-demotion: policy (domain=${domain}, ` +
-        `decisionType=autopilot_approve) \u2192 suggest ` +
+        `decisionType=${AUTOPILOT_APPROVAL_DECISION_TYPE}) \u2192 suggest ` +
         `(3 consecutive reversals)`,
     );
   }
@@ -187,7 +191,7 @@ export async function runAutopilotPass(
         where: {
           domain_decisionType: {
             domain,
-            decisionType: "autopilot_approve",
+            decisionType: AUTOPILOT_APPROVAL_DECISION_TYPE,
           },
         },
       });
@@ -205,7 +209,7 @@ export async function runAutopilotPass(
       const mode = await (deps?.resolveMode ?? resolveAutonomyMode)(
         {
           domain,
-          decisionType: "autopilot_approve",
+          decisionType: AUTOPILOT_APPROVAL_DECISION_TYPE,
           autonomy,
           colorGatePass: true, // dual-gate filter upstream IS the gate-pass proxy
         },

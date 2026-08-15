@@ -25,3 +25,8 @@ export {
   parseCanonicalArtifactContent,
 } from './canonical-content-hash'
 export type { CanonicalContentErrorCode, ParsedCanonicalArtifactContent } from './canonical-content-hash'
+export {
+  AUTOPILOT_APPROVAL_DECISION_TYPE,
+  AUTOPILOT_POLICY_DOMAINS,
+  seedAutopilotPolicies,
+} from './autonomy-policy-seed'
