@@ -8,15 +8,28 @@ import { actionErrorMessage } from "@/lib/action-error-labels";
 
 export function ConvertToProjectButton({
   id,
+  stage,
   expectedUpdatedAt,
   engagementId,
+  hasPoc,
 }: {
   id: string;
+  stage: string;
   expectedUpdatedAt: string;
   engagementId?: string | null;
+  hasPoc: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const stageReady = new Set(["PROPOSAL", "POC", "NEGOTIATION", "WON"]).has(stage.toUpperCase());
+  const prerequisiteMessage =
+    !stageReady && !hasPoc
+      ? "제안 이후 단계로 진행하고 PoC를 연결해야 합니다."
+      : !stageReady
+        ? "제안 이후 단계에서 프로젝트로 전환할 수 있습니다."
+        : !hasPoc
+          ? "PoC를 먼저 연결해야 합니다."
+          : null;
 
   if (engagementId) {
     return (
@@ -57,9 +70,14 @@ export function ConvertToProjectButton({
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <Button size="sm" onClick={convert} disabled={busy}>
+      <Button size="sm" onClick={convert} disabled={busy || prerequisiteMessage !== null}>
         {busy ? "전환 중…" : "프로젝트로 전환"}
       </Button>
+      {prerequisiteMessage && (
+        <div className="max-w-56 text-right text-xs text-muted-foreground">
+          {prerequisiteMessage}
+        </div>
+      )}
       {error && (
         <div className="text-right text-xs text-red-600">
           {error}

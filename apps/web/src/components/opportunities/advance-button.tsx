@@ -11,14 +11,20 @@ export function AdvanceOpportunityButton({
   id,
   stage,
   expectedUpdatedAt,
+  qualificationPassed,
 }: {
   id: string;
   stage: string;
   expectedUpdatedAt: string;
+  qualificationPassed: boolean;
 }) {
   const canonical = normalizeOpportunityStage(stage);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const prerequisiteMessage =
+    canonical === "LEAD" && !qualificationPassed
+      ? "BANT 자격검증을 먼저 통과해야 합니다."
+      : null;
 
   if (canonical === "WON" || canonical === "LOST") return null;
 
@@ -49,9 +55,14 @@ export function AdvanceOpportunityButton({
 
   return (
     <div className="space-y-1">
-      <Button size="sm" onClick={advance} disabled={loading}>
+      <Button size="sm" onClick={advance} disabled={loading || prerequisiteMessage !== null}>
         {loading ? "진행 중..." : "다음 단계로"}
       </Button>
+      {prerequisiteMessage && (
+        <p className="max-w-48 text-right text-xs text-muted-foreground">
+          {prerequisiteMessage}
+        </p>
+      )}
       {error && (
         <p className="text-xs text-destructive" role="alert">
           {error}
