@@ -300,14 +300,14 @@ export async function convertApprovedMailCandidates(
     };
 
     for (const candidate of candidates) {
-      const derived = deriveEntityFromCandidate(candidate);
-      if (derived.skip) {
-        throw new CrmServiceError("CONFLICT", 409, "mail_candidate_entity_unverified");
-      }
       const entityKey = `${command.idempotencyKey}:${candidate.id}`;
       let converted: { entityType: string; entityId: string; created: boolean };
 
       if (candidate.candidateType === "customer") {
+        const derived = deriveEntityFromCandidate(candidate);
+        if (derived.skip) {
+          throw new CrmServiceError("CONFLICT", 409, "mail_candidate_entity_unverified");
+        }
         const merged = await mergeMailDerivedCustomerInScopedTransaction(tx, ctx, {
           name: derived.name,
           domain: derived.domain,
@@ -323,6 +323,10 @@ export async function convertApprovedMailCandidates(
         if (merged.created) result.customersCreated += 1;
         else result.customersMerged += 1;
       } else if (candidate.candidateType === "partner") {
+        const derived = deriveEntityFromCandidate(candidate);
+        if (derived.skip) {
+          throw new CrmServiceError("CONFLICT", 409, "mail_candidate_entity_unverified");
+        }
         const metadata = asRecord(candidate.metadata);
         const merged = await mergeMailDerivedPartnerInScopedTransaction(tx, ctx, {
           name: derived.name,

@@ -216,6 +216,46 @@ describe("convertApprovedMailCandidates", () => {
     );
   });
 
+  it("converts an approved opportunity inferred from an internal sender", async () => {
+    const configured = fakeTx([
+      candidate({
+        candidateType: "opportunity",
+        title: "Opportunity: 한신대 유지보수 라이선스 갱신",
+        status: "proposed",
+        sourceSender: "sales@blro.co.kr",
+        metadata: {
+          aiRevalidation: {
+            decision: "approve_candidate",
+          },
+        },
+      }),
+    ]);
+    harness.tx = configured.tx;
+
+    const result = await convertApprovedMailCandidates(SALES, {
+      candidates: [{ id: "candidate-1", expectedUpdatedAt: VERSION.toISOString() }],
+      idempotencyKey: "batch-internal-opportunity",
+      approveProposed: true,
+    });
+
+    expect(result.items).toEqual([
+      {
+        candidateId: "candidate-1",
+        entityType: "opportunity",
+        entityId: "opportunity-1",
+        created: true,
+      },
+    ]);
+    expect(harness.mergeOpportunity).toHaveBeenCalledWith(
+      harness.tx,
+      SALES,
+      expect.objectContaining({
+        title: "한신대 유지보수 라이선스 갱신",
+        idempotencyKey: "batch-internal-opportunity:candidate-1",
+      }),
+    );
+  });
+
   it("fails closed for foreign or unverified candidate provenance", async () => {
     const configured = fakeTx([
       candidate({ mailInsightThread: { projectId: "project-foreign" } }),
