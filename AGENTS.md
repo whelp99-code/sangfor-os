@@ -30,7 +30,7 @@ Dependency direction (leaf → top): `config · db · shared · api-utils` → `
 - Security / auth: [docs/04_SECURITY/](docs/04_SECURITY/) (Security_Threat_Model, Auth_RBAC_ABAC_RLS, Audit_And_Compliance).
 - AI governance: [docs/05_DATA_AI/AI_Quality_Governance.md](docs/05_DATA_AI/AI_Quality_Governance.md).
 - Color-agent org (×lens review): [docs/13_COLOR_AGENT_ORG/](docs/13_COLOR_AGENT_ORG/).
-- Plans: [docs/plans/](docs/plans/) · [docs/master-plan/](docs/master-plan/) (dev plan, verification, enhancement phases 1–5).
+- Current product and architecture direction: [AI-native CRM redefinition](docs/reports/AI_NATIVE_CRM_REDEFINITION_2026-08-13.md). Pre-2026-08-13 plans are non-canonical history under [discarded-plans](docs/archive/discarded-plans/).
 
 ## Quick Rules (critical — every agent must know)
 1. **Approval gates for irreversible actions.** Never send real mail, delete, deploy, external-share, mutate a prod DB, force-push, or cut release tags without explicit approval. Route them through `governance/approval-gate`.

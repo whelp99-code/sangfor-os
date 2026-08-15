@@ -148,7 +148,6 @@
 읽을 문서:
 
 - `08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md`
-- `08_IMPLEMENTATION/Implementation_Plan_Milestones.md`
 - `07_OPERATIONS/Operator_Runbook.md`
 
 검수 기준:

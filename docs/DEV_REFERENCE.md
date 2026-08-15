@@ -2,7 +2,7 @@
 
 > **목적**: 개발할 때마다 펴보는 단일 진입점. 시스템 지도 · 워크스트림 · 소스 인벤토리 · 명령어 · 데이터모델 · 알려진 이슈를 한 곳에.
 > **유지 규칙**: 작업이 끝날 때마다 이 문서를 갱신한다. 새 워크스트림은 §3에 한 섹션 추가, 명령은 §5, 파일은 §6, 모델 변경은 §7, 이슈는 §8. 맨 아래 **변경 이력** 한 줄 추가.
-> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-08-11
+> **최초 작성**: 2026-06-29 (2026-06-28 작업 일괄 정리) · **마지막 갱신**: 2026-08-12
 
 > **Canonical requirement/acceptance 진입점**: [ID registry](01_SPEC/Requirement_ID_Registry.md) → [requirement source](01_SPEC/Requirements_MoSCoW.md) / [acceptance source](08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md) → [99-row machine manifest](12_VERIFICATION/acceptance-manifest.json) / [evidence schema](12_VERIFICATION/acceptance-evidence.schema.json). 구현 분모는 28 requirements와 71 acceptance이며 C1–C5/W1–W5는 제외한다.
 
@@ -116,7 +116,7 @@ const results = await runDomainPipeline({ id, subject, tags }, { generate });
 - **품질/보안**: 매칭 단위테스트 + `CI_INTEGRATION` 통합테스트, `financeAccessGuard`(system_admin·finance_manager·ceo만), `FINANCE_API_KEY` 문서화.
 - **재디자인(PR #31)**: "잉크 위 장부(ledger)" — 토큰 `lib/cfo-theme`(ink/paper/hairline, 입금 teal·출금 brick·강조 brass), **현금 런웨이 게이지**(0–12개월, 3개월 위험선), 등폭 tabular ₩ 타이포. CFO를 `PortalShell`로 감싸 좌측 사이드바 통일.
 
-**상세 문서**: `docs/08_IMPLEMENTATION/cfo-2026-06-28-worklog.md`, `cfo-stabilization-and-enhancement-plan.md`, `docs/12_VERIFICATION/cfo-runbook.md`.
+**상세 문서**: `docs/08_IMPLEMENTATION/cfo-2026-06-28-worklog.md`, `docs/12_VERIFICATION/cfo-runbook.md`. 과거 고도화 계획은 `docs/archive/discarded-plans/`의 비정본 기록으로만 보존한다.
 
 ---
 
@@ -132,7 +132,7 @@ const results = await runDomainPipeline({ id, subject, tags }, { generate });
 - **CI 스모크**: `.github/workflows/stack-smoke.yml` — 컨테이너 스택 빌드·기동 후 3600/3502/3400이 60초 내 200인지 단언(경로 필터). 첫 실행에서 실제 Dockerfile 버그 포착.
 - **Node 핀**: `.nvmrc`=20.
 
-**상세 문서**: `docs/plans/reproducibility-and-config-durability-plan.md`(A0–A9 감사), `docs/plans/mcp-runtime-reproducibility-report.md`(딜리버리). 또한 `memory/`의 [MCP services startup] 메모.
+**현행 진입점**: 루트 `Makefile`, `scripts/README.md`, 각 서비스 `AGENTS.md`. 과거 재현성 계획·보고서는 `docs/archive/discarded-plans/`의 비정본 기록으로만 보존한다.
 
 ---
 
@@ -155,7 +155,7 @@ POC 확정 시 영업기회를 **멱등·원자적**으로 Engagement(프로젝�
 **API**: `PATCH /api/opportunities/[id]` `{action:"convert_to_project"}`, `GET /api/engagements`, `GET /api/engagements/[id]`. **테스트**: `engagement-conversion.test.ts`(`CI_INTEGRATION=1` 게이트, 멱등·흡수·POC게이트).
 
 > ⚠️ 현재 워킹트리에서 `engagement-center.ts`/`engagement-backfill.ts`/`meeting-promotion.ts`가 삭제 표시. **머지본(main) 기준으로 복원** 후 사용.
-**상세 문서**: `docs/plans/opportunity-to-project-conversion.md`.
+**현행 진입점**: `packages/business/src/opportunities/`, `apps/web/src/app/(portal)/deals/[id]/`, 관련 테스트. 과거 전환 계획은 `docs/archive/discarded-plans/`의 비정본 기록으로만 보존한다.
 
 ---
 
@@ -220,7 +220,7 @@ POC 확정 시 영업기회를 **멱등·원자적**으로 Engagement(프로젝�
 - **범위**: 라운드당 10개, 총 50개 시나리오로 교정/보관, 기능 도달성, CFO 진실성, 모바일·한국어·키보드, 동결 회귀를 검증했다. Sol이 격리 환경에서 실행하고 Grok이 각 라운드를 독립 반례검토했다.
 - **주요 착륙**: Contact 교정/soft archive, partner/contact tenant scope, 안정적인 전환 409+명시적 force, renewal 상태 변경, 월마감 실행, VAT 기간 선택, CFO 미수·현금 SSOT, subscription API 계약, CFO-local 404, 모바일/한국어/오류 피드백.
 - **안전/발견**: 기능 쓰기는 QA DB `sangfor_os_uxtest_r16r20`, Redis DB 14, web 3110/api 3230에서 수행했다. 다만 기존 비격리 business 테스트 4개가 루트 `.env` 운영 DB에 감사 로그 34행을 남기는 결함을 발견해 `CI_INTEGRATION=1` 게이트와 cleanup을 추가했다. 남은 운영 로그 삭제는 승인 대기다.
-- **상세 증거**: [`docs/plans/2026-07-13-r16-r20-real-usage-qa.md`](plans/2026-07-13-r16-r20-real-usage-qa.md).
+- **상세 증거(과거 기록)**: [`2026-07-13-r16-r20-real-usage-qa.md`](archive/discarded-plans/2026-08-13/plans/2026-07-13-r16-r20-real-usage-qa.md). 현재 실행 계획으로 사용하지 않는다.
 
 ### 3.L AI 품질 커널 (U054)
 
@@ -518,10 +518,11 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 |---|---|
 | 도메인 축 | `docs/13_COLOR_AGENT_ORG/Domain_Axis_Project_Report.md`, `Worklog_2026-06-28_Domain_Axis.md` |
 | 컬러 에이전트 | `docs/13_COLOR_AGENT_ORG/Color_*.md`, `SANGFOR_Color_Mapping.md` |
-| CFO | `docs/08_IMPLEMENTATION/cfo-2026-06-28-worklog.md`, `cfo-stabilization-and-enhancement-plan.md`, `docs/12_VERIFICATION/cfo-runbook.md` |
-| MCP 런타임 | `docs/plans/reproducibility-and-config-durability-plan.md`, `mcp-runtime-reproducibility-report.md` |
-| Engagement 전환 | `docs/plans/opportunity-to-project-conversion.md` |
+| CFO | `docs/08_IMPLEMENTATION/cfo-2026-06-28-worklog.md`, `docs/12_VERIFICATION/cfo-runbook.md` |
+| MCP 런타임 | 루트 `Makefile`, `scripts/README.md`, 각 서비스 `AGENTS.md` |
+| Engagement 전환 | `packages/business/src/opportunities/`, `apps/web/src/app/(portal)/deals/[id]/`, 관련 테스트 |
 | 메일 하드닝 | `docs/12_VERIFICATION/real-mail-hardening-runbook.md` |
+| 메일 분류 Ground Truth | `docs/05_DATA_AI/BLRO_Mail_Classification_Ground_Truth_2026-08-12.md` |
 | 검증 매트릭스 | `docs/12_VERIFICATION/verification-command-matrix.md`, `unsafe-action-matrix.md` |
 | Requirement/acceptance registry | `docs/01_SPEC/Requirement_ID_Registry.md`, `docs/12_VERIFICATION/acceptance-manifest.json`, `acceptance-evidence.schema.json`, `test-alias-map.json` |
 | 에이전트 메모리 | `memory/` (AGENTS.memory.md 계약), `MEMORY.md`(자동 메모리) |
@@ -529,6 +530,10 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ---
 
 ## 변경 이력
+- **2026-08-13 (BLRO 세금계산서 17건 복구)**: 메일 sync의 HomeTax 후처리는 재무 API가 요구하는 `human_delegation` 내부 principal 없이 호출돼 401이었고, 운영 API 컨테이너는 현재 `.env.production`과 다른 오래된/invalid FINANCE keyring을 보유했다. API만 현재 설정으로 재생성해 권한 경로를 복구한 뒤, `finance_company_settings`가 비어 있음을 기존 매입 세금계산서 17건의 동일 buyer 사업자번호(`420-87-02727`)와 대조해 정식 finance endpoint로 기본 회사 설정을 등록했다. 이후 운영 API bundle에서 HomeTax CryptoJS vendor 자산(`seed.js`, `aes.js`)이 누락된 배포 결함을 재현 테스트로 잠그고 `build-production.mjs`가 `dist/vendor`로 두 파일을 복사하도록 수정했다. 새 API image를 빌드해 API만 교체한 결과 Graph 원문 17건은 `created:1, duplicate:15, skipped_not_ours:1, failed:0`; 즉시 재실행은 `created:0, duplicate:16, skipped_not_ours:1, failed:0`이었다. 장부는 총 38건(매입 18/매출 20), issue ID 중복 0이며 API healthy·메일 timer active다. 처리 전 custom-format dump는 `/var/backups/sangfor-os/pre-tax-invoice-processing-20260813T0532Z.dump`(16,269,586 bytes, 0600)로 sha256 및 `pg_restore --list` 검증을 통과했다.
+- **2026-08-13 (BLRO 운영 메일 동기화 복구)**: `blro` root Docker의 `sangfor-blro` 스택은 정상이나 운영 호스트에 메일 scheduler가 없었고, `.env.production`/web 컨테이너에서 `OUTLOOK_CLIENT_ID`·`OUTLOOK_CLIENT_SECRET`·`OUTLOOK_TENANT_ID`가 누락돼 DB의 refresh token을 갱신하지 못했다. pre-write custom-format dump(16,186,854 bytes)를 sha256 및 `pg_restore --list`로 검증한 뒤 기존 검증 자격을 복원하고 web만 force-recreate했다. 인증 강화 후에도 `cron-call.mjs`가 900초 JWT를 발급해 현재 고정 28,800초 계약에 거부되던 드리프트를 TDD로 수정했으며, caller는 이제 대상 container/base URL을 환경으로 받고 실제 `USER_JWT_TTL_SECONDS`를 사용하며 공인 BLRO TLS 검증을 끄지 않는다. `/api/mail-import` delegated sync는 1,378건(받은 854/보낸 524)으로 복구됐고 DB는 1,396행·legacy 0·external-id 중복 0, Graph의 최신 inbound/outbound 시각과 DB가 정확히 일치했다. `sangfor-mail-sync.timer`를 `blro`에 30분 주기로 설치해 enabled+active 상태로 만들고 동일 systemd service를 2회 연속 exit 0으로 검증했다. Hometax `unauthorized:17`은 메일 장애가 아니라 기존 CFO MFA 정책 거부로 별도 유지한다.
+- **2026-08-12 (메일 분류 Ground Truth 조사·구현)**: MacBook의 BLRO 프로젝트 폴더(5.9GB/90,827파일), 매출·매입 세금계산서 8개, 은행 거래내역 2개, 영업/리뉴얼 원장을 읽어 회사 단일 타입이 아니라 `공급사 → BLRO → 매출처/채널 → 최종고객`의 프로젝트별 역할 그래프로 학습해야 함을 확인했다. 승인된 bootstrap 부분집합과 source provenance를 보존하는 import/revert 계획, no-write 재분류 CLI를 추가했고 운영 연결 dry-run은 후보 578건을 읽어 쓰기 0건으로 종료했다. 기존 `AutonomyPolicy`의 10표본·90%·color gate·3회 뒤집힘 강등은 유지했다. 조사 중 확인한 seed `mail_candidate_approve` / runtime `autopilot_approve` 불일치는 canonical 키와 `20260812190000_unify_autopilot_policy_key` 마이그레이션으로 해소했으며, 마이그레이션은 구현·검증됐지만 운영 배포하지 않았다. 상세 근거와 안전 운영 절차는 `docs/05_DATA_AI/BLRO_Mail_Classification_Ground_Truth_2026-08-12.md`에 기록했다.
+- **2026-08-13 (메일 Ground Truth 검토 화면·scope 강화)**: 기존 메일 후보 상세 화면과 `GET /api/mail-candidates/[id]?preview=ground_truth`에 승인 bootstrap 대장 기반 read-only preview를 통합했다. 현재→제안 유형, relationship/source provenance, 충돌, 스캔·차단·실제 쓰기 수를 표시하고 preview는 항상 쓰기 0건이다. 후보 상세·목록·preview 읽기는 persisted session에서 만든 tenant/company/project `AuthContext`와 RLS transaction으로 통일해 기존 raw Prisma read의 cross-project IDOR 가능성을 닫았다. 기존 유형 전환·승인/연결만 사람 승인 쓰기 경로로 유지했다. 운영 migration/corpus 승격/일괄 쓰기는 실행하지 않았다.
 - **2026-08-12 (BLRO Tailscale Serve 영구 HTTPS)**: BLRO Tailscale 노드를 `blro`로 단순화하고 `https://blro.alpines-goldeye.ts.net/`을 tailnet 전용 영구 접속점으로 설정했다. Tailscale Serve는 TLS를 종료한 뒤 Caddy의 `http://192.168.100.6:8081`로 proxy하며, Caddy는 `TAILSCALE_DOMAIN` 전용 HTTP vhost에서 기존 web/API routing과 보안 header를 재사용한다. 프로덕션 verifier는 환경과 Compose 양쪽의 `TAILSCALE_DOMAIN` 계약을 검증한다.
 - **2026-08-09 (메일 AI reject FN=0 게이트 + PR #195 수렴)**: `combineHybridClassification`의 customer/partner 유형교정 임계값을 계약과 일치하게 70으로 고치고 69/70 경계 및 force revalidation route 계약을 회귀테스트로 고정했다. Q8 Gate 2는 `mail-ai-reject-gate/v1`의 동결된 `task`/`opportunity`/`poc` AI reject 전수 모집단과 3종 사람 라벨(`actual_opportunity`/`not_opportunity`/`insufficient_evidence`), 결정적 10% 독립 2차검토, 보수적 PASS/FAIL/BLOCKED/INVALID(exit 0/1/2/64)를 검증하는 파일 기반 CLI로 추가했다. CLI는 선언된 manifest의 전수성만 검증하며 원천 completeness는 인증된 cycle export/receipt가 별도 증명해야 한다. Daggertooth PR #196을 병합해 최신 main과 정렬했고 Node 20에서 business 1,041·web 605·affected route 20 테스트와 lint/typecheck/build를 통과했다. 루트 `pnpm test`는 로컬 Docker CLI 부재로 U040 2건이 `spawn docker ENOENT` 차단됐고, apps/api의 기존 listener 테스트 1건은 로컬 5초 timeout이 남아 CI 재확인이 필요하다.
 - **2026-08-09 (Domain-AI 임베더 실사용 배선 + dev 환경 복구)**: 임베더·하이브리드 시맨틱 recall은 구현·테스트가 끝나 있었지만 **프로덕션 호출처가 0개**였다 — 런타임 recall(`runDomainStage`)과 제안서 recall(`generateDomainProposal`)은 태그 전용이었고, 메모리 쓰기 경로는 임베딩을 저장하지 않아 백필 스크립트만이 사후 계산하고 있었다. 세 경로를 `resolveEmbedder()` 주입 하이브리드로 전환하고(임베더 실패·오프라인이면 태그 전용으로 저하, 도메인 격리·negative 억제·top-K 보존), 학습 upsert와 `recordHumanDecision` 쓰기에 best-effort 임베딩을 붙였다(실패해도 쓰기는 막지 않는다). `hybridScore`에는 레코드 단위 차원 가드를 넣어 hash 256과 openai 1536이 섞여도 해당 행이 태그 점수를 온전히 유지하게 했다. 리뷰 4세대를 거치며 실제 결함 넷을 잡았다: `safeEmbed`가 실패 증거 없이 에러를 삼키던 것, 임베딩 HTTP 호출에 마감이 없어 멈춘 엔드포인트가 recall·쓰기를 붙잡을 수 있던 것(`AbortSignal.timeout`, 기본 10초, 양쪽 리졸버 분기에 전달), `recallSemanticFromDb`가 `domain:` 태그를 중복시켜 tagScore 분모를 부풀리던 것, 그리고 `[]`가 JS에서 truthy라 **빈 임베딩을 넘기면 이미 쌓인 벡터가 지워지던** 것. 검증은 실 Postgres 왕복 스모크(`packages/business/scripts/smoke-embedder-wiring.ts`)와 red-team 스위트(`src/domain-ai/__qa__/`: 차원 불일치·임베더 다운·negative 오염·도메인 격리·빈 벡터 wipe·타임아웃·헤르메티시티)로 했다. 같은 세션에서 dev 환경 두 건도 닫았다: ① 로컬 `sangfor_os`가 테넌시 이전 데이터 때문에 72개 중 41개에서 멈춰 있던 것을 시드 → 백필 제어 행 → resolve → deploy로 복구(72/72, `scope:validate` ok, `domain_memories` 474행 보존; 스코프 불가한 `module_registry` 감사 28행은 `.local-backups/`에 보존 후 제거) ② `.env.example`의 `DATABASE_URL`이 존재하지 않는 롤 `ai_portal`을, `USER_JWT_TTL_SECONDS`가 폐기된 900을 가리켜 예시를 복사하면 반드시 실패하던 것을 실측 후 정정하고 로컬 키링 생성 원라이너를 문서화했다(§8). 리뷰 지적 10건의 원문과 처분은 `artifacts/g001-critic-caveats.md`.
@@ -541,7 +546,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **2026-07-31**: 운영 자동화 루프 복구 + 배포 입력 재건 — launchd 4잡이 전부 `localhost:3101`을 직접 호출해 실패하고 있었다(production compose는 web/api를 `expose`만 하므로 Caddy :80/:443이 유일 입구). Caddy 경유만으로는 부족해 proxy의 DB-backed 세션과 `projectSlug` 클레임까지 필요했고, `scripts/launchd/cron-call.mjs`가 컨테이너의 active USER_JWT 키링으로 단기 운영자 세션을 서명하고 `cron-session-operator` 한 행만 갱신해 호출하도록 했다(호출마다 `auth_sessions` 행이 쌓이던 누수 차단). 배포 시 사용한 `.env.production`이 `.local-prod` 회수와 함께 소실돼 재배포가 불가능한 상태였던 것을 `scripts/reconstruct-production-env.mjs`로 실행 컨테이너에서 되읽어 재건했다(`deploy-production.sh --check` ok=true / 31 required / 9 services). Outlook은 compose가 `OUTLOOK_*`를 아예 전달하지 않았고, 자격증명 연결 후에는 `fetchMessages`가 Graph 400 응답 본문에서 `value`를 읽어 `{"success":true,"synced":0}`로 위장 성공을 보고하던 결함이 드러나 실패를 그대로 올리도록 고쳤다. 첫 동의에 `Calendars.Read`를 포함시켜(`syncCalendarMeetings`가 이를 요구) 재동의를 피했다. 남은 단계는 포털에서의 위임 OAuth 동의 1회다. 상세는 PR #166.
 - **2026-07-28**: 단일 호스트 운영 배포 경로 정식화 — production Compose, owner-only env 검증기, 정식 migration과 RLS app-role credential 초기화, API/Web health gate, Caddy TLS ingress, 명시적 배포 확인을 추가했다. 격리 신규 DB에서 69 migration과 API/Web production health를 실검증하고 테스트 볼륨/네트워크를 제거했다.
 - **2026-07-28**: U076 실사용 QA 하네스 운영 안전성 보강 — 고정 `:3101`과 타 프로세스 READY 오인을 제거하고 run-id별 fresh evidence, 명시/동적 loopback 포트 검증, owned web child 생존 검사를 추가했다. 가상 메일 시드는 U076 task-owned loopback `sangfor_task_*` DB와 open/migrated PostgreSQL receipt가 일치할 때만 Prisma를 지연 로드해 mutation하며, 두 행동 테스트를 CI·release manifest·최종 수용성 focused gate에 연결했다.
-- **2026-07-27**: U076 100건 격리 실사용 검증 — 이메일 학습 50건과 사용자 UI 입력 50건을 실제 입력해 메일 스레드 50·후보 130·직접 고객 50을 확인하고 승인/반려/AI 재검증/유형교정/연결 산출물을 표본 실측했다. CAS·멱등성·RLS·감사 JSON·회사명 도출·연결 UI 결함을 수정하고 비스코프 레거시 배치/거부/유형수정 경로를 제거했다. 테스트 행·JWT 픽스처·격리 Docker 자원은 모두 삭제했으며 Grok 독립 감사와 Node 20 전체 품질 게이트가 PASS했다. 상세 범위와 과장 금지 경계는 [`docs/plans/2026-07-27-u076-real-use-100.md`](plans/2026-07-27-u076-real-use-100.md)에 기록했다.
+- **2026-07-27**: U076 100건 격리 실사용 검증 — 이메일 학습 50건과 사용자 UI 입력 50건을 실제 입력해 메일 스레드 50·후보 130·직접 고객 50을 확인하고 승인/반려/AI 재검증/유형교정/연결 산출물을 표본 실측했다. CAS·멱등성·RLS·감사 JSON·회사명 도출·연결 UI 결함을 수정하고 비스코프 레거시 배치/거부/유형수정 경로를 제거했다. 테스트 행·JWT 픽스처·격리 Docker 자원은 모두 삭제했으며 Grok 독립 감사와 Node 20 전체 품질 게이트가 PASS했다. 상세 범위와 과장 금지 경계는 [과거 기록](archive/discarded-plans/2026-08-13/plans/2026-07-27-u076-real-use-100.md)에 보존하며 현재 실행 계획으로 사용하지 않는다.
 - **2026-07-26**: U068/U073/U074 DB closure 보강 — scheduler 실통합 테스트, 198-model 중 187 scoped table의 FORCE RLS와 94개 CHILD_VIA_FK parent-EXISTS 정책, U009 격리 tenant-selective restore 실행기(식별자 allowlist·결정적 remap·hash 기반 멱등성)를 추가했다. 복구 멱등 ledger로 `_prisma_migrations`를 사용하지 않는다.
 - **2026-07-25**: AI 품질 커널 (U054) 안착 — policyKey/slot/quorum 규격, writer/lookup 커맨드, 409 에러 코드, user separation 규칙 및 qualityPassed ≠ 승인/발송 구분 명시.
 - **2026-07-17**: Canonical requirement/acceptance registry 동결 — 28 requirements, 71 acceptance, 99-row owner/closure manifest, evidence schema, 23-alias/63-step execution map, exact-set validator를 연결하고 C1–C5/W1–W5 제외 범위를 명시했다.
@@ -560,11 +565,11 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - **2026-07-10 (후속)**: PR #110 CI green 확인 후 squash-merge(`d2d699b`), 로컬 `dev-clean`을 갱신된 `origin/main`(PR #109도 포함)에 동기화. 사용자 승인 5건 일괄 처리 — ①인카금융그룹 FP를 인카금융서비스로 확정 매핑(Cashflow+1/Expense+1, 연결률 11.8%→12.7%) ②재검증 데일리·KPI 주간 launchd 잡 설치+`launchctl load` 완료 ③아티팩트명 Customer 레코드 4건 백업 후 삭제(activity_logs cascade) + 연결된 `mail_derived_candidates` 4건 댕글링 참조 정리 ④9router 모델을 `cx/gpt-5.4-mini`→`Free-Tier`(owned_by=combo, 내부 `gpt-oss:120b`)로 전환, 두 `.env` 갱신 + main-fork 재기동. 라이브 커맨드바(`/api/agent/run`) 왕복 시도 결과 LLM 경로는 정상이나 MCP 브릿지(:3600) 미기동으로 별도 실패 — 신규 backlog.
 - **2026-07-10 (W2~W4)**: M1 1차 고도화 마감 — 실측으로 Phase 2·3·4가 이미 머지돼 있음을 확인(로드맵 항목이 낡아 있었음), 실제 잔여만 실행: ①ADR-002 작성(web=BFF 채택, tRPC 도입 폐기, phase-6 문서 배너 — 사용자 승인 대기) ②`dashboard/[role]` prisma 12건을 `role-dashboard-data.ts`로 추출(응답 9종 바이트 동일 검증, 라우트 127→22줄) ③죽은 헬퍼 2종(extractCompanyFromDomain/extractContactFromEmail, 스테일 berlo 라벨) 제거 ④02 게이트 G1~G4+golden+시나리오1 통과 — 재연 중 `mail-candidates-convert.ts` task 분기의 createdEntityId 미설정 실버그 발견·수정·회귀테스트 추가·댕글링 3건 백필(converted 후보 linkage 무결 100%). M1 종료 기준 4/5(잔여: 데일리 배치 3일 연속, 2026-07-13 관측). 증거 `.agents/results/2026-07-10-w2-w4-gate.md`.
 - **2026-07-10/11 (M2·M3)**: 피어 협업+Sonnet 서브에이전트로 M2·M3 코드 전량 랜딩(PR #113~#124, 12건). M2: 스파인 수렴 A-0~A-8(우회 writer 0, 라이브 재연 3종 — 재연이 updateOpportunity actor 불일치까지 검출·통일), 파트너 49행, 백업드릴+죽은백업 수정, sales_support 도메인. M3: AutonomyPolicy+autopilot(연속3회 뒤집힘 자동강등)+launchd 파이프라인 4잡 가동+실쿼리 브리핑+와치독+관제화면/kill-switch(DB+env). 정밀도 51→38%는 정크청소 반작용으로 정직 기록. 관찰 대기: 24h 무인 로그·auto 승격(표본 축적 후)·뒤집힘율. 게이트 기록 `.agents/results/2026-07-11-m2-m3-gate.md`.
-- **2026-07-07**: **v1 완성 웨이브 — WP-A~E + e2e 6PR(#96~#101) 전부 main 머지 완료**(#101은 2026-07-07T10:44:29Z 머지, `22de4b5`), 상세는 `docs/master-plan/01-development-plan.md` 및 `.agents/results/2026-07-07-*`.
+- **2026-07-07**: **v1 완성 웨이브 — WP-A~E + e2e 6PR(#96~#101) 전부 main 머지 완료**(#101은 2026-07-07T10:44:29Z 머지, `22de4b5`). 당시 계획은 [비정본 역사 기록](archive/discarded-plans/2026-08-13/master-plan/01-development-plan.md)으로 보존하며, 실행 증거는 `.agents/results/2026-07-07-*`에 남아 있다.
 - **2026-07-13**: Claude의 Fable 계열을 Codex 전역 스킬로 이식 — `~/.codex/skills/fable-init`, `fable-agent`, `fable-dispatch`. 실제 Claude 원본은 `fable-agents`(복수)·`fable-dispatch`였으며 별도 `fable-init`은 없어, Codex용 `fable-init`은 내장 init 역할과 Fable 독트린을 결합했다. 세 스킬 구조 검증 통과, dispatch JSONL 원장 정상·오류 경로 실행 검증 완료.
 - **2026-07-13 (Fable 지침 감사)**: 루트·하위 에이전트 지침 18개와 1-hop 참조를 감사해 F1–F14 직접 정의/상속 및 링크 무결성을 확인했다. 제거된 tRPC 표면이 현재 구성으로 남아 있던 `AGENTS.md`·`apps/api/AGENTS.md`·`ARCHITECTURE.md`·본 문서의 표현을 Express REST 기준으로 정정했다. Node 20에서 lint·typecheck·build는 exit 0; test는 PostgreSQL `localhost:5434` 미기동으로 17건 실패(71 files/648 tests pass)해 미통과로 기록했다. 새 Codex 세션에서 API 형태와 F6/F13 지침 로드를 재현했다.
 - **2026-07-13 (잔여 정리)**: `apps/api/src/middleware/finance-access.ts`의 제거된 tRPC guard 주석을 삭제했다. Codex `SessionStart`/`Stop` 실패는 Claude 전용 `security-guidance` 플러그인이 지원되지 않는 `metrics` JSON을 stdout에 출력한 것이 원인이었다. `claude-plugins-official` 플러그인 16개를 전역·Orca 계정 등록에서 제거했다. 삭제된 훅 경로를 현재 세션이 다시 호출해 발생한 exit 127은 마지막 Stop까지 유효한 호환 래퍼로 차단하고, Stop 직후 남은 Claude 공식 플러그인 캐시도 제거되도록 구성했다. 새 `codex exec`에서는 나머지 활성 훅이 모두 완료되는 것을 확인했다.
 - **2026-07-13 (Antigravity 스킬 이식)**: Claude의 Fable 계열 스킬(fable-init, fable-agent, fable-dispatch)을 Antigravity 전역 스킬/플러그인으로 포팅 완료 — `~/.gemini/config/plugins/fable/` 하위에 설치. plugin.json, installed_version.json 및 chmod +x script 설정 검증 완료.
-- **2026-07-13 (R11-R15 인계)**: 권한·프로젝트 격리·동시성·AI fallback·반응형 교정과 R15 3-arm 교차검증을 완료했다. 구현 커밋, 검증 수치, QA 원복 상태, 프로덕션 기준선 drift 주의사항과 R16 재개 조건은 [`docs/plans/2026-07-13-r11-r15-claude-handoff.md`](plans/2026-07-13-r11-r15-claude-handoff.md)에 고정했다. 사용자 지시에 따라 R16-R20은 시작하지 않았다.
-- **2026-07-13 (R16-R20 실사용 5라운드)**: Sol 실행 + Grok 독립검토로 50개 시나리오를 수행했다. 연락처/파트너/작업 교정·보관 및 tenant 경계, 전환 409/force, 갱신·월마감·VAT 도달성, CFO 수치·계약·오류 진실성, 모바일·한국어·키보드 피드백을 개선했다. 기존 비격리 테스트가 운영 감사 로그 34행을 남기는 문제도 발견해 integration gate로 재발을 차단했으며, 로그 삭제는 승인 대기다. 상세 매트릭스와 잔여 위험은 [`docs/plans/2026-07-13-r16-r20-real-usage-qa.md`](plans/2026-07-13-r16-r20-real-usage-qa.md)에 기록했다.
+- **2026-07-13 (R11-R15 인계)**: 권한·프로젝트 격리·동시성·AI fallback·반응형 교정과 R15 3-arm 교차검증을 완료했다. 구현 커밋, 검증 수치, QA 원복 상태, 프로덕션 기준선 drift 주의사항과 R16 재개 조건은 [과거 인계 기록](archive/discarded-plans/2026-08-13/plans/2026-07-13-r11-r15-claude-handoff.md)에 보존한다. 사용자 지시에 따라 R16-R20은 시작하지 않았다.
+- **2026-07-13 (R16-R20 실사용 5라운드)**: Sol 실행 + Grok 독립검토로 50개 시나리오를 수행했다. 연락처/파트너/작업 교정·보관 및 tenant 경계, 전환 409/force, 갱신·월마감·VAT 도달성, CFO 수치·계약·오류 진실성, 모바일·한국어·키보드 피드백을 개선했다. 기존 비격리 테스트가 운영 감사 로그 34행을 남기는 문제도 발견해 integration gate로 재발을 차단했으며, 로그 삭제는 승인 대기다. 상세 매트릭스와 잔여 위험은 [과거 QA 기록](archive/discarded-plans/2026-08-13/plans/2026-07-13-r16-r20-real-usage-qa.md)에 보존한다.
 - **2026-08-11 (loop/graph P0–P5)**: 승인 호출자 해석을 API 공용 helper로 통합하고, canonical health에 연속 실패·검증 회복 신호를 추가해 unified-health에 노출했다. 임베더는 transient 오류만 1회 재시도하며 안전한 실패 코드와 마지막 실패 시각을 공개하고, approval readiness 거부는 `VALIDATION_REJECTED`로 구조화했다. U002 freshness 검사를 파라미터화하고 autopilot 강등을 조건부 단일 update로 원자화했으며, IAG legacy hash 보정 후 404를 재검증한다. deprecated workflow-run SSE 라우트는 live UI 소비자 때문에 유지한다.

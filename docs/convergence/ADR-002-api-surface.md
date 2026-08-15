@@ -4,7 +4,7 @@
 - **Date:** 2026-07-10
 - **Branch:** `dev-clean` (HEAD `738f525`, origin/main 동기)
 - **Deciders:** M1 W2~W4 execution (roadmap 08 §3 Task 0)
-- **Supersedes:** `docs/superpowers/plans/2026-07-03-phase-6-api-unification.md`의 tRPC 도입 방향(해당 문서 상단 배너 참조). 마스터플랜(`docs/plans/2026-07-02-problem-based-refactoring-plan.md`) Phase 6·7 방향을 재확정.
+- **Supersedes:** 폐기 보관된 `docs/archive/discarded-plans/2026-08-13/superpowers/plans/2026-07-03-phase-6-api-unification.md`의 tRPC 도입 방향. 당시 마스터플랜도 `docs/archive/discarded-plans/2026-08-13/plans/2026-07-02-problem-based-refactoring-plan.md`에 비정본 역사 기록으로 보존한다.
 
 ---
 

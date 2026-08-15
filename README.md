@@ -1,6 +1,6 @@
 # Sangfor Agentic Company OS
 
-**단일 통합 레포지토리** — Sangfor Partner OS 비즈니스 플랫폼의 모든 코드를 한 곳에서 관리합니다.
+**단일 통합 레포지토리** — BLRO OS 비즈니스 플랫폼의 모든 코드를 한 곳에서 관리합니다.
 
 ## 통합 출처
 

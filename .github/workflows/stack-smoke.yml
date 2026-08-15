@@ -1,7 +1,6 @@
 name: Stack Smoke
 
-# Regression guard for the reproducible bring-up (see
-# docs/plans/reproducibility-and-config-durability-plan.md, P1/P3):
+# Regression guard for the reproducible bring-up:
 # build + start the container stack and assert that the engineer-mcp container
 # serves BOTH the bridge (3600) and the operator console (3502) — the P0 fix —
 # plus the mock console (3400). The host workflow console (3500) is exercised

@@ -15,7 +15,8 @@ is the source of truth for "which one do I run".
 
 Notes:
 - Prefer `make up` for the MCP runtime; it provisions host deps and waits for
-  health. See `docs/plans/reproducibility-and-config-durability-plan.md`.
+  health. This file and the service-level `AGENTS.md` files are the active
+  operating references.
 - Mock stub services (`sangfor-mcp`, `vibe-coding`, `mail-intelligence` in
   `docker-compose.yml`) are behind the `mock` profile — `docker compose
   --profile mock up` — so a plain `up` never starts a misleading green stub.

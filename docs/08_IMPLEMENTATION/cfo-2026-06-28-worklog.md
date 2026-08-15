@@ -100,7 +100,7 @@ pnpm --filter @sangfor/db cfo:restore    # 비파괴 복원
 # 스키마 변경: prisma migrate dev (db push 지양; 부득이하면 db:push:safe)
 ```
 
-관련 문서: [`cfo-stabilization-and-enhancement-plan.md`](./cfo-stabilization-and-enhancement-plan.md) · [`../12_VERIFICATION/cfo-runbook.md`](../12_VERIFICATION/cfo-runbook.md)
+관련 문서: [`cfo-runbook.md`](../12_VERIFICATION/cfo-runbook.md) · [과거 안정화 계획(비정본)](../archive/discarded-plans/2026-08-13/08_IMPLEMENTATION/cfo-stabilization-and-enhancement-plan.md)
 
 ## 남은 후속(선택)
 - Figma 스펙 화면(대시보드 프레임)과 정밀 1:1 대조(무료 플랜 호출 한도 리셋 후).

@@ -1,6 +1,6 @@
 # 컬러게이트 능동 루프 — 라이브 검증 리포트
 
-> **검증일**: 2026-07-07 (KST) · **대상**: `docs/plans/2026-07-04-color-gate-active-loop.md` Task 4
+> **검증일**: 2026-07-07 (KST) · **대상(비정본 역사 기록)**: `docs/archive/discarded-plans/2026-08-13/plans/2026-07-04-color-gate-active-loop.md` Task 4
 > **기준 커밋**: `6e4f421` (feat/replay-doc-quality = main) · **검증자**: main-loop (Opus)
 > **판정**: 능동 루프(접지·재작업·정직한 에스컬레이션·무환각) **작동 확인**. 초기 실행은 게이트 통과 0/3(정직한 에스컬레이션만) → **게이트 캘리브레이션(정직성 규칙) 후 3/3 통과·승격 실증**. 양방향(pass→promote / fail→escalate) + anti-gaming 가드 모두 검증 완료.
 >

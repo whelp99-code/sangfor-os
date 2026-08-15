@@ -32,7 +32,7 @@
 - `07_OPERATIONS/Operator_Runbook.md`
 - `08_IMPLEMENTATION/Acceptance_Criteria_Test_Plan.md`
 - `08_IMPLEMENTATION/Contractor_Work_Packages.md`
-- `08_IMPLEMENTATION/Implementation_Plan_Milestones.md`
+- `reports/AI_NATIVE_CRM_REDEFINITION_2026-08-13.md`
 - `09_ROI/Cost_ROI_Model.md`
 - `10_CODE_SKELETON/README.md`
 - `10_CODE_SKELETON/backend/app/ai_quality.py`

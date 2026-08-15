@@ -17,7 +17,7 @@
 
 ## Project Overview
 
-**Sangfor Agentic Company OS** is a unified monorepo that powers the Sangfor Partner OS business platform. It consolidates five source projects into one repository.
+**Sangfor Agentic Company OS** is a unified monorepo that powers the BLRO OS business platform. It consolidates five source projects into one repository.
 
 | Attribute | Details |
 |-----------|---------|
@@ -428,7 +428,7 @@ These areas are the most complex and should be approached with care. Listed roug
 | `services/sangfor-mcp-workflow/packages/workflow-engine/` | MCP | Device and operation models |
 | `packages/infra/src/index.ts` | Infrastructure | 35 exports — monitoring, SSE, metrics |
 | `packages/agent/src/index.ts` | Shared | 31 exports — agent type system |
-| `docs/superpowers/plans/` | Documentation | Implementation plans with detailed specs |
+| `docs/reports/AI_NATIVE_CRM_REDEFINITION_2026-08-13.md` | Documentation | Current product and architecture direction |
 
 ### 🟢 Moderate (Still Important)
 
