@@ -42,12 +42,3 @@ If real work only exists on Linear: mirror into a GitHub Issue and continue on G
 ./scripts/tracker.sh blro
 ./scripts/tracker.sh open
 ```
-
-## Multi-project
-Orca-registered projects share this standard. Bootstrap another checkout:
-
-```bash
-bash /home/jm/orca/projects/sangfor-os/scripts/apply-tracker-standard-to-repo.sh /path/to/repo
-```
-
-Pack lives at `sangfor-os/.tracker-template/`.
