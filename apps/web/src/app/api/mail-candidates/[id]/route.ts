@@ -4,12 +4,16 @@ import {
   getScopedMailDerivedCandidate,
   revalidateMailDerivedCandidate,
 } from "@sangfor/business/mail-candidates";
-import { resolveCrmAuthContext } from "@sangfor/business";
+import {
+  getScopedMailCandidateGroundTruthPreview,
+  resolveCrmAuthContext,
+} from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { apiError, assertApiAccess } from "@/lib/api-auth";
 import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
+import { approvedMailGroundTruthManifest } from "@/lib/mail-ground-truth";
 
 type Params = { params: Promise<{ id: string }> };
 const actionSchema = z.discriminatedUnion("action", [
@@ -99,6 +103,24 @@ export async function GET(request: Request, { params }: Params) {
   const auth = await resolveContext(request);
   if (!auth.ok) return auth.response;
   const { id } = await params;
+  const preview = new URL(request.url).searchParams.get("preview");
+  if (preview !== null) {
+    if (preview !== "ground_truth") {
+      return NextResponse.json({ error: "validation_error" }, { status: 422 });
+    }
+    const report = await getScopedMailCandidateGroundTruthPreview(
+      auth.ctx,
+      id,
+      approvedMailGroundTruthManifest,
+    );
+    if (!report) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    return NextResponse.json(
+      { preview: "ground_truth", ...report },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
   const candidate = await getScopedMailDerivedCandidate(auth.ctx, id);
   if (!candidate) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });

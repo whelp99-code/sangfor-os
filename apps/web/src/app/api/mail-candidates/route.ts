@@ -1,19 +1,53 @@
 import {
   generateMailDerivedCandidates,
   generateMailDerivedCandidatesHybrid,
-  listMailDerivedCandidates,
+  listScopedMailDerivedCandidates,
 } from "@sangfor/business/mail-candidates";
+import { resolveCrmAuthContext } from "@sangfor/business";
 import { NextResponse } from "next/server";
 import { apiError, assertApiAccess } from "@/lib/api-auth";
 import { assertBusinessCapability } from "@/lib/auth/authorization";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
+
+async function resolveContext(request: Request) {
+  const denied = assertApiAccess(request);
+  if (denied) return { ok: false as const, response: denied };
+  const session = await evaluatePersistedSessionFromRequest(request);
+  if (!session.ok) {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ error: "unauthorized" }, { status: 401 }),
+    };
+  }
+  try {
+    return {
+      ok: true as const,
+      ctx: await resolveCrmAuthContext({
+        userId: session.userId,
+        sessionId: null,
+        tenantId: session.tenantId,
+        companyId: session.companyId,
+        projectId: session.projectId,
+        product: "portal",
+      }),
+    };
+  } catch {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ error: "forbidden" }, { status: 403 }),
+    };
+  }
+}
 
 export async function GET(request: Request) {
+  const auth = await resolveContext(request);
+  if (!auth.ok) return auth.response;
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status") ?? undefined;
   const candidateType = searchParams.get("type") ?? undefined;
   const limit = Number(searchParams.get("limit") ?? "100");
 
-  const candidates = await listMailDerivedCandidates({
+  const candidates = await listScopedMailDerivedCandidates(auth.ctx, {
     status: status as
       | "needs_revalidation"
       | "proposed"
