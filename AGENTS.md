@@ -9,6 +9,7 @@ This file is the agent entry point — a map, not an encyclopedia. Follow the po
 - **JM** = implement code/PRs · **GitHub Actions** = verify (Docker gate) · **BLRO** = `ssh blro` runtime apply (`/home/blro/sangfor-os`).
 - Every plan and execution unit is a GitHub Issue. PRs use `Closes #N`. Runtime follow-up uses labels `ready-for-blro` + `ops` + `blro`.
 - Do not start new work on Linear; `orca linear` is non-primary.
+- **Orca UI:** GitHub Issues URL / `scripts/tracker.sh` = work queue. Orca **Linear** tab + Workspace board = reference / sessions only — not primary planning.
 
 ## Architecture
 - [ARCHITECTURE.md](ARCHITECTURE.md) — canonical integration direction, milestone order, safety rules.

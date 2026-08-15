@@ -42,7 +42,10 @@
     "perf:contracts": "tsx tests/performance/contracts.ts",
     "perf:smoke": "node scripts/perf-smoke.mjs",
     "prepare:ux-fixtures": "tsx scripts/qa/prepare-ux-fixtures.mjs",
-    "test:ux": "node scripts/run-playwright-acceptance.mjs -- tests/e2e/playwright/ux-checkpoint.spec.ts"
+    "test:ux": "node scripts/run-playwright-acceptance.mjs -- tests/e2e/playwright/ux-checkpoint.spec.ts",
+    "tracker": "bash scripts/tracker.sh",
+    "tracker:blro": "bash scripts/tracker.sh blro",
+    "tracker:open": "bash scripts/tracker.sh open"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

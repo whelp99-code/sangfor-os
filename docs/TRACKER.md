@@ -17,6 +17,41 @@ This applies to **all planning and execution** from the next task onward (agents
 
 Roles detail: agent memory `reference/project/jm-blro-roles.md` and `reference/project/blro-ops-access.md`.
 
+
+## Orca UI: where to look (1 + 2)
+
+You will see **two different surfaces** in Orca. They are not the same tracker.
+
+### 1) Default work view = GitHub Issues (use this)
+
+| Want | Do this |
+|---|---|
+| All open work | Browser: https://github.com/whelp99-code/sangfor-os/issues |
+| BLRO queue only | https://github.com/whelp99-code/sangfor-os/issues?q=is%3Aissue+is%3Aopen+label%3Aready-for-blro |
+| CLI list | `./scripts/tracker.sh list` or `gh issue list` |
+| CLI BLRO | `./scripts/tracker.sh blro` |
+| Open in browser from JM | `./scripts/tracker.sh open` / `open-blro` |
+
+**Bookmark these two URLs** (browser or Orca embedded browser).  
+That is the daily board. Labels `status:*` + `ready-for-blro` replace Linear columns.
+
+Orca left sidebar workspace tree (`sangfor-os`, branches, agents) = **code sessions**, not the issue backlog.
+
+### 2) Linear tab = reference only (do not plan new work here)
+
+The Orca screen titled **Linear · …** / **Search Linear issues…** / keys like `WHE-7` is the **old Linear mirror**.
+
+| Do | Don't |
+|---|---|
+| Glance at legacy epics if needed | Create new work as Linear issues |
+| Leave historical `WHE-*` as archive | Treat Linear Todo/In progress as source of truth |
+| Close/ignore Linear onboarding leftovers when convenient | Ask agents to `orca linear` for the main queue |
+
+**Workspace board** columns (Todo / In progress / In review / Done) mix **repos, branches, agent tasks** — useful for multi-project glance, **not** a substitute for GitHub Issues.
+
+If something appears only on Linear and is still real work: **mirror it into a GitHub Issue** and continue only on GitHub.
+
+
 ## Status model (labels)
 
 Use **one** `status:*` label on open issues (Done = close the issue).
