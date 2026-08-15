@@ -4,6 +4,12 @@
 
 This file is the agent entry point — a map, not an encyclopedia. Follow the pointers.
 
+## Work tracking (mandatory)
+- **Primary tracker: GitHub Issues + labels** (not Linear). Standard: [docs/TRACKER.md](docs/TRACKER.md).
+- **JM** = implement code/PRs · **GitHub Actions** = verify (Docker gate) · **BLRO** = `ssh blro` runtime apply (`/home/blro/sangfor-os`).
+- Every plan and execution unit is a GitHub Issue. PRs use `Closes #N`. Runtime follow-up uses labels `ready-for-blro` + `ops` + `blro`.
+- Do not start new work on Linear; `orca linear` is non-primary.
+
 ## Architecture
 - [ARCHITECTURE.md](ARCHITECTURE.md) — canonical integration direction, milestone order, safety rules.
 - **Actual package graph** (source of truth — older docs still list `finance`/`proxy-core`/`application`/`security` packages that no longer exist):
