@@ -1,4 +1,5 @@
 import { prisma } from "../src/index";
+import { seedAutopilotPolicies } from "../src/autonomy-policy-seed";
 
 async function upsertPolicyMemory(projectId: string, memoryType: string, key: string, label: string) {
   await prisma.policyMemory.upsert({
@@ -147,13 +148,7 @@ async function main() {
   });
 
   // 자율운영 불변식: 초기 정책은 반드시 전부 observe — 자동화 0에서 시작
-  for (const domain of ["marketing", "sales", "sales_support", "presales", "engineer", "cfo"]) {
-    await prisma.autonomyPolicy.upsert({
-      where: { domain_decisionType: { domain, decisionType: "mail_candidate_approve" } },
-      update: {},
-      create: { domain, decisionType: "mail_candidate_approve", mode: "observe" },
-    });
-  }
+  await seedAutopilotPolicies(prisma.autonomyPolicy);
 
   console.log(`Seeded ${project.slug} (${project.id})`);
 }

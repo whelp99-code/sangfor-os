@@ -1,14 +1,23 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 
+import {
+  getScopedMailCandidateGroundTruthPreview,
+  resolveCrmAuthContext,
+} from "@sangfor/business";
+import {
+  getScopedMailDerivedCandidate,
+} from "@sangfor/business/mail-candidates";
 import { buildMailCandidateConnectionDefaults } from "@sangfor/business/mail-candidate-connections";
 import { prisma } from "@sangfor/db";
 
 import { MailCandidateActions } from "@/components/development/mail-candidate-actions";
 import { ApproveConnectForm } from "@/components/mail-candidates/approve-connect-form";
 import { CandidateTypeToggle } from "@/components/mail-candidates/candidate-type-toggle";
+import { GroundTruthPreviewCard } from "@/components/mail-candidates/ground-truth-preview-card";
 import {
   MailCandidateMetadata,
   RevalidationFallbackNotice,
@@ -18,6 +27,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
+import { approvedMailGroundTruthManifest } from "@/lib/mail-ground-truth";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -66,11 +77,30 @@ function asObjectArray(value: unknown) {
 
 export default async function MailCandidateApprovalDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const candidate = await prisma.mailDerivedCandidate.findUnique({
-    where: { id },
-    include: { mailInsightThread: true },
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(
+    new Request(
+      `http://sangfor.local/approvals/mail-candidates/${encodeURIComponent(id)}`,
+      { headers: { cookie: `session=${encodeURIComponent(token)}` } },
+    ),
+  );
+  if (!session.ok) redirect("/login");
+  const ctx = await resolveCrmAuthContext({
+    userId: session.userId,
+    sessionId: null,
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    projectId: session.projectId,
+    product: "portal",
   });
+  const candidate = await getScopedMailDerivedCandidate(ctx, id);
   if (!candidate) notFound();
+  const groundTruthPreview = await getScopedMailCandidateGroundTruthPreview(
+    ctx,
+    id,
+    approvedMailGroundTruthManifest,
+  );
 
   const sourceDocument = candidate.knowledgeDocumentId
     ? await prisma.knowledgeDocument.findUnique({
@@ -233,6 +263,12 @@ export default async function MailCandidateApprovalDetailPage({ params }: PagePr
 	          </CardContent>
 	        </Card>
 	      </div>
+
+      <GroundTruthPreviewCard
+        candidateId={candidate.id}
+        manifestId={approvedMailGroundTruthManifest.manifestId}
+        preview={groundTruthPreview}
+      />
 
 	      <Card>
 	        <CardHeader>

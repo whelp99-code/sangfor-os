@@ -51,39 +51,68 @@ export async function listMailDerivedCandidates(
   });
 }
 
+export async function listScopedMailDerivedCandidates(
+  ctx: AuthContext,
+  input: z.input<typeof listMailCandidatesSchema> = {},
+) {
+  const parsed = listMailCandidatesSchema.parse(input);
+  return withRlsTransaction(ctx, (tx) =>
+    tx.mailDerivedCandidate.findMany({
+      where: {
+        ...(parsed.status ? { status: parsed.status } : {}),
+        ...(parsed.candidateType ? { candidateType: parsed.candidateType } : {}),
+      },
+      orderBy: [
+        { status: "asc" },
+        { confidence: "desc" },
+        { createdAt: "desc" },
+      ],
+      take: parsed.limit,
+    }),
+  );
+}
+
 export async function getMailDerivedCandidate(id: string) {
   return prisma.mailDerivedCandidate.findUniqueOrThrow({ where: { id } });
 }
 
-export async function getScopedMailDerivedCandidate(ctx: AuthContext, id: string) {
-  return withRlsTransaction(ctx, async (tx) => {
-    const candidate = await tx.mailDerivedCandidate.findFirst({
-      where: { id },
-      include: { mailInsightThread: { select: { projectId: true } } },
-    });
-    if (!candidate) return null;
-    const projectIds: string[] = [];
-    if (candidate.mailInsightThreadId) {
-      if (!candidate.mailInsightThread?.projectId) return null;
-      projectIds.push(candidate.mailInsightThread.projectId);
-    }
-    if (candidate.knowledgeDocumentId) {
-      const document = await tx.knowledgeDocument.findFirst({
-        where: { id: candidate.knowledgeDocumentId },
-        select: { projectId: true },
-      });
-      if (!document) return null;
-      projectIds.push(document.projectId);
-    }
-    if (
-      projectIds.length === 0 ||
-      new Set(projectIds).size !== 1 ||
-      projectIds.some((projectId) => projectId !== ctx.projectId)
-    ) {
-      return null;
-    }
-    return candidate;
+export async function getScopedMailDerivedCandidateWithClient(
+  client: Prisma.TransactionClient,
+  ctx: AuthContext,
+  id: string,
+) {
+  const candidate = await client.mailDerivedCandidate.findFirst({
+    where: { id },
+    include: { mailInsightThread: true },
   });
+  if (!candidate) return null;
+  const projectIds: string[] = [];
+  if (candidate.mailInsightThreadId) {
+    if (!candidate.mailInsightThread?.projectId) return null;
+    projectIds.push(candidate.mailInsightThread.projectId);
+  }
+  if (candidate.knowledgeDocumentId) {
+    const document = await client.knowledgeDocument.findFirst({
+      where: { id: candidate.knowledgeDocumentId },
+      select: { projectId: true },
+    });
+    if (!document) return null;
+    projectIds.push(document.projectId);
+  }
+  if (
+    projectIds.length === 0 ||
+    new Set(projectIds).size !== 1 ||
+    projectIds.some((projectId) => projectId !== ctx.projectId)
+  ) {
+    return null;
+  }
+  return candidate;
+}
+
+export async function getScopedMailDerivedCandidate(ctx: AuthContext, id: string) {
+  return withRlsTransaction(ctx, (tx) =>
+    getScopedMailDerivedCandidateWithClient(tx, ctx, id),
+  );
 }
 
 const manualCandidateCommandSchema = z.discriminatedUnion("action", [

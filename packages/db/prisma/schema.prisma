@@ -4378,7 +4378,7 @@ model ColorAgentDecision {
 model AutonomyPolicy {
   id            String   @id @default(cuid())
   domain        String            // GTM 도메인
-  decisionType  String            // 예: mail_candidate_approve, ai_proposal_approve
+  decisionType  String            // 예: autopilot_approve, ai_proposal_approve
   mode          String   @default("observe")  // observe | suggest | auto
   minAutonomy   Float    @default(0.9)        // computeAutonomy 임계값
   minSamples    Int      @default(10)         // 최소 사람-결정 표본

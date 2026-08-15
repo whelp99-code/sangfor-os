@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   resolveContext: vi.fn(),
   approve: vi.fn(),
   executeManual: vi.fn(),
+  getGroundTruthPreview: vi.fn(),
   getScoped: vi.fn(),
   revalidate: vi.fn(),
 }));
@@ -20,9 +21,14 @@ vi.mock("@/lib/api-auth", () => ({
 vi.mock("@/lib/auth/persisted-session", () => ({
   evaluatePersistedSessionFromRequest: mocks.evaluateSession,
 }));
-vi.mock("@sangfor/business", () => ({
-  resolveCrmAuthContext: mocks.resolveContext,
-}));
+vi.mock("@sangfor/business", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@sangfor/business")>();
+  return {
+    ...actual,
+    getScopedMailCandidateGroundTruthPreview: mocks.getGroundTruthPreview,
+    resolveCrmAuthContext: mocks.resolveContext,
+  };
+});
 vi.mock("@sangfor/business/mail-candidates", () => ({
   approveMailDerivedCandidate: mocks.approve,
   executeScopedMailCandidateManualCommand: mocks.executeManual,
@@ -47,11 +53,12 @@ function request(
   body?: unknown,
   key = "mail-candidate-command-1",
   method = "PATCH",
+  query = "",
 ) {
   const headers = new Headers();
   if (body !== undefined) headers.set("content-type", "application/json");
   if (key) headers.set("idempotency-key", key);
-  return new Request("http://localhost/api/mail-candidates/candidate-1", {
+  return new Request(`http://localhost/api/mail-candidates/candidate-1${query}`, {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -77,6 +84,42 @@ beforeEach(() => {
     id: "candidate-1",
     status: "approved",
     updatedAt: new Date("2026-07-24T00:00:00.000Z"),
+  });
+  mocks.getGroundTruthPreview.mockResolvedValue({
+    changes: [
+      {
+        id: "candidate-1",
+        title: "Customer: GSITM",
+        from: "customer",
+        to: "partner",
+        entityKey: "gsitm",
+        relationshipKeys: ["gsenc-dt:gsitm:channel"],
+        evidence: [
+          {
+            relationshipKey: "gsenc-dt:gsitm:channel",
+            businessProject: "GS건설 DT VDI",
+            role: "channel_partner",
+            evidenceTier: "A",
+            sourceArtifactIds: ["purchase-invoice-1"],
+          },
+        ],
+      },
+      {
+        id: "candidate-2",
+        title: "Customer: 일에이엔",
+        from: "customer",
+        to: "partner",
+        entityKey: "ilaen",
+        relationshipKeys: ["halla-ims-sase:ilaen:channel"],
+        evidence: [],
+      },
+    ],
+    humanReview: [],
+    unchanged: ["candidate-system"],
+    writeOperationsPrevented: 2,
+    scanned: 3,
+    importPlan: { create: [], update: [], unchanged: [] },
+    writesPerformed: 0,
   });
   mocks.approve.mockResolvedValue({
     items: [{ candidateId: "candidate-1", entityId: "customer-1" }],
@@ -107,6 +150,71 @@ describe("GET/PATCH /api/mail-candidates/[id]", () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({ error: "not_found" });
+  });
+
+  it("returns a scoped zero-write ground-truth preview", async () => {
+    const response = await GET(
+      request(undefined, "", "GET", "?preview=ground_truth"),
+      params(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.getGroundTruthPreview).toHaveBeenCalledWith(
+      SALES,
+      "candidate-1",
+      expect.objectContaining({
+        manifestId: "blro-mail-ground-truth-2026-08-12-v1",
+      }),
+    );
+    const body = await response.json();
+    expect(body).toMatchObject({
+      preview: "ground_truth",
+      scanned: 3,
+      writeOperationsPrevented: 2,
+      writesPerformed: 0,
+    });
+    expect(body.changes).toHaveLength(2);
+    expect(body.humanReview).toHaveLength(0);
+    expect(body.changes[0].evidence[0].sourceArtifactIds).toEqual([
+      "purchase-invoice-1",
+    ]);
+  });
+
+  it("rejects unknown preview modes without invoking the domain", async () => {
+    const response = await GET(
+      request(undefined, "", "GET", "?preview=reclassify"),
+      params(),
+    );
+
+    expect(response.status).toBe(422);
+    expect(mocks.getGroundTruthPreview).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({
+      error: "validation_error",
+    });
+  });
+
+  it("returns an opaque 404 when the scoped preview cannot read the candidate", async () => {
+    mocks.getGroundTruthPreview.mockResolvedValueOnce(null);
+
+    const response = await GET(
+      request(undefined, "", "GET", "?preview=ground_truth"),
+      params("foreign"),
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: "not_found" });
+  });
+
+  it("does not invoke preview when the session is unauthorized", async () => {
+    mocks.evaluateSession.mockResolvedValueOnce({ ok: false });
+
+    const response = await GET(
+      request(undefined, "", "GET", "?preview=ground_truth"),
+      params(),
+    );
+
+    expect(response.status).toBe(401);
+    expect(mocks.getGroundTruthPreview).not.toHaveBeenCalled();
   });
 
   it("delegates exact approve version and header idempotency with AuthContext", async () => {

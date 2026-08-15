@@ -18,9 +18,9 @@ the final package and full `sangfor-os` integration goal.
 | `apps/web/src/components/ui/color-review-badge.tsx` | Keep | Color Agent status badges align with V3.2 Color Agent package | Verify status names and accessibility |
 | `apps/web/src/lib/ux-labels.ts` | Keep | User-facing status labels support UX/AX and Color Agent clarity | Expand only when tied to real domain statuses |
 | `docs/UX-AX-STANDARDS.md` | Modify | Useful internal UX guide, but currently conflicts with final package in places | Make it subordinate to `docs/06_UX/*`; remove `3 pages only` implication |
-| `.omo/plans/automation-first-redesign.md` | Defer | `3 pages only` direction conflicts with role-based final package UX | Mark as experiment, not active direction |
-| `.omo/plans/ai-workspace-implementation.md` | Defer/realign | AI Workspace can support visibility but should not replace operating workflows | Reframe as optional panel |
-| `.omo/plans/ux-ax-redesign.md` | Modify | Some UX principles are useful, but sidebar/menu limits must not hide required workflows | Align with final package UX |
+| 과거 `automation-first-redesign` 계획 | Archived | `3 pages only` direction conflicted with role-based product UX | Do not use as active direction |
+| 과거 `ai-workspace-implementation` 계획 | Archived | AI Workspace visibility must not replace operating workflows | Do not use as active direction |
+| 과거 `ux-ax-redesign` 계획 | Archived | Sidebar/menu limits could hide required workflows | Do not use as active direction |
 
 ## 2026-06-26 Alignment Update
 

@@ -1,0 +1,61 @@
+{
+  "observed_at": "2026-08-13",
+  "task_id": "st_019ffb23",
+  "deliverable_md": "docs/research/2026-08-13-opensource-crm-evidence-matrix.md",
+  "products": [
+    {
+      "id": "twenty",
+      "repo": "twentyhq/twenty",
+      "release_tag": "twenty/v2.30.0",
+      "release_sha": "531361c9a73b5eda6223fc8deae7d5b3fe144fec",
+      "head_sha_observed": "659b18b3f8d0b85596d97a101d0fd7ea7086cb1e",
+      "docs": "https://docs.twenty.com"
+    },
+    {
+      "id": "espocrm",
+      "repo": "espocrm/espocrm",
+      "release_tag": "10.0.4",
+      "release_sha": "0a50f3a37c8e2d96c0746a07ff698c9ef1c0c3aa",
+      "head_sha_observed": "ff0cdb886705218a297b8949b0945a7251d55936",
+      "docs": "https://docs.espocrm.com"
+    },
+    {
+      "id": "suitecrm",
+      "repo": "SuiteCRM/SuiteCRM",
+      "release_tag": "v7.15.2",
+      "release_sha": "d6bca97a0159ec019a969b86eca32affab3beb7c",
+      "docs": "https://docs.suitecrm.com"
+    },
+    {
+      "id": "odoo_ce",
+      "repo": "odoo/odoo",
+      "branch": "19.0",
+      "head_sha_observed": "50298287733ce4ed8c5372495778e69cac5e114d",
+      "docs": "https://www.odoo.com/documentation/19.0"
+    },
+    {
+      "id": "erxes",
+      "repo": "erxes/erxes",
+      "release_tag_reported": "3.0.79",
+      "head_sha_observed": "f734e808a1fd613b3ee68280009f9e1a59c0a136",
+      "docs": "https://erxes.io/docs"
+    },
+    {
+      "id": "corteza",
+      "repo": "cortezaproject/corteza",
+      "release_tag": "2024.9.9",
+      "branch": "2024.9.x",
+      "head_sha_observed": "3b69e9f45140813d9a226e58e41f0c9317170d7d",
+      "docs": "https://docs.cortezaproject.org/corteza-docs/2024.9/"
+    }
+  ],
+  "critical_findings": [
+    "Twenty: AI agent runtime + AiAgentActionModule in code; docs still say AI Agent action Coming soon",
+    "Twenty: no production audit module found; timeline is UX feed",
+    "EspoCRM: Workflows/BPM are Advanced Pack (paid), not in OSS core",
+    "Odoo CE: crm.recurring.* is MRR forecast only; sale_subscription absent from CE tree",
+    "SuiteCRM: AOS_Contracts renewal_reminder_date creates Call reminders in core",
+    "Erxes: plugin isolation is process/federation packaging, not proven data-plane sandbox",
+    "Corteza: best low-code object+workflow+RBAC pattern; not packaged CRM"
+  ]
+}

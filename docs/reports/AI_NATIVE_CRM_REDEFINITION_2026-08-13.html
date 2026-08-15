@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="BLRO Sangfor OS를 고객 맥락과 AI 직원 중심 CRM으로 재정의한 독립형 분석 보고서">
+  <title>BLRO CRM, 다시 중심을 잡다</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #08090b;
+      --panel: #0e1014;
+      --panel-2: #12151b;
+      --text: #f2f4f7;
+      --muted: #9aa3b2;
+      --faint: #697386;
+      --line: rgba(255,255,255,.09);
+      --violet: #8b7cff;
+      --violet-soft: rgba(139,124,255,.15);
+      --cyan: #55d6d0;
+      --amber: #f1b45b;
+      --red: #ff7c88;
+      --green: #70d89a;
+      --blue: #75a7ff;
+      --radius: 14px;
+      --shadow: 0 22px 64px rgba(0,0,0,.36);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; overflow-x: clip; }
+    body {
+      margin: 0;
+      overflow-x: clip;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 82% -10%, rgba(89,69,255,.17), transparent 30rem),
+        radial-gradient(circle at 3% 24%, rgba(43,193,184,.07), transparent 27rem),
+        var(--bg);
+      font-family: Inter, Pretendard, "Noto Sans KR", system-ui, -apple-system, sans-serif;
+      line-height: 1.72;
+      letter-spacing: -.012em;
+    }
+    a { color: inherit; }
+    button { font: inherit; }
+    .skip {
+      position: fixed; left: 1rem; top: -5rem; z-index: 100;
+      padding: .7rem 1rem; background: white; color: black; border-radius: .5rem;
+    }
+    .skip:focus { top: 1rem; }
+    .layout {
+      width: min(1500px, 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+    }
+    aside {
+      position: sticky; top: 0; height: 100vh;
+      border-right: 1px solid var(--line);
+      padding: 28px 20px;
+      background: rgba(8,9,11,.78);
+      backdrop-filter: blur(18px);
+      overflow: auto;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 28px; font-weight: 760; letter-spacing: -.03em;
+    }
+    .brand-mark {
+      width: 30px; height: 30px; border-radius: 9px;
+      display: grid; place-items: center;
+      background: linear-gradient(145deg, var(--violet), #5b46dc);
+      box-shadow: 0 0 24px rgba(139,124,255,.35);
+      font-size: 13px;
+    }
+    .eyebrow {
+      color: var(--violet); font-size: 12px; font-weight: 760;
+      letter-spacing: .12em; text-transform: uppercase;
+    }
+    nav a {
+      display: block; padding: 7px 10px; margin: 2px 0;
+      color: var(--muted); text-decoration: none; font-size: 13px;
+      border-radius: 8px; transition: .18s ease;
+    }
+    nav a:hover, nav a.active {
+      color: var(--text); background: rgba(255,255,255,.055);
+    }
+    .nav-group {
+      margin: 20px 10px 7px; color: var(--faint); font-size: 10px;
+      font-weight: 760; letter-spacing: .14em; text-transform: uppercase;
+    }
+    main { min-width: 0; }
+    .hero {
+      min-height: 88vh;
+      padding: 10vh clamp(24px, 6vw, 88px) 70px;
+      display: grid; align-content: center;
+      border-bottom: 1px solid var(--line);
+    }
+    .hero h1 {
+      margin: 16px 0 18px;
+      max-width: 980px;
+      font-size: clamp(44px, 7vw, 92px);
+      line-height: .98; letter-spacing: -.065em;
+    }
+    .hero .lead {
+      max-width: 850px;
+      margin: 0;
+      color: #bdc4d0;
+      font-size: clamp(18px, 2.1vw, 27px);
+      line-height: 1.45; letter-spacing: -.028em;
+    }
+    .hero-stats {
+      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px; margin-top: 58px; max-width: 960px;
+      background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+    }
+    .stat { background: rgba(14,16,20,.9); padding: 20px; }
+    .stat strong { display: block; font-size: 26px; letter-spacing: -.04em; }
+    .stat span { color: var(--muted); font-size: 12px; }
+    .content { padding: 80px clamp(24px, 6vw, 88px) 120px; }
+    section { max-width: 1120px; margin: 0 auto 112px; scroll-margin-top: 72px; }
+    h2 {
+      margin: 8px 0 16px; font-size: clamp(32px, 4.5vw, 56px);
+      line-height: 1.06; letter-spacing: -.05em;
+    }
+    h3 { margin: 44px 0 13px; font-size: 23px; letter-spacing: -.03em; }
+    h4 { margin: 28px 0 10px; font-size: 16px; }
+    p { color: #c6ccd5; }
+    :where(p, h2, h3, h4, .thesis) { overflow-wrap: anywhere; }
+    .big-copy { font-size: clamp(20px, 2.3vw, 29px); line-height: 1.48; color: var(--text); }
+    .muted { color: var(--muted); }
+    .thesis {
+      margin: 32px 0;
+      padding: 28px 30px;
+      border: 1px solid rgba(139,124,255,.35);
+      background: linear-gradient(120deg, var(--violet-soft), rgba(14,16,20,.8));
+      border-radius: var(--radius);
+      font-size: clamp(20px, 2.3vw, 30px);
+      line-height: 1.45; letter-spacing: -.035em;
+    }
+    .grid { display: grid; gap: 14px; }
+    .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card {
+      position: relative; overflow: hidden;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(18,21,27,.92), rgba(12,14,18,.92));
+      box-shadow: 0 1px 0 rgba(255,255,255,.02) inset;
+    }
+    .card::before {
+      content: ""; position: absolute; inset: 0 auto auto 0; width: 100%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
+    }
+    .card h3, .card h4 { margin-top: 0; }
+    .card p:last-child { margin-bottom: 0; }
+    .num {
+      display: inline-grid; place-items: center;
+      width: 28px; height: 28px; border-radius: 9px;
+      color: var(--violet); background: var(--violet-soft); font-size: 12px; font-weight: 800;
+      margin-bottom: 28px;
+    }
+    .pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px;
+      color: var(--muted); background: rgba(255,255,255,.025); font-size: 11px;
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .bad { color: var(--red); }
+    .good { color: var(--green); }
+    .warn { color: var(--amber); }
+    .info { color: var(--blue); }
+    .journey { display: grid; grid-template-columns: 210px 1fr; gap: 28px; padding: 28px 0; border-top: 1px solid var(--line); }
+    .score {
+      width: 86px; height: 86px; display: grid; place-items: center;
+      border-radius: 50%; border: 1px solid currentColor;
+      font-size: 24px; font-weight: 800; letter-spacing: -.04em;
+    }
+    .journey h3 { margin-top: 0; }
+    ul { padding-left: 1.2rem; color: #c6ccd5; }
+    li { margin: .38rem 0; }
+    .flow {
+      margin: 34px 0; display: grid; gap: 9px;
+      grid-template-columns: repeat(7, minmax(90px, 1fr)); align-items: center;
+    }
+    .flow .step {
+      min-height: 92px; display: grid; place-items: center; text-align: center;
+      border: 1px solid var(--line); background: var(--panel); border-radius: 12px;
+      padding: 10px; color: #dfe3e8; font-size: 12px;
+    }
+    .flow .arrow { color: var(--faint); text-align: center; }
+    .flow .step.accent { border-color: rgba(139,124,255,.48); background: var(--violet-soft); }
+    .graph-shell {
+      margin: 34px 0; padding: 20px;
+      border: 1px solid rgba(85,214,208,.32); border-radius: 18px;
+      background: linear-gradient(135deg, rgba(85,214,208,.055), rgba(14,16,20,.94) 48%, rgba(139,124,255,.06));
+    }
+    .graph-root {
+      padding: 16px; text-align: center; border: 1px solid rgba(85,214,208,.36);
+      border-radius: 12px; background: rgba(9,10,13,.8);
+    }
+    .graph-root strong { display: block; color: var(--cyan); font-size: 16px; }
+    .graph-branches {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+      margin-top: 20px; position: relative;
+    }
+    .graph-branches::before {
+      content: ""; position: absolute; top: -10px; left: 16.666%; right: 16.666%;
+      border-top: 1px solid rgba(85,214,208,.28);
+    }
+    .subgraph {
+      min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px;
+      background: rgba(18,21,27,.88);
+    }
+    .subgraph h4 { margin: 0 0 11px; color: var(--text); }
+    .subnodes { display: flex; flex-wrap: wrap; gap: 6px; }
+    .subnodes span {
+      padding: 4px 7px; border: 1px solid var(--line); border-radius: 7px;
+      color: var(--muted); background: rgba(255,255,255,.025); font-size: 11px;
+    }
+    .cycle {
+      margin: 34px 0; padding: 20px; border: 1px solid rgba(139,124,255,.35);
+      border-radius: 18px; background: rgba(139,124,255,.055);
+    }
+    .cycle-track { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+    .cycle-step {
+      min-height: 100px; display: grid; align-content: center; gap: 5px; padding: 12px;
+      border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+    }
+    .cycle-step b { color: var(--violet); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+    .cycle-step span { color: #dfe3e8; font-size: 12px; }
+    .return-edge {
+      margin-top: 10px; padding: 10px 14px; text-align: center; color: var(--cyan);
+      border: 1px dashed rgba(85,214,208,.38); border-radius: 10px; font-size: 12px;
+    }
+    table {
+      width: 100%; border-collapse: separate; border-spacing: 0;
+      border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+      background: rgba(14,16,20,.72); font-size: 13px;
+    }
+    th, td { text-align: left; vertical-align: top; padding: 13px 14px; border-bottom: 1px solid var(--line); }
+    th { color: var(--text); background: rgba(255,255,255,.035); font-size: 11px; letter-spacing: .03em; }
+    td { color: #bcc4cf; }
+    tr:last-child td { border-bottom: 0; }
+    .table-wrap { overflow-x: auto; border-radius: var(--radius); }
+    code {
+      color: #c9c2ff; background: rgba(139,124,255,.1);
+      border: 1px solid rgba(139,124,255,.16); border-radius: 5px; padding: 1px 5px;
+    }
+    pre {
+      overflow-x: auto; padding: 22px; border: 1px solid var(--line);
+      border-radius: var(--radius); background: #090a0d; color: #cad0da; line-height: 1.55;
+    }
+    .golden {
+      display: grid; grid-template-columns: .85fr 1.15fr; gap: 16px;
+      border: 1px solid rgba(85,214,208,.32); border-radius: 18px;
+      padding: 16px; background: linear-gradient(135deg, rgba(85,214,208,.06), rgba(139,124,255,.08));
+      box-shadow: var(--shadow);
+    }
+    .utterance { padding: 32px; display: grid; align-content: center; }
+    .utterance blockquote { margin: 10px 0; font-size: clamp(27px, 4vw, 48px); line-height: 1.08; letter-spacing: -.055em; }
+    .proposal { padding: 24px; background: var(--panel); border: 1px solid var(--line); border-radius: 13px; }
+    .field { display: grid; grid-template-columns: 110px 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+    .field span:first-child { color: var(--faint); font-size: 12px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+    .btn { padding: 9px 13px; border: 1px solid var(--line); border-radius: 9px; background: #171a21; color: var(--text); }
+    .btn.primary { background: var(--violet); color: white; border-color: transparent; }
+    :where(a, button, summary, select):focus-visible {
+      outline: 2px solid var(--cyan);
+      outline-offset: 3px;
+      border-radius: 6px;
+    }
+    .roadmap { position: relative; margin-top: 34px; }
+    .phase { display: grid; grid-template-columns: 100px 1fr; gap: 22px; padding: 0 0 36px; }
+    .phase-label {
+      color: var(--violet); font-size: 12px; font-weight: 800; letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .phase-body { border-left: 1px solid var(--line); padding-left: 26px; position: relative; }
+    .phase-body::before { content: ""; position: absolute; left: -5px; top: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--violet); box-shadow: 0 0 18px rgba(139,124,255,.7); }
+    .phase-body h3 { margin: 0 0 8px; }
+    details { border-top: 1px solid var(--line); padding: 16px 0; }
+    summary { cursor: pointer; font-weight: 720; }
+    .source-list { columns: 2; column-gap: 32px; padding-left: 1.25rem; }
+    .source-list li { break-inside: avoid; font-size: 12px; color: var(--muted); }
+    footer { border-top: 1px solid var(--line); padding: 36px clamp(24px, 6vw, 88px) 70px; color: var(--faint); font-size: 12px; }
+    .mobile-nav { display: none; }
+    .mobile-nav select {
+      max-width: 52vw; min-height: 34px; color: var(--text); background: var(--panel-2);
+      border: 1px solid var(--line); border-radius: 8px; padding: 4px 30px 4px 9px;
+    }
+    @media (max-width: 1050px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { display: none; }
+      .mobile-nav {
+        display: flex; position: sticky; top: 0; z-index: 20;
+        justify-content: space-between; align-items: center;
+        padding: 12px 18px; border-bottom: 1px solid var(--line);
+        background: rgba(8,9,11,.88); backdrop-filter: blur(16px);
+      }
+      .hero { min-height: auto; padding-top: 12vh; }
+    }
+    @media (max-width: 760px) {
+      section { overflow-x: hidden; }
+      .hero-stats, .g2, .g3, .g4, .golden { grid-template-columns: 1fr; }
+      .journey { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: 1fr; }
+      .flow .arrow { transform: rotate(90deg); }
+      .graph-branches, .cycle-track { grid-template-columns: 1fr; }
+      .graph-branches::before { display: none; }
+      .source-list { columns: 1; }
+      .phase { grid-template-columns: 1fr; gap: 5px; }
+      .phase-body { margin-left: 4px; }
+      .content { padding-top: 60px; }
+      .hero h1 { font-size: 48px; line-height: 1.1; letter-spacing: -.045em; }
+      h2 { line-height: 1.16; letter-spacing: -.035em; }
+      .table-wrap::before {
+        content: "← 좌우로 스크롤 →"; display: block; position: sticky; left: 0;
+        width: max-content; margin: 0 0 7px; color: var(--faint); font-size: 10px;
+      }
+      .table-wrap table { min-width: 560px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      html { scroll-behavior: auto; }
+    }
+    @media print {
+      :root { color-scheme: light; }
+      body { background: white; color: #111; }
+      aside, .mobile-nav { display: none; }
+      .layout { display: block; }
+      .hero { min-height: auto; padding: 40px; }
+      .content { padding: 40px; }
+      .card, table, pre, .proposal { background: white; color: #111; box-shadow: none; }
+      p, td, ul, .muted { color: #333; }
+      section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">본문으로 건너뛰기</a>
+  <div class="mobile-nav">
+    <strong>BLRO CRM</strong>
+    <label>
+      <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">섹션 이동</span>
+      <select id="mobile-toc" aria-label="보고서 섹션 이동">
+        <option value="">섹션 이동</option>
+        <option value="precedence">기존 정본 변경</option>
+        <option value="summary">한 장 결론</option>
+        <option value="principles">제품 원칙</option>
+        <option value="current">현재 제품</option>
+        <option value="journeys">다섯 사용자 여정</option>
+        <option value="why">왜 이렇게 되었나</option>
+        <option value="commercial">상용 CRM</option>
+        <option value="opensource">오픈소스 CRM</option>
+        <option value="target">목표 제품 구조</option>
+        <option value="graph">중첩 운영 그래프</option>
+        <option value="learning">자가개선 폐쇄 루프</option>
+        <option value="golden">Golden journey</option>
+        <option value="roadmap">전환 순서</option>
+        <option value="risks">반대 의견과 통제</option>
+        <option value="sources">출처</option>
+      </select>
+    </label>
+  </div>
+  <div class="layout">
+    <aside aria-label="보고서 목차">
+      <div class="brand"><span class="brand-mark">B</span><span>BLRO CRM</span></div>
+      <div class="eyebrow">Research report</div>
+      <nav id="toc">
+        <div class="nav-group">결론</div>
+        <a href="#precedence">기존 정본 변경</a>
+        <a href="#summary">한 장 결론</a>
+        <a href="#principles">제품 원칙</a>
+        <div class="nav-group">진단</div>
+        <a href="#current">현재 제품</a>
+        <a href="#journeys">다섯 사용자 여정</a>
+        <a href="#why">왜 이렇게 되었나</a>
+        <div class="nav-group">시장</div>
+        <a href="#commercial">상용 CRM</a>
+        <a href="#opensource">오픈소스 CRM</a>
+        <div class="nav-group">목표</div>
+        <a href="#target">목표 제품 구조</a>
+        <a href="#graph">중첩 운영 그래프</a>
+        <a href="#learning">자가개선 폐쇄 루프</a>
+        <a href="#golden">Golden journey</a>
+        <a href="#roadmap">전환 순서</a>
+        <a href="#risks">반대 의견과 통제</a>
+        <a href="#sources">출처</a>
+      </nav>
+    </aside>
+
+    <main id="main">
+      <header class="hero">
+        <div class="eyebrow">AI-native company operating CRM</div>
+        <h1>BLRO CRM,<br>다시 중심을 잡다.</h1>
+        <p class="lead">고객을 홈으로, 업무를 실행 단위로, 파이프라인을 영업 관측 뷰로,
+          게이트를 위험 통제로, AI를 권한 있는 동료로 둔다.</p>
+        <p class="muted">코드 관찰 기준 · feat/mail-candidate-triage · 3089bc14eed5</p>
+        <section class="hero-stats" aria-label="분석 요약">
+          <div class="stat"><strong>5</strong><span>실제 사용자 여정</span></div>
+          <div class="stat"><strong>5+6</strong><span>상용 5 · 오픈소스 6</span></div>
+          <div class="stat"><strong>13</strong><span>AI-native 운영 패턴</span></div>
+          <div class="stat"><strong>6</strong><span>점진적 전환 단계</span></div>
+        </section>
+      </header>
+
+      <div class="content">
+        <section id="precedence">
+          <div class="eyebrow">00 · Supersession decision</div>
+          <h2>“CRM이 아니라 관제탑”을<br>이제 명시적으로 대체한다.</h2>
+          <p class="big-copy">기존 <code>DESIGN.md</code>와 design context의 문구는 일반 CRM과
+            다른 감독 경험을 강조하기 위한 것이었다. 최신 사용자 의도는 여러 CRM의 장점을
+            모아 사람과 AI 직원이 회사 업무를 함께 처리하는 최종 CRM을 만드는 것이다.</p>
+          <div class="grid g3">
+            <article class="card"><h3>제품 범주</h3><p><strong>AI-native 회사 운영 CRM</strong></p></article>
+            <article class="card"><h3>전체 제품명</h3><p><strong>BLRO OS</strong></p></article>
+            <article class="card"><h3>관제탑</h3><p>제품 전체가 아니라 사람 승인·감독 UX 원칙</p></article>
+          </div>
+          <p class="muted">후속 구현 전에 DESIGN, design-context, SPEC의 External CRM 표현,
+            requirement registry를 같은 정의로 바꿔야 이 결정이 정본이 된다.</p>
+        </section>
+
+        <section id="summary">
+          <div class="eyebrow">01 · Executive decision</div>
+          <h2>문제는 기능 부족보다<br>제품 문법의 분열이다.</h2>
+          <p class="big-copy">현재 시스템은 전부 선형이지 않다. PoC와 작업은 독립 생성이 가능하다.
+            하지만 프로젝트는 딜 전환에 잠겨 있고, 지원은 API만 있으며, 리뉴얼은 위험한
+            투영 구현과 operator 경로만 있다. recurring production schedule은 증명되지 않았다.
+            AI는 이 차이를 숨기지 못하고 내부 DB 구조를 사용자에게 떠넘긴다.</p>
+          <div class="thesis">Customer context-centered · Work-driven · Gate-governed · Pipeline-observable</div>
+          <div class="grid g3">
+            <article class="card"><span class="num">1</span><h3>Context is home</h3><p>고객과 지금 진행 중인 모든 일을 한 맥락에서 다시 시작한다.</p></article>
+            <article class="card"><span class="num">2</span><h3>Work is execution</h3><p>딜·PoC·프로젝트·지원·리뉴얼은 각자의 typed lifecycle을 가진다.</p></article>
+            <article class="card"><span class="num">3</span><h3>Pipeline is a lens</h3><p>영업 예측·자격검증·병목 분석을 지키되 다른 업무의 부모가 되지 않는다.</p></article>
+          </div>
+          <p class="big-copy">이 객체들은 따로 놓인 목록이 아니다. 각 업무가 작은 내부 그래프를
+            가지고, 고객 맥락에서 서로 연결되며, 결과와 사람 수정이 다시 다음 관찰·제안으로
+            돌아가는 하나의 순환 운영 그래프를 이룬다.</p>
+        </section>
+
+        <section id="principles">
+          <div class="eyebrow">02 · Product invariants</div>
+          <h2>다섯 가지 제품 원칙</h2>
+          <div class="grid g2">
+            <article class="card"><span class="num">01</span><h3>고객은 척추다</h3><p>연락처뿐 아니라 딜, PoC, 구축, 자산, 지원, 리뉴얼, 재무, 승인, AI 제안을 함께 본다.</p></article>
+            <article class="card"><span class="num">02</span><h3>일은 사실에서 시작한다</h3><p>지원은 장애에서, 리뉴얼은 만료에서, 프로젝트는 계약·이행에서 바로 태어난다.</p></article>
+            <article class="card"><span class="num">03</span><h3>프로세스는 가드레일이다</h3><p>업무 생성은 열고 돈·외부 약속·납품·삭제 같은 위험 행동을 증거와 승인으로 막는다.</p></article>
+            <article class="card"><span class="num">04</span><h3>AI는 계약을 가진 직원이다</h3><p>권한, caseRef, 제안, 위험도, 승인, 실행, 감사, 학습이 한 루프에 있어야 한다.</p></article>
+            <article class="card"><span class="num">05</span><h3>유연함은 무규칙이 아니다</h3><p>typed domain object와 hard edge를 지키고 사용자 정의 그래프·임의 상태는 첫 버전에서 배제한다.</p></article>
+          </div>
+        </section>
+
+        <section id="current">
+          <div class="eyebrow">03 · Current architecture</div>
+          <h2>버릴 시스템이 아니라<br>재배치할 시스템이다.</h2>
+          <p class="big-copy">고객·딜·PoC·작업·자산·지원·리뉴얼·견적·재무·승인·감사 모델은 이미 있다.
+            가장 비싼 자산은 부족하지 않다. 생성 경로와 화면 위계, AI 연결이 어긋나 있다.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>객체</th><th>현재 역량</th><th>판단</th></tr></thead>
+              <tbody>
+                <tr><td>Customer</td><td>딜·PoC·자산·지원·리뉴얼·작업 관계</td><td><span class="pill good"><span class="dot"></span>홈으로 승격</span></td></tr>
+                <tr><td>Opportunity</td><td>7단계·BANT·등록·견적·전환</td><td><span class="pill info"><span class="dot"></span>영업 전용 유지</span></td></tr>
+                <tr><td>PoC / WorkTask</td><td>이미 독립 생성 가능</td><td><span class="pill good"><span class="dot"></span>제품화</span></td></tr>
+                <tr><td>Engagement</td><td>기회 전환으로만 생성</td><td><span class="pill bad"><span class="dot"></span>독립 경로 필요</span></td></tr>
+                <tr><td>SupportCase</td><td>자산·담당·SLA 기반 API</td><td><span class="pill warn"><span class="dot"></span>화면 부재</span></td></tr>
+                <tr><td>RenewalOpportunity</td><td>수명주기·배치·알림</td><td><span class="pill bad"><span class="dot"></span>수동 접수·배치 수정</span></td></tr>
+                <tr><td>Approval / Audit / AI</td><td>CAS·감사·자율성·메모리</td><td><span class="pill good"><span class="dot"></span>핵심 경쟁력</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Engagement와 StageEvent를 이렇게 잠근다</h3>
+          <div class="grid g2">
+            <article class="card">
+              <h4>Engagement 관계</h4>
+              <p>현재 opportunityId는 필수·unique다. 목표는 nullable + 한 딜 여러 구축 phase다.
+                nullable read → deliveryKey/idempotency → formal migration → finance/RLS/convert
+                검증 순서로 바꾼다.</p>
+            </article>
+            <article class="card">
+              <h4>StageEvent 역할</h4>
+              <p>영업 단계 이력과 예측 보정 신호로 유지한다. 사람 승인·AI 수정의 정본은
+                GovernedProposal, ApprovalRequest, DomainDecisionLog, DomainMemory다.</p>
+            </article>
+          </div>
+          <h3>Action Proposal은 새 SoT가 아니다</h3>
+          <p>제안 정본은 <code>GovernedProposal</code>, 사람 확인과 exact revision lock은
+            <code>ApprovalRequest</code>, 실행·학습 보조 기록은
+            <code>DomainDecisionLog</code>다. 승인한 canonical payload hash와 실행 payload가
+            다르면 transaction을 중단한다. best-effort DecisionLog는 실행을 허용하는 근거가
+            될 수 없다.</p>
+          <h3>AI-native 운영 패턴 13개</h3>
+          <div class="table-wrap"><table><thead><tr><th>#</th><th>패턴</th><th>최소 계약</th></tr></thead><tbody>
+            <tr><td>P1</td><td>자연어 접수</td><td>IntakeEnvelope, parse에서는 쓰기 없음</td></tr>
+            <tr><td>P2</td><td>의도·엔터티</td><td>후보·alias·confidence·abstain</td></tr>
+            <tr><td>P3</td><td>쓰기 전 제안</td><td>payload·risk·reversible·contentHash</td></tr>
+            <tr><td>P4</td><td>컨텍스트 그래프</td><td>typed hard edge + governed attachment</td></tr>
+            <tr><td>P5</td><td>역할 AI</td><td>role·caseRef·sponsor/principal·permission</td></tr>
+            <tr><td>P6</td><td>Handoff</td><td>source/target·context·SLA·audit</td></tr>
+            <tr><td>P7</td><td>사람 승인</td><td>exact revision + canonical hash</td></tr>
+            <tr><td>P8</td><td>권한</td><td>RLS·ABAC·actor-aware tier</td></tr>
+            <tr><td>P9</td><td>되돌리기</td><td>archive·compensation·manual recovery</td></tr>
+            <tr><td>P10</td><td>감사</td><td>transactional scoped hash chain</td></tr>
+            <tr><td>P11</td><td>메모리·학습</td><td>사람 결정 뒤 memory update</td></tr>
+            <tr><td>P12</td><td>이벤트 제안</td><td>signal→proposal, 값 발명 금지</td></tr>
+            <tr><td>P13</td><td>모호성</td><td>multi-match·clarify·missing·abstain</td></tr>
+          </tbody></table></div>
+          <p class="muted">현재 gateDecision은 label-only best-effort다. AI가 writer를 호출하기
+            전 synchronous·actor-aware·fail-closed enforcement가 새로 필요하며,
+            mail-derived proposal은 자동 실행할 수 없다.</p>
+        </section>
+
+        <section id="journeys">
+          <div class="eyebrow">04 · Five journeys</div>
+          <h2>사용자는 다섯 개의 다른<br>시스템을 배우고 있다.</h2>
+          <p class="muted">숫자는 사용자 실험 결과가 아니라 생성 경로·화면 전환·숨은 전제조건·
+            UI/API 불일치를 바탕으로 한 연구자 휴리스틱 심각도다.</p>
+          <div class="journey">
+            <div><div class="score warn">7.5</div></div>
+            <div><h3>신규 영업</h3><p>생성은 쉽지만 BANT가 다른 탭에 있고, 6개 작업 단계와 7개 DB 단계가 겹친다.
+              등록 gate는 합리적이지만 AI rail은 실제 writer와 연결되지 않는다.</p></div>
+          </div>
+          <div class="journey">
+            <div><div class="score bad">9.0</div></div>
+            <div><h3>독립 구축 프로젝트</h3><p>독립 Engagement 생성 버튼과 POST 경로가 없다.
+              Opportunity conversion 경로는 있으며, 특정 딜 단계와 PoC를 만족해야 한다.
+              딜 자료 흡수에는 좋은 규칙이지만 프로젝트의 유일한 탄생 규칙으로는 틀렸다.</p></div>
+          </div>
+          <div class="journey">
+            <div><div class="score info">5.5</div></div>
+            <div><h3>PoC</h3><p>독립 생성은 이미 된다. 문제는 메뉴가 깊고, 딜 문맥 prefill과 link-back이 약한 것이다.
+              좋은 모델이 제품 연결에서 손실된다.</p></div>
+          </div>
+          <div class="journey">
+            <div><div class="score bad">8.0</div></div>
+            <div><h3>기술지원</h3><p>자산·담당·SLA gate는 타당하다. 그러나 생성 화면이 없고,
+              canonical service의 3상태 전이와 legacy 문자열을 투영한 UI 5컬럼이 다르다.</p></div>
+          </div>
+          <div class="journey">
+            <div><div class="score bad">8.5</div></div>
+            <div><h3>리뉴얼</h3><p>수동 접수가 없고 투영 배치 구현은 임의 금액·임의 딜·대체 ID를 사용한다.
+              privileged operator 경로는 있으나 recurring production schedule은 증명되지 않았다.
+              생성 필드와 화면 조회 필드도 달라 투영된 건이 보이지 않을 수 있다.</p></div>
+          </div>
+        </section>
+
+        <section id="why">
+          <div class="eyebrow">05 · Root cause</div>
+          <h2>세 개의 중심축이<br>동시에 남았다.</h2>
+          <div class="grid g3">
+            <article class="card"><h3>영업 파이프라인</h3><p>7단계, CFO 예측, stage events. 데이터 호환을 위해 보존한 것이 UI의 중심이 됐다.</p></article>
+            <article class="card"><h3>AI 관제탑</h3><p>역할 AI, 5색 검증, 사람 승인·학습. 코드 자산은 있지만 제품 주 화면과 분리됐다.</p></article>
+            <article class="card"><h3>도메인 회사 OS</h3><p>영업·프리세일즈·엔지니어·CFO를 세로로 만들었지만 공통 접수와 관계 해석을 만들지 않았다.</p></article>
+          </div>
+          <p class="big-copy">7단계 enum을 보존한 것은 잘못이 아니다. enum을 사용자 업무의 상위 부모로 만든 것이 잘못이다.
+            데이터 호환성과 제품 중심축은 다른 결정이다.</p>
+          <h3>프로젝트라는 이름은 더 이상 단독 객체명이 아니다</h3>
+          <div class="table-wrap"><table><thead><tr><th>사용자 용어</th><th>코드 객체</th><th>결정</th></tr></thead><tbody>
+            <tr><td>회사 운영 공간</td><td>tenant Project</td><td>CRM 화면에서 “프로젝트”라고 부르지 않음</td></tr>
+            <tr><td>딜</td><td>Opportunity</td><td>영업 파이프라인</td></tr>
+            <tr><td>구축</td><td>Engagement</td><td>UI label은 구축, 장기적으로 /delivery</td></tr>
+            <tr><td>재무 집계</td><td>FinanceProject</td><td>원가센터/재무 집계</td></tr>
+            <tr><td>PoC</td><td>PocProject</td><td>“PoC 프로젝트”라고 부르지 않음</td></tr>
+          </tbody></table></div>
+        </section>
+
+        <section id="commercial">
+          <div class="eyebrow">06 · Commercial CRM research</div>
+          <h2>성숙한 CRM도 하나의<br>전역 파이프라인이 아니다.</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>제품</th><th>배울 구조</th><th>AI·자동화 경계</th><th>가져오지 않을 것</th></tr></thead>
+              <tbody>
+                <tr><td>Salesforce</td><td>표준·커스텀 객체, 관계, 범용 Task/Event</td><td>정의된 Agent Action 없이는 레코드 변경 불가</td><td>설정 복잡도</td></tr>
+                <tr><td>HubSpot</td><td>객체별 속성·파이프라인·association</td><td>AI·템플릿·직접 설계 workflow</td><td>상위 요금제 종속</td></tr>
+                <tr><td>Dynamics 365</td><td>공통 Dataverse 위 판매·서비스·프로젝트 앱</td><td>BPF는 일관된 가이드</td><td>거대 제품군</td></tr>
+                <tr><td>Zoho CRM</td><td>커스텀 모듈·객체와 승인·비즈니스 프로세스</td><td>문맥 보조와 process automation</td><td>과도한 no-code 의존</td></tr>
+                <tr><td>Pipedrive</td><td>활동·프로젝트·자동화의 쉬운 진입</td><td>pipeline automation</td><td>고정 엔터티 한계</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="opensource">
+          <div class="eyebrow">07 · Open-source research</div>
+          <h2>교체할 제품보다<br>가져올 패턴이 있다.</h2>
+          <div class="grid g3">
+            <article class="card"><h3>Twenty</h3><p>first-class custom objects, 관계, workflow, role-bound AI. 가장 가까운 AI-native 참고점.</p></article>
+            <article class="card"><h3>Odoo</h3><p>Product suite의 typed app 패턴. Pin한 CE 19.0에는 complete Subscription lifecycle이 없고 Project·automation만 증명됐다.</p></article>
+            <article class="card"><h3>Espo / SuiteCRM</h3><p>Entity·Module 확장과 독립 모듈. Espo visual Workflow/BPM은 paid Advanced Pack 경계다.</p></article>
+            <article class="card"><h3>Erxes</h3><p>plugin federation은 유연하지만 process isolation이 곧 data isolation은 아니다.</p></article>
+            <article class="card"><h3>Corteza</h3><p>low-code objects + workflow + RBAC의 좋은 패턴. packaged CRM을 그대로 복제할 이유는 없음.</p></article>
+          </div>
+          <div class="thesis">Copy the object-peer model, versioned workflows, AI as a roled principal, and real audit. Do not copy runtime schema complexity.</div>
+        </section>
+
+        <section id="target">
+          <div class="eyebrow">08 · Target operating model</div>
+          <h2>하나의 접수, 여러 typed work,<br>하나의 결정·감사 척추.</h2>
+          <div class="flow" role="img" aria-label="자연어, 메일, 폼이 실행 제안서와 사람 검토를 거쳐 기존 비즈니스 서비스로 실행되는 목표 운영 흐름">
+            <div class="step">자연어 · 메일 · 폼</div><div class="arrow">→</div>
+            <div class="step accent">Action Proposal</div><div class="arrow">→</div>
+            <div class="step">사람 · 권한 · 위험 검토</div><div class="arrow">→</div>
+            <div class="step">기존 writer 실행</div>
+          </div>
+          <div class="grid g4">
+            <article class="card"><h3>Context</h3><p>Customer · Partner · Asset · Subscription</p></article>
+            <article class="card"><h3>Work</h3><p>Opportunity · PoC · Engagement · Support · Renewal · Task</p></article>
+            <article class="card"><h3>Evidence</h3><p>Mail · Artifact · Meeting · Quote · Decision</p></article>
+            <article class="card"><h3>Governance</h3><p>Qualification · SLA · Approval · RBAC · Audit</p></article>
+          </div>
+          <h3>AI 직원 공통 계약</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>단계</th><th>해야 할 일</th><th>금지</th></tr></thead>
+              <tbody>
+                <tr><td>Observe</td><td>실제 caseRef와 허용된 context 읽기</td><td>전역 DB 탐색</td></tr>
+                <tr><td>Propose</td><td>대상·영향·누락값·위험도·근거 표시</td><td>애매한 입력 즉시 쓰기</td></tr>
+                <tr><td>Decide</td><td>T0 정책 또는 T1/T2 사람 승인</td><td>AI의 자기 권한 상승</td></tr>
+                <tr><td>Execute</td><td>기존 RLS·zod·idempotency writer 사용</td><td>별도 우회 writer</td></tr>
+                <tr><td>Learn</td><td>사람 수정·거절을 감사와 memory에 기록</td><td>승인된 사실의 조용한 덮어쓰기</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="graph">
+          <div class="eyebrow">08.1 · Nested operating graph</div>
+          <h2>노드 안에 작은 그래프,<br>전체는 하나의 운영 그래프.</h2>
+          <p class="big-copy">tenant Project가 전체 그래프의 안전 경계이고, Customer가 고객
+            맥락 그래프의 앵커다. Opportunity·PoC·Engagement·Support·Renewal은 단순 레코드가
+            아니라 작업·증거·결정·이력을 가진 로컬 서브그래프다.</p>
+          <div class="graph-shell" role="img" aria-label="BLRO OS 전체 운영 그래프 안에 고객, 업무, 거버넌스 서브그래프가 중첩된 구조">
+            <div class="graph-root"><strong>BLRO OS 운영 그래프</strong><span class="muted">tenant Project scope · Customer anchored</span></div>
+            <div class="graph-branches">
+              <article class="subgraph">
+                <h4>고객 맥락 그래프</h4>
+                <div class="subnodes"><span>Customer</span><span>Partner</span><span>Contact</span><span>Mail</span><span>Asset</span></div>
+              </article>
+              <article class="subgraph">
+                <h4>Typed work 서브그래프</h4>
+                <div class="subnodes"><span>Opportunity</span><span>PoC</span><span>Engagement</span><span>Support</span><span>Renewal</span><span>Task</span></div>
+              </article>
+              <article class="subgraph">
+                <h4>결정·학습 그래프</h4>
+                <div class="subnodes"><span>Proposal</span><span>Approval</span><span>Audit</span><span>Result</span><span>Memory</span><span>Version</span></div>
+              </article>
+            </div>
+          </div>
+          <h3>연결은 자유 링크가 아니라 등록된 edge 계약이다</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Edge</th><th>역할</th><th>안전 계약</th></tr></thead>
+              <tbody>
+                <tr><td>Hard domain</td><td>Quote→Opportunity, Support→Asset</td><td>typed FK·cardinality·RLS·writer 검증</td></tr>
+                <tr><td>Governed soft</td><td>WorkTask→Mail, Renewal→참고 PoC</td><td>문맥 전용, 돈·SLA·권한의 정본 금지</td></tr>
+                <tr><td>Event</td><td>SupportResolved→RenewalRisk</td><td>다른 그래프의 제안 신호만 생성, 직접 쓰기 금지</td></tr>
+                <tr><td>Decision</td><td>Proposal→Approval→Execution→Result</td><td>exact revision·canonical hash·idempotency</td></tr>
+                <tr><td>Learning</td><td>Correction→Candidate→Version</td><td>평가·사람 승인 뒤에만 미래 행동 변경</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="grid g2">
+            <article class="card"><h3>로컬 소유</h3><p>각 도메인 writer가 자기 서브그래프를 변경한다. Customer Context와 My Work는 전체를 합성한 읽기 전용 projection이다.</p></article>
+            <article class="card"><h3>경계 재검증</h3><p>서브그래프를 넘을 때 대상 도메인의 tenant scope·RLS·ABAC·gate를 다시 계산한다. 권한은 edge를 따라 자동 전이되지 않는다.</p></article>
+          </div>
+          <p class="muted">초기 구현은 기존 Prisma FK, 검증된 attachment, append-only event를
+            사용한다. graph database는 실제 탐색·성능 병목이 측정될 때까지 유예한다.</p>
+        </section>
+
+        <section id="learning">
+          <div class="eyebrow">08.2 · Governed self-improvement</div>
+          <h2>학습 로그가 아니라<br>검증된 반환 간선을 만든다.</h2>
+          <p class="big-copy">결과를 저장하는 것만으로는 자가개선이 아니다. 실행 결과와 사람
+            수정이 개선 후보가 되고, 평가·사람 승인·버전 고정·점진 적용·감시·롤백을 거친 뒤
+            다음 관찰과 제안에 실제로 적용되어야 폐쇄 루프다.</p>
+          <div class="cycle" role="img" aria-label="운영 결과가 평가와 승인을 거쳐 새 버전으로 적용되고 다음 관찰로 되돌아오는 자가개선 폐쇄 루프">
+            <div class="cycle-track">
+              <div class="cycle-step"><b>Operate</b><span>관찰 → 제안 → 승인 → 실행</span></div>
+              <div class="cycle-step"><b>Collect</b><span>결과 · 사람 수정 · 운영 지표</span></div>
+              <div class="cycle-step"><b>Evaluate</b><span>고정 평가셋 · 회귀 · 보안 검증</span></div>
+              <div class="cycle-step"><b>Govern</b><span>사람 승인 · version · canonical hash</span></div>
+              <div class="cycle-step"><b>Roll out</b><span>shadow/canary · 감시 · 승격/롤백</span></div>
+            </div>
+            <div class="return-edge">승격된 memory · prompt · policy version → 다음 관찰과 제안에 적용</div>
+          </div>
+          <div class="grid g3">
+            <article class="card"><h3>직접 자기수정 금지</h3><p>운영 AI가 prompt·policy·권한·writer를 직접 바꾸지 않는다. 로그는 개선 후보의 근거일 뿐이다.</p></article>
+            <article class="card"><h3>버전 추적</h3><p>모든 실행은 사용한 model·prompt·policy·memory·action registry version을 감사 기록에 남긴다.</p></article>
+            <article class="card"><h3>실패 시 복원</h3><p>수정률·오연결·권한·금액 오류가 임계값을 넘으면 이전 version 포인터로 즉시 되돌린다.</p></article>
+          </div>
+          <div class="thesis">자가개선 = 기억 축적이 아니라, 평가되고 승인되고 되돌릴 수 있는 새 version이 다음 행동을 더 낫게 만드는 것.</div>
+        </section>
+
+        <section id="golden">
+          <div class="eyebrow">09 · Golden journey</div>
+          <h2>한 문장이 제품 전체를<br>증명해야 한다.</h2>
+          <div class="golden">
+            <div class="utterance">
+              <span class="pill info"><span class="dot"></span>사용자 입력</span>
+              <blockquote>케이브이머티리얼즈 / HCI / 2027-04-30 / 21백만원</blockquote>
+              <p class="muted">세 개 레코드를 직접 만드는 요청이 아니다. 하나의 업무 의도다.</p>
+            </div>
+            <div class="proposal">
+              <div class="eyebrow">Action proposal · Draft</div>
+              <h3>HCI 리뉴얼 업무로 이해했습니다</h3>
+              <div class="field"><span>고객</span><strong>케이브이머티리얼즈</strong></div>
+              <div class="field"><span>제품</span><strong>HCI</strong></div>
+              <div class="field"><span>만료일</span><strong>2027-04-30</strong></div>
+              <div class="field"><span>예상 금액</span><strong>21,000,000원</strong></div>
+              <div class="field"><span>발견</span><span>관련 딜 2건 · 고객/자산 레코드 미확정</span></div>
+              <div class="field"><span>제안</span><span>고객 후보 확인 · 자산 초안 · 리뉴얼 · D-120/D-90 작업</span></div>
+              <div class="actions">
+                <span class="btn">내용 수정</span>
+                <span class="btn">업무만 만들기</span>
+                <span class="btn primary">확인하고 생성</span>
+              </div>
+            </div>
+          </div>
+          <p class="muted">HCI와 2,100만원은 사용자가 제공한 입력이지 검증된 ground truth가
+            아니다. 기존 자산·견적과 대조하고 외부 견적 근거로 쓸 때 다시 확인한다.</p>
+        </section>
+
+        <section id="roadmap">
+          <div class="eyebrow">10 · Incremental transition</div>
+          <h2>재작성하지 않고<br>중심축을 바꾸는 순서.</h2>
+          <div class="roadmap">
+            <div class="phase"><div class="phase-label">Phase 0</div><div class="phase-body"><h3>데이터·그래프 경계의 진실 복구</h3><p>리뉴얼 날짜·금액·대체 ID를 고치고 기존 FK·attachment·event를 node/edge registry로 목록화한다. 모든 AI 실행 version도 기록한다.</p></div></div>
+            <div class="phase"><div class="phase-label">Phase 1</div><div class="phase-body"><h3>독립 업무와 로컬 서브그래프</h3><p>PoC·지원·리뉴얼·구축을 독립 생성하고 각 aggregate의 작업·증거·승인·이력 경계와 허용 edge를 잠근다.</p></div></div>
+            <div class="phase"><div class="phase-label">Phase 2</div><div class="phase-body"><h3>KV 리뉴얼 수직 순환</h3><p>자연어 → proposal → 승인 → writer → result를 causationId로 연결하고 결과 신호를 다음 관찰에 되돌린다.</p></div></div>
+            <div class="phase"><div class="phase-label">Phase 3</div><div class="phase-body"><h3>전체 그래프 projection</h3><p>Customer Context와 My Work에서 고객별 서브그래프를 합성하되 원본 도메인 writer와 권한 경계를 유지한다.</p></div></div>
+            <div class="phase"><div class="phase-label">Phase 4</div><div class="phase-body"><h3>경계가 있는 역할별 AI</h3><p>AI는 caseRef의 bounded subgraph만 읽고, 경계를 넘는 작업은 version이 남는 감사 가능한 handoff로 처리한다.</p></div></div>
+            <div class="phase"><div class="phase-label">Phase 5</div><div class="phase-body"><h3>검증된 자가개선과 위임</h3><p>개선 후보를 평가·승인·shadow/canary·감시·rollback한 뒤 안정된 version과 T0 행동만 승격한다.</p></div></div>
+          </div>
+          <h3>Phase 1 최소 식별 규칙</h3>
+          <div class="table-wrap"><table><thead><tr><th>업무</th><th>최소 값</th><th>초기 상태</th></tr></thead><tbody>
+            <tr><td>딜</td><td>title · ownerAssignmentId</td><td>LEAD · unqualified</td></tr>
+            <tr><td>PoC</td><td>title · ownerAssignmentId</td><td>planning · 링크 optional</td></tr>
+            <tr><td>구축</td><td>name · customerId · ownerAssignmentId</td><td>planned · opportunity optional</td></tr>
+            <tr><td>기술지원</td><td>customer · asset/entitlement · severity · owner · SLA policy</td><td>open · SLA clock</td></tr>
+            <tr><td>리뉴얼</td><td>customer · expiresAt · owner · asset/subscription/source</td><td>pending · amount source</td></tr>
+            <tr><td>작업</td><td>title · ownerAssignmentId</td><td>todo · link optional</td></tr>
+          </tbody></table></div>
+          <p>자산 미확인 문의는 SLA SupportCase를 발명하지 않는다. Intake Proposal 또는
+            WorkTask로 보존하고 자산을 확인한 뒤 SupportCase를 연다.</p>
+        </section>
+
+        <section id="risks">
+          <div class="eyebrow">11 · Hostile review</div>
+          <h2>비전을 지키려면<br>낙관을 통제해야 한다.</h2>
+          <details open><summary>자유 생성이 프로세스를 무너뜨리지 않는가?</summary><p>업무의 존재만 연다. 자격검증, 등록, 상업 승인, SLA clock, 납품 검수, 외부 발송은 유지한다. “생성”과 “위험한 약속”을 하나로 보지 않는다.</p></details>
+          <details><summary>Customer Context가 하나의 복잡한 만능 화면이 되지 않는가?</summary><p>고객 화면은 현재 상황·진행 업무·다음 행동·마감·최근 증거만 보여준다. 상세는 typed workspace로 이동한다. Pipeline과 My Work도 peer entry point로 남는다.</p></details>
+          <details><summary>AI가 잘못된 고객·자산을 연결하면?</summary><p>parse와 commit을 분리하고 multi-match·abstain을 제공한다. 원문·proposal revision·사람 확인·payload hash·result를 실패 폐쇄 방식으로 남긴다.</p></details>
+          <details><summary>관계가 자유로워지면 데이터 품질이 무너지지 않는가?</summary><p>money·SLA·권한을 결정하는 hard edge는 typed FK로 유지한다. soft attachment도 scope 검증·감사하며 사용자 정의 관계 종류는 v1에서 금지한다.</p></details>
+          <details><summary>독립 프로젝트를 위해 가짜 딜을 만들 것인가?</summary><p>기본 목표는 nullable opportunity 관계다. shadow opportunity는 단일 forecast quarantine 정책을 증명한 짧은 전환안일 뿐이다.</p></details>
+          <h3>모든 Phase 공통 출시 조건</h3>
+          <div class="grid g2">
+            <article class="card"><h4>Gate Matrix</h4><p>action마다 precondition·risk·approver·override를 기계가 읽게 한다.</p></article>
+            <article class="card"><h4>Ownership</h4><p>free-text 담당자가 아니라 assignment와 revision을 사용한다.</p></article>
+            <article class="card"><h4>Dedup</h4><p>자연키 후보·기존 건 연결·병합·AI abstain을 제공한다.</p></article>
+            <article class="card"><h4>Metrics first</h4><p>create source·duplicate·gate block·forecast error를 출시 전에 기록한다.</p></article>
+            <article class="card"><h4>Fail-closed execution</h4><p>label-only gate를 synchronous enforcement로 바꾸고 actor-aware tier를 적용한다.</p></article>
+            <article class="card"><h4>AI principal</h4><p>역할별 keyring·service principal·사람 sponsor·subjectId/jti를 남긴다.</p></article>
+            <article class="card"><h4>Payload binding</h4><p>승인 canonical hash와 실행 payload가 다르면 transaction을 중단한다.</p></article>
+            <article class="card"><h4>Hardened audit</h4><p>입력→제안→revision→hash→결과를 scoped chain에 원자적으로 기록한다.</p></article>
+            <article class="card"><h4>Graph boundary</h4><p>node/edge registry와 tenant scope를 강제하고 경계마다 권한·위험을 다시 계산한다.</p></article>
+            <article class="card"><h4>Improvement gate</h4><p>평가·사람 승인·version·canary·rollback pointer 없는 개선 후보는 production에 반영하지 않는다.</p></article>
+          </div>
+          <h3>유지 · 개편 · 폐기 · 유예</h3>
+          <div class="table-wrap"><table><thead><tr><th>구분</th><th>결정</th></tr></thead><tbody>
+            <tr><td><span class="good">유지</span></td><td>Customer·Opportunity pipeline·BANT·등록·상업/납품 gate·PoC·WorkTask·Quote·Asset·Support·Renewal·Mail·Approval/Audit·CFO</td></tr>
+            <tr><td><span class="info">개편</span></td><td>Customer home·독립 구축·지원 UI·수동 리뉴얼·PoC prefill·견적 UX·My Work·AI Action Proposal·제품 명칭</td></tr>
+            <tr><td><span class="bad">행동 폐기</span></td><td>프로젝트=전환된 딜만·장식성 AI 버튼·지원 fake 5-stage·리뉴얼 p1/c1/10000·모든 업무의 딜 단계 종속</td></tr>
+            <tr><td><span class="warn">유예</span></td><td>외부 CRM 교체·graph DB·universal Case table·runtime custom objects·7단계 교체·완전 자율 AI</td></tr>
+          </tbody></table></div>
+          <h3>확정과 측정의 경계</h3>
+          <div class="grid g2">
+            <article class="card"><h4>정적 코드 검색으로 확인</h4><p>독립 PoC/Task, convert-only Engagement,
+              지원 UI 부재, 수동 리뉴얼 부재, renewal 위험 상수, HTTP에서 runDomainPipeline 미사용,
+              VerificationConsole 제품 consumer 부재, StageEvent 학습 consumer 부재.</p></article>
+            <article class="card"><h4>실제 사용으로 측정</h4><p>다음 행동 찾기 시간, 화면 전환 수,
+              duplicate, stale deal, forecast, SLA, renewal miss, AI correction. 7.5/9.0은 baseline이 아니다.</p></article>
+          </div>
+        </section>
+
+        <section id="sources">
+          <div class="eyebrow">12 · Evidence</div>
+          <h2>주장보다 근거를 남긴다.</h2>
+          <p>전체 path:line 근거와 세부 비교표는 Markdown 원문과 연구 부록에 있다.</p>
+          <ul class="source-list">
+            <li><a href="https://developer.salesforce.com/docs/platform/data-models/guide/tasks-events.html">Salesforce Tasks & Events</a></li>
+            <li><a href="https://developer.salesforce.com/docs/ai/agentforce/guide/get-started-actions.html">Salesforce Agentforce Actions</a></li>
+            <li><a href="https://knowledge.hubspot.com/object-settings/create-custom-objects">HubSpot Custom Objects</a></li>
+            <li><a href="https://knowledge.hubspot.com/workflows/create-workflows">HubSpot Workflows</a></li>
+            <li><a href="https://learn.microsoft.com/en-us/power-automate/business-process-flows-overview">Microsoft Business Process Flows</a></li>
+            <li><a href="https://docs.twenty.com/getting-started/core-concepts/data-model">Twenty Data Model</a></li>
+            <li><a href="https://docs.twenty.com/getting-started/core-concepts/workflows">Twenty Workflows</a></li>
+            <li><a href="https://docs.twenty.com/getting-started/core-concepts/ai">Twenty AI</a></li>
+            <li><a href="https://www.odoo.com/documentation/19.0/applications/studio/automated_actions.html">Odoo Automation Rules</a></li>
+            <li><a href="https://www.omg.org/spec/CMMN/1.1/PDF">OMG CMMN 1.1</a></li>
+            <li><a href="https://doi.org/10.6028/NIST.SP.800-61r3">NIST SP 800-61r3</a></li>
+            <li><a href="https://scrumguides.org/docs/scrumguide/v2020/2020-Scrum-Guide-US.pdf">Scrum Guide</a></li>
+            <li><a href="https://www.mongodb.com/docs/manual/core/schema-validation/">MongoDB Schema Validation</a></li>
+            <li><a href="https://www.postgresql.org/docs/current/datatype-json.html">PostgreSQL JSON guidance</a></li>
+            <li><a href="https://www.nngroup.com/articles/progressive-disclosure/">Progressive Disclosure</a></li>
+            <li><a href="AI_NATIVE_CRM_REDEFINITION_2026-08-13.md">Markdown 원문</a></li>
+            <li><a href="../research/2026-08-13-opensource-crm-evidence-matrix.md">오픈소스 증거표</a></li>
+            <li><a href="../../artifacts/crm-research/2026-08-13-commercial-crm-comparison-matrix.md">상용 CRM 비교표</a></li>
+            <li><a href="../../artifacts/blro-crm-research/opensource-crm-pins-2026-08-13.json">오픈소스 pin JSON</a></li>
+          </ul>
+          <h3>핵심 내부 근거</h3>
+          <div class="table-wrap"><table><thead><tr><th>주제</th><th>경로</th></tr></thead><tbody>
+            <tr><td>기존 “CRM이 아니라 관제탑”</td><td><code>DESIGN.md:10</code>, <code>.design-context.md:6</code></td></tr>
+            <tr><td>프로젝트 전환 전용 UI</td><td><code>apps/web/src/app/(portal)/projects/page.tsx:29-44</code></td></tr>
+            <tr><td>전환 stage·PoC gate</td><td><code>packages/business/src/crm/opportunity-center.ts:977-1017</code></td></tr>
+            <tr><td>독립 PoC / WorkTask</td><td><code>poc-center.ts:50-170</code> · <code>task-center.ts:32-106</code></td></tr>
+            <tr><td>지원 생성·SLA</td><td><code>support-service.ts:26-132</code></td></tr>
+            <tr><td>리뉴얼 투영 위험값</td><td><code>renewal-projection.ts:54-223</code></td></tr>
+            <tr><td>Engagement 필수·unique FK</td><td><code>schema.prisma:3708-3735</code></td></tr>
+            <tr><td>AI 런타임 정의</td><td><code>domain-agent-runtime.ts:245-260</code></td></tr>
+          </tbody></table></div>
+        </section>
+      </div>
+      <footer>BLRO AI-native CRM redefinition · 2026-08-13 · 이 HTML은 외부 라이브러리 없이 단독 실행됩니다.</footer>
+    </main>
+  </div>
+  <script>
+    const links = [...document.querySelectorAll('#toc a')];
+    const sections = links.map((link) => document.querySelector(link.getAttribute('href'))).filter(Boolean);
+    const mobileToc = document.querySelector('#mobile-toc');
+    mobileToc.addEventListener('change', () => {
+      if (mobileToc.value) window.location.hash = mobileToc.value;
+    });
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        for (const link of links) {
+          link.classList.toggle('active', link.getAttribute('href') === `#${entry.target.id}`);
+        }
+      }
+    }, { rootMargin: '-20% 0px -68% 0px' });
+    for (const section of sections) observer.observe(section);
+  </script>
+</body>
+</html>

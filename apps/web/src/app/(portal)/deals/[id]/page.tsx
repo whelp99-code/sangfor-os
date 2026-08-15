@@ -264,11 +264,17 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                   id={opportunity.id}
                   stage={opportunity.stage}
                   expectedUpdatedAt={opportunity.updatedAt.toISOString()}
+                  qualificationPassed={
+                    opportunity.qualification?.scoringVersion === "bant-tf-v1" &&
+                    opportunity.qualification.passed
+                  }
                 />
                 <ConvertToProjectButton
                   id={opportunity.id}
+                  stage={opportunity.stage}
                   expectedUpdatedAt={opportunity.updatedAt.toISOString()}
                   engagementId={existingEngagement?.id}
+                  hasPoc={pocProjectsForPanel.length > 0}
                 />
               </>
             ) : null}

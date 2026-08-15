@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "manifestId": "blro-mail-ground-truth-2026-08-12-v1",
+  "projectSlug": "sangfor-os",
+  "sources": [
+    {
+      "artifactId": "sales-funnel-2026",
+      "fileName": "2026 BLRO Korea Sales Funnel - 20260116.xlsx",
+      "sha256": "0e331d1e5459d273b228509bfd899f44926e154175b869103ade5ab8d7a8348a",
+      "sourceType": "sales_ledger"
+    },
+    {
+      "artifactId": "bank-transactions-1",
+      "fileName": "거래내역조회20260805 (1).xlsx",
+      "sha256": "a7f360e7f17320c28fcc476d970d73e7843db1b91dd8f7bc46020d938f42a959",
+      "sourceType": "bank_transaction"
+    },
+    {
+      "artifactId": "bank-transactions-2",
+      "fileName": "거래내역조회20260805.xlsx",
+      "sha256": "c8f546ded97a2a39959128822a884eb3d1939f07b2251f9435ebfd3f38a4b41f",
+      "sourceType": "bank_transaction"
+    },
+    {
+      "artifactId": "sales-invoices-1",
+      "fileName": "세금계산서 매출처별 명세 (1).xlsx",
+      "sha256": "20090d02078adf788c12e028707e5fad7c37ca098104016012fc2059c9957ea2",
+      "sourceType": "sales_tax_invoice"
+    },
+    {
+      "artifactId": "sales-invoices-2",
+      "fileName": "세금계산서 매출처별 명세 (2).xlsx",
+      "sha256": "c0271d325fc182d7198789da5a2d27e3718e4764326300fa53b50639b58a3f9b",
+      "sourceType": "sales_tax_invoice"
+    },
+    {
+      "artifactId": "sales-invoices-3",
+      "fileName": "세금계산서 매출처별 명세 (3).xlsx",
+      "sha256": "2e015474c320188519c8ba2741a444c50370a9c985f11c697c43ef91765bffe0",
+      "sourceType": "sales_tax_invoice"
+    },
+    {
+      "artifactId": "sales-invoices-4",
+      "fileName": "세금계산서 매출처별 명세.xlsx",
+      "sha256": "db65944d75b4fe1f70819757c9251226a84c3be412a3f1a340296f3f531a3523",
+      "sourceType": "sales_tax_invoice"
+    },
+    {
+      "artifactId": "renewal-ledger-2025",
+      "fileName": "Sangfor Renewal 2025.xlsx",
+      "sha256": "4efc4f0610407b706d539756932db6dd4b4d2d0468fcf7ef2074570aaff7ba7c",
+      "sourceType": "renewal_ledger"
+    },
+    {
+      "artifactId": "halla-ims-final-quote",
+      "fileName": "20260608 - 한라IMS - SASE.pdf",
+      "sha256": "52ab73cf51519567cbeecf38a7a04138e0d98442c30a4aabecc50d5385d33610",
+      "sourceType": "final_pdf"
+    },
+    {
+      "artifactId": "fila-korea-final-quote",
+      "fileName": "20260316 - 에스지나인 - SASE .pdf",
+      "sha256": "bde3347c5a677a09ba3a0e6adc78ebd949e6a481252b10a11aa68d3591558a52",
+      "sourceType": "final_pdf"
+    },
+    {
+      "artifactId": "purchase-invoices-1",
+      "fileName": "TAX_4208702727_20260805224936_BuyHomeTax.xlsx",
+      "sha256": "6855233cd724f104382a26dee047378d19050df6e5ef4d4f51ef97922ce30da2",
+      "sourceType": "purchase_tax_invoice"
+    },
+    {
+      "artifactId": "purchase-invoices-2",
+      "fileName": "TAX_4208702727_20260805224949_BuyHomeTax.xlsx",
+      "sha256": "55841e9f51ba3fa0223b62d25ec64b760d6cde1605e0595b600cda4007fa9808",
+      "sourceType": "purchase_tax_invoice"
+    },
+    {
+      "artifactId": "purchase-invoices-3",
+      "fileName": "TAX_4208702727_20260805225005_BuyHomeTax.xlsx",
+      "sha256": "571dd7f971cb3b489c990e7d18e65d6360ab7280d63331198c41f808444add1a",
+      "sourceType": "purchase_tax_invoice"
+    },
+    {
+      "artifactId": "purchase-invoices-4",
+      "fileName": "TAX_4208702727_20260805225032_BuyHomeTax.xlsx",
+      "sha256": "f271406fa9406514b6902fc842d221ec7fcb3a61d7005823d4d851b6015bc68a",
+      "sourceType": "purchase_tax_invoice"
+    }
+  ],
+  "entities": [
+    {
+      "entityKey": "nexias",
+      "canonicalName": "넥시아스",
+      "aliases": [],
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "jng-system",
+      "canonicalName": "제이앤지시스템",
+      "aliases": [],
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "incar-financial-service",
+      "canonicalName": "인카금융서비스",
+      "aliases": ["Incar", "인카금융"],
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "gsitm",
+      "canonicalName": "GSITM",
+      "aliases": ["지에스아이티엠"],
+      "domain": "gsitm.com",
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "gs-enc",
+      "canonicalName": "GS건설",
+      "aliases": ["GS E&C"],
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "digital-chosun",
+      "canonicalName": "디지틀조선일보",
+      "aliases": ["디지털조선일보", "디지탈조선"],
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "gamechosun",
+      "canonicalName": "게임조선",
+      "aliases": [],
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "hc-corporation",
+      "canonicalName": "HC코퍼레이션",
+      "aliases": [],
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "dongguk-university-hospital",
+      "canonicalName": "동국대병원",
+      "aliases": ["동국대학교병원"],
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "blro",
+      "canonicalName": "BLRO",
+      "aliases": ["베를로"],
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "ilaen",
+      "canonicalName": "일에이엔",
+      "aliases": [],
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "halla-ims",
+      "canonicalName": "한라IMS",
+      "aliases": [],
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "sgnine",
+      "canonicalName": "에스지나인",
+      "aliases": ["SG나인"],
+      "reviewStatus": "approved"
+    },
+    {
+      "entityKey": "fila-korea",
+      "canonicalName": "휠라코리아",
+      "aliases": [],
+      "reviewStatus": "approved"
+    }
+  ],
+  "relationships": [
+    {
+      "relationshipKey": "incar-asv:jng-system:channel",
+      "businessProject": "인카금융 aSV",
+      "subjectEntityKey": "jng-system",
+      "role": "channel_partner",
+      "counterpartyEntityKey": "nexias",
+      "endCustomerEntityKey": "incar-financial-service",
+      "product": "aSV",
+      "lifecycle": "completed",
+      "evidenceTier": "A",
+      "confidence": 100,
+      "reviewStatus": "approved",
+      "sourceArtifactIds": [
+        "purchase-invoices-1",
+        "purchase-invoices-2",
+        "purchase-invoices-3",
+        "purchase-invoices-4",
+        "sales-invoices-1",
+        "sales-invoices-2",
+        "sales-invoices-3",
+        "sales-invoices-4",
+        "bank-transactions-1",
+        "bank-transactions-2"
+      ]
+    },
+    {
+      "relationshipKey": "gsenc-dt:gsitm:channel",
+      "businessProject": "GS건설 DT VDI",
+      "subjectEntityKey": "gsitm",
+      "role": "channel_partner",
+      "counterpartyEntityKey": "nexias",
+      "endCustomerEntityKey": "gs-enc",
+      "product": "VDI",
+      "lifecycle": "active_candidate",
+      "evidenceTier": "A",
+      "confidence": 100,
+      "reviewStatus": "approved",
+      "sourceArtifactIds": [
+        "purchase-invoices-1",
+        "purchase-invoices-2",
+        "purchase-invoices-3",
+        "purchase-invoices-4",
+        "sales-invoices-1",
+        "sales-invoices-2",
+        "sales-invoices-3",
+        "sales-invoices-4",
+        "bank-transactions-1",
+        "bank-transactions-2",
+        "renewal-ledger-2025"
+      ]
+    },
+    {
+      "relationshipKey": "gamechosun:chosun:channel",
+      "businessProject": "게임조선 HCI 3노드",
+      "subjectEntityKey": "digital-chosun",
+      "role": "channel_partner",
+      "counterpartyEntityKey": "nexias",
+      "endCustomerEntityKey": "gamechosun",
+      "product": "HCI",
+      "lifecycle": "active_candidate",
+      "evidenceTier": "A",
+      "confidence": 100,
+      "reviewStatus": "approved",
+      "sourceArtifactIds": [
+        "purchase-invoices-1",
+        "purchase-invoices-2",
+        "purchase-invoices-3",
+        "purchase-invoices-4",
+        "sales-invoices-1",
+        "sales-invoices-2",
+        "sales-invoices-3",
+        "sales-invoices-4",
+        "bank-transactions-1",
+        "bank-transactions-2"
+      ]
+    },
+    {
+      "relationshipKey": "dongguk-vdi:hc-corporation:supplier",
+      "businessProject": "동국대학교 VDI",
+      "subjectEntityKey": "hc-corporation",
+      "role": "supplier",
+      "endCustomerEntityKey": "dongguk-university-hospital",
+      "product": "VDI",
+      "lifecycle": "active_candidate",
+      "evidenceTier": "B",
+      "confidence": 90,
+      "reviewStatus": "approved",
+      "sourceArtifactIds": [
+        "purchase-invoices-1",
+        "purchase-invoices-2",
+        "purchase-invoices-3",
+        "purchase-invoices-4"
+      ]
+    },
+    {
+      "relationshipKey": "halla-ims-sase:ilaen:channel",
+      "businessProject": "한라IMS SASE",
+      "subjectEntityKey": "ilaen",
+      "role": "channel_partner",
+      "counterpartyEntityKey": "blro",
+      "endCustomerEntityKey": "halla-ims",
+      "product": "SASE",
+      "lifecycle": "failed",
+      "evidenceTier": "C",
+      "confidence": 85,
+      "reviewStatus": "approved",
+      "sourceArtifactIds": ["halla-ims-final-quote", "sales-funnel-2026"]
+    },
+    {
+      "relationshipKey": "fila-sase:sgnine:channel",
+      "businessProject": "휠라코리아 SASE",
+      "subjectEntityKey": "sgnine",
+      "role": "channel_partner",
+      "counterpartyEntityKey": "blro",
+      "endCustomerEntityKey": "fila-korea",
+      "product": "SASE",
+      "lifecycle": "failed",
+      "evidenceTier": "C",
+      "confidence": 80,
+      "reviewStatus": "approved",
+      "sourceArtifactIds": ["fila-korea-final-quote", "sales-funnel-2026"]
+    }
+  ]
+}

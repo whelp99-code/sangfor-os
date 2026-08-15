@@ -19,7 +19,7 @@ function internalRing(kid, secretByte, activatedAt = "2026-01-01T00:00:00Z") {
 
 function validEnvironment() {
   return {
-    APP_DOMAIN: "sangfor.internal.test", BACKUP_DIR: "/var/backups/sangfor-os", DEFAULT_TENANT_ID: "tenant-prod", DEFAULT_TENANT_SLUG: "tenant-prod", DEFAULT_COMPANY_ID: "company-prod", DEFAULT_COMPANY_SLUG: "company-prod", DEFAULT_PROJECT_ID: "project-prod", DEFAULT_PROJECT_SLUG: "project-prod", PRODUCTION_OPERATOR_USER_ID: "operator-prod", PRODUCTION_OPERATOR_EMAIL: "operator-prod@production.sangfor.com", POSTGRES_PASSWORD: "p".repeat(32), SANGFOR_APP_DB_PASSWORD: "a".repeat(32), SANGFOR_RUNTIME_DB_PASSWORD: "t".repeat(32), REDIS_PASSWORD: "r".repeat(32),
+    APP_DOMAIN: "sangfor.internal.test", TAILSCALE_DOMAIN: "blro.example-tailnet.ts.net", BACKUP_DIR: "/var/backups/sangfor-os", DEFAULT_TENANT_ID: "tenant-prod", DEFAULT_TENANT_SLUG: "tenant-prod", DEFAULT_COMPANY_ID: "company-prod", DEFAULT_COMPANY_SLUG: "company-prod", DEFAULT_PROJECT_ID: "project-prod", DEFAULT_PROJECT_SLUG: "project-prod", PRODUCTION_OPERATOR_USER_ID: "operator-prod", PRODUCTION_OPERATOR_EMAIL: "operator-prod@production.sangfor.com", POSTGRES_PASSWORD: "p".repeat(32), SANGFOR_APP_DB_PASSWORD: "a".repeat(32), SANGFOR_RUNTIME_DB_PASSWORD: "t".repeat(32), REDIS_PASSWORD: "r".repeat(32),
     API_KEY: "o".repeat(32), FINANCE_API_KEY: "f".repeat(32), SANGFOR_API_KEY: "s".repeat(32), SANGFOR_OPERATOR_PRINCIPAL_ID: "production-operator",
     JWT_SECRET: "j".repeat(32), USER_JWT_ACTIVE_KID: "user-1", USER_JWT_KEYRING_JSON: userRing("user-1"),
     INTERNAL_PRINCIPAL_FINANCE_ACTIVE_KID: "finance-1", INTERNAL_PRINCIPAL_FINANCE_KEYRING_JSON: internalRing("finance-1", 1),
@@ -90,7 +90,7 @@ function validComposeModel() {
       "app-role-init": { command: ["ALTER ROLE sangfor_runtime_login NOBYPASSRLS"], depends_on: { bootstrap: { condition: "service_completed_successfully" } }, restart: "no" },
       api: { environment: { ...runtimeEnvironment }, healthcheck: {}, ports: [], volumes: [] },
       web: { environment: { ...runtimeEnvironment }, healthcheck: {}, ports: [], volumes: [] },
-      caddy: { ports: [{ published: 80 }, { published: 443 }] },
+      caddy: { environment: { TAILSCALE_DOMAIN: "blro.example-tailnet.ts.net" }, ports: [{ published: 80 }, { published: 443 }] },
     },
     networks: { backend: { internal: true } },
   };
@@ -102,10 +102,16 @@ describe("production deploy verifier", () => {
     assert.throws(() => parseEnvFile("export BAD=value"), /invalid env syntax/);
   });
   it("accepts complete, distinct production credentials", () => {
-    assert.deepEqual(validateProductionEnvironment(validEnvironment()), { ok: true, requiredCount: 31 });
+    assert.deepEqual(validateProductionEnvironment(validEnvironment()), { ok: true, requiredCount: 32 });
+  });
+  it("requires a dedicated Tailscale HTTPS domain", () => {
+    const missing = validEnvironment();
+    delete missing.TAILSCALE_DOMAIN;
+    assert.throws(() => validateProductionEnvironment(missing), /TAILSCALE_DOMAIN: missing/u);
+    assert.throws(() => validateProductionEnvironment({ ...validEnvironment(), TAILSCALE_DOMAIN: "https://blro.example-tailnet.ts.net/" }), /TAILSCALE_DOMAIN: expected hostname/u);
   });
   it("keeps the production environment template aligned with canonical keyring parsers", () => {
-    assert.deepEqual(validateProductionEnvironment(environmentWithTemplateKeyrings()), { ok: true, requiredCount: 31 });
+    assert.deepEqual(validateProductionEnvironment(environmentWithTemplateKeyrings()), { ok: true, requiredCount: 32 });
   });
   it("rejects the millisecond keyring timestamp that produced production login 503", () => {
     const invalidUser = validEnvironment();
@@ -150,6 +156,11 @@ describe("production deploy verifier", () => {
     const wrongWebProfile = structuredClone(valid);
     wrongWebProfile.services.web.environment.SANGFOR_PROCESS_PROFILE = "development";
     assert.throws(() => validateComposeModel(wrongWebProfile), /web: SANGFOR_PROCESS_PROFILE must be production/u);
+  });
+  it("requires Caddy to receive the Tailscale domain", () => {
+    const missingTailscaleDomain = validComposeModel();
+    delete missingTailscaleDomain.services.caddy.environment.TAILSCALE_DOMAIN;
+    assert.throws(() => validateComposeModel(missingTailscaleDomain), /caddy: TAILSCALE_DOMAIN must be configured/u);
   });
   it("requires bootstrap between migration and app-role initialization", () => {
     const missingBootstrapDependency = validComposeModel();

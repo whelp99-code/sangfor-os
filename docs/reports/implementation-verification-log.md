@@ -41,7 +41,7 @@ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL @sangfor/application@0.1.0 lint: `eslint src`
 ### Evidence
 
 - `ARCHITECTURE.md`
-- `DEVELOPMENT_PLAN.md`
+- `docs/archive/discarded-plans/2026-08-13/repository-root/DEVELOPMENT_PLAN.md` (historical, non-canonical)
 - `docs/reports/integration-source-inventory.md`
 - `docs/reports/project-to-sangfor-os-mapping.md`
 - `docs/reports/final-package-gap-matrix.md`

@@ -1,0 +1,25 @@
+{
+  "candidates": [
+    {
+      "id": "candidate-gsitm",
+      "candidateType": "customer",
+      "title": "Customer: GSITM",
+      "summary": "GS건설 DT VDI 견적",
+      "sourceSender": "sales@gsitm.com"
+    },
+    {
+      "id": "candidate-ilaen",
+      "candidateType": "customer",
+      "title": "Customer: 일에이엔",
+      "summary": "한라IMS SASE 견적",
+      "sourceSender": "sales@example.com"
+    },
+    {
+      "id": "candidate-system",
+      "candidateType": "customer",
+      "title": "Customer: GSITM",
+      "summary": "세금계산서 발행 알림",
+      "sourceSender": "notice@bill36524.com"
+    }
+  ]
+}

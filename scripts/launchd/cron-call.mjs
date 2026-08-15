@@ -11,17 +11,26 @@
  *   USER_JWT_KEYRING_JSON, USER_JWT_ACTIVE_KID, DEFAULT_TENANT_ID,
  *   DEFAULT_COMPANY_ID, DEFAULT_PROJECT_ID, SANGFOR_OPERATOR_PRINCIPAL_ID
  */
-// Caddy uses a self-signed cert for aios.localhost — skip TLS verification
-// for this local-only cron caller (never exposed externally).
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 import { createHmac } from "node:crypto";
 import { execFileSync } from "node:child_process";
 
+import {
+  parseSessionTtlSeconds,
+  resolveCronCallConfig,
+  shouldDisableTlsVerification,
+} from "./cron-call-config.mjs";
+
 // --- Config ---
-const CONTAINER = "sangfor-production-web-1";
-const PG_CONTAINER = "sangfor-production-postgres-1";
-const BASE_URL = "https://aios.localhost";
-const TTL_SECONDS = 900;
+const {
+  webContainer: CONTAINER,
+  postgresContainer: PG_CONTAINER,
+  baseUrl: BASE_URL,
+} = resolveCronCallConfig();
+// Caddy uses a self-signed certificate only on the legacy loopback endpoint.
+// Real production domains must retain normal certificate verification.
+if (shouldDisableTlsVerification(BASE_URL)) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+}
 
 // --- Parse args ---
 const args = process.argv.slice(2);
@@ -46,6 +55,7 @@ const activeKid = containerEnv("USER_JWT_ACTIVE_KID");
 const tenantId = containerEnv("DEFAULT_TENANT_ID");
 const companyId = containerEnv("DEFAULT_COMPANY_ID");
 const projectId = containerEnv("DEFAULT_PROJECT_ID");
+const TTL_SECONDS = parseSessionTtlSeconds(containerEnv("USER_JWT_TTL_SECONDS"));
 // Resolve the actual DB user (not the service principal ID) from the DB.
 const operatorId = execFileSync("docker", ["exec", PG_CONTAINER, "psql", "-U", "sangfor", "-d", "sangfor_os", "-Atc",
   `SELECT u.id FROM users u JOIN user_company_roles r ON r.user_id = u.id WHERE r.company_id = '${companyId}' AND r.status = 'active' AND u.status = 'active' LIMIT 1`],
