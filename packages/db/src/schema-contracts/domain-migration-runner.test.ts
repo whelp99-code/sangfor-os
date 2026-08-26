@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -7,6 +7,13 @@ import { describe, expect, it } from 'vitest';
 const DB_ROOT = resolve(import.meta.dirname, '../..');
 const migrationPath = resolve(DB_ROOT, 'prisma/migrations/20260716004000_u040_domain_backfill_validate_tighten/migration.sql');
 const runnerPath = resolve(DB_ROOT, 'scripts/verify-domain-migrations.mjs');
+
+function hasDockerCli() {
+  const probe = spawnSync('docker', ['--version'], { stdio: 'ignore' });
+  return (probe.error as NodeJS.ErrnoException | undefined)?.code !== 'ENOENT';
+}
+
+const dockerIt = it.skipIf(!hasDockerCli());
 
 function runnerEnv() {
   const env: NodeJS.ProcessEnv = {};
@@ -49,7 +56,7 @@ describe('U040 isolated domain migration runner contract', () => {
     expect(source).toContain('renewalFkConvalidated');
   });
 
-  it('drives the real main upgrade path over representative legacy rows', () => {
+  dockerIt('drives the real main upgrade path over representative legacy rows', () => {
     const { evidence, receipt } = runMain(['--skip-failure-injection']);
     try {
       expect(receipt.applied).toBeGreaterThan(0);
@@ -65,7 +72,7 @@ describe('U040 isolated domain migration runner contract', () => {
     }
   }, 120_000);
 
-  it('drives the real main failure scenario and records ambiguous owner quarantine', () => {
+  dockerIt('drives the real main failure scenario and records ambiguous owner quarantine', () => {
     const evidence = mkdtempSync(join(tmpdir(), 'u040-runner-ambiguous-vitest-'));
     try {
       execFileSync(process.execPath, [runnerPath, '--evidence-dir', evidence, '--failure-scenario', 'ambiguous_owner_mapping'], {

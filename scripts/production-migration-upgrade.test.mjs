@@ -8,6 +8,8 @@ import { test } from "node:test";
 const root = resolve(import.meta.dirname, "..");
 const lock = JSON.parse(readFileSync(resolve(root, "scripts/fixtures/restore-drill/postgres16-image.lock.json"), "utf8"));
 const image = lock.resolvedImage;
+const dockerProbe = spawnSync("docker", ["--version"], { stdio: "ignore" });
+const dockerCliAvailable = dockerProbe.error?.code !== "ENOENT";
 
 /** psql/pg_isready over the container's own TCP listener rather than the Unix
  *  socket. The official image starts a temporary server during initdb, shuts it
@@ -24,7 +26,7 @@ function run(argv, input) {
   return result.stdout.trim();
 }
 
-test("upgrades an already-applied password credential migration", { timeout: 180_000 }, async () => {
+test("upgrades an already-applied password credential migration", { timeout: 180_000, skip: !dockerCliAvailable }, async () => {
   assert.equal(process.env.DOCKER_HOST, undefined);
   assert.equal(process.env.DOCKER_CONTEXT, undefined);
   const name = `sangfor-migration-upgrade-${process.pid}-${randomBytes(4).toString("hex")}`;
