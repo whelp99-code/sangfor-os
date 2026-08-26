@@ -114,9 +114,6 @@
     "apps/web/src/components/ui/badge.tsx": [
       "exports"
     ],
-    "apps/web/src/components/ui/scroll-area.tsx": [
-      "exports"
-    ],
     "apps/web/src/lib/cockpit.ts": [
       "exports",
       "types"
@@ -166,9 +163,6 @@
       "exports"
     ],
     "apps/web/src/components/ui/table.tsx": [
-      "exports"
-    ],
-    "apps/web/src/components/ui/color-review-badge.tsx": [
       "exports"
     ],
     "apps/web/src/components/deals/deal-title-display.tsx": [
