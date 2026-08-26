@@ -43,8 +43,8 @@ export type ScopeCategory =
   | 'CHILD_VIA_FK'
   | 'COMPANY_DIRECT';
 
-export const ROOT_CATEGORIES = ['TENANT_ROOT', 'COMPANY_ROOT', 'PROJECT_ROOT'] as const;
-export type RootCategory = (typeof ROOT_CATEGORIES)[number];
+const ROOT_CATEGORIES = ['TENANT_ROOT', 'COMPANY_ROOT', 'PROJECT_ROOT'] as const;
+type RootCategory = (typeof ROOT_CATEGORIES)[number];
 
 export interface RootScopeEntry {
   model: string;
@@ -97,7 +97,7 @@ export const CATALOG_TRANSITIONAL_CANONICAL_SCOPE_PATHS = Object.freeze({
   CompatibilityRule: Object.freeze({ relationField: 'sourceSku', scalarFkField: 'sourceSkuId', parentModel: 'ProductSku', additionalRequiredRelationFields: ['targetSku'] }),
 });
 
-export interface ScopeInventoryBaseline {
+interface ScopeInventoryBaseline {
   baseSha: string;
   modelCount: number;
   categoryCounts: Record<ScopeCategory, number>;
@@ -117,7 +117,7 @@ export const SCOPE_INVENTORY_BASELINE: ScopeInventoryBaseline = Object.freeze({
   }),
 });
 
-export interface RegisteredAddition {
+interface RegisteredAddition {
   model: string;
   unit: string;
   category: ScopeCategory;
@@ -221,7 +221,7 @@ export const REGISTERED_ADDITIONS: RegisteredAddition[] = [
   { model: 'UserCredential', unit: 'U076', category: 'GLOBAL_SHARED' },
 ];
 
-export interface ReclassifiedModel {
+interface ReclassifiedModel {
   model: string;
   unit: string;
   fromCategory: ScopeCategory;

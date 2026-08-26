@@ -3,8 +3,8 @@ import { join } from 'node:path';
 
 import { Prisma } from '@prisma/client';
 
-export const U032_MIGRATION_NAME = '20260716003200_u032_crm_scope_archive_owner_expand';
-export const U032_MIGRATION_PATH = join(__dirname, '../../prisma/migrations', U032_MIGRATION_NAME, 'migration.sql');
+const U032_MIGRATION_NAME = '20260716003200_u032_crm_scope_archive_owner_expand';
+const U032_MIGRATION_PATH = join(__dirname, '../../prisma/migrations', U032_MIGRATION_NAME, 'migration.sql');
 
 export function dmmfModel(name: string) {
   const model = Prisma.dmmf.datamodel.models.find((candidate) => candidate.name === name);

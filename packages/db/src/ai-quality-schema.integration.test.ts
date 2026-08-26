@@ -5,7 +5,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // @ts-expect-error -- U009's committed isolation harness is plain JS.
-import { withIsolatedPostgres } from '../../scripts/lib/isolated-postgres.mjs';
+import { withIsolatedPostgres } from '../../../scripts/lib/isolated-postgres.mjs';
 
 const integration = process.env.CI_INTEGRATION === '1';
 const HASH = 'a'.repeat(64);

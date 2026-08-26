@@ -18,7 +18,7 @@ import {
 import { getWebSessionJwtConfig } from "./config";
 import { extractSessionToken } from "./session";
 
-export interface ActiveLocalPrincipal {
+interface ActiveLocalPrincipal {
   readonly userId: string;
   readonly tenantId: string;
   readonly companyId: string;
@@ -77,7 +77,7 @@ export async function resolveActiveLocalPrincipal(
   return { userId: user.id, tenantId: project.company.tenantId, companyId: project.companyId, projectId: project.id };
 }
 
-export interface CreatePersistedSessionInput {
+interface CreatePersistedSessionInput {
   readonly userId: string;
   readonly tenantId: string;
   readonly companyId: string;
@@ -87,7 +87,7 @@ export interface CreatePersistedSessionInput {
   readonly credentialVersion: number | null;
 }
 
-export interface CreatePersistedSessionResult {
+interface CreatePersistedSessionResult {
   readonly token: string;
   readonly jti: string;
   readonly expiresAt: Date;
@@ -236,7 +236,7 @@ export const INTERNAL_CONTEXT_HEADER = "x-sangfor-internal-context";
 const INTERNAL_CONTEXT_MAX_AGE_SECONDS = 30;
 const INTERNAL_CONTEXT_DOMAIN = "sangfor.internal-context/v1";
 
-export interface InternalContextPayload {
+interface InternalContextPayload {
   readonly userId: string;
   readonly tenantId: string;
   readonly companyId: string;

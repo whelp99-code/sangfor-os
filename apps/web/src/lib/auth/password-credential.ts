@@ -30,7 +30,7 @@ export async function verifyPasswordDigest(password: string, digest: string): Pr
   }
 }
 
-export interface AuthenticatedPasswordCredential {
+interface AuthenticatedPasswordCredential {
   readonly userId: string;
   readonly credentialVersion: number;
 }

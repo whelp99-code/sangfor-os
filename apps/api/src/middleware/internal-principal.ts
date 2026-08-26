@@ -8,7 +8,7 @@ import {
 import { getInternalPrincipalConfig, type InternalPrincipalConfig, type InternalPrincipalProfile } from '@sangfor/config';
 import { claimInternalPrincipalReplay } from '@sangfor/business';
 
-export interface InternalPrincipalMiddlewareOptions {
+interface InternalPrincipalMiddlewareOptions {
   readonly profile: InternalPrincipalProfile;
   readonly config?: InternalPrincipalConfig;
   readonly now?: () => number;

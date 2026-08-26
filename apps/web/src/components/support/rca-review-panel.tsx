@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 
-export type RcaReviewPanelProps = {
+type RcaReviewPanelProps = {
   supportCaseId: string;
   rcaArtifactVersionId?: string;
   assessmentStatus?: string;

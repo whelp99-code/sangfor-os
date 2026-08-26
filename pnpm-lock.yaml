@@ -75,9 +75,6 @@ importers:
 
   apps/api:
     dependencies:
-      '@octokit/rest':
-        specifier: ^22.0.1
-        version: 22.0.1
       '@sangfor/api-utils':
         specifier: workspace:*
         version: link:../../packages/api-utils

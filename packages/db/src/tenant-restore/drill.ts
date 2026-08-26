@@ -9,13 +9,13 @@ import { tableHash } from './hash';
 import { importTenantScope } from './import';
 import { RESTORE_TABLE_SPECS } from './identifiers';
 
-export type TenantRestoreDrillOptions = {
+type TenantRestoreDrillOptions = {
   runId: string;
   evidenceDir: string;
   imageDigest: string;
 };
 
-export type TenantRestoreDrillResult = {
+type TenantRestoreDrillResult = {
   imported: boolean;
   idempotentReplay: boolean;
   tableCounts: Record<string, number>;

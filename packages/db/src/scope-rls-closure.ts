@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 
 import { MODEL_SCOPE_INVENTORY, type ScopeInventoryEntry } from './scope-inventory';
 
-export const SCOPE_RLS_POLICY_PREFIX = 'sangfor_scope_';
+const SCOPE_RLS_POLICY_PREFIX = 'sangfor_scope_';
 
 type DmmfField = {
   name: string;
@@ -16,7 +16,7 @@ type DmmfModel = {
   fields: readonly DmmfField[];
 };
 
-export type ScopeRlsPolicy = {
+type ScopeRlsPolicy = {
   model: string;
   table: string;
   policyName: string;

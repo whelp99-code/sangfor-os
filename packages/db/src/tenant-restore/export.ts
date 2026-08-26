@@ -3,7 +3,7 @@ import { tableHash } from "./hash";
 import { quoteAllowedColumn, quoteAllowedTable, restoreTableSpec, type RestoreTableSpec } from './identifiers';
 import { createManifest, type RestoreManifest, type TableManifestEntry } from "./manifest";
 
-export type ExportOptions = {
+type ExportOptions = {
   runId: string;
   tenantId: string;
   companyId: string;
@@ -12,7 +12,7 @@ export type ExportOptions = {
   tables: readonly RestoreTableSpec[];
 };
 
-export type ExportResult = {
+type ExportResult = {
   manifest: RestoreManifest;
   rows: Record<string, Record<string, unknown>[]>;
 };

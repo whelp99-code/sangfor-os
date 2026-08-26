@@ -1,6 +1,6 @@
 import React from "react";
 
-export type CandidateColorGate = "B" | "R" | "O" | "G" | "T";
+type CandidateColorGate = "B" | "R" | "O" | "G" | "T";
 
 const CHANNELS: readonly { code: CandidateColorGate; color: string }[] = [
   { code: "B", color: "var(--ck-blue)" },

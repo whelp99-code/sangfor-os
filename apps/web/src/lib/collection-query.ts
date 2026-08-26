@@ -1,6 +1,6 @@
 import type { PageInfo } from "@sangfor/business";
 
-export interface CollectionQueryParams {
+interface CollectionQueryParams {
   first?: number;
   after?: string;
   before?: string;

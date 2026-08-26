@@ -2,13 +2,13 @@
 
 import React, { useState } from "react";
 
-export type DealGateItem = {
+type DealGateItem = {
   gateKey: string;
   eligible: boolean;
   blocker?: string;
 };
 
-export type DealWorkflowPanelProps = {
+type DealWorkflowPanelProps = {
   opportunityId: string;
   runId?: string;
   gates?: DealGateItem[];

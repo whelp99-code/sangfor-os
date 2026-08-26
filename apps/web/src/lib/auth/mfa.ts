@@ -3,14 +3,14 @@ import { generateTotpSecret, totpEnrollmentUri, verifyTotpCode, type TotpFailure
 
 import { openTotpSecret, sealTotpSecret, totpSealingKey } from "./totp-seal";
 
-export const TOTP_ISSUER = "Sangfor OS";
-export const TOTP_METHOD = "totp";
+const TOTP_ISSUER = "Sangfor OS";
+const TOTP_METHOD = "totp";
 
-export type MfaOutcome =
+type MfaOutcome =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: TotpFailure | "NO_FACTOR" | "ALREADY_ENROLLED" | "FACTOR_UNREADABLE" };
 
-export interface TotpEnrollment {
+interface TotpEnrollment {
   readonly secretBase32: string;
   readonly uri: string;
 }

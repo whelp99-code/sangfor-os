@@ -37,13 +37,13 @@ import {
 
 export type { DigestClient };
 
-export const HEX64_RE = /^[0-9a-f]{64}$/;
+const HEX64_RE = /^[0-9a-f]{64}$/;
 
 export function isHex64(value: unknown): value is string {
   return typeof value === 'string' && HEX64_RE.test(value);
 }
 
-export type ClosureBlockerCode =
+type ClosureBlockerCode =
   | 'INVENTORY_MISMATCH'
   | 'CONTROL_ROW_MISSING'
   | 'CONTROL_ROW_MALFORMED'
@@ -65,7 +65,7 @@ export type ClosureBlockerCode =
   | 'ROLE_CHANGE_REQUEST_UNREPRESENTED_SOURCE'
   | 'ROLE_CHANGE_REQUEST_EXTRACTION_MISMATCH';
 
-export interface ClosureBlocker {
+interface ClosureBlocker {
   code: ClosureBlockerCode;
   message: string;
   sourceId?: string;
@@ -79,7 +79,7 @@ function blockersOk(blockers: ClosureBlocker[]): boolean {
 // Control row verification — mirrors the migration.sql DO block's checks
 // ─────────────────────────────────────────────────────────────────────────
 
-export type ControlRowMode = 'reviewed_apply' | 'empty_database';
+type ControlRowMode = 'reviewed_apply' | 'empty_database';
 
 export interface RawControlRow {
   id: string;
@@ -113,7 +113,7 @@ export interface ControlRowVerificationInput {
   liveRoleChangeRequestsCount: number;
 }
 
-export interface ControlRowVerificationResult {
+interface ControlRowVerificationResult {
   ok: boolean;
   mode: ControlRowMode | null;
   blockers: ClosureBlocker[];
@@ -362,7 +362,7 @@ export function verifyProjectClosure(
   return blockers;
 }
 
-export interface ProjectFreshnessCheck {
+interface ProjectFreshnessCheck {
   sourceId: string;
   liveSourceRowHash: string;
   liveSourceFactsDigest: string;
@@ -486,7 +486,7 @@ export interface ClosureFacts {
   roleChangeRequest: RoleChangeClosureInput;
 }
 
-export interface ClosureReport {
+interface ClosureReport {
   ok: boolean;
   inventory: ScopeInventoryReport;
   childFkErrors: ScopeInventoryError[];
@@ -532,13 +532,12 @@ export function buildClosureReport(facts: ClosureFacts): ClosureReport {
   };
 }
 
-export { expectedCategoryCounts, expectedCurrentModelCount };
 
 // ─────────────────────────────────────────────────────────────────────────
 // DB-touching fact fetchers
 // ─────────────────────────────────────────────────────────────────────────
 
-export async function sqlJsonDigestHex(client: DigestClient, value: unknown): Promise<string> {
+async function sqlJsonDigestHex(client: DigestClient, value: unknown): Promise<string> {
   const text = JSON.stringify(value ?? null);
   const rows = await client.$queryRawUnsafe<{ hash: string }[]>(
     `SELECT encode(public.digest(pg_catalog.convert_to(($1::jsonb)::text,'UTF8'),'sha256'),'hex') AS hash`,

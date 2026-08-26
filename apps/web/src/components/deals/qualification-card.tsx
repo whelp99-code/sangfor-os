@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-export type QualificationData = {
+type QualificationData = {
   id?: string;
   budgetScore?: number | null;
   authorityScore?: number | null;
@@ -20,7 +20,7 @@ export type QualificationData = {
   notes?: string | null;
 };
 
-export type QualificationCardProps = {
+type QualificationCardProps = {
   opportunityId: string;
   qualification?: QualificationData | null;
   readOnly?: boolean;

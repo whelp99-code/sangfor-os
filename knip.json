@@ -8,15 +8,23 @@
       "entry": [
         "scripts/**/*.{mjs,cjs,ts}",
         "playwright.config.ts",
-        "playwright.acceptance.config.ts"
+        "playwright.acceptance.config.ts",
+        "tests/e2e/playwright/**/*.ts",
+        "tests/performance/**/*.ts"
       ],
       "project": [
         "scripts/**/*.{mjs,cjs,ts}",
         "playwright.config.ts",
-        "playwright.acceptance.config.ts"
+        "playwright.acceptance.config.ts",
+        "tests/e2e/playwright/**/*.ts",
+        "tests/performance/**/*.ts"
       ]
     },
-    "apps/web": {},
+    "apps/web": {
+      "entry": [
+        "src/components/opportunities/edit-opportunity-form.tsx"
+      ]
+    },
     "apps/api": {
       "entry": [
         "src/index.ts"
@@ -25,7 +33,13 @@
     "packages/db": {
       "entry": [
         "prisma/seed.ts",
-        "scripts/*.ts"
+        "scripts/*.{ts,mjs}"
+      ]
+    },
+    "packages/business": {
+      "entry": [
+        "src/index.ts",
+        "scripts/smoke-embedder-wiring.ts"
       ]
     },
     "packages/*": {}
@@ -39,7 +53,6 @@
     "apps/web/src/components/dashboard/charts/kpi-sparkline.tsx",
     "apps/web/src/components/dashboard/charts/pipeline-chart.tsx",
     "apps/web/src/components/dashboard/role-dashboard.tsx",
-    "apps/web/src/components/opportunities/edit-opportunity-form.tsx",
     "apps/web/src/components/ui/data-table.tsx",
     "packages/business/scripts/apply-invoice-answers.ts",
     "packages/business/scripts/apply-owner-corrections.ts",
@@ -67,7 +80,6 @@
     "packages/business/scripts/reconcile-purchase-orders.ts",
     "packages/business/scripts/regroup-chosun-deals.ts",
     "packages/business/scripts/regroup-gsitm-deals.ts",
-    "packages/business/scripts/replay-generate-documents.ts",
     "packages/business/scripts/replay-mail-timeline.ts",
     "packages/business/scripts/report-domain-pollution.ts",
     "packages/business/scripts/revalidate-batch.ts",

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 
-export type VendorRequestItem = {
+type VendorRequestItem = {
   id: string;
   requestType: "special_discount" | "demo_license";
   status: string;
@@ -13,7 +13,7 @@ export type VendorRequestItem = {
   createdAt: string;
 };
 
-export type VendorRequestPanelProps = {
+type VendorRequestPanelProps = {
   opportunityId?: string;
   quoteId?: string;
   requests?: VendorRequestItem[];

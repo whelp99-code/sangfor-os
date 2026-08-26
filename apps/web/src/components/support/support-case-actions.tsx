@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 
-export type SupportCaseActionsProps = {
+type SupportCaseActionsProps = {
   supportCaseId: string;
   status: string;
   revision: number;

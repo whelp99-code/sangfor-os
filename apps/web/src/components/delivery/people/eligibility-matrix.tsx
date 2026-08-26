@@ -2,7 +2,7 @@
 
 import React from "react";
 
-export type EligibilityMatrixProps = {
+type EligibilityMatrixProps = {
   people: Array<{
     id: string;
     userId: string;

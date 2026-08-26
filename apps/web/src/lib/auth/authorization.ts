@@ -77,7 +77,7 @@ export async function assertBusinessCapability(
   return null;
 }
 
-export type CompanyScopeResourceResult<T> =
+type CompanyScopeResourceResult<T> =
   | { readonly ok: true; readonly resource: T }
   | { readonly ok: false; readonly response: NextResponse };
 
@@ -136,6 +136,6 @@ export function enforceRequestedCompany(
   return NextResponse.json({ error: "forbidden", message: "Company scope does not match the signed session" }, { status: 403 });
 }
 
-export function notFoundInScope(): NextResponse {
+function notFoundInScope(): NextResponse {
   return NextResponse.json({ error: "not_found" }, { status: 404 });
 }

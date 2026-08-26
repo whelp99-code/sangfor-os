@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 
-export type DeliveryAcceptancePanelProps = {
+type DeliveryAcceptancePanelProps = {
   engagementId: string;
   quoteId?: string;
   artifactVersionId?: string;

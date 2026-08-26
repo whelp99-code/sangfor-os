@@ -1,7 +1,7 @@
 import { isBusinessRoleCode, type BusinessRole } from "@sangfor/auth";
 import { BUSINESS_ROLE_DASHBOARD_LANDINGS } from "@sangfor/business";
 
-export interface RouteResponsibility {
+interface RouteResponsibility {
   readonly canonicalPath: string;
   readonly allowedRoles: readonly BusinessRole[];
   readonly navVisible: boolean;

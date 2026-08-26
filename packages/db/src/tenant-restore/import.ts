@@ -6,14 +6,14 @@ import { tableHash } from './hash';
 import { assertAllowedColumn, quoteAllowedColumn, quoteAllowedTable, restoreTableSpec } from './identifiers';
 import { validateManifest, type RestoreManifest } from './manifest';
 
-export type ImportOptions = {
+type ImportOptions = {
   targetTenantId: string;
   targetCompanyId: string;
   targetProjectId: string;
   idempotencyKey: string;
 };
 
-export type ImportResult = {
+type ImportResult = {
   imported: boolean;
   idempotent: boolean;
   remapMap: Record<string, string>;

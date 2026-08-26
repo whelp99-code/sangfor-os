@@ -131,7 +131,7 @@ export interface CreateCanonicalApprovalRequestInput {
  * `policyVersion`), so the server derives one. Not a "shadow validation hash": `policyHash` is a
  * first-class U018 column distinct from `validationSnapshotHash`, and this never touches that
  * DB-generated field. */
-export function derivePolicyHash(policyKey: string, policyVersion: string): string {
+function derivePolicyHash(policyKey: string, policyVersion: string): string {
   return createHash("sha256").update(`${policyKey}::${policyVersion}`).digest("hex");
 }
 

@@ -2,9 +2,9 @@ import { createHash } from "node:crypto";
 
 export const MAIL_AI_REJECT_GATE_SCHEMA = "mail-ai-reject-gate/v1";
 
-export type CandidateType = "task" | "opportunity" | "poc";
+type CandidateType = "task" | "opportunity" | "poc";
 export type ReviewLabel = "actual_opportunity" | "not_opportunity" | "insufficient_evidence";
-export type GateStatus = "PASS" | "FAIL" | "BLOCKED" | "INVALID";
+type GateStatus = "PASS" | "FAIL" | "BLOCKED" | "INVALID";
 
 export interface RejectCandidate {
   candidateId: string;
@@ -36,19 +36,19 @@ export interface RejectReview {
   evidenceRef?: string;
 }
 
-export interface RejectReviews {
+interface RejectReviews {
   schemaVersion: typeof MAIL_AI_REJECT_GATE_SCHEMA;
   cycleId: string;
   reviews: RejectReview[];
 }
 
-export interface GateIssue {
+interface GateIssue {
   code: string;
   candidateId?: string;
   detail: string;
 }
 
-export interface MailAiRejectGateReceipt {
+interface MailAiRejectGateReceipt {
   schemaVersion: typeof MAIL_AI_REJECT_GATE_SCHEMA;
   status: GateStatus;
   exitCode: 0 | 1 | 2 | 64;

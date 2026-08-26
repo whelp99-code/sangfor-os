@@ -1,6 +1,6 @@
 import React from "react";
 
-export type AICode = "MK" | "SA" | "PS" | "EN" | "CF";
+type AICode = "MK" | "SA" | "PS" | "EN" | "CF";
 
 interface Props {
   code: AICode;

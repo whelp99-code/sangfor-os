@@ -2,7 +2,7 @@
 
 import React from "react";
 
-export type SupportSlaClockProps = {
+type SupportSlaClockProps = {
   severity: string;
   responseDueAt?: string;
   resolutionDueAt?: string;

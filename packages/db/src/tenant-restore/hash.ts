@@ -17,7 +17,7 @@ export function canonicalize(value: unknown): string {
   return String(value);
 }
 
-export function semanticRowHash(row: Record<string, unknown>, excludeKeys: string[] = []): string {
+function semanticRowHash(row: Record<string, unknown>, excludeKeys: string[] = []): string {
   const filtered: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
     if (!excludeKeys.includes(k)) filtered[k] = v;

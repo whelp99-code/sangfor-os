@@ -16,6 +16,7 @@ __pycache__
 .worktrees/
 
 # Tooling/session caches (oma, serena MCP, roam code-graph)
+.chatgpt2codex/
 .roam/
 .omo/
 .serena/

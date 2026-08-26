@@ -47,7 +47,7 @@ export function createManifest(input: {
   };
 }
 
-export function manifestHash(manifest: RestoreManifest): string {
+function manifestHash(manifest: RestoreManifest): string {
   return sha256Hex(canonicalize({
     version: manifest.version,
     sourceTenantId: manifest.sourceTenantId,

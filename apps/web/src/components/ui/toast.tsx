@@ -18,16 +18,16 @@ import {
   type ReactNode,
 } from "react";
 
-export type ToastType = "success" | "error" | "warning" | "info";
+type ToastType = "success" | "error" | "warning" | "info";
 
-export interface Toast {
+interface Toast {
   id: string;
   type: ToastType;
   message: string;
   action?: { label: string; onClick: () => void };
 }
 
-export interface ToastContextValue {
+interface ToastContextValue {
   toast: (type: ToastType, message: string, action?: Toast["action"]) => void;
   success: (message: string, action?: Toast["action"]) => void;
   error: (message: string, action?: Toast["action"]) => void;

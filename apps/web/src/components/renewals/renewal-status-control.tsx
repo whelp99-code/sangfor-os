@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 
-export type RenewalStatusControlProps = {
+type RenewalStatusControlProps = {
   renewalOpportunityId: string;
   status: string;
   updatedAt: string;

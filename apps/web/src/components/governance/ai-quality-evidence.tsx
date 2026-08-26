@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 
-export type AiQualityEvidenceProps = {
+type AiQualityEvidenceProps = {
   artifactId: string;
   artifactVersionId: string;
   artifactContentHash: string;
