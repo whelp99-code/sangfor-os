@@ -90,6 +90,7 @@ const POST_U048_GOVERNED: Record<RouteCapabilityKey, RouteCapabilityDefinition> 
   "apps/web/src/app/api/support/[id]/close/route.ts": { capabilityClass: "project-assigned", permission: "support.write" },
   "apps/web/src/app/api/support/[id]/rca/route.ts": { capabilityClass: "project-assigned", permission: "support.write" },
   "apps/web/src/app/api/support/[id]/route.ts": { capabilityClass: "project-assigned", permission: "support.write" },
+  "apps/web/src/app/api/support/[id]/reply-draft/route.ts": { capabilityClass: "project-assigned", permission: "support.read" },
   "apps/web/src/app/api/support/[id]/vendor-escalations/route.ts": { capabilityClass: "project-assigned", permission: "support.escalate" },
   "apps/web/src/app/api/support/route.ts": { capabilityClass: "project-assigned", permission: "support.write" },
   "apps/web/src/app/api/vendor-requests/[id]/events/route.ts": { capabilityClass: "project-assigned", permission: "delivery.write" },

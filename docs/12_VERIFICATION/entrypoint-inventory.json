@@ -3,16 +3,16 @@
   "unit": "U008",
   "provenance": {
     "candidateSha": "a741819a572d04a87d1ece13472e697ef65f3f6a",
-    "generatedFrom": "live re-scan of the tree at candidateSha using scripts/check-entrypoint-inventory.mjs discoverAllUsed(), reconciled against exact current Knip ignore/ignoreIssues/ignoreDependencies/ignoreUnresolved records after U076 Knip drift closure",
+    "generatedFrom": "live re-scan of the tree at candidateSha using scripts/check-entrypoint-inventory.mjs discoverAllUsed(), reconciled against exact current Knip ignore/ignoreIssues/ignoreDependencies/ignoreUnresolved records after U076 Knip drift closure; support reply preview adds one next-route entry and increments counts manually; baseline candidateSha and U007 receipt hashes are historical, not approval of this addition",
     "u007RunnerContractReceiptSha256": "1b81e2b046466631c228402a2acdc79695c41e24444f0163259ca8f16294f384",
     "u007ProductReleaseReceiptSha256": "ea2dac8299749b4d7acffdeeba24b6fe7e2d12180db5aa88ee227149fa734f14"
   },
   "counts": {
-    "total": 786,
-    "used": 602,
+    "total": 787,
+    "used": 603,
     "candidate_for_U030": 184,
     "byWorkspace": {
-      "root": 578,
+      "root": 579,
       "engineer": 134,
       "workflow": 74
     }
@@ -10375,6 +10375,23 @@
       "workspace": "root",
       "entryType": "next-route",
       "path": "apps/web/src/app/api/support/[id]/rca/route.ts",
+      "name": null,
+      "discoverySource": "apps/web/src/app page.tsx|route.ts App Router glob",
+      "usage": {
+        "runtime": true,
+        "build": true,
+        "test": false,
+        "manual": false
+      },
+      "owner": "root-workspace-maintainers",
+      "disposition": "used",
+      "reason": "Next.js App Router auto-wires this file as a page or route handler by filename convention.",
+      "expiry": null
+    },
+    {
+      "workspace": "root",
+      "entryType": "next-route",
+      "path": "apps/web/src/app/api/support/[id]/reply-draft/route.ts",
       "name": null,
       "discoverySource": "apps/web/src/app page.tsx|route.ts App Router glob",
       "usage": {

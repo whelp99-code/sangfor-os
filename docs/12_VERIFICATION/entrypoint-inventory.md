@@ -67,14 +67,17 @@ The scan found no U031–U076 owner for a deleted path; it retained
 `scripts/check-entrypoint-inventory.test.mjs` covers the full failing-first list with
 `node:test`, using only OS `mkdtemp`-owned temporary fixtures (no new tracked fixture paths).
 
-## Current counts (candidateSha `a741819`)
+## Current counts (baseline candidateSha `a741819` plus support reply preview)
+
+The reply-preview change adds one Next.js route. The baseline SHA and receipt hashes
+remain historical; they do not assert release acceptance of this addition.
 
 | | total | used | candidate_for_U030 |
 |---|---|---|---|
-| root | 578 | 429 | 149 |
+| root | 579 | 430 | 149 |
 | engineer | 134 | 113 | 21 |
 | workflow | 74 | 60 | 14 |
-| **all** | **786** | **602** | **184** |
+| **all** | **787** | **603** | **184** |
 
 "0 unexplained" (what `knip:check` reports today) is not the same thing as "0 total
 candidates" (what the table above reports): every one of the 184 `candidate_for_U030` rows
