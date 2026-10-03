@@ -14,7 +14,7 @@ vi.mock("@sangfor/db", async (importOriginal) => {
 });
 
 import { INTERNAL_CONTEXT_HEADER, signInternalContext } from "@/lib/auth/persisted-session";
-import { assertBusinessCapability, enforceRequestedCompany } from "./authorization";
+import { assertBusinessCapability, enforceRequestedCompany, resolveBusinessCapabilityContext } from "./authorization";
 
 function userJwtEnv(): Record<string, string> {
   const activatedAt = new Date(Date.now() - 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -96,6 +96,27 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+});
+
+describe("support reply preview capability", () => {
+  const identity = { userId: "user-1", sessionId: "session-1", tenantId: "tenant-1", companyId: "company-1", projectId: "project-1", product: "portal" };
+  const routeKey = "apps/web/src/app/api/support/[id]/reply-draft/route.ts";
+  it("allows a persisted support engineer without requiring CRM customer.read", async () => {
+    prismaMocks.userCompanyRoleFindMany.mockResolvedValue([companyRole({ role: "support_engineer" })]);
+    prismaMocks.projectMemberFindUnique.mockResolvedValue(projectAssignment());
+    const resolved = await resolveBusinessCapabilityContext(identity, routeKey);
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) throw new Error("support engineer unexpectedly refused");
+    expect(resolved.context.permissions).toContain("support.read");
+    expect(resolved.context.permissions).not.toContain("customer.read");
+  });
+  it("refuses a support engineer without an active project assignment", async () => {
+    prismaMocks.userCompanyRoleFindMany.mockResolvedValue([companyRole({ role: "support_engineer" })]);
+    prismaMocks.projectMemberFindUnique.mockResolvedValue(projectAssignment({ status: "revoked", revokedAt: new Date() }));
+    const resolved = await resolveBusinessCapabilityContext(identity, routeKey);
+    expect(resolved.ok).toBe(false);
+    if (!resolved.ok) expect(resolved.response.status).toBe(403);
+  });
 });
 
 describe("assertBusinessCapability — RED characterization", () => {

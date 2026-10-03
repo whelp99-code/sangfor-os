@@ -1,11 +1,15 @@
 export const dynamic = "force-dynamic";
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import Link from "next/link";
-import { prisma } from "@sangfor/db";
+import { withRlsTransaction } from "@sangfor/db";
 import { RelatedKnowledgePanel } from "@/components/support/related-knowledge-panel";
 import { SupportSlaClock } from "@/components/support/support-sla-clock";
 import { SupportCaseActions } from "@/components/support/support-case-actions";
+import { SupportReplyDraftPanel } from "@/components/support/support-reply-draft-panel";
+import { evaluatePersistedSessionFromRequest } from "@/lib/auth/persisted-session";
+import { resolveBusinessCapabilityContext } from "@/lib/auth/authorization";
 
 export default async function SupportCaseDetail({
   params,
@@ -13,10 +17,25 @@ export default async function SupportCaseDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supportCase = await prisma.supportCase.findUnique({
-    where: { id },
+  const token = (await cookies()).get("session")?.value;
+  if (!token) redirect("/login");
+  const session = await evaluatePersistedSessionFromRequest(new Request(
+    `http://sangfor.local/support/${encodeURIComponent(id)}`,
+    { headers: { cookie: `session=${encodeURIComponent(token)}` } },
+  ));
+  if (!session.ok) redirect("/login");
+  // The page and its preview API share the same current support.read capability.
+  // No case data or knowledge panel is rendered before this scope check succeeds.
+  const access = await resolveBusinessCapabilityContext({
+    userId: session.userId, sessionId: null, tenantId: session.tenantId,
+    companyId: session.companyId, projectId: session.projectId, product: "portal",
+  }, "apps/web/src/app/api/support/[id]/reply-draft/route.ts").catch(() => null);
+  if (!access?.ok) notFound();
+  const context = access.context;
+  const supportCase = await withRlsTransaction(context, (tx) => tx.supportCase.findFirst({
+    where: { id, customer: { projectId: context.projectId, archivedAt: null } },
     include: { customer: { select: { name: true } }, vendorEscalations: true },
-  });
+  }));
   if (!supportCase) notFound();
 
   const product = supportCase.vendorEscalations[0]?.vendor;
@@ -96,6 +115,7 @@ export default async function SupportCaseDetail({
         </div>
 
         <div>
+          <SupportReplyDraftPanel key={supportCase.id} supportCaseId={supportCase.id} />
           <RelatedKnowledgePanel caseSubject={supportCase.subject} product={product} />
           <Link href="/support" className="go" style={{ display: "inline-block", marginTop: 4 }}>
             ← 기술지원 목록

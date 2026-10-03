@@ -81,3 +81,9 @@ pnpm health:check     # Check all services
 pnpm mock:upstreams   # Start mock external services
 pnpm docker:up        # Full Docker stack
 ```
+
+## Support reply preview
+
+The support case page includes a read-only, source-grounded reply preview.
+It stays blocked when source visibility, sharing permission, or retrieval quality
+is unknown. See [usage and provider prerequisites](docs/SUPPORT_REPLY_DRAFT.md).

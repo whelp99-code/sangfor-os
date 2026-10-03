@@ -9,26 +9,15 @@
 
 import { getUrl } from "@sangfor/config";
 
+import { normalizeRagSearchResult } from "./engineer-rag";
 import { HttpStatusError, withRetry } from "./resilience";
+
+export type { RagHit, RagSearchResult } from "./engineer-rag";
 
 export interface EngineerConsoleOptions {
   baseUrl?: string;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
-}
-
-export interface RagHit {
-  id?: string;
-  text?: string;
-  score?: number;
-  source?: string;
-  product?: string;
-  [k: string]: unknown;
-}
-export interface RagSearchResult {
-  query?: string;
-  results?: RagHit[];
-  [k: string]: unknown;
 }
 
 export interface ProductInfo {
@@ -94,7 +83,7 @@ export const engineerConsole = {
     request<unknown>("POST", "/api/analyze-requirements", body, opts),
   ragSearch: async (body: Record<string, unknown>, opts?: EngineerConsoleOptions) => {
     const raw = await request<unknown>("POST", "/api/rag-search", body, opts);
-    return Array.isArray(raw) ? { results: raw as RagHit[] } : (raw as RagSearchResult);
+    return normalizeRagSearchResult(raw);
   },
   summary: (opts?: EngineerConsoleOptions) => request<unknown>("GET", "/api/summary", undefined, opts),
   products: (opts?: EngineerConsoleOptions) =>

@@ -246,6 +246,15 @@ POC 확정 시 영업기회를 **멱등·원자적**으로 Engagement(프로젝�
 
 ---
 
+### 3.M 출처 기반 지원 답장 미리보기 (로컬 검토 단계)
+
+- `POST /api/support/[id]/reply-draft`와 케이스 상세의 검토 전용 패널을 추가한다. 세션·실시간 `support.read` 권한·프로젝트·RLS 범위를 확인한 뒤 명시적으로 입력한 검색 질문만 지식 서비스에 전달한다.
+- RAG 응답은 원문 해시와 제품/버전/신뢰/공유 메타데이터를 엄격하게 정규화한다. 누락된 검색 품질·공개 여부·고객 공유 권한은 추정하지 않는다. 같은 정규 URL·청크의 원문 또는 권한 충돌은 필터링 전에 차단한다.
+- 순수 함수가 공식 공개 자료를 인용하거나 추가 자료 요청 초안을 만든다. LLM·도메인 승인/학습·메일 발송·고객 장비 호출·DB 쓰기 경로는 추가하지 않는다.
+- 상세 계약, 공급자 전제조건, 명령어 및 기존 페이지의 별도 접근/개인정보 경계는 [SUPPORT_REPLY_DRAFT.md](SUPPORT_REPLY_DRAFT.md)를 참조한다. 새 스키마/의존성은 없으며 실제 공급자·RLS DB·브라우저 및 정식 릴리스 검증을 대체하지 않는다.
+
+---
+
 ## 4. 핵심 워크플로우 (개발 순서)
 
 `memory/` [Dev workflow: screen-first] 기준:
@@ -532,6 +541,8 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ---
 
 ## 변경 이력
+
+- **2026-10-01 (지원 답장 초안 로컬 검토)**: 버전·출처·공유 권한을 보존하는 RAG 정규화와 케이스 범위의 초안 전용 API/UI를 추가했다. 중복 근거의 공유 권한 충돌과 정규 URL 우회 회귀를 보강했다. 실제 공급자 연결, 고객 장비, 발송·승인·학습 및 배포는 수행하지 않았다. 검증 한계와 재현 명령은 `docs/SUPPORT_REPLY_DRAFT.md`에 기록했다.
 - **2026-08-15 (all Orca projects tracker)**: Orca 등록 프로젝트 전체에 GitHub Issues 트래커 팩 적용(sangfor-os, engineer-mcp, jarvis-ai, Toss-finance, blro-os-next, gitgauge, dev-plan-tool + local jm-loop-miner/jmai-os-pack). Linear 탭 참고 전용. `scripts/apply-tracker-standard-to-repo.sh`.
 - **2026-08-15 (Orca UI GitHub-first)**: Orca Linear 탭/Workspace board는 참고·세션용. 일감 정본은 GitHub Issues. `scripts/tracker.sh`로 list/open/blro 필터. docs/TRACKER.md에 UI 가이드 추가.
 - **2026-08-15 (GitHub Issues tracker standard)**: Linear를 primary tracker로 쓰지 않는다. 계획·진행·완료의 단일 작업 단위는 GitHub Issue + labels(`status:*`, `ready-for-blro`, `ops`, `blro`, `agent`, `ci-blocked`)이다. PR 템플릿/이슈 템플릿/docs/TRACKER.md/AGENTS.md 진입점을 추가했다. GitHub Projects v2는 `gh` 토큰에 `project` 스코프가 있을 때 선택적으로 쓰며, 스코프 없을 때 labels가 정본이다. 런타임 적용은 BLRO(`ssh blro`, `/home/blro/sangfor-os`)에서만 한다.
